@@ -8,12 +8,18 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('=== LinkedIn Status Check Function Called ===')
+  console.log('Request method:', req.method)
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()))
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('=== Starting LinkedIn Status Check ===')
+    
     // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -32,15 +38,20 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser()
 
     if (userError || !user) {
+      console.error('Auth error:', userError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log('User authenticated:', user.id)
+
     const { account_id } = await req.json()
+    console.log('Account ID to check:', account_id)
 
     if (!account_id) {
+      console.error('Missing account_id parameter')
       return new Response(
         JSON.stringify({ error: 'Missing account_id' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -91,6 +102,7 @@ serve(async (req) => {
 
     const unipileApiKey = Deno.env.get('UNIPILE_API_KEY')
     if (!unipileApiKey) {
+      console.error('Unipile API key not configured')
       return new Response(
         JSON.stringify({ error: 'Unipile API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -100,7 +112,10 @@ serve(async (req) => {
     console.log('Checking LinkedIn account status for account_id:', account_id)
 
     // Call Unipile API to get account status
-    const unipileResponse = await fetch(`https://api9.unipile.com:13946/api/v1/accounts/${account_id}`, {
+    const unipileUrl = `https://api9.unipile.com:13946/api/v1/accounts/${account_id}`
+    console.log('Calling Unipile API:', unipileUrl)
+    
+    const unipileResponse = await fetch(unipileUrl, {
       method: 'GET',
       headers: {
         'X-API-KEY': unipileApiKey,
@@ -108,12 +123,15 @@ serve(async (req) => {
       },
     })
 
+    console.log('Unipile API response status:', unipileResponse.status)
+
     if (!unipileResponse.ok) {
       const errorText = await unipileResponse.text()
-      console.error('Unipile API error:', errorText)
+      console.error('Unipile API error response:', errorText)
       
       // Handle specific error cases
       if (unipileResponse.status === 404) {
+        console.log('Account not found (404), marking as disconnected')
         // Account not found, mark as disconnected
         const { data, error } = await supabaseClient
           .from('linkedin_connections')
@@ -128,7 +146,7 @@ serve(async (req) => {
           .select()
 
         if (error) {
-          console.error('Error updating LinkedIn connection:', error)
+          console.error('Error updating LinkedIn connection for 404:', error)
           return new Response(
             JSON.stringify({ error: 'Database error' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -152,6 +170,7 @@ serve(async (req) => {
         )
       }
       
+      console.error('Unipile API failed with status:', unipileResponse.status)
       return new Response(
         JSON.stringify({ error: 'Failed to check account status', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -159,62 +178,93 @@ serve(async (req) => {
     }
 
     const accountData = await unipileResponse.json()
-    console.log('Unipile account data:', accountData)
+    console.log('Unipile account data received:', JSON.stringify(accountData, null, 2))
 
     const { status, provider, username, display_name } = accountData
 
-    // Map Unipile status to our database status
-    let mappedStatus = status
-    let connectionStatus = status
+    console.log('Extracted data from Unipile:', { status, provider, username, display_name })
+
+    // Map Unipile status to our database status with better handling
+    let mappedStatus = 'unknown'
+    let connectionStatus = 'unknown'
     let errorMessage = null
 
-    switch (status) {
+    // Handle the case where status might be undefined or null
+    const unipileStatus = status || 'UNKNOWN'
+    console.log('Processing Unipile status:', unipileStatus)
+
+    switch (unipileStatus.toUpperCase()) {
       case 'OK':
+      case 'CONNECTED':
         mappedStatus = 'connected'
         connectionStatus = 'connected'
+        errorMessage = null
+        console.log('Status mapped to: connected')
         break
       case 'CREDENTIALS':
         mappedStatus = 'credentials_required'
         connectionStatus = 'credentials_required'
         errorMessage = 'Identifiants LinkedIn invalides ou expirés'
+        console.log('Status mapped to: credentials_required')
         break
       case 'IN_APP_VALIDATION':
         mappedStatus = 'validation_required'
         connectionStatus = 'validation_required'
         errorMessage = 'Validation dans l\'application LinkedIn requise'
+        console.log('Status mapped to: validation_required')
         break
       case 'CHECKPOINT':
         mappedStatus = 'checkpoint_required'
         connectionStatus = 'checkpoint_required'
         errorMessage = 'Action utilisateur requise (code 2FA, vérification)'
+        console.log('Status mapped to: checkpoint_required')
         break
       case 'CAPTCHA':
         mappedStatus = 'captcha_required'
         connectionStatus = 'captcha_required'
         errorMessage = 'Résolution de captcha nécessaire'
+        console.log('Status mapped to: captcha_required')
         break
       case 'DISCONNECTED':
         mappedStatus = 'disconnected'
         connectionStatus = 'disconnected'
         errorMessage = 'Compte déconnecté'
+        console.log('Status mapped to: disconnected')
+        break
+      case 'UNKNOWN':
+      case 'UNDEFINED':
+      case '':
+      case null:
+      case undefined:
+        mappedStatus = 'connected' // Par défaut, si on arrive ici c'est que le compte existe
+        connectionStatus = 'connected'
+        errorMessage = null
+        console.log('Status was undefined/unknown, defaulting to: connected')
         break
       default:
         mappedStatus = 'unknown'
         connectionStatus = 'unknown'
-        errorMessage = `Statut inconnu: ${status}`
+        errorMessage = `Statut Unipile non reconnu: ${unipileStatus}`
+        console.log('Status mapped to: unknown, with error:', errorMessage)
     }
 
+    console.log('Final mapped status:', { mappedStatus, connectionStatus, errorMessage })
+
     // Update the connection in our database
+    const updateData = {
+      status: mappedStatus,
+      connection_status: connectionStatus,
+      error_message: errorMessage,
+      linkedin_profile_url: username ? `https://linkedin.com/in/${username}` : null,
+      last_update: new Date().toISOString(),
+      connected_at: mappedStatus === 'connected' ? new Date().toISOString() : null,
+    }
+
+    console.log('Updating database with:', updateData)
+
     const { data, error } = await supabaseClient
       .from('linkedin_connections')
-      .update({
-        status: mappedStatus,
-        connection_status: connectionStatus,
-        error_message: errorMessage,
-        linkedin_profile_url: username ? `https://linkedin.com/in/${username}` : null,
-        last_update: new Date().toISOString(),
-        connected_at: status === 'OK' ? new Date().toISOString() : null,
-      })
+      .update(updateData)
       .eq('account_id', account_id)
       .eq('user_id', user.id)
       .select()
@@ -247,7 +297,8 @@ serve(async (req) => {
           provider,
           username,
           display_name,
-          original_status: status
+          original_status: unipileStatus,
+          raw_response: accountData
         }
       }),
       { 
@@ -258,8 +309,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in linkedin-status function:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
