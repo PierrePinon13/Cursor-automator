@@ -3,6 +3,7 @@ import React from 'react';
 import { Download, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MultiSelectFilter from './MultiSelectFilter';
+import CategoryFilter from './CategoryFilter';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -12,16 +13,16 @@ interface LeadsFiltersProps {
   onExport: () => void;
 }
 
-const categoryOptions = [
-  { value: 'Tech', label: 'Tech' },
-  { value: 'Business', label: 'Business' },
-  { value: 'Product', label: 'Product' },
-  { value: 'Executive Search', label: 'Executive Search' },
-  { value: 'Comptelio', label: 'Comptelio' },
-  { value: 'RH', label: 'RH' },
-  { value: 'Freelance', label: 'Freelance' },
-  { value: 'Data', label: 'Data' },
-  { value: 'Autre', label: 'Autre' },
+const availableCategories = [
+  'Tech',
+  'Business',
+  'Product',
+  'Executive Search',
+  'Comptelio',
+  'RH',
+  'Freelance',
+  'Data',
+  'Autre'
 ];
 
 const columnOptions = [
@@ -43,34 +44,36 @@ const LeadsFilters = ({
   onExport
 }: LeadsFiltersProps) => {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Filter className="h-5 w-5" />
-        <span className="font-medium">Tableau des leads</span>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="h-5 w-5" />
+          <span className="font-medium">Tableau des leads</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <MultiSelectFilter
+            title="Colonnes"
+            options={columnOptions}
+            selectedValues={visibleColumns}
+            onSelectionChange={onColumnsChange}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            className="h-8"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <MultiSelectFilter
-          title="Catégories"
-          options={categoryOptions}
-          selectedValues={selectedCategories}
-          onSelectionChange={onCategoriesChange}
-        />
-        <MultiSelectFilter
-          title="Colonnes"
-          options={columnOptions}
-          selectedValues={visibleColumns}
-          onSelectionChange={onColumnsChange}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExport}
-          className="h-8"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
-      </div>
+      
+      <CategoryFilter
+        selectedCategories={selectedCategories}
+        onCategoriesChange={onCategoriesChange}
+        availableCategories={availableCategories}
+      />
     </div>
   );
 };

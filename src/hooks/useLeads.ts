@@ -23,6 +23,7 @@ export const useLeads = () => {
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   useEffect(() => {
     fetchLeads();
@@ -31,6 +32,17 @@ export const useLeads = () => {
   useEffect(() => {
     filterLeads();
   }, [leads, selectedCategories]);
+
+  useEffect(() => {
+    // Extract unique categories from leads
+    const categories = [...new Set(leads.map(lead => lead.openai_step3_categorie).filter(Boolean))];
+    setAvailableCategories(categories);
+    
+    // If no categories are selected, select all available ones
+    if (selectedCategories.length === 0 && categories.length > 0) {
+      setSelectedCategories(categories);
+    }
+  }, [leads]);
 
   const fetchLeads = async () => {
     try {
@@ -81,6 +93,7 @@ export const useLeads = () => {
     filteredLeads,
     loading,
     selectedCategories,
-    setSelectedCategories
+    setSelectedCategories,
+    availableCategories
   };
 };
