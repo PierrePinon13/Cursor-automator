@@ -1,8 +1,8 @@
 
 import { useState } from 'react';
 import { useClients } from './useClients';
-import { parseCSVText, CSVParseResult } from '@/utils/csvParser';
 import { useToast } from './use-toast';
+import Papa from 'papaparse';
 
 interface ColumnMapping {
   company_name: string;
@@ -10,10 +10,15 @@ interface ColumnMapping {
   company_linkedin_id: string;
 }
 
+interface CSVData {
+  headers: string[];
+  rows: string[][];
+}
+
 export function useClientImport() {
   const { importClients } = useClients();
   const { toast } = useToast();
-  const [csvData, setCsvData] = useState<CSVParseResult | null>(null);
+  const [csvData, setCsvData] = useState<CSVData | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({
     company_name: '',
     company_linkedin_url: '',
@@ -22,7 +27,7 @@ export function useClientImport() {
   const [loading, setLoading] = useState(false);
 
   const handleFileUpload = (file: File) => {
-    console.log('Processing file:', file.name);
+    console.log('Processing file:', file.name, 'Size:', file.size, 'Type:', file.type);
     
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast({
@@ -33,34 +38,56 @@ export function useClientImport() {
       return;
     }
 
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const csvText = e.target?.result as string;
-        if (!csvText) {
-          throw new Error('Le fichier semble être vide');
-        }
+    console.log('Starting CSV parsing with PapaParse...');
 
-        console.log('Parsing CSV with length:', csvText.length);
-        const result = parseCSVText(csvText);
+    Papa.parse(file, {
+      header: false, // On va parser manuellement pour avoir plus de contrôle
+      skipEmptyLines: true,
+      encoding: 'UTF-8',
+      complete: (results) => {
+        console.log('PapaParse results:', results);
         
-        if (result.errors.length > 0) {
-          console.error('CSV parsing errors:', result.errors);
+        if (results.errors && results.errors.length > 0) {
+          console.error('CSV parsing errors:', results.errors);
           toast({
             title: "Erreurs de parsing",
-            description: result.errors[0],
+            description: results.errors[0].message,
             variant: "destructive",
           });
           return;
         }
 
-        console.log('CSV parsed successfully:', result);
-        setCsvData(result);
+        const data = results.data as string[][];
+        console.log('Parsed data:', data);
+
+        if (!data || data.length === 0) {
+          toast({
+            title: "Erreur",
+            description: "Le fichier CSV semble être vide.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Première ligne = headers
+        const headers = data[0];
+        // Reste des lignes = data
+        const rows = data.slice(1).filter(row => row.some(cell => cell && cell.trim()));
+
+        console.log('Headers:', headers);
+        console.log('Rows count:', rows.length);
+        console.log('First few rows:', rows.slice(0, 3));
+
+        const csvResult: CSVData = {
+          headers,
+          rows
+        };
+
+        setCsvData(csvResult);
         
         // Auto-mapping
         const mapping: Partial<ColumnMapping> = {};
-        result.headers.forEach((header) => {
+        headers.forEach((header) => {
           const lowerHeader = header.toLowerCase();
           
           if ((lowerHeader.includes('name') || lowerHeader.includes('nom') || 
@@ -76,30 +103,25 @@ export function useClientImport() {
           }
         });
         
+        console.log('Auto-mapping result:', mapping);
         setColumnMapping(prev => ({ ...prev, ...mapping }));
-        
-      } catch (error) {
-        console.error('File processing error:', error);
+      },
+      error: (error) => {
+        console.error('PapaParse error:', error);
         toast({
           title: "Erreur",
-          description: error instanceof Error ? error.message : 'Erreur lors de la lecture du fichier',
+          description: "Erreur lors de la lecture du fichier CSV.",
           variant: "destructive",
         });
       }
-    };
-
-    reader.onerror = () => {
-      toast({
-        title: "Erreur",
-        description: "Erreur lors de la lecture du fichier.",
-        variant: "destructive",
-      });
-    };
-
-    reader.readAsText(file);
+    });
   };
 
   const handleImport = async () => {
+    console.log('Starting import process...');
+    console.log('CSV data:', csvData);
+    console.log('Column mapping:', columnMapping);
+
     if (!csvData || !columnMapping.company_name) {
       toast({
         title: "Erreur",
@@ -118,6 +140,8 @@ export function useClientImport() {
       const idIndex = columnMapping.company_linkedin_id ? 
         csvData.headers.indexOf(columnMapping.company_linkedin_id) : -1;
 
+      console.log('Column indices:', { nameIndex, urlIndex, idIndex });
+
       const clientsData = csvData.rows
         .filter(row => row[nameIndex] && row[nameIndex].trim())
         .map(row => ({
@@ -125,6 +149,8 @@ export function useClientImport() {
           company_linkedin_url: urlIndex >= 0 && row[urlIndex] ? row[urlIndex].trim() : null,
           company_linkedin_id: idIndex >= 0 && row[idIndex] ? row[idIndex].trim() : null,
         }));
+
+      console.log('Processed clients data:', clientsData);
 
       if (clientsData.length === 0) {
         throw new Error('Aucun client valide trouvé dans le fichier CSV');
@@ -148,6 +174,7 @@ export function useClientImport() {
   };
 
   const reset = () => {
+    console.log('Resetting import state...');
     setCsvData(null);
     setColumnMapping({
       company_name: '',
