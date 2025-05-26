@@ -66,8 +66,11 @@ serve(async (req) => {
 
     // Construct webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/linkedin-webhook`
+    
+    // Set expiration to 1 hour from now
+    const expiresOn = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 
-    // Call Unipile API using the hosted accounts link endpoint
+    // Call Unipile API using the hosted accounts link endpoint with all required parameters
     const unipileResponse = await fetch('https://api9.unipile.com:13946/api/v1/hosted/accounts/link', {
       method: 'POST',
       headers: {
@@ -77,8 +80,11 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         type: 'create',
-        providers: 'LINKEDIN',
+        providers: ['LINKEDIN'], // Use array instead of string
+        expiresOn: expiresOn,
+        api_url: 'https://api9.unipile.com:13946',
         notify_url: webhookUrl,
+        name: user.email || user_id, // Required field
         metadata: {
           user_id: user_id,
           email: user.email
@@ -90,7 +96,7 @@ serve(async (req) => {
       const errorText = await unipileResponse.text()
       console.error('Unipile API error:', errorText)
       return new Response(
-        JSON.stringify({ error: 'Failed to create LinkedIn connection link' }),
+        JSON.stringify({ error: 'Failed to create LinkedIn connection link', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
