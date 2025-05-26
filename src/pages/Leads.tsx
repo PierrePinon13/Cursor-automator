@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
@@ -60,27 +61,29 @@ const Leads = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center mb-6">
-        <SidebarTrigger />
-      </div>
-      
-      <div className="space-y-6">
-        <LeadsFilters
-          selectedCategories={selectedCategories}
-          onCategoriesChange={setSelectedCategories}
-          visibleColumns={visibleColumns}
-          onColumnsChange={setVisibleColumns}
-          selectedDateFilter={selectedDateFilter}
-          onDateFilterChange={setSelectedDateFilter}
-        />
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-6 pb-0">
+        <div className="flex items-center mb-6">
+          <SidebarTrigger />
+        </div>
         
-        <div className="bg-white rounded-lg shadow">
-          <DraggableTable 
-            leads={dateFilteredLeads} 
+        <div className="mb-6">
+          <LeadsFilters
+            selectedCategories={selectedCategories}
+            onCategoriesChange={setSelectedCategories}
             visibleColumns={visibleColumns}
+            onColumnsChange={setVisibleColumns}
+            selectedDateFilter={selectedDateFilter}
+            onDateFilterChange={setSelectedDateFilter}
           />
         </div>
+      </div>
+      
+      <div className="px-6">
+        <DraggableTable 
+          leads={dateFilteredLeads} 
+          visibleColumns={visibleColumns}
+        />
       </div>
     </div>
   );
