@@ -30,6 +30,11 @@ interface Lead {
   approach_message_generated_at?: string | null;
   is_client_lead?: boolean | null;
   matched_client_name?: string | null;
+  matched_client_id?: string | null;
+  last_contact_at?: string | null;
+  linkedin_message_sent_at?: string | null;
+  phone_contact_status?: string | null;
+  phone_contact_at?: string | null;
 }
 
 interface LeadDetailContentProps {
@@ -40,6 +45,7 @@ interface LeadDetailContentProps {
   onAction: (actionName: string) => void;
   messageSending: boolean;
   onPhoneRetrieved: (phoneNumber: string | null) => void;
+  onContactUpdate: () => void;
 }
 
 const LeadDetailContent = ({
@@ -49,7 +55,8 @@ const LeadDetailContent = ({
   onSendLinkedInMessage,
   onAction,
   messageSending,
-  onPhoneRetrieved
+  onPhoneRetrieved,
+  onContactUpdate
 }: LeadDetailContentProps) => {
   return (
     <div className="flex h-[calc(100vh-88px)]">
@@ -82,6 +89,7 @@ const LeadDetailContent = ({
             messageSending={messageSending}
             message={customMessage}
             onPhoneRetrieved={onPhoneRetrieved}
+            onContactUpdate={onContactUpdate}
           />
         </div>
       </div>

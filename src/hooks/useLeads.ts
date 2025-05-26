@@ -28,6 +28,11 @@ interface Lead {
   approach_message_generated_at?: string | null;
   is_client_lead?: boolean | null;
   matched_client_name?: string | null;
+  matched_client_id?: string | null;
+  last_contact_at?: string | null;
+  linkedin_message_sent_at?: string | null;
+  phone_contact_status?: string | null;
+  phone_contact_at?: string | null;
 }
 
 export const useLeads = () => {
@@ -87,7 +92,12 @@ export const useLeads = () => {
           approach_message_generated,
           approach_message_generated_at,
           is_client_lead,
-          matched_client_name
+          matched_client_name,
+          matched_client_id,
+          last_contact_at,
+          linkedin_message_sent_at,
+          phone_contact_status,
+          phone_contact_at
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)
@@ -166,6 +176,7 @@ export const useLeads = () => {
     setSelectedCategories,
     selectedDateFilter,
     setSelectedDateFilter,
-    availableCategories
+    availableCategories,
+    refreshLeads: fetchLeads
   };
 };

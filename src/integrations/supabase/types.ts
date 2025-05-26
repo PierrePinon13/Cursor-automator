@@ -161,6 +161,11 @@ export type Database = {
           author_type: string
           created_at: string | null
           id: string
+          is_client_lead: boolean | null
+          last_contact_at: string | null
+          linkedin_message_sent_at: string | null
+          matched_client_id: string | null
+          matched_client_name: string | null
           openai_step1_postes: string | null
           openai_step1_recrute_poste: string | null
           openai_step1_response: Json | null
@@ -173,6 +178,8 @@ export type Database = {
           openai_step3_justification: string | null
           openai_step3_postes_selectionnes: string[] | null
           openai_step3_response: Json | null
+          phone_contact_at: string | null
+          phone_contact_status: string | null
           phone_number: string | null
           phone_retrieved_at: string | null
           posted_at_iso: string | null
@@ -204,6 +211,11 @@ export type Database = {
           author_type: string
           created_at?: string | null
           id?: string
+          is_client_lead?: boolean | null
+          last_contact_at?: string | null
+          linkedin_message_sent_at?: string | null
+          matched_client_id?: string | null
+          matched_client_name?: string | null
           openai_step1_postes?: string | null
           openai_step1_recrute_poste?: string | null
           openai_step1_response?: Json | null
@@ -216,6 +228,8 @@ export type Database = {
           openai_step3_justification?: string | null
           openai_step3_postes_selectionnes?: string[] | null
           openai_step3_response?: Json | null
+          phone_contact_at?: string | null
+          phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
           posted_at_iso?: string | null
@@ -247,6 +261,11 @@ export type Database = {
           author_type?: string
           created_at?: string | null
           id?: string
+          is_client_lead?: boolean | null
+          last_contact_at?: string | null
+          linkedin_message_sent_at?: string | null
+          matched_client_id?: string | null
+          matched_client_name?: string | null
           openai_step1_postes?: string | null
           openai_step1_recrute_poste?: string | null
           openai_step1_response?: Json | null
@@ -259,6 +278,8 @@ export type Database = {
           openai_step3_justification?: string | null
           openai_step3_postes_selectionnes?: string[] | null
           openai_step3_response?: Json | null
+          phone_contact_at?: string | null
+          phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
           posted_at_iso?: string | null

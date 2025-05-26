@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -26,6 +25,16 @@ interface Lead {
   unipile_profile_scraped_at: string;
   phone_number?: string | null;
   phone_retrieved_at?: string | null;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
+  is_client_lead?: boolean | null;
+  matched_client_name?: string | null;
+  matched_client_id?: string | null;
+  last_contact_at?: string | null;
+  linkedin_message_sent_at?: string | null;
+  phone_contact_status?: string | null;
+  phone_contact_at?: string | null;
 }
 
 interface LeadDetailDialogProps {
@@ -94,6 +103,15 @@ const LeadDetailDialog = ({
     
     const success = await sendMessage(lead.id, messageToSend);
     if (success) {
+      // Update local lead with LinkedIn message timestamp
+      const updatedLeads = [...currentLeads];
+      updatedLeads[selectedLeadIndex] = {
+        ...updatedLeads[selectedLeadIndex],
+        linkedin_message_sent_at: new Date().toISOString(),
+        last_contact_at: new Date().toISOString()
+      };
+      setCurrentLeads(updatedLeads);
+      
       onActionCompleted();
       setCustomMessage('');
     }
@@ -108,9 +126,18 @@ const LeadDetailDialog = ({
       phone_retrieved_at: new Date().toISOString()
     };
     setCurrentLeads(updatedLeads);
-    
-    // NE PAS appeler onActionCompleted() ici pour éviter la navigation automatique
-    // La récupération du téléphone ne doit pas faire passer au lead suivant
+  };
+
+  const handleContactUpdate = () => {
+    // Callback pour mettre à jour les données du lead après un contact téléphonique
+    const updatedLeads = [...currentLeads];
+    updatedLeads[selectedLeadIndex] = {
+      ...updatedLeads[selectedLeadIndex],
+      phone_contact_at: new Date().toISOString(),
+      last_contact_at: new Date().toISOString()
+    };
+    setCurrentLeads(updatedLeads);
+    onActionCompleted();
   };
 
   if (!isOpen) return null;
@@ -141,6 +168,7 @@ const LeadDetailDialog = ({
           onAction={handleAction}
           messageSending={messageSending}
           onPhoneRetrieved={handlePhoneRetrieved}
+          onContactUpdate={handleContactUpdate}
         />
       </div>
     </TooltipProvider>

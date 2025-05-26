@@ -13,7 +13,8 @@ const Leads = () => {
     selectedCategories, 
     setSelectedCategories,
     selectedDateFilter,
-    setSelectedDateFilter
+    setSelectedDateFilter,
+    refreshLeads
   } = useLeads();
   
   const [visibleColumns, setVisibleColumns] = useState([
@@ -28,6 +29,11 @@ const Leads = () => {
   ]);
 
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+
+  const handleActionCompleted = () => {
+    // Refresh leads data when an action is completed
+    refreshLeads();
+  };
 
   if (loading) {
     return (
@@ -63,9 +69,13 @@ const Leads = () => {
             <DraggableTable 
               leads={filteredLeads} 
               visibleColumns={visibleColumns}
+              onActionCompleted={handleActionCompleted}
             />
           ) : (
-            <CardView leads={filteredLeads} />
+            <CardView 
+              leads={filteredLeads}
+              onActionCompleted={handleActionCompleted}
+            />
           )}
         </div>
       </div>
