@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -31,31 +30,43 @@ interface CardViewProps {
 }
 
 const CardView = ({ leads }: CardViewProps) => {
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleCardClick = (lead: Lead, event: React.MouseEvent) => {
+  const handleCardClick = (leadIndex: number, event: React.MouseEvent) => {
     // Ne pas ouvrir la dialog si on clique sur un lien
     if ((event.target as HTMLElement).closest('a, button, [data-clickable]')) {
       return;
     }
-    setSelectedLead(lead);
+    setSelectedLeadIndex(leadIndex);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
-    setSelectedLead(null);
+    setSelectedLeadIndex(null);
+  };
+
+  const handleNavigateToLead = (newIndex: number) => {
+    setSelectedLeadIndex(newIndex);
+  };
+
+  const handleActionCompleted = () => {
+    if (selectedLeadIndex !== null && selectedLeadIndex < leads.length - 1) {
+      setSelectedLeadIndex(selectedLeadIndex + 1);
+    } else {
+      handleCloseDialog();
+    }
   };
 
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-        {leads.map((lead) => (
+        {leads.map((lead, index) => (
           <div 
             key={lead.id} 
             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={(event) => handleCardClick(lead, event)}
+            onClick={(event) => handleCardClick(index, event)}
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
@@ -136,9 +147,12 @@ const CardView = ({ leads }: CardViewProps) => {
       </div>
       
       <LeadDetailDialog 
-        lead={selectedLead}
+        leads={leads}
+        selectedLeadIndex={selectedLeadIndex}
         isOpen={isDialogOpen}
         onClose={handleCloseDialog}
+        onNavigateToLead={handleNavigateToLead}
+        onActionCompleted={handleActionCompleted}
       />
     </>
   );

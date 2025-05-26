@@ -30,7 +30,7 @@ export interface Column {
   label: string;
   width?: string;
   minWidth?: string;
-  render: (lead: Lead) => React.ReactNode;
+  render: (lead: Lead, onRowClick?: (leadIndex: number, event: React.MouseEvent) => void, leadIndex?: number) => React.ReactNode;
 }
 
 const categoryColors = {

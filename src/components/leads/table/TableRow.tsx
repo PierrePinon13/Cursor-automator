@@ -27,7 +27,7 @@ interface TableRowProps {
   lead: Lead;
   rowIndex: number;
   displayedColumns: Column[];
-  onRowClick: (lead: Lead, event: React.MouseEvent) => void;
+  onRowClick: (leadIndex: number, event: React.MouseEvent) => void;
 }
 
 const TableRow = ({ lead, rowIndex, displayedColumns, onRowClick }: TableRowProps) => {
@@ -36,7 +36,7 @@ const TableRow = ({ lead, rowIndex, displayedColumns, onRowClick }: TableRowProp
       className={`hover:bg-gray-50 cursor-pointer ${
         rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
       }`}
-      onClick={(event) => onRowClick(lead, event)}
+      onClick={(event) => onRowClick(rowIndex, event)}
     >
       {displayedColumns.map((column, colIndex) => (
         <td
@@ -50,7 +50,7 @@ const TableRow = ({ lead, rowIndex, displayedColumns, onRowClick }: TableRowProp
             maxWidth: column.width,
           }}
         >
-          {column.render(lead)}
+          {column.render(lead, onRowClick, rowIndex)}
         </td>
       ))}
     </tr>
