@@ -51,7 +51,7 @@ const LinkedInConnectionCard = () => {
     }
   };
 
-  const hasActiveConnection = connections.some(conn => conn.status === 'connected');
+  const hasActiveConnection = connections.some(conn => conn.connection_status === 'connected');
 
   return (
     <Card>
@@ -91,29 +91,27 @@ const LinkedInConnectionCard = () => {
                   <Linkedin className="h-4 w-4 text-blue-600" />
                   <div>
                     <div className="flex items-center gap-2">
-                      {getStatusIcon(connection.status)}
+                      {getStatusIcon(connection.connection_status)}
                       <p className="font-medium">Compte LinkedIn</p>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       ID: {connection.unipile_account_id}
                     </p>
-                    {connection.error_message && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {connection.error_message}
-                      </p>
-                    )}
-                    {connection.connected_at && (
+                    {connection.linkedin_profile_url && (
                       <p className="text-xs text-muted-foreground">
-                        Connecté le: {new Date(connection.connected_at).toLocaleString()}
+                        Profil: {connection.linkedin_profile_url}
                       </p>
                     )}
+                    <p className="text-xs text-muted-foreground">
+                      Créé le: {new Date(connection.created_at).toLocaleString()}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getStatusVariant(connection.status)}>
-                    {getStatusLabel(connection.status)}
+                  <Badge variant={getStatusVariant(connection.connection_status)}>
+                    {getStatusLabel(connection.connection_status)}
                   </Badge>
-                  {connection.status === 'credentials_required' && (
+                  {connection.connection_status === 'credentials_required' && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -126,7 +124,7 @@ const LinkedInConnectionCard = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => checkStatus(connection.account_id || connection.unipile_account_id)}
+                    onClick={() => checkStatus(connection.unipile_account_id)}
                   >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
