@@ -45,18 +45,42 @@ export function HrProviderSelector({
   // Get current company info
   const currentCompanyName = currentExperience?.company || lead.unipile_company || '';
   
-  // Extract LinkedIn ID from unipile_response if available
+  // Extract LinkedIn ID from unipile_response - corrected to use company_id
   const getCompanyLinkedInId = () => {
-    if (lead.unipile_response?.linkedin_profile?.experience) {
-      const currentExp = lead.unipile_response.linkedin_profile.experience.find((exp: any) => 
-        !exp.end || exp.end === null || exp.end === ''
-      );
-      return currentExp?.company_linkedin_id || null;
+    console.log('Extracting company LinkedIn ID from:', lead.unipile_response);
+    
+    if (lead.unipile_response) {
+      // Check work_experience structure first (as in your example)
+      if (lead.unipile_response.work_experience) {
+        const currentExp = lead.unipile_response.work_experience.find((exp: any) => 
+          !exp.end || exp.end === null || exp.end === ''
+        );
+        console.log('Found current experience in work_experience:', currentExp);
+        return currentExp?.company_id || null;
+      }
+      
+      // Check linkedin_profile.experience structure
+      if (lead.unipile_response.linkedin_profile?.experience) {
+        const currentExp = lead.unipile_response.linkedin_profile.experience.find((exp: any) => 
+          !exp.end || exp.end === null || exp.end === ''
+        );
+        console.log('Found current experience in linkedin_profile.experience:', currentExp);
+        // Try both company_id and company_linkedin_id for backward compatibility
+        return currentExp?.company_id || currentExp?.company_linkedin_id || null;
+      }
     }
+    
+    console.log('No company LinkedIn ID found');
     return null;
   };
 
   const currentCompanyLinkedInId = getCompanyLinkedInId();
+
+  console.log('Current company data:', {
+    name: currentCompanyName,
+    linkedinId: currentCompanyLinkedInId,
+    unipileResponse: lead.unipile_response
+  });
 
   const handleCreateFromCurrentCompany = async () => {
     if (!currentCompanyName) return;
@@ -145,6 +169,11 @@ export function HrProviderSelector({
                     {currentCompanyLinkedInId && (
                       <div className="text-sm text-blue-600">
                         LinkedIn ID: {currentCompanyLinkedInId}
+                      </div>
+                    )}
+                    {!currentCompanyLinkedInId && (
+                      <div className="text-sm text-orange-600">
+                        Aucun LinkedIn ID trouvé
                       </div>
                     )}
                   </div>
