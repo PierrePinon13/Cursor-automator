@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
 import LeadsFilters from '@/components/leads/LeadsFilters';
-import { exportLeadsToCSV } from '@/utils/csvExport';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Leads = () => {
@@ -20,9 +19,35 @@ const Leads = () => {
     'location'
   ]);
 
-  const handleExport = () => {
-    exportLeadsToCSV(filteredLeads, visibleColumns);
+  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
+
+  const filterByDate = (leads: any[]) => {
+    if (selectedDateFilter === 'all') return leads;
+    
+    const now = new Date();
+    const cutoffTime = new Date();
+    
+    switch (selectedDateFilter) {
+      case '24h':
+        cutoffTime.setHours(now.getHours() - 24);
+        break;
+      case '48h':
+        cutoffTime.setHours(now.getHours() - 48);
+        break;
+      case '7d':
+        cutoffTime.setDate(now.getDate() - 7);
+        break;
+      default:
+        return leads;
+    }
+    
+    return leads.filter(lead => {
+      const postDate = new Date(lead.posted_at_iso || lead.created_at);
+      return postDate >= cutoffTime;
+    });
   };
+
+  const dateFilteredLeads = filterByDate(filteredLeads);
 
   if (loading) {
     return (
@@ -47,12 +72,13 @@ const Leads = () => {
           onCategoriesChange={setSelectedCategories}
           visibleColumns={visibleColumns}
           onColumnsChange={setVisibleColumns}
-          onExport={handleExport}
+          selectedDateFilter={selectedDateFilter}
+          onDateFilterChange={setSelectedDateFilter}
         />
         
         <div className="bg-white rounded-lg shadow">
           <DraggableTable 
-            leads={filteredLeads} 
+            leads={dateFilteredLeads} 
             visibleColumns={visibleColumns}
           />
         </div>

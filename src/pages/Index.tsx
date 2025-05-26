@@ -5,7 +5,6 @@ import { Filter } from 'lucide-react';
 import DraggableTable from '@/components/leads/DraggableTable';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import { useLeads } from '@/hooks/useLeads';
-import { exportLeadsToCSV } from '@/utils/csvExport';
 
 const Index = () => {
   const { filteredLeads, loading, selectedCategories, setSelectedCategories } = useLeads();
@@ -18,9 +17,35 @@ const Index = () => {
     'status'
   ]);
 
-  const handleExport = () => {
-    exportLeadsToCSV(filteredLeads, visibleColumns);
+  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
+
+  const filterByDate = (leads: any[]) => {
+    if (selectedDateFilter === 'all') return leads;
+    
+    const now = new Date();
+    const cutoffTime = new Date();
+    
+    switch (selectedDateFilter) {
+      case '24h':
+        cutoffTime.setHours(now.getHours() - 24);
+        break;
+      case '48h':
+        cutoffTime.setHours(now.getHours() - 48);
+        break;
+      case '7d':
+        cutoffTime.setDate(now.getDate() - 7);
+        break;
+      default:
+        return leads;
+    }
+    
+    return leads.filter(lead => {
+      const postDate = new Date(lead.posted_at_iso || lead.created_at);
+      return postDate >= cutoffTime;
+    });
   };
+
+  const dateFilteredLeads = filterByDate(filteredLeads);
 
   if (loading) {
     return (
@@ -41,7 +66,7 @@ const Index = () => {
             Leads LinkedIn
           </h1>
           <p className="text-gray-600">
-            {filteredLeads.length} leads qualifiés
+            {dateFilteredLeads.length} leads qualifiés
           </p>
         </div>
 
@@ -52,18 +77,19 @@ const Index = () => {
               onCategoriesChange={setSelectedCategories}
               visibleColumns={visibleColumns}
               onColumnsChange={setVisibleColumns}
-              onExport={handleExport}
+              selectedDateFilter={selectedDateFilter}
+              onDateFilterChange={setSelectedDateFilter}
             />
           </CardHeader>
           <CardContent className="p-0">
-            {filteredLeads.length === 0 ? (
+            {dateFilteredLeads.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Filter className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Aucun lead ne correspond aux filtres sélectionnés</p>
               </div>
             ) : (
               <DraggableTable 
-                leads={filteredLeads} 
+                leads={dateFilteredLeads} 
                 visibleColumns={visibleColumns}
               />
             )}

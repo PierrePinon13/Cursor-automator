@@ -1,7 +1,13 @@
 
 import React from 'react';
-import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import MultiSelectFilter from './MultiSelectFilter';
 import CategoryFilter from './CategoryFilter';
 
@@ -10,7 +16,8 @@ interface LeadsFiltersProps {
   onCategoriesChange: (categories: string[]) => void;
   visibleColumns: string[];
   onColumnsChange: (columns: string[]) => void;
-  onExport: () => void;
+  selectedDateFilter: string;
+  onDateFilterChange: (filter: string) => void;
 }
 
 const columnOptions = [
@@ -22,6 +29,13 @@ const columnOptions = [
   { value: 'status', label: 'Statut' },
   { value: 'category', label: 'Catégorie' },
   { value: 'location', label: 'Localisation' },
+];
+
+const dateFilterOptions = [
+  { value: 'all', label: 'Tout le temps' },
+  { value: '24h', label: 'Dernières 24h' },
+  { value: '48h', label: 'Dernières 48h' },
+  { value: '7d', label: 'Derniers 7 jours' },
 ];
 
 // Get available categories from useLeads hook
@@ -41,7 +55,8 @@ const LeadsFilters = ({
   onCategoriesChange,
   visibleColumns,
   onColumnsChange,
-  onExport
+  selectedDateFilter,
+  onDateFilterChange
 }: LeadsFiltersProps) => {
   return (
     <div className="space-y-4">
@@ -53,15 +68,18 @@ const LeadsFilters = ({
             selectedValues={visibleColumns}
             onSelectionChange={onColumnsChange}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            className="h-8"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          <Select value={selectedDateFilter} onValueChange={onDateFilterChange}>
+            <SelectTrigger className="w-40 h-8">
+              <SelectValue placeholder="Période" />
+            </SelectTrigger>
+            <SelectContent>
+              {dateFilterOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       

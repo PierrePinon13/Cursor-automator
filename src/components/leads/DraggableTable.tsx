@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -33,6 +32,28 @@ interface DraggableTableProps {
   visibleColumns: string[];
 }
 
+const getTimeAgo = (dateString: string) => {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return 'À l\'instant';
+  } else if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `Il y a ${minutes}${minutes === 1 ? ' minute' : ' minutes'}`;
+  } else if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `Il y a ${hours}h`;
+  } else if (diffInSeconds < 2592000) {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `Il y a ${days} jour${days === 1 ? '' : 's'}`;
+  } else {
+    const months = Math.floor(diffInSeconds / 2592000);
+    return `Il y a ${months} mois`;
+  }
+};
+
 const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
   const allColumns: Column[] = [
     {
@@ -41,10 +62,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       width: '120px',
       render: (lead) => (
         <span className="text-sm">
-          {lead.posted_at_iso 
-            ? new Date(lead.posted_at_iso).toLocaleDateString('fr-FR')
-            : new Date(lead.created_at).toLocaleDateString('fr-FR')
-          }
+          {getTimeAgo(lead.posted_at_iso || lead.created_at)}
         </span>
       )
     },
