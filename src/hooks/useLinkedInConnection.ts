@@ -8,8 +8,14 @@ interface LinkedInConnection {
   id: string;
   user_id: string;
   unipile_account_id: string;
+  account_id: string | null;
+  status: string;
+  account_type: string | null;
   linkedin_profile_url: string | null;
   connection_status: string;
+  error_message: string | null;
+  last_update: string | null;
+  connected_at: string | null;
   updated_at: string;
   created_at: string;
 }

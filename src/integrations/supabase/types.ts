@@ -11,28 +11,46 @@ export type Database = {
     Tables: {
       linkedin_connections: {
         Row: {
+          account_id: string | null
+          account_type: string | null
+          connected_at: string | null
           connection_status: string
           created_at: string
+          error_message: string | null
           id: string
+          last_update: string | null
           linkedin_profile_url: string | null
+          status: string | null
           unipile_account_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          account_id?: string | null
+          account_type?: string | null
+          connected_at?: string | null
           connection_status?: string
           created_at?: string
+          error_message?: string | null
           id?: string
+          last_update?: string | null
           linkedin_profile_url?: string | null
+          status?: string | null
           unipile_account_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          account_id?: string | null
+          account_type?: string | null
+          connected_at?: string | null
           connection_status?: string
           created_at?: string
+          error_message?: string | null
           id?: string
+          last_update?: string | null
           linkedin_profile_url?: string | null
+          status?: string | null
           unipile_account_id?: string
           updated_at?: string
           user_id?: string

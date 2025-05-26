@@ -38,6 +38,7 @@ serve(async (req) => {
     switch (status) {
       case 'CREATION_SUCCESS':
         updateData.status = 'connected'
+        updateData.connection_status = 'connected'
         updateData.connected_at = new Date().toISOString()
         updateData.error_message = null
         console.log('LinkedIn connection successful for account:', account_id)
@@ -45,6 +46,7 @@ serve(async (req) => {
 
       case 'RECONNECTED':
         updateData.status = 'connected'
+        updateData.connection_status = 'connected'
         updateData.connected_at = new Date().toISOString()
         updateData.error_message = null
         console.log('LinkedIn reconnection successful for account:', account_id)
@@ -52,12 +54,14 @@ serve(async (req) => {
 
       case 'CREDENTIALS':
         updateData.status = 'credentials_required'
+        updateData.connection_status = 'credentials_required'
         updateData.error_message = 'Credentials update required'
         console.log('LinkedIn credentials required for account:', account_id)
         break
 
       case 'ERROR':
         updateData.status = 'error'
+        updateData.connection_status = 'error'
         updateData.error_message = unipileError || 'Unknown error occurred'
         console.log('LinkedIn connection error for account:', account_id, 'Error:', unipileError)
         break
@@ -65,6 +69,7 @@ serve(async (req) => {
       default:
         console.log('Unknown status received:', status)
         updateData.status = status
+        updateData.connection_status = status
         if (unipileError) {
           updateData.error_message = unipileError
         }
