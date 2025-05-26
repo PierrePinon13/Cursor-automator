@@ -1,12 +1,11 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Linkedin, Unlink, RefreshCw, CheckCircle, AlertCircle, Clock, XCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Linkedin, Unlink, RefreshCw, CheckCircle, AlertCircle, Clock, XCircle, AlertTriangle, ShieldAlert, Sync } from 'lucide-react';
 import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 const LinkedInConnectionCard = () => {
-  const { connections, loading, checkingStatus, connectLinkedIn, disconnectLinkedIn, checkStatus, refreshConnections } = useLinkedInConnection();
+  const { connections, loading, checkingStatus, syncing, connectLinkedIn, disconnectLinkedIn, checkStatus, syncAccounts, refreshConnections } = useLinkedInConnection();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -102,14 +101,25 @@ const LinkedInConnectionCard = () => {
         <CardTitle className="flex items-center gap-2">
           <Linkedin className="h-5 w-5 text-blue-600" />
           Connexion LinkedIn
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={refreshConnections}
-            className="ml-auto"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={syncAccounts}
+              disabled={syncing}
+              title="Synchroniser avec Unipile"
+            >
+              <Sync className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshConnections}
+              title="Actualiser la liste"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </CardTitle>
         <CardDescription>
           Connectez votre compte LinkedIn via Unipile pour analyser vos publications
@@ -121,10 +131,16 @@ const LinkedInConnectionCard = () => {
             <p className="text-muted-foreground mb-4">
               Aucune connexion LinkedIn configurée
             </p>
-            <Button onClick={connectLinkedIn} disabled={loading}>
-              <Linkedin className="h-4 w-4 mr-2" />
-              {loading ? 'Connexion...' : 'Connecter LinkedIn'}
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={connectLinkedIn} disabled={loading}>
+                <Linkedin className="h-4 w-4 mr-2" />
+                {loading ? 'Connexion...' : 'Connecter LinkedIn'}
+              </Button>
+              <Button variant="outline" onClick={syncAccounts} disabled={syncing}>
+                <Sync className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Synchronisation...' : 'Synchroniser'}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -167,6 +183,7 @@ const LinkedInConnectionCard = () => {
                       size="sm"
                       onClick={() => checkStatus(connection.account_id || connection.unipile_account_id)}
                       disabled={checkingStatus}
+                      title="Vérifier le statut individuel"
                     >
                       <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
                     </Button>
@@ -207,10 +224,16 @@ const LinkedInConnectionCard = () => {
               </div>
             ))}
             {!hasActiveConnection && (
-              <Button onClick={connectLinkedIn} disabled={loading} className="w-full">
-                <Linkedin className="h-4 w-4 mr-2" />
-                {loading ? 'Connexion...' : 'Ajouter une connexion LinkedIn'}
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={connectLinkedIn} disabled={loading} className="flex-1">
+                  <Linkedin className="h-4 w-4 mr-2" />
+                  {loading ? 'Connexion...' : 'Ajouter une connexion LinkedIn'}
+                </Button>
+                <Button variant="outline" onClick={syncAccounts} disabled={syncing}>
+                  <Sync className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  Sync
+                </Button>
+              </div>
             )}
           </div>
         )}

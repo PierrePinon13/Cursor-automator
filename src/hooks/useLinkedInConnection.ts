@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -24,6 +23,7 @@ export function useLinkedInConnection() {
   const [connections, setConnections] = useState<LinkedInConnection[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -47,6 +47,43 @@ export function useLinkedInConnection() {
       setConnections(data || []);
     } catch (error: any) {
       console.error('Error fetching LinkedIn connections:', error);
+    }
+  };
+
+  const syncAccounts = async () => {
+    if (!user) return;
+
+    setSyncing(true);
+    try {
+      console.log('Calling linkedin-sync-accounts function...');
+      
+      const { data, error } = await supabase.functions.invoke('linkedin-sync-accounts');
+
+      console.log('Sync response:', { data, error });
+
+      if (error) {
+        console.error('Sync error:', error);
+        throw error;
+      }
+
+      if (data && data.success) {
+        await fetchConnections();
+        toast({
+          title: "Synchronisation réussie",
+          description: `${data.accounts_processed} compte(s) LinkedIn synchronisé(s)`,
+        });
+      } else {
+        throw new Error('Réponse invalide du serveur');
+      }
+    } catch (error: any) {
+      console.error('Sync failed:', error);
+      toast({
+        title: "Erreur de synchronisation",
+        description: error.message || "Impossible de synchroniser les comptes LinkedIn.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -217,9 +254,11 @@ export function useLinkedInConnection() {
     connections,
     loading,
     checkingStatus,
+    syncing,
     connectLinkedIn,
     disconnectLinkedIn,
     checkStatus,
+    syncAccounts,
     refreshConnections: fetchConnections,
   };
 }
