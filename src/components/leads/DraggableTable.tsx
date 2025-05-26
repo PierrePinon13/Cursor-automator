@@ -44,7 +44,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'posted_date',
       label: 'Posted Date',
-      width: '120px',
+      width: '150px',
       render: (lead) => (
         <span className="text-sm">
           {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
@@ -53,22 +53,23 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     },
     {
       id: 'job_title',
-      label: 'Titre de poste recherché',
-      width: '200px',
+      label: 'Profil recherché',
+      width: '180px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-            <Badge key={index} variant="outline" className="text-xs mr-1">
+            <div key={index} className="text-green-600 text-sm">
               {poste}
-            </Badge>
+              {index < lead.openai_step3_postes_selectionnes.length - 1 && <br />}
+            </div>
           ))}
         </div>
       )
     },
     {
       id: 'author_name',
-      label: 'Prénom et Nom',
-      width: '150px',
+      label: 'Lead',
+      width: '120px',
       render: (lead) => (
         <span className="font-medium text-sm">{lead.author_name || 'N/A'}</span>
       )
@@ -76,7 +77,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'company',
       label: 'Entreprise',
-      width: '200px',
+      width: '160px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.unipile_company ? (
@@ -97,7 +98,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'post_url',
       label: 'URL du post',
-      width: '100px',
+      width: '120px',
       render: (lead) => (
         <Button
           variant="ghost"
@@ -122,7 +123,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'category',
       label: 'Catégorie',
-      width: '120px',
+      width: '130px',
       render: (lead) => (
         <Badge variant="secondary" className="text-xs">
           {lead.openai_step3_categorie}
@@ -132,7 +133,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'location',
       label: 'Localisation',
-      width: '120px',
+      width: '130px',
       render: (lead) => (
         <span className="text-sm">{lead.openai_step2_localisation || 'France'}</span>
       )
