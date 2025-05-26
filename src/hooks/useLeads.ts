@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -64,6 +63,7 @@ export const useLeads = () => {
           title,
           url,
           posted_at_iso,
+          posted_at_timestamp,
           openai_step2_localisation,
           openai_step3_categorie,
           openai_step3_postes_selectionnes,
@@ -117,8 +117,15 @@ export const useLeads = () => {
     const dateCutoff = getDateFilterCutoff(selectedDateFilter);
     if (dateCutoff) {
       filtered = filtered.filter(lead => {
-        // Use posted_at_iso if available, otherwise fall back to created_at
-        const leadDate = lead.posted_at_iso ? new Date(lead.posted_at_iso) : new Date(lead.created_at);
+        // Use posted_at_timestamp if available, otherwise fall back to posted_at_iso or created_at
+        let leadDate: Date;
+        if (lead.posted_at_timestamp) {
+          leadDate = new Date(lead.posted_at_timestamp);
+        } else if (lead.posted_at_iso) {
+          leadDate = new Date(lead.posted_at_iso);
+        } else {
+          leadDate = new Date(lead.created_at);
+        }
         return leadDate >= dateCutoff;
       });
     }
