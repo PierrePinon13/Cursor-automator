@@ -1,7 +1,7 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { OpenAIStep1Result, OpenAIStep2Result, OpenAIStep3Result } from './openai-steps.ts';
 import { UnipileScrapingResult } from './unipile-scraper.ts';
+import { ClientMatchResult } from './client-matching.ts';
 
 export async function updateProcessingStatus(
   supabaseClient: ReturnType<typeof createClient>,
@@ -84,6 +84,25 @@ export async function updateUnipileResults(
   }
 
   console.log('Updating Unipile results with data:', updateData);
+
+  await supabaseClient
+    .from('linkedin_posts')
+    .update(updateData)
+    .eq('id', postId);
+}
+
+export async function updateClientMatchResults(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  clientMatch: ClientMatchResult
+) {
+  const updateData: any = {
+    is_client_lead: clientMatch.isClientLead,
+    matched_client_id: clientMatch.clientId || null,
+    matched_client_name: clientMatch.clientName || null
+  };
+
+  console.log('Updating client match results:', updateData);
 
   await supabaseClient
     .from('linkedin_posts')

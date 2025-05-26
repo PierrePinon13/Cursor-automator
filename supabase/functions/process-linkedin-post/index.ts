@@ -4,12 +4,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts';
 import { scrapLinkedInProfile } from './unipile-scraper.ts';
+import { checkIfLeadIsFromClient } from './client-matching.ts';
 import { 
   updateProcessingStatus, 
   updateStep1Results, 
   updateStep2Results, 
   updateStep3Results,
   updateUnipileResults,
+  updateClientMatchResults,
   fetchPost 
 } from './database-operations.ts';
 
@@ -94,6 +96,10 @@ serve(async (req) => {
     const scrapingResult = await scrapLinkedInProfile(unipileApiKey, post.author_profile_id);
     await updateUnipileResults(supabaseClient, postId, scrapingResult);
 
+    // Step 5: Check if the lead's company matches any existing client
+    const clientMatch = await checkIfLeadIsFromClient(supabaseClient, scrapingResult.company_id);
+    await updateClientMatchResults(supabaseClient, postId, clientMatch);
+
     // Mark as completed
     await updateProcessingStatus(supabaseClient, postId, 'completed');
 
@@ -104,7 +110,8 @@ serve(async (req) => {
       postId,
       step1: step1Result,
       step2: step2Result,
-      step3: step3Result
+      step3: step3Result,
+      clientMatch: clientMatch
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
