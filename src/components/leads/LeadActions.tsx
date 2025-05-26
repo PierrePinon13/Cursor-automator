@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Linkedin, Send, Phone, Calendar, UserCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
+import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 
 interface Lead {
   id: string;
@@ -9,6 +11,8 @@ interface Lead {
   author_headline: string;
   openai_step3_postes_selectionnes: string[];
   openai_step3_categorie: string;
+  phone_number?: string | null;
+  phone_retrieved_at?: string | null;
 }
 
 interface LeadActionsProps {
@@ -17,6 +21,7 @@ interface LeadActionsProps {
   onAction: (actionName: string) => void;
   messageSending: boolean;
   message: string;
+  onPhoneRetrieved?: () => void;
 }
 
 const LeadActions = ({ 
@@ -24,9 +29,11 @@ const LeadActions = ({
   onSendLinkedInMessage, 
   onAction, 
   messageSending, 
-  message 
+  message,
+  onPhoneRetrieved
 }: LeadActionsProps) => {
   const { connections } = useLinkedInConnection();
+  const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
   const hasActiveConnection = connections.some(conn => conn.status === 'connected');
 
   // Fonction pour vérifier si le message est valide
@@ -35,6 +42,13 @@ const LeadActions = ({
   };
 
   const messageValid = isMessageValid(message);
+
+  const handlePhoneRetrieval = async () => {
+    const phoneNumber = await retrievePhone(lead.id);
+    if (phoneNumber && onPhoneRetrieved) {
+      onPhoneRetrieved();
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -85,15 +99,35 @@ const LeadActions = ({
 
           {/* Other Actions */}
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onAction('get_phone')}
-              className="w-full justify-start"
-            >
-              <Phone className="h-4 w-4 mr-2" />
-              Récupérer téléphone
-            </Button>
+            {/* Phone Retrieval Action */}
+            {lead.phone_number ? (
+              <div className="p-3 border rounded-lg bg-green-50">
+                <div className="flex items-center gap-2 text-green-700">
+                  <Phone className="h-4 w-4" />
+                  <span className="font-medium">Téléphone : {lead.phone_number}</span>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePhoneRetrieval}
+                disabled={phoneLoading}
+                className="w-full justify-start"
+              >
+                {phoneLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Récupération en cours...
+                  </>
+                ) : (
+                  <>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Récupérer téléphone
+                  </>
+                )}
+              </Button>
+            )}
             
             <Button
               variant="outline"

@@ -79,6 +79,8 @@ export type Database = {
           openai_step3_justification: string | null
           openai_step3_postes_selectionnes: string[] | null
           openai_step3_response: Json | null
+          phone_number: string | null
+          phone_retrieved_at: string | null
           posted_at_iso: string | null
           posted_at_timestamp: number | null
           processing_status: string | null
@@ -115,6 +117,8 @@ export type Database = {
           openai_step3_justification?: string | null
           openai_step3_postes_selectionnes?: string[] | null
           openai_step3_response?: Json | null
+          phone_number?: string | null
+          phone_retrieved_at?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           processing_status?: string | null
@@ -151,6 +155,8 @@ export type Database = {
           openai_step3_justification?: string | null
           openai_step3_postes_selectionnes?: string[] | null
           openai_step3_response?: Json | null
+          phone_number?: string | null
+          phone_retrieved_at?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           processing_status?: string | null

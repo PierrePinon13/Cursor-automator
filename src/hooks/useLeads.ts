@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,6 +20,8 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
+  phone_number?: string | null;
+  phone_retrieved_at?: string | null;
 }
 
 export const useLeads = () => {
@@ -72,7 +73,9 @@ export const useLeads = () => {
           unipile_company,
           unipile_position,
           unipile_profile_scraped,
-          unipile_profile_scraped_at
+          unipile_profile_scraped_at,
+          phone_number,
+          phone_retrieved_at
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)

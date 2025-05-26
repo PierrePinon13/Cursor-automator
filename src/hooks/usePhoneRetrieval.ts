@@ -1,0 +1,60 @@
+
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from './use-toast';
+
+export function usePhoneRetrieval() {
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const retrievePhone = async (leadId: string) => {
+    setLoading(true);
+    try {
+      console.log('Retrieving phone for lead:', leadId);
+      
+      const { data, error } = await supabase.functions.invoke('datagma-phone', {
+        body: { lead_id: leadId }
+      });
+
+      console.log('Phone retrieval response:', { data, error });
+
+      if (error) {
+        console.error('Function error:', error);
+        throw error;
+      }
+
+      if (data && data.success) {
+        if (data.phone_number) {
+          toast({
+            title: "Téléphone récupéré",
+            description: `Numéro trouvé : ${data.phone_number}${data.cached ? ' (en cache)' : ''}`,
+          });
+        } else {
+          toast({
+            title: "Aucun téléphone trouvé",
+            description: "Aucun numéro de téléphone n'a été trouvé pour ce contact.",
+            variant: "destructive",
+          });
+        }
+        return data.phone_number;
+      } else {
+        throw new Error(data?.error || 'Échec de la récupération du téléphone');
+      }
+    } catch (error: any) {
+      console.error('Phone retrieval error:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de récupérer le numéro de téléphone.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    retrievePhone,
+    loading,
+  };
+}

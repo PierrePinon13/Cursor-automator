@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -26,6 +27,8 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
+  phone_number?: string | null;
+  phone_retrieved_at?: string | null;
 }
 
 interface LeadDetailDialogProps {
@@ -97,6 +100,11 @@ const LeadDetailDialog = ({
     }
   };
 
+  const handlePhoneRetrieved = () => {
+    // Rafraîchir les données du lead après récupération du téléphone
+    onActionCompleted();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
@@ -130,6 +138,7 @@ const LeadDetailDialog = ({
               onAction={handleAction}
               messageSending={messageSending}
               message={customMessage}
+              onPhoneRetrieved={handlePhoneRetrieved}
             />
           }
         />
