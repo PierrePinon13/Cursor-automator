@@ -9,6 +9,69 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      client_collaborators: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_collaborators_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_collaborators_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          company_linkedin_id: string | null
+          company_linkedin_url: string | null
+          company_name: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_linkedin_id?: string | null
+          company_linkedin_url?: string | null
+          company_name: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_linkedin_id?: string | null
+          company_linkedin_url?: string | null
+          company_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       linkedin_connections: {
         Row: {
           account_id: string | null
