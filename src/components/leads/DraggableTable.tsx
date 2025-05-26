@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -108,9 +109,10 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
               )}
             </div>
           ) : (
-            <span className="text-xs text-gray-500 truncate">
-              {lead.author_headline || 'N/A'}
-            </span>
+            <div className="text-xs text-gray-500">
+              <div>Données non disponibles</div>
+              <div className="text-xs text-gray-400 truncate">{lead.author_headline || 'N/A'}</div>
+            </div>
           )}
         </div>
       )
@@ -155,7 +157,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     .filter(Boolean);
 
   return (
-    <div className="w-full">
+    <div className="w-full -mx-6">
       <DragDropContext onDragEnd={handleOnDragEnd}>
         <table className="w-full border-collapse bg-white border-separate border-spacing-0">
           <Droppable droppableId="columns" direction="horizontal">
