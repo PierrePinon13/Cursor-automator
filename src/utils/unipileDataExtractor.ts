@@ -5,6 +5,7 @@ export interface WorkExperience {
   start?: string;
   end?: string;
   isCurrent: boolean;
+  company_id?: string; // Add company_id field
 }
 
 export function extractWorkExperiences(unipileResponse: any): WorkExperience[] {
@@ -12,8 +13,8 @@ export function extractWorkExperiences(unipileResponse: any): WorkExperience[] {
     return [];
   }
 
-  // Check both linkedin_profile.experience and work_experience structures
-  const experiences = unipileResponse.linkedin_profile?.experience || unipileResponse.work_experience || [];
+  // Check both work_experience and linkedin_profile.experience structures
+  const experiences = unipileResponse.work_experience || unipileResponse.linkedin_profile?.experience || [];
   
   if (!Array.isArray(experiences)) {
     return [];
@@ -24,7 +25,8 @@ export function extractWorkExperiences(unipileResponse: any): WorkExperience[] {
     position: exp.position || exp.title || '',
     start: exp.start || '',
     end: exp.end || '',
-    isCurrent: !exp.end || exp.end === null || exp.end === ''
+    isCurrent: !exp.end || exp.end === null || exp.end === '',
+    company_id: exp.company_id || null // Extract company_id
   })).filter((exp: WorkExperience) => exp.company); // Only keep experiences with company names
 }
 
@@ -33,4 +35,10 @@ export function getLastThreeCompanies(unipileResponse: any): string[] {
   return experiences
     .slice(0, 3) // Take first 3 (most recent)
     .map(exp => exp.company);
+}
+
+export function getCurrentCompanyLinkedInId(unipileResponse: any): string | null {
+  const experiences = extractWorkExperiences(unipileResponse);
+  const currentExperience = experiences.find(exp => exp.isCurrent);
+  return currentExperience?.company_id || null;
 }

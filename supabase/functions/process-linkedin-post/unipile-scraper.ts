@@ -51,8 +51,8 @@ export async function scrapLinkedInProfile(
       let company = null;
       let position = null;
       
-      // Check both linkedin_profile.experience and work_experience structures
-      const experiences = unipileData.linkedin_profile?.experience || unipileData.work_experience || [];
+      // Check both work_experience and linkedin_profile.experience structures
+      const experiences = unipileData.work_experience || unipileData.linkedin_profile?.experience || [];
       
       if (experiences && experiences.length > 0) {
         console.log('Processing work experiences:', experiences);
@@ -74,6 +74,7 @@ export async function scrapLinkedInProfile(
           console.log('Selected current experience:', {
             company,
             position,
+            company_id: currentExperience.company_id,
             isCurrentPosition: !currentExperience.end,
             startDate: currentExperience.start,
             endDate: currentExperience.end
