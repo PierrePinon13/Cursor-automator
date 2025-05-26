@@ -2,25 +2,20 @@
 export const getTimeAgo = (dateString: string): string => {
   if (!dateString) return 'Date inconnue';
   
-  // Créer la date du post en considérant qu'elle est en heure de Paris
-  const postDate = new Date(dateString);
-  
   // Obtenir l'heure actuelle en heure de Paris
   const now = new Date();
-  const parisTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+  const parisNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
   
-  // Si la date du post ne contient pas d'info de timezone, on assume qu'elle est en heure de Paris
-  let postDateParis;
-  if (dateString.includes('T') && (dateString.includes('+') || dateString.includes('Z'))) {
-    // La date a déjà une timezone, on la convertit en heure de Paris
-    postDateParis = new Date(postDate.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
-  } else {
-    // La date n'a pas de timezone, on assume qu'elle est déjà en heure de Paris
-    postDateParis = postDate;
-  }
+  // Créer la date du post
+  const postDate = new Date(dateString);
   
   // Calculer la différence en millisecondes
-  const diffMs = parisTime.getTime() - postDateParis.getTime();
+  const diffMs = parisNow.getTime() - postDate.getTime();
+  
+  // Si la différence est négative, le post est dans le futur (erreur de données)
+  if (diffMs < 0) {
+    return 'À l\'instant';
+  }
   
   // Convertir en différentes unités
   const diffMinutes = Math.floor(diffMs / (1000 * 60));

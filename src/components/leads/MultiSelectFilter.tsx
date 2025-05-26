@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,19 +25,23 @@ const MultiSelectFilter = ({
   selectedValues,
   onSelectionChange,
 }: MultiSelectFilterProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   const handleToggle = (value: string) => {
     const newSelection = selectedValues.includes(value)
       ? selectedValues.filter(v => v !== value)
       : [...selectedValues, value];
     onSelectionChange(newSelection);
+    // Ne pas fermer le menu après un changement
   };
 
   const clearAll = () => {
     onSelectionChange([]);
+    // Ne pas fermer le menu après avoir tout effacé
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="h-8">
           {title}
