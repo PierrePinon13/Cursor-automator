@@ -171,7 +171,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     .filter(Boolean);
 
   return (
-    <div className="w-full -ml-6">
+    <div className="w-full">
       <DragDropContext onDragEnd={handleOnDragEnd}>
         <table className="w-full border-collapse bg-white">
           <Droppable droppableId="columns" direction="horizontal">
