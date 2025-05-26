@@ -23,15 +23,55 @@ serve(async (req) => {
     const webhookData = await req.json()
     console.log('LinkedIn webhook received:', JSON.stringify(webhookData, null, 2))
 
-    const { account_id, status, metadata, error: unipileError } = webhookData
+    const { account_id, status, metadata, error: unipileError, name } = webhookData
 
     if (!account_id) {
       console.error('No account_id in webhook data')
       return new Response('Missing account_id', { status: 400 })
     }
 
+    // Essayer de trouver la connexion en attente pour cet utilisateur
+    // On utilise le nom (email) pour identifier l'utilisateur
+    let connectionData = null
+
+    if (name) {
+      // Trouver l'utilisateur par email dans les métadonnées ou le nom
+      const { data: connections, error: searchError } = await supabaseClient
+        .from('linkedin_connections')
+        .select('*, profiles!inner(email)')
+        .eq('status', 'pending')
+        .eq('profiles.email', name)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (!searchError && connections && connections.length > 0) {
+        connectionData = connections[0]
+      }
+    }
+
+    // Si on n'a pas trouvé par email, essayer de trouver la connexion la plus récente en attente
+    if (!connectionData) {
+      const { data: recentConnections, error: recentError } = await supabaseClient
+        .from('linkedin_connections')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (!recentError && recentConnections && recentConnections.length > 0) {
+        connectionData = recentConnections[0]
+      }
+    }
+
+    if (!connectionData) {
+      console.log('No pending connection found for account_id:', account_id, 'and name:', name)
+      return new Response('No matching pending connection found', { status: 404 })
+    }
+
     // Update connection status based on webhook
     let updateData: any = {
+      account_id: account_id, // Stocker l'account_id reçu de Unipile
+      unipile_account_id: account_id, // Mettre à jour avec le vrai ID
       last_update: new Date().toISOString()
     }
 
@@ -75,22 +115,16 @@ serve(async (req) => {
         }
     }
 
-    // Update the connection in the database
+    // Update the connection in the database using the ID we found
     const { data, error } = await supabaseClient
       .from('linkedin_connections')
       .update(updateData)
-      .eq('unipile_account_id', account_id)
+      .eq('id', connectionData.id)
       .select()
 
     if (error) {
       console.error('Error updating LinkedIn connection:', error)
       return new Response('Database error', { status: 500 })
-    }
-
-    if (!data || data.length === 0) {
-      console.log('No matching connection found for account_id:', account_id)
-      // This might be a webhook for an account created outside our flow
-      return new Response('No matching connection found', { status: 404 })
     }
 
     console.log('LinkedIn connection updated successfully:', data[0])

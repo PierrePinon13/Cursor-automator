@@ -106,7 +106,6 @@ serve(async (req) => {
 
     // Extract the correct URL from the response
     const hostedLink = unipileData.url || unipileData.hosted_link
-    const accountId = unipileData.account_id || 'pending'
 
     if (!hostedLink) {
       console.error('No hosted link found in Unipile response:', unipileData)
@@ -116,13 +115,16 @@ serve(async (req) => {
       )
     }
 
-    // Store the pending connection
+    // Créer une connexion temporaire avec un ID unique que nous pourrons retrouver
+    const tempConnectionId = crypto.randomUUID()
+    
+    // Store the pending connection with the temporary ID
     const { error: insertError } = await supabaseClient
       .from('linkedin_connections')
       .insert({
         user_id: user_id,
-        unipile_account_id: accountId,
-        account_id: accountId,
+        unipile_account_id: tempConnectionId, // Utiliser l'ID temporaire
+        account_id: null, // Sera mis à jour par le webhook
         status: 'pending',
         account_type: 'LINKEDIN'
       })
@@ -134,7 +136,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         link: hostedLink,
-        account_id: accountId
+        temp_connection_id: tempConnectionId
       }),
       { 
         status: 200, 
