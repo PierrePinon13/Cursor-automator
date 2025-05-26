@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -54,17 +53,39 @@ export function useLinkedInConnection() {
 
     setLoading(true);
     try {
+      console.log('Calling linkedin-connect function...');
+      
       // Call our edge function to initiate the hosted auth flow
       const { data, error } = await supabase.functions.invoke('linkedin-connect', {
         body: { user_id: user.id }
       });
 
-      if (error) throw error;
+      console.log('Function response:', { data, error });
 
-      if (data.link) {
-        // Open Unipile hosted auth link in new window
-        const popup = window.open(data.link, '_blank', 'width=600,height=700');
+      if (error) {
+        console.error('Function error:', error);
+        throw error;
+      }
+
+      if (data && data.link) {
+        console.log('Opening popup with URL:', data.link);
         
+        // Open Unipile hosted auth link in new window
+        const popup = window.open(
+          data.link, 
+          'linkedin-auth', 
+          'width=600,height=700,scrollbars=yes,resizable=yes'
+        );
+        
+        if (!popup) {
+          toast({
+            title: "Popup bloqué",
+            description: "Veuillez autoriser les popups pour ce site et réessayer.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         toast({
           title: "Connexion LinkedIn",
           description: "Une nouvelle fenêtre s'est ouverte pour connecter votre compte LinkedIn.",
@@ -73,7 +94,7 @@ export function useLinkedInConnection() {
         // Poll for connection success
         const pollConnection = () => {
           const checkInterval = setInterval(async () => {
-            if (popup?.closed) {
+            if (popup.closed) {
               clearInterval(checkInterval);
               await fetchConnections();
               return;
@@ -90,12 +111,14 @@ export function useLinkedInConnection() {
         };
 
         pollConnection();
+      } else {
+        throw new Error('No link received from the server');
       }
     } catch (error: any) {
       console.error('LinkedIn connection error:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de se connecter à LinkedIn. Veuillez réessayer.",
+        description: error.message || "Impossible de se connecter à LinkedIn. Veuillez réessayer.",
         variant: "destructive",
       });
     } finally {

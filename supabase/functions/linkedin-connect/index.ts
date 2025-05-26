@@ -104,13 +104,25 @@ serve(async (req) => {
     const unipileData = await unipileResponse.json()
     console.log('Unipile response:', unipileData)
 
+    // Extract the correct URL from the response
+    const hostedLink = unipileData.url || unipileData.hosted_link
+    const accountId = unipileData.account_id || 'pending'
+
+    if (!hostedLink) {
+      console.error('No hosted link found in Unipile response:', unipileData)
+      return new Response(
+        JSON.stringify({ error: 'No hosted link received from Unipile' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Store the pending connection
     const { error: insertError } = await supabaseClient
       .from('linkedin_connections')
       .insert({
         user_id: user_id,
-        unipile_account_id: unipileData.account_id,
-        account_id: unipileData.account_id,
+        unipile_account_id: accountId,
+        account_id: accountId,
         status: 'pending',
         account_type: 'LINKEDIN'
       })
@@ -121,8 +133,8 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        link: unipileData.hosted_link,
-        account_id: unipileData.account_id
+        link: hostedLink,
+        account_id: accountId
       }),
       { 
         status: 200, 
