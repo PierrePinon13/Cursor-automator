@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExternalLink, Linkedin, Phone, Calendar, Users, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 
 interface Lead {
@@ -45,7 +45,6 @@ const LeadDetailDialog = ({
   onNavigateToLead, 
   onActionCompleted 
 }: LeadDetailDialogProps) => {
-  const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const { sendMessage, loading: messageSending } = useLinkedInMessage();
 
@@ -74,7 +73,7 @@ const LeadDetailDialog = ({
   };
 
   // Mock data pour le message pré-rédigé
-  const mockMessage = `Bonjour ${lead.author_name?.split(' ')[0] || 'Cher(e) professionnel(le)'},
+  const defaultMessage = `Bonjour ${lead.author_name?.split(' ')[0] || 'Cher(e) professionnel(le)'},
 
 J'ai remarqué votre récente publication concernant la recherche de ${lead.openai_step3_postes_selectionnes?.[0] || 'profils qualifiés'}. 
 
@@ -84,6 +83,13 @@ Seriez-vous disponible pour un échange téléphonique de 15 minutes cette semai
 
 Bien cordialement,
 [Votre nom]`;
+
+  // Initialize message with default if empty
+  React.useEffect(() => {
+    if (!customMessage) {
+      setCustomMessage(defaultMessage);
+    }
+  }, [defaultMessage]);
 
   const handleSendLinkedInMessage = async () => {
     // Extract profile ID from URL if available
@@ -101,12 +107,11 @@ Bien cordialement,
       return;
     }
 
-    const messageToSend = isEditingMessage && customMessage.trim() ? customMessage : mockMessage;
+    const messageToSend = customMessage.trim() || defaultMessage;
     
     const success = await sendMessage(profileId, messageToSend);
     if (success) {
       onActionCompleted();
-      setIsEditingMessage(false);
       setCustomMessage('');
     }
   };
@@ -218,41 +223,26 @@ Bien cordialement,
           <div className="w-1/3 p-6 border-r overflow-y-auto">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-medium text-gray-800">Message pré-rédigé</h4>
+                <h4 className="font-medium text-gray-800">Message LinkedIn</h4>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setIsEditingMessage(!isEditingMessage);
-                    if (!isEditingMessage) {
-                      setCustomMessage(mockMessage);
-                    }
-                  }}
+                  onClick={() => setCustomMessage(defaultMessage)}
                 >
-                  {isEditingMessage ? 'Annuler' : 'Modifier'}
+                  Réinitialiser
                 </Button>
               </div>
-              <div className="bg-blue-50 p-4 rounded-lg border">
-                {isEditingMessage ? (
-                  <textarea
-                    className="w-full h-80 bg-white border rounded p-2 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={customMessage}
-                    onChange={(e) => setCustomMessage(e.target.value)}
-                    placeholder="Modifiez votre message..."
-                  />
-                ) : (
-                  <textarea
-                    className="w-full h-80 bg-transparent border-none resize-none text-sm focus:outline-none"
-                    value={mockMessage}
-                    readOnly
-                  />
-                )}
-              </div>
-              {!isEditingMessage && (
+              <div className="space-y-2">
+                <Textarea
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder="Rédigez votre message LinkedIn..."
+                  className="min-h-[380px] resize-none text-sm"
+                />
                 <div className="text-xs text-gray-500">
-                  Ce message a été généré automatiquement par IA. Vous pouvez le modifier avant envoi.
+                  Ce message sera envoyé via LinkedIn. Vous pouvez le personnaliser avant l'envoi.
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -265,7 +255,7 @@ Bien cordialement,
                 <Button 
                   className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700"
                   onClick={handleSendLinkedInMessage}
-                  disabled={messageSending}
+                  disabled={messageSending || !customMessage.trim()}
                 >
                   <Linkedin className="h-4 w-4" />
                   {messageSending ? 'Envoi en cours...' : 'Envoyer message LinkedIn'}
