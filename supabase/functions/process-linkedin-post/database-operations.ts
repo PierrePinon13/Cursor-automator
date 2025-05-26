@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { OpenAIStep1Result, OpenAIStep2Result, OpenAIStep3Result } from './openai-steps.ts';
 import { UnipileScrapingResult } from './unipile-scraper.ts';
 import { ClientMatchResult } from './client-matching.ts';
+import { MessageGenerationResult } from './message-generation.ts';
 
 export async function updateProcessingStatus(
   supabaseClient: ReturnType<typeof createClient>,
@@ -103,6 +104,32 @@ export async function updateClientMatchResults(
   };
 
   console.log('Updating client match results:', updateData);
+
+  await supabaseClient
+    .from('linkedin_posts')
+    .update(updateData)
+    .eq('id', postId);
+}
+
+export async function updateApproachMessage(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  messageResult: MessageGenerationResult
+) {
+  const updateData: any = {
+    approach_message_generated: messageResult.success,
+    approach_message_generated_at: new Date().toISOString()
+  };
+
+  if (messageResult.success && messageResult.message) {
+    updateData.approach_message = messageResult.message;
+  }
+
+  if (!messageResult.success && messageResult.error) {
+    updateData.approach_message_error = messageResult.error;
+  }
+
+  console.log('Updating approach message results:', updateData);
 
   await supabaseClient
     .from('linkedin_posts')

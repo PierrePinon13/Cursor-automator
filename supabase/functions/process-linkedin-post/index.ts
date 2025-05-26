@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts';
 import { scrapLinkedInProfile } from './unipile-scraper.ts';
 import { checkIfLeadIsFromClient } from './client-matching.ts';
+import { generateApproachMessage } from './message-generation.ts';
 import { 
   updateProcessingStatus, 
   updateStep1Results, 
@@ -12,6 +13,7 @@ import {
   updateStep3Results,
   updateUnipileResults,
   updateClientMatchResults,
+  updateApproachMessage,
   fetchPost 
 } from './database-operations.ts';
 
@@ -100,6 +102,21 @@ serve(async (req) => {
     const clientMatch = await checkIfLeadIsFromClient(supabaseClient, scrapingResult.company_id);
     await updateClientMatchResults(supabaseClient, postId, clientMatch);
 
+    // Step 6: Generate approach message for non-client leads
+    let messageResult = null;
+    if (!clientMatch.isClientLead) {
+      console.log('Generating approach message for non-client lead');
+      messageResult = await generateApproachMessage(
+        openAIApiKey, 
+        post, 
+        post.author_name,
+        step3Result.postes_selectionnes
+      );
+      await updateApproachMessage(supabaseClient, postId, messageResult);
+    } else {
+      console.log('Skipping approach message generation for client lead');
+    }
+
     // Mark as completed
     await updateProcessingStatus(supabaseClient, postId, 'completed');
 
@@ -111,7 +128,8 @@ serve(async (req) => {
       step1: step1Result,
       step2: step2Result,
       step3: step3Result,
-      clientMatch: clientMatch
+      clientMatch: clientMatch,
+      messageGenerated: messageResult
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
