@@ -1,5 +1,5 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +15,12 @@ serve(async (req) => {
   try {
     console.log('Apify webhook received')
     
+    // Initialize Supabase client with service role
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
     // Parse the incoming webhook data
     const webhookData = await req.json()
     console.log('Apify webhook data:', JSON.stringify(webhookData, null, 2))
@@ -67,14 +73,93 @@ serve(async (req) => {
 
     const datasetItems = await apifyResponse.json()
     console.log('Dataset items retrieved successfully:', datasetItems.length, 'items')
-    console.log('Sample data:', JSON.stringify(datasetItems.slice(0, 2), null, 2))
 
-    // TODO: Process the dataset items here
-    // You can add logic to store the data in your database or process it as needed
+    // Filter and process the data
+    let processedCount = 0
+    let filteredOutCount = 0
+
+    for (const item of datasetItems) {
+      try {
+        // Filter 1: Only keep authorType = "Person"
+        if (item.authorType !== 'Person') {
+          filteredOutCount++
+          continue
+        }
+
+        // Check for required fields
+        if (!item.authorProfileUrl || !item.urn || !item.text) {
+          console.log('Skipping item missing required fields:', item.urn || 'unknown')
+          filteredOutCount++
+          continue
+        }
+
+        // Check if this post already exists (deduplication by authorProfileUrl)
+        const { data: existingPost } = await supabaseClient
+          .from('linkedin_posts')
+          .select('id')
+          .eq('urn', item.urn)
+          .single()
+
+        if (existingPost) {
+          console.log('Post already exists, skipping:', item.urn)
+          continue
+        }
+
+        // Prepare the data for insertion
+        const postData = {
+          apify_dataset_id: datasetId,
+          urn: item.urn,
+          text: item.text,
+          title: item.title || null,
+          url: item.url,
+          posted_at_timestamp: item.postedAtTimestamp || null,
+          posted_at_iso: item.postedAt || null,
+          author_type: item.authorType,
+          author_profile_url: item.authorProfileUrl,
+          author_profile_id: item.authorProfileId || null,
+          author_name: item.authorName || null,
+          author_headline: item.authorHeadline || null,
+          processing_status: 'pending',
+          raw_data: item
+        }
+
+        // Insert into database
+        const { data: insertedPost, error: insertError } = await supabaseClient
+          .from('linkedin_posts')
+          .insert(postData)
+          .select('id')
+          .single()
+
+        if (insertError) {
+          console.error('Error inserting post:', insertError)
+          continue
+        }
+
+        console.log('Post inserted successfully:', insertedPost.id)
+        processedCount++
+
+        // Trigger OpenAI processing (async)
+        try {
+          await supabaseClient.functions.invoke('process-linkedin-post', {
+            body: { postId: insertedPost.id }
+          })
+        } catch (processingError) {
+          console.error('Error triggering post processing:', processingError)
+        }
+
+      } catch (error) {
+        console.error('Error processing item:', error)
+        filteredOutCount++
+      }
+    }
+
+    console.log(`Processing complete: ${processedCount} inserted, ${filteredOutCount} filtered out`)
 
     return new Response(JSON.stringify({ 
       success: true, 
-      itemsCount: datasetItems.length,
+      totalItems: datasetItems.length,
+      processedCount,
+      filteredOutCount,
       datasetId: datasetId
     }), { 
       status: 200,

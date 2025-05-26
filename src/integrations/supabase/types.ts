@@ -57,6 +57,102 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_posts: {
+        Row: {
+          apify_dataset_id: string
+          author_headline: string | null
+          author_name: string | null
+          author_profile_id: string | null
+          author_profile_url: string
+          author_type: string
+          created_at: string | null
+          id: string
+          openai_step1_postes: string | null
+          openai_step1_recrute_poste: string | null
+          openai_step1_response: Json | null
+          openai_step2_langue: string | null
+          openai_step2_localisation: string | null
+          openai_step2_raison: string | null
+          openai_step2_reponse: string | null
+          openai_step2_response: Json | null
+          openai_step3_categorie: string | null
+          openai_step3_justification: string | null
+          openai_step3_postes_selectionnes: string[] | null
+          openai_step3_response: Json | null
+          posted_at_iso: string | null
+          posted_at_timestamp: number | null
+          processing_status: string | null
+          raw_data: Json
+          text: string
+          title: string | null
+          updated_at: string | null
+          url: string
+          urn: string
+        }
+        Insert: {
+          apify_dataset_id: string
+          author_headline?: string | null
+          author_name?: string | null
+          author_profile_id?: string | null
+          author_profile_url: string
+          author_type: string
+          created_at?: string | null
+          id?: string
+          openai_step1_postes?: string | null
+          openai_step1_recrute_poste?: string | null
+          openai_step1_response?: Json | null
+          openai_step2_langue?: string | null
+          openai_step2_localisation?: string | null
+          openai_step2_raison?: string | null
+          openai_step2_reponse?: string | null
+          openai_step2_response?: Json | null
+          openai_step3_categorie?: string | null
+          openai_step3_justification?: string | null
+          openai_step3_postes_selectionnes?: string[] | null
+          openai_step3_response?: Json | null
+          posted_at_iso?: string | null
+          posted_at_timestamp?: number | null
+          processing_status?: string | null
+          raw_data: Json
+          text: string
+          title?: string | null
+          updated_at?: string | null
+          url: string
+          urn: string
+        }
+        Update: {
+          apify_dataset_id?: string
+          author_headline?: string | null
+          author_name?: string | null
+          author_profile_id?: string | null
+          author_profile_url?: string
+          author_type?: string
+          created_at?: string | null
+          id?: string
+          openai_step1_postes?: string | null
+          openai_step1_recrute_poste?: string | null
+          openai_step1_response?: Json | null
+          openai_step2_langue?: string | null
+          openai_step2_localisation?: string | null
+          openai_step2_raison?: string | null
+          openai_step2_reponse?: string | null
+          openai_step2_response?: Json | null
+          openai_step3_categorie?: string | null
+          openai_step3_justification?: string | null
+          openai_step3_postes_selectionnes?: string[] | null
+          openai_step3_response?: Json | null
+          posted_at_iso?: string | null
+          posted_at_timestamp?: number | null
+          processing_status?: string | null
+          raw_data?: Json
+          text?: string
+          title?: string | null
+          updated_at?: string | null
+          url?: string
+          urn?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
