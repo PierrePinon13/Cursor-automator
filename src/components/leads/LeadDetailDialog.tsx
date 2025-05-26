@@ -192,7 +192,7 @@ const LeadDetailDialog = ({
           {/* Section gauche - Insights du lead */}
           <div className="w-1/3 border-r border-gray-200 bg-gray-50/30 h-full overflow-hidden">
             <div className="p-6 h-full">
-              <LeadInfo lead={lead} />
+              <LeadInfo lead={currentLeads[selectedLeadIndex]} />
             </div>
           </div>
 
@@ -200,7 +200,7 @@ const LeadDetailDialog = ({
           <div className="w-1/3 border-r border-gray-200 bg-white h-full overflow-hidden">
             <div className="p-6 h-full">
               <LeadMessageEditor
-                lead={lead}
+                lead={currentLeads[selectedLeadIndex]}
                 message={customMessage}
                 onMessageChange={setCustomMessage}
                 disabled={messageSending}
@@ -212,7 +212,7 @@ const LeadDetailDialog = ({
           <div className="w-1/3 bg-white h-full overflow-hidden">
             <div className="p-6 h-full">
               <LeadActions
-                lead={lead}
+                lead={currentLeads[selectedLeadIndex]}
                 onSendLinkedInMessage={handleSendLinkedInMessage}
                 onAction={handleAction}
                 messageSending={messageSending}
