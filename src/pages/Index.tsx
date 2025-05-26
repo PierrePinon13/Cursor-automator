@@ -60,8 +60,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full p-6">
-        <div className="mb-6">
+      <div className="w-full">
+        <div className="p-6 pb-0">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Leads LinkedIn
           </h1>
@@ -70,7 +70,7 @@ const Index = () => {
           </p>
         </div>
 
-        <Card className="w-full">
+        <Card className="w-full m-6 mt-4">
           <CardHeader className="pb-4">
             <LeadsFilters
               selectedCategories={selectedCategories}
@@ -81,7 +81,7 @@ const Index = () => {
               onDateFilterChange={setSelectedDateFilter}
             />
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 h-[calc(100vh-280px)]">
             {dateFilteredLeads.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Filter className="h-12 w-12 mx-auto mb-4 opacity-50" />

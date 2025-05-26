@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
@@ -61,22 +60,24 @@ const Leads = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center mb-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex items-center mb-6 px-6 pt-6">
         <SidebarTrigger />
       </div>
       
       <div className="space-y-6">
-        <LeadsFilters
-          selectedCategories={selectedCategories}
-          onCategoriesChange={setSelectedCategories}
-          visibleColumns={visibleColumns}
-          onColumnsChange={setVisibleColumns}
-          selectedDateFilter={selectedDateFilter}
-          onDateFilterChange={setSelectedDateFilter}
-        />
+        <div className="px-6">
+          <LeadsFilters
+            selectedCategories={selectedCategories}
+            onCategoriesChange={setSelectedCategories}
+            visibleColumns={visibleColumns}
+            onColumnsChange={setVisibleColumns}
+            selectedDateFilter={selectedDateFilter}
+            onDateFilterChange={setSelectedDateFilter}
+          />
+        </div>
         
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white shadow h-[calc(100vh-200px)]">
           <DraggableTable 
             leads={dateFilteredLeads} 
             visibleColumns={visibleColumns}
