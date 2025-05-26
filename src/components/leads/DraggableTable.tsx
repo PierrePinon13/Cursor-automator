@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -61,10 +59,10 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       minWidth: '220px',
       render: (lead) => (
         <div 
-          className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative"
+          className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative w-full h-full flex items-center"
           onClick={() => window.open(lead.url, '_blank')}
         >
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-2 w-full">
             <div className="flex-1">
               {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
                 <div key={index} className="text-green-600 text-xs group-hover:text-green-700">
@@ -84,10 +82,10 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       width: '110px',
       render: (lead) => (
         <div 
-          className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative"
+          className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative w-full h-full flex items-center"
           onClick={() => window.open(lead.author_profile_url, '_blank')}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 w-full">
             <span className="font-medium text-xs group-hover:text-blue-700 transition-colors">
               {lead.author_name || 'N/A'}
             </span>
@@ -157,13 +155,13 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     .filter(Boolean);
 
   return (
-    <div className="w-full overflow-auto">
+    <div className="w-full">
       <DragDropContext onDragEnd={handleOnDragEnd}>
-        <table className="w-full border-collapse bg-white" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full border-collapse bg-white border-separate border-spacing-0">
           <Droppable droppableId="columns" direction="horizontal">
             {(provided) => (
               <thead ref={provided.innerRef} {...provided.droppableProps}>
-                <tr className="border-b">
+                <tr>
                   {displayedColumns.map((column, index) => (
                     <Draggable key={column.id} draggableId={column.id} index={index}>
                       {(provided, snapshot) => (
@@ -171,7 +169,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap ${
+                          className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap border-l border-r border-b border-gray-200 ${
                             snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
                           }`}
                           style={{
@@ -195,14 +193,14 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
             {leads.map((lead, rowIndex) => (
               <tr
                 key={lead.id}
-                className={`border-b hover:bg-gray-50 ${
+                className={`hover:bg-gray-50 ${
                   rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
                 }`}
               >
                 {displayedColumns.map((column) => (
                   <td
                     key={column.id}
-                    className="p-2 text-xs"
+                    className="p-2 text-xs border-l border-r border-b border-gray-200"
                     style={{ 
                       width: column.width,
                       minWidth: column.minWidth || column.width,
@@ -222,4 +220,3 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
 };
 
 export default DraggableTable;
-
