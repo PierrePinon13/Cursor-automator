@@ -30,48 +30,25 @@ serve(async (req) => {
       return new Response('Missing account_id', { status: 400 })
     }
 
-    // Essayer de trouver la connexion en attente pour cet utilisateur
-    // On utilise le nom (email) pour identifier l'utilisateur
-    let connectionData = null
+    // Trouver la connexion en attente la plus récente
+    const { data: connections, error: searchError } = await supabaseClient
+      .from('linkedin_connections')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
 
-    if (name) {
-      // Trouver l'utilisateur par email dans les métadonnées ou le nom
-      const { data: connections, error: searchError } = await supabaseClient
-        .from('linkedin_connections')
-        .select('*, profiles!inner(email)')
-        .eq('status', 'pending')
-        .eq('profiles.email', name)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (!searchError && connections && connections.length > 0) {
-        connectionData = connections[0]
-      }
-    }
-
-    // Si on n'a pas trouvé par email, essayer de trouver la connexion la plus récente en attente
-    if (!connectionData) {
-      const { data: recentConnections, error: recentError } = await supabaseClient
-        .from('linkedin_connections')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (!recentError && recentConnections && recentConnections.length > 0) {
-        connectionData = recentConnections[0]
-      }
-    }
-
-    if (!connectionData) {
-      console.log('No pending connection found for account_id:', account_id, 'and name:', name)
+    if (searchError || !connections || connections.length === 0) {
+      console.log('No pending connection found for account_id:', account_id)
       return new Response('No matching pending connection found', { status: 404 })
     }
 
+    const connectionData = connections[0]
+
     // Update connection status based on webhook
     let updateData: any = {
-      account_id: account_id, // Stocker l'account_id reçu de Unipile
-      unipile_account_id: account_id, // Mettre à jour avec le vrai ID
+      account_id: account_id, // Mettre à jour avec le vrai account_id d'Unipile
+      unipile_account_id: account_id, // Garder une copie dans unipile_account_id aussi
       last_update: new Date().toISOString()
     }
 
