@@ -81,13 +81,15 @@ Deno.serve(async (req) => {
     const datagmaData = await datagmaResponse.json();
     console.log('Datagma response:', datagmaData);
 
-    // Extraire le numéro de téléphone des résultats
+    // Extraire le numéro de téléphone des résultats - correction ici
     let phoneNumber = null;
-    if (datagmaData && datagmaData.data && Array.isArray(datagmaData.data) && datagmaData.data.length > 0) {
-      // Chercher un numéro de téléphone dans les résultats
-      const firstResult = datagmaData.data[0];
-      phoneNumber = firstResult.phone || firstResult.phoneNumber || firstResult.mobile || null;
+    if (datagmaData && datagmaData.person && datagmaData.person.phones && Array.isArray(datagmaData.person.phones) && datagmaData.person.phones.length > 0) {
+      // Prendre le premier numéro trouvé, de préférence au format international
+      const firstPhone = datagmaData.person.phones[0];
+      phoneNumber = firstPhone.displayInternational || firstPhone.display || firstPhone.number;
     }
+
+    console.log('Extracted phone number:', phoneNumber);
 
     // Mettre à jour le lead avec le numéro de téléphone (même si null)
     const { error: updateError } = await supabase
