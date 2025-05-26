@@ -178,6 +178,7 @@ export type Database = {
           text: string
           title: string | null
           unipile_company: string | null
+          unipile_company_linkedin_id: string | null
           unipile_position: string | null
           unipile_profile_scraped: boolean | null
           unipile_profile_scraped_at: string | null
@@ -216,6 +217,7 @@ export type Database = {
           text: string
           title?: string | null
           unipile_company?: string | null
+          unipile_company_linkedin_id?: string | null
           unipile_position?: string | null
           unipile_profile_scraped?: boolean | null
           unipile_profile_scraped_at?: string | null
@@ -254,6 +256,7 @@ export type Database = {
           text?: string
           title?: string | null
           unipile_company?: string | null
+          unipile_company_linkedin_id?: string | null
           unipile_position?: string | null
           unipile_profile_scraped?: boolean | null
           unipile_profile_scraped_at?: string | null

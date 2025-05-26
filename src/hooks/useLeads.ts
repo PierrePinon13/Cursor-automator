@@ -18,6 +18,7 @@ interface Lead {
   openai_step3_justification: string;
   unipile_company: string;
   unipile_position: string;
+  unipile_company_linkedin_id: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
   phone_number?: string | null;
@@ -72,6 +73,7 @@ export const useLeads = () => {
           openai_step3_justification,
           unipile_company,
           unipile_position,
+          unipile_company_linkedin_id,
           unipile_profile_scraped,
           unipile_profile_scraped_at,
           phone_number,

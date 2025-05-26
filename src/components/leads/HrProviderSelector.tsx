@@ -13,6 +13,7 @@ interface Lead {
   author_name: string;
   unipile_response?: any;
   unipile_company?: string;
+  unipile_company_linkedin_id?: string; // Use the new direct field
   author_profile_url?: string;
 }
 
@@ -38,19 +39,19 @@ export function HrProviderSelector({
   });
   const [loading, setLoading] = useState(false);
 
-  // Extract work experiences from Unipile data
+  // Extract work experiences from Unipile data as fallback
   const workExperiences = extractWorkExperiences(lead.unipile_response);
   const currentExperience = workExperiences.find(exp => exp.isCurrent) || workExperiences[0];
   
-  // Get current company info
-  const currentCompanyName = currentExperience?.company || lead.unipile_company || '';
+  // Get current company info - prioritize direct field over extracted data
+  const currentCompanyName = lead.unipile_company || currentExperience?.company || '';
   
-  // Extract LinkedIn ID from unipile_response - corrected to use company_id
-  const getCompanyLinkedInId = () => {
-    console.log('Extracting company LinkedIn ID from:', lead.unipile_response);
+  // Use the new direct field for LinkedIn ID, fallback to extraction from unipile_response
+  const currentCompanyLinkedInId = lead.unipile_company_linkedin_id || (() => {
+    console.log('Using fallback LinkedIn ID extraction from unipile_response');
     
     if (lead.unipile_response) {
-      // Check work_experience structure first (as in your example)
+      // Check work_experience structure first
       if (lead.unipile_response.work_experience) {
         const currentExp = lead.unipile_response.work_experience.find((exp: any) => 
           !exp.end || exp.end === null || exp.end === ''
@@ -65,21 +66,18 @@ export function HrProviderSelector({
           !exp.end || exp.end === null || exp.end === ''
         );
         console.log('Found current experience in linkedin_profile.experience:', currentExp);
-        // Try both company_id and company_linkedin_id for backward compatibility
-        return currentExp?.company_id || currentExp?.company_linkedin_id || null;
+        return currentExp?.company_id || null;
       }
     }
     
-    console.log('No company LinkedIn ID found');
     return null;
-  };
-
-  const currentCompanyLinkedInId = getCompanyLinkedInId();
+  })();
 
   console.log('Current company data:', {
     name: currentCompanyName,
     linkedinId: currentCompanyLinkedInId,
-    unipileResponse: lead.unipile_response
+    directField: lead.unipile_company_linkedin_id,
+    fromResponse: !!lead.unipile_response
   });
 
   const handleCreateFromCurrentCompany = async () => {

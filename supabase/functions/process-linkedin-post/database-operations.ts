@@ -74,6 +74,7 @@ export async function updateUnipileResults(
   const updateData: any = {
     unipile_company: scrapingResult.company,
     unipile_position: scrapingResult.position,
+    unipile_company_linkedin_id: scrapingResult.company_id, // Save the company LinkedIn ID
     unipile_profile_scraped: scrapingResult.success,
     unipile_profile_scraped_at: new Date().toISOString()
   };
@@ -81,6 +82,8 @@ export async function updateUnipileResults(
   if (unipileData) {
     updateData.unipile_response = unipileData;
   }
+
+  console.log('Updating Unipile results with data:', updateData);
 
   await supabaseClient
     .from('linkedin_posts')
