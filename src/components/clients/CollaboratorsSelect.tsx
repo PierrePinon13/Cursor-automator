@@ -19,8 +19,18 @@ interface CollaboratorsSelectProps {
   onSelectionChange: (userIds: string[]) => void;
 }
 
-export function CollaboratorsSelect({ users, selectedUsers, onSelectionChange }: CollaboratorsSelectProps) {
+export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectionChange }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
+
+  // Ensure arrays are valid before processing
+  if (!Array.isArray(users) || !Array.isArray(selectedUsers)) {
+    console.warn('CollaboratorsSelect: Invalid props received', { users, selectedUsers });
+    return (
+      <div className="text-sm text-gray-500">
+        Chargement des collaborateurs...
+      </div>
+    );
+  }
 
   const selectedUsersData = users.filter(user => selectedUsers.includes(user.id));
 

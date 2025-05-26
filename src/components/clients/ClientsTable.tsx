@@ -30,7 +30,7 @@ interface ClientsTableProps {
   onEdit: (client: Client) => void;
 }
 
-export function ClientsTable({ clients, users, onEdit }: ClientsTableProps) {
+export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
   const { deleteClient, updateCollaborators } = useClients();
 
   const handleDelete = async (id: string) => {
@@ -55,65 +55,69 @@ export function ClientsTable({ clients, users, onEdit }: ClientsTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {clients.map((client) => (
-          <TableRow key={client.id}>
-            <TableCell className="font-medium">
-              {client.company_name}
-            </TableCell>
-            <TableCell>
-              {client.company_linkedin_url ? (
+        {clients.map((client) => {
+          const collaboratorIds = client.collaborators?.map(c => c.id) || [];
+          
+          return (
+            <TableRow key={client.id}>
+              <TableCell className="font-medium">
+                {client.company_name}
+              </TableCell>
+              <TableCell>
+                {client.company_linkedin_url ? (
+                  <div className="flex items-center gap-2">
+                    <span className="truncate max-w-[200px]">
+                      {client.company_linkedin_url}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(client.company_linkedin_url!, '_blank')}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {client.company_linkedin_id ? (
+                  <Badge variant="secondary">
+                    {client.company_linkedin_id}
+                  </Badge>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <CollaboratorsSelect
+                  users={users}
+                  selectedUsers={collaboratorIds}
+                  onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
+                />
+              </TableCell>
+              <TableCell>
                 <div className="flex items-center gap-2">
-                  <span className="truncate max-w-[200px]">
-                    {client.company_linkedin_url}
-                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.open(client.company_linkedin_url!, '_blank')}
+                    onClick={() => onEdit(client)}
                   >
-                    <ExternalLink className="h-3 w-3" />
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(client.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              ) : (
-                <span className="text-gray-400">-</span>
-              )}
-            </TableCell>
-            <TableCell>
-              {client.company_linkedin_id ? (
-                <Badge variant="secondary">
-                  {client.company_linkedin_id}
-                </Badge>
-              ) : (
-                <span className="text-gray-400">-</span>
-              )}
-            </TableCell>
-            <TableCell>
-              <CollaboratorsSelect
-                users={users}
-                selectedUsers={client.collaborators?.map(c => c.id) || []}
-                onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
-              />
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(client)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(client.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+            </TableRow>
+          );
+        })}
         {clients.length === 0 && (
           <TableRow>
             <TableCell colSpan={5} className="text-center py-8 text-gray-500">
