@@ -45,7 +45,7 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
           Publication LinkedIn
         </h4>
         <div className="flex flex-col flex-1 min-h-0 space-y-3">
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 flex-1 min-h-0">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 flex-1 min-h-0 max-h-[300px]">
             <ScrollArea className="h-full w-full">
               <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed pr-4">
                 {lead.text}
