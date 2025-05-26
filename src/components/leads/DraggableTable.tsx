@@ -173,7 +173,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
   return (
     <div className="w-full -ml-6">
       <DragDropContext onDragEnd={handleOnDragEnd}>
-        <table className="w-full border-collapse bg-white border-separate border-spacing-0">
+        <table className="w-full border-collapse bg-white">
           <Droppable droppableId="columns" direction="horizontal">
             {(provided) => (
               <thead ref={provided.innerRef} {...provided.droppableProps}>
@@ -185,8 +185,8 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap border-r border-b border-gray-200 ${
-                            index === 0 ? '' : 'border-l'
+                          className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap border-b border-gray-200 ${
+                            index < displayedColumns.length - 1 ? 'border-r border-gray-200' : ''
                           } ${
                             snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
                           }`}
@@ -215,11 +215,11 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                   rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
                 }`}
               >
-                {displayedColumns.map((column, index) => (
+                {displayedColumns.map((column, colIndex) => (
                   <td
                     key={column.id}
-                    className={`p-2 text-xs border-r border-b border-gray-200 ${
-                      index === 0 ? '' : 'border-l'
+                    className={`p-2 text-xs border-b border-gray-200 ${
+                      colIndex < displayedColumns.length - 1 ? 'border-r border-gray-200' : ''
                     }`}
                     style={{ 
                       width: column.width,
