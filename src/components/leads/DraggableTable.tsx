@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -35,7 +36,13 @@ interface DraggableTableProps {
 const getTimeAgo = (dateString: string) => {
   const now = new Date();
   const date = new Date(dateString);
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  // Convert to Paris timezone (UTC+1 in winter, UTC+2 in summer)
+  const parisOffset = 1; // Simplified to UTC+1, you might want to handle DST properly
+  const parisNow = new Date(now.getTime() + (parisOffset * 60 * 60 * 1000));
+  const parisDate = new Date(date.getTime() + (parisOffset * 60 * 60 * 1000));
+  
+  const diffInSeconds = Math.floor((parisNow.getTime() - parisDate.getTime()) / 1000);
   
   if (diffInSeconds < 60) {
     return 'À l\'instant';
@@ -82,10 +89,13 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     },
     {
       id: 'author_name',
-      label: 'Prénom et Nom',
-      width: '150px',
+      label: 'Auteur',
+      width: '180px',
       render: (lead) => (
-        <span className="font-medium text-sm">{lead.author_name || 'N/A'}</span>
+        <div className="space-y-1">
+          <div className="font-medium text-sm">{lead.author_name || 'N/A'}</div>
+          <div className="text-xs text-gray-500 truncate">{lead.author_headline || 'N/A'}</div>
+        </div>
       )
     },
     {

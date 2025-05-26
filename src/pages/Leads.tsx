@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
@@ -19,7 +18,7 @@ const Leads = () => {
     'location'
   ]);
 
-  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('7d');
 
   const filterByDate = (leads: any[]) => {
     if (selectedDateFilter === 'all') return leads;
