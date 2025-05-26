@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -170,7 +171,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     .filter(Boolean);
 
   return (
-    <div className="w-full">
+    <div className="w-full -ml-6">
       <DragDropContext onDragEnd={handleOnDragEnd}>
         <table className="w-full border-collapse bg-white border-separate border-spacing-0">
           <Droppable droppableId="columns" direction="horizontal">
@@ -184,7 +185,9 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap border-l border-r border-b border-gray-200 ${
+                          className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap border-r border-b border-gray-200 ${
+                            index === 0 ? '' : 'border-l'
+                          } ${
                             snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
                           }`}
                           style={{
@@ -212,10 +215,12 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                   rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
                 }`}
               >
-                {displayedColumns.map((column) => (
+                {displayedColumns.map((column, index) => (
                   <td
                     key={column.id}
-                    className="p-2 text-xs border-l border-r border-b border-gray-200"
+                    className={`p-2 text-xs border-r border-b border-gray-200 ${
+                      index === 0 ? '' : 'border-l'
+                    }`}
                     style={{ 
                       width: column.width,
                       minWidth: column.minWidth || column.width,
