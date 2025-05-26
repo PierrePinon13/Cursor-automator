@@ -32,14 +32,6 @@ const CategoryFilter = ({
     }
   };
 
-  const handleSelectAll = () => {
-    onCategoriesChange(availableCategories);
-  };
-
-  const handleClearAll = () => {
-    onCategoriesChange([]);
-  };
-
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {availableCategories.map((category) => {
@@ -62,25 +54,6 @@ const CategoryFilter = ({
           </Button>
         );
       })}
-      
-      <div className="flex gap-1 ml-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSelectAll}
-          className="h-6 text-xs text-blue-600 hover:text-blue-800"
-        >
-          Tout sélectionner
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleClearAll}
-          className="h-6 text-xs text-gray-600 hover:text-gray-800"
-        >
-          Tout effacer
-        </Button>
-      </div>
     </div>
   );
 };
