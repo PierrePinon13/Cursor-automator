@@ -1,0 +1,73 @@
+
+import React, { useState, useEffect } from 'react';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+
+interface Lead {
+  author_name: string;
+  openai_step3_postes_selectionnes: string[];
+  openai_step3_categorie: string;
+}
+
+interface LeadMessageEditorProps {
+  lead: Lead;
+  message: string;
+  onMessageChange: (message: string) => void;
+  disabled?: boolean;
+}
+
+const LeadMessageEditor = ({ lead, message, onMessageChange, disabled }: LeadMessageEditorProps) => {
+  const generateDefaultMessage = () => {
+    return `Bonjour ${lead.author_name?.split(' ')[0] || 'Cher(e) professionnel(le)'},
+
+J'ai remarqué votre récente publication concernant la recherche de ${lead.openai_step3_postes_selectionnes?.[0] || 'profils qualifiés'}. 
+
+En tant que spécialiste du recrutement dans le secteur ${lead.openai_step3_categorie}, je dispose d'un réseau de candidats expérimentés qui pourraient parfaitement correspondre à vos besoins.
+
+Seriez-vous disponible pour un échange téléphonique de 15 minutes cette semaine pour discuter de vos enjeux de recrutement ?
+
+Bien cordialement,
+[Votre nom]`;
+  };
+
+  const handleReset = () => {
+    onMessageChange(generateDefaultMessage());
+  };
+
+  // Initialize message only once when component mounts
+  useEffect(() => {
+    if (!message) {
+      onMessageChange(generateDefaultMessage());
+    }
+  }, []); // Empty dependency array to run only once
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium text-gray-800">Message LinkedIn</h4>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          disabled={disabled}
+        >
+          Réinitialiser
+        </Button>
+      </div>
+      <div className="space-y-2">
+        <Textarea
+          value={message}
+          onChange={(e) => onMessageChange(e.target.value)}
+          placeholder="Rédigez votre message LinkedIn..."
+          className="min-h-[380px] resize-none text-sm"
+          disabled={disabled}
+        />
+        <div className="text-xs text-gray-500">
+          Ce message sera envoyé via LinkedIn. Vous pouvez le personnaliser avant l'envoi.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LeadMessageEditor;
