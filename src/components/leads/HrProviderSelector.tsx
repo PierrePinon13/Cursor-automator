@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useHrProviders } from '@/hooks/useHrProviders';
-import { getLastThreeCompanies } from '@/utils/unipileDataExtractor';
+import { extractWorkExperiences } from '@/utils/unipileDataExtractor';
 import { Building2, Plus } from 'lucide-react';
 
 interface Lead {
@@ -32,14 +32,17 @@ export function HrProviderSelector({
   const [newProviderName, setNewProviderName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Extract company names from Unipile data
-  const recentCompanies = getLastThreeCompanies(lead.unipile_response);
+  // Extract work experiences from Unipile data
+  const workExperiences = extractWorkExperiences(lead.unipile_response);
+  const lastExperience = workExperiences.length > 0 ? workExperiences[0] : null;
 
-  const handleCreateFromCompany = async (companyName: string) => {
+  const handleCreateFromLastExperience = async () => {
+    if (!lastExperience?.company) return;
+    
     setLoading(true);
     try {
       const newProvider = await createHrProvider({
-        company_name: companyName,
+        company_name: lastExperience.company,
         company_linkedin_url: null,
         company_linkedin_id: null
       });
@@ -93,34 +96,38 @@ export function HrProviderSelector({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Recent companies from Unipile */}
-          {recentCompanies.length > 0 && (
+          {/* Last work experience from Unipile */}
+          {lastExperience && (
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-gray-700">
-                Entreprises récentes (données Unipile)
+                Dernière expérience professionnelle (Unipile)
               </h3>
-              <div className="grid gap-2">
-                {recentCompanies.map((company, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                  >
+              <div className="p-3 border rounded-lg bg-blue-50 border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {index === 0 ? 'Actuel' : `Précédent ${index}`}
+                      <Badge variant="outline" className="text-xs bg-blue-100">
+                        {lastExperience.isCurrent ? 'Poste actuel' : 'Poste précédent'}
                       </Badge>
-                      <span className="font-medium">{company}</span>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleCreateFromCompany(company)}
-                      disabled={loading}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Créer
-                    </Button>
+                    <div className="font-medium text-gray-900">{lastExperience.company}</div>
+                    <div className="text-sm text-gray-600">{lastExperience.position}</div>
+                    {lastExperience.start && (
+                      <div className="text-xs text-gray-500">
+                        {lastExperience.start} - {lastExperience.end || 'Présent'}
+                      </div>
+                    )}
                   </div>
-                ))}
+                  <Button
+                    size="sm"
+                    onClick={handleCreateFromLastExperience}
+                    disabled={loading}
+                    className="ml-4"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Créer prestataire
+                  </Button>
+                </div>
               </div>
             </div>
           )}
