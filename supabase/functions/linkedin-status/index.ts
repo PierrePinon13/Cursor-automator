@@ -47,6 +47,48 @@ serve(async (req) => {
       )
     }
 
+    // Check if account_id is still pending
+    if (account_id === 'pending') {
+      console.log('Account is still pending, cannot check status with Unipile')
+      
+      // Update the connection status to reflect that it's still pending
+      const { data, error } = await supabaseClient
+        .from('linkedin_connections')
+        .update({
+          status: 'pending',
+          connection_status: 'pending',
+          error_message: 'Connexion en cours, veuillez patienter...',
+          last_update: new Date().toISOString(),
+        })
+        .eq('account_id', account_id)
+        .eq('user_id', user.id)
+        .select()
+
+      if (error) {
+        console.error('Error updating LinkedIn connection:', error)
+        return new Response(
+          JSON.stringify({ error: 'Database error' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          status: 'pending',
+          connection_status: 'pending',
+          error_message: 'Connexion en cours, veuillez patienter...',
+          account_data: {
+            original_status: 'pending'
+          }
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     const unipileApiKey = Deno.env.get('UNIPILE_API_KEY')
     if (!unipileApiKey) {
       return new Response(
@@ -69,6 +111,47 @@ serve(async (req) => {
     if (!unipileResponse.ok) {
       const errorText = await unipileResponse.text()
       console.error('Unipile API error:', errorText)
+      
+      // Handle specific error cases
+      if (unipileResponse.status === 404) {
+        // Account not found, mark as disconnected
+        const { data, error } = await supabaseClient
+          .from('linkedin_connections')
+          .update({
+            status: 'disconnected',
+            connection_status: 'disconnected',
+            error_message: 'Compte LinkedIn introuvable ou supprimé',
+            last_update: new Date().toISOString(),
+          })
+          .eq('account_id', account_id)
+          .eq('user_id', user.id)
+          .select()
+
+        if (error) {
+          console.error('Error updating LinkedIn connection:', error)
+          return new Response(
+            JSON.stringify({ error: 'Database error' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            status: 'disconnected',
+            connection_status: 'disconnected',
+            error_message: 'Compte LinkedIn introuvable ou supprimé',
+            account_data: {
+              original_status: 'not_found'
+            }
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Failed to check account status', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

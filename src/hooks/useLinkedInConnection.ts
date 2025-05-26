@@ -182,6 +182,7 @@ export function useLinkedInConnection() {
         // Provide specific feedback based on status
         const statusMessages = {
           'connected': 'Compte LinkedIn connecté et fonctionnel',
+          'pending': 'Connexion en cours, veuillez patienter...',
           'credentials_required': 'Identifiants LinkedIn à renouveler',
           'validation_required': 'Validation requise dans l\'application LinkedIn',
           'checkpoint_required': 'Action requise (vérification 2FA)',
@@ -195,7 +196,7 @@ export function useLinkedInConnection() {
         toast({
           title: "Statut vérifié",
           description: message,
-          variant: data.status === 'connected' ? 'default' : 'destructive',
+          variant: data.status === 'connected' ? 'default' : (data.status === 'pending' ? 'default' : 'destructive'),
         });
       } else {
         throw new Error('Réponse invalide du serveur');
