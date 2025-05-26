@@ -1,0 +1,106 @@
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { OpenAIStep1Result, OpenAIStep2Result, OpenAIStep3Result } from './openai-steps.ts';
+import { UnipileScrapingResult } from './unipile-scraper.ts';
+
+export async function updateProcessingStatus(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  status: string
+) {
+  await supabaseClient
+    .from('linkedin_posts')
+    .update({ processing_status: status })
+    .eq('id', postId);
+}
+
+export async function updateStep1Results(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  result: OpenAIStep1Result,
+  data: any
+) {
+  await supabaseClient
+    .from('linkedin_posts')
+    .update({
+      openai_step1_recrute_poste: result.recrute_poste,
+      openai_step1_postes: result.postes,
+      openai_step1_response: data
+    })
+    .eq('id', postId);
+}
+
+export async function updateStep2Results(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  result: OpenAIStep2Result,
+  data: any
+) {
+  await supabaseClient
+    .from('linkedin_posts')
+    .update({
+      openai_step2_reponse: result.reponse,
+      openai_step2_langue: result.langue,
+      openai_step2_localisation: result.localisation_detectee,
+      openai_step2_raison: result.raison,
+      openai_step2_response: data
+    })
+    .eq('id', postId);
+}
+
+export async function updateStep3Results(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  result: OpenAIStep3Result,
+  data: any
+) {
+  await supabaseClient
+    .from('linkedin_posts')
+    .update({
+      openai_step3_categorie: result.categorie,
+      openai_step3_postes_selectionnes: result.postes_selectionnes,
+      openai_step3_justification: result.justification,
+      openai_step3_response: data
+    })
+    .eq('id', postId);
+}
+
+export async function updateUnipileResults(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  scrapingResult: UnipileScrapingResult,
+  unipileData?: any
+) {
+  const updateData: any = {
+    unipile_company: scrapingResult.company,
+    unipile_position: scrapingResult.position,
+    unipile_profile_scraped: scrapingResult.success,
+    unipile_profile_scraped_at: new Date().toISOString()
+  };
+
+  if (unipileData) {
+    updateData.unipile_response = unipileData;
+  }
+
+  await supabaseClient
+    .from('linkedin_posts')
+    .update(updateData)
+    .eq('id', postId);
+}
+
+export async function fetchPost(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string
+) {
+  const { data: post, error: fetchError } = await supabaseClient
+    .from('linkedin_posts')
+    .select('*')
+    .eq('id', postId)
+    .single();
+
+  if (fetchError || !post) {
+    throw new Error('Post not found');
+  }
+
+  return post;
+}
