@@ -23,13 +23,26 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
+  phone_number?: string | null;
+  phone_retrieved_at?: string | null;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
+  is_client_lead?: boolean | null;
+  matched_client_name?: string | null;
+  matched_client_id?: string | null;
+  last_contact_at?: string | null;
+  linkedin_message_sent_at?: string | null;
+  phone_contact_status?: string | null;
+  phone_contact_at?: string | null;
 }
 
 interface CardViewProps {
   leads: Lead[];
+  onActionCompleted: () => void;
 }
 
-const CardView = ({ leads }: CardViewProps) => {
+const CardView = ({ leads, onActionCompleted }: CardViewProps) => {
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -52,6 +65,9 @@ const CardView = ({ leads }: CardViewProps) => {
   };
 
   const handleActionCompleted = () => {
+    // Appeler la fonction de callback pour rafraîchir les données
+    onActionCompleted();
+    
     if (selectedLeadIndex !== null && selectedLeadIndex < leads.length - 1) {
       setSelectedLeadIndex(selectedLeadIndex + 1);
     } else {
