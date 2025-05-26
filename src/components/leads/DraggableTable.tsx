@@ -1,10 +1,8 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 interface Lead {
   id: string;
@@ -25,7 +23,7 @@ interface Lead {
 interface Column {
   id: string;
   label: string;
-  minWidth?: number;
+  width?: string;
   render: (lead: Lead) => React.ReactNode;
 }
 
@@ -37,16 +35,7 @@ interface DraggableTableProps {
 const getTimeAgo = (dateString: string) => {
   const now = new Date();
   const date = new Date(dateString);
-  
-  // Get Paris time (UTC+1 in winter, UTC+2 in summer)
-  const parisOffset = date.getTimezoneOffset() === -60 ? 2 : 1; // Simple DST check
-  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const parisTime = new Date(utcTime + (parisOffset * 3600000));
-  
-  const utcPostTime = date.getTime() + (date.getTimezoneOffset() * 60000);
-  const parisPostTime = new Date(utcPostTime + (parisOffset * 3600000));
-  
-  const diffInSeconds = Math.floor((parisTime.getTime() - parisPostTime.getTime()) / 1000);
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
   
   if (diffInSeconds < 60) {
     return 'À l\'instant';
@@ -70,7 +59,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'posted_date',
       label: 'Posted Date',
-      minWidth: 120,
+      width: '120px',
       render: (lead) => (
         <span className="text-sm">
           {getTimeAgo(lead.posted_at_iso || lead.created_at)}
@@ -80,7 +69,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'job_title',
       label: 'Titre de poste recherché',
-      minWidth: 200,
+      width: '200px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
@@ -93,19 +82,16 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     },
     {
       id: 'author_name',
-      label: 'Auteur',
-      minWidth: 140,
+      label: 'Prénom et Nom',
+      width: '150px',
       render: (lead) => (
-        <div className="space-y-1">
-          <div className="font-medium text-sm">{lead.author_name || 'N/A'}</div>
-          <div className="text-xs text-gray-500 truncate">{lead.author_headline || 'N/A'}</div>
-        </div>
+        <span className="font-medium text-sm">{lead.author_name || 'N/A'}</span>
       )
     },
     {
       id: 'company',
       label: 'Entreprise',
-      minWidth: 150,
+      width: '150px',
       render: (lead) => (
         <span className="text-sm truncate">{lead.author_headline || 'N/A'}</span>
       )
@@ -113,7 +99,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'post_url',
       label: 'URL du post',
-      minWidth: 100,
+      width: '100px',
       render: (lead) => (
         <Button
           variant="ghost"
@@ -128,7 +114,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'status',
       label: 'Statut',
-      minWidth: 100,
+      width: '100px',
       render: (lead) => (
         <Badge className="text-xs">
           {lead.openai_step3_categorie || 'En cours'}
@@ -138,7 +124,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'category',
       label: 'Catégorie',
-      minWidth: 120,
+      width: '120px',
       render: (lead) => (
         <Badge variant="secondary" className="text-xs">
           {lead.openai_step3_categorie}
@@ -148,7 +134,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'location',
       label: 'Localisation',
-      minWidth: 120,
+      width: '120px',
       render: (lead) => (
         <span className="text-sm">{lead.openai_step2_localisation || 'France'}</span>
       )
@@ -175,73 +161,60 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     .filter(Boolean);
 
   return (
-    <div className="w-full">
-      <div className="overflow-auto border border-gray-200 rounded-lg">
-        <DragDropContext onDragEnd={handleOnDragEnd}>
-          <ResizablePanelGroup direction="horizontal" className="min-w-full">
-            <table className="w-full border-collapse bg-white min-w-max">
-              <Droppable droppableId="columns" direction="horizontal">
-                {(provided) => (
-                  <thead ref={provided.innerRef} {...provided.droppableProps}>
-                    <tr className="border-b bg-gray-50">
-                      {displayedColumns.map((column, index) => (
-                        <React.Fragment key={column.id}>
-                          <Draggable draggableId={column.id} index={index}>
-                            {(provided, snapshot) => (
-                              <th
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`text-left p-3 font-medium text-sm cursor-grab select-none border-r border-gray-200 ${
-                                  snapshot.isDragging ? 'shadow-lg cursor-grabbing bg-white' : ''
-                                }`}
-                                style={{
-                                  ...provided.draggableProps.style,
-                                  minWidth: column.minWidth,
-                                  width: column.minWidth,
-                                }}
-                              >
-                                {column.label}
-                              </th>
-                            )}
-                          </Draggable>
-                          {index < displayedColumns.length - 1 && (
-                            <ResizableHandle withHandle={false} className="w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize" />
-                          )}
-                        </React.Fragment>
-                      ))}
-                      {provided.placeholder}
-                    </tr>
-                  </thead>
-                )}
-              </Droppable>
-              <tbody>
-                {leads.map((lead, rowIndex) => (
-                  <tr
-                    key={lead.id}
-                    className={`border-b hover:bg-gray-50 ${
-                      rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
-                    }`}
+    <div className="w-full overflow-auto">
+      <DragDropContext onDragEnd={handleOnDragEnd}>
+        <table className="w-full border-collapse bg-white">
+          <Droppable droppableId="columns" direction="horizontal">
+            {(provided) => (
+              <thead ref={provided.innerRef} {...provided.droppableProps}>
+                <tr className="border-b">
+                  {displayedColumns.map((column, index) => (
+                    <Draggable key={column.id} draggableId={column.id} index={index}>
+                      {(provided, snapshot) => (
+                        <th
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={`text-left p-3 font-medium text-sm bg-gray-50 cursor-grab select-none ${
+                            snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
+                          }`}
+                          style={{
+                            ...provided.draggableProps.style,
+                            width: column.width,
+                          }}
+                        >
+                          {column.label}
+                        </th>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </tr>
+              </thead>
+            )}
+          </Droppable>
+          <tbody>
+            {leads.map((lead, rowIndex) => (
+              <tr
+                key={lead.id}
+                className={`border-b hover:bg-gray-50 ${
+                  rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
+                }`}
+              >
+                {displayedColumns.map((column) => (
+                  <td
+                    key={column.id}
+                    className="p-3 text-sm"
+                    style={{ width: column.width }}
                   >
-                    {displayedColumns.map((column, index) => (
-                      <td
-                        key={column.id}
-                        className={`p-3 text-sm ${index < displayedColumns.length - 1 ? 'border-r border-gray-200' : ''}`}
-                        style={{ 
-                          minWidth: column.minWidth,
-                          width: column.minWidth 
-                        }}
-                      >
-                        {column.render(lead)}
-                      </td>
-                    ))}
-                  </tr>
+                    {column.render(lead)}
+                  </td>
                 ))}
-              </tbody>
-            </table>
-          </ResizablePanelGroup>
-        </DragDropContext>
-      </div>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DragDropContext>
     </div>
   );
 };

@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -24,7 +23,7 @@ interface LeadsFiltersProps {
 const columnOptions = [
   { value: 'posted_date', label: 'Posted Date' },
   { value: 'job_title', label: 'Titre de poste recherché' },
-  { value: 'author_name', label: 'Auteur' },
+  { value: 'author_name', label: 'Prénom et Nom' },
   { value: 'company', label: 'Entreprise' },
   { value: 'post_url', label: 'URL du post' },
   { value: 'status', label: 'Statut' },
@@ -39,16 +38,16 @@ const dateFilterOptions = [
   { value: '7d', label: 'Derniers 7 jours' },
 ];
 
-// Ordered categories as requested
+// Get available categories from useLeads hook
 const availableCategories = [
   'Tech',
-  'Data', 
   'Business',
   'Product',
   'Executive Search',
-  'RH',
   'Comptelio',
-  'Freelance'
+  'RH',
+  'Freelance',
+  'Data'
 ];
 
 const LeadsFilters = ({
@@ -59,16 +58,10 @@ const LeadsFilters = ({
   selectedDateFilter,
   onDateFilterChange
 }: LeadsFiltersProps) => {
-  const clearFilters = () => {
-    onCategoriesChange(availableCategories);
-  };
-
-  const hasActiveFilters = selectedCategories.length < availableCategories.length;
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <MultiSelectFilter
             title="Colonnes"
             options={columnOptions}
@@ -76,7 +69,7 @@ const LeadsFilters = ({
             onSelectionChange={onColumnsChange}
           />
           <Select value={selectedDateFilter} onValueChange={onDateFilterChange}>
-            <SelectTrigger className="w-36 h-7 text-xs">
+            <SelectTrigger className="w-40 h-8">
               <SelectValue placeholder="Période" />
             </SelectTrigger>
             <SelectContent>
@@ -87,16 +80,6 @@ const LeadsFilters = ({
               ))}
             </SelectContent>
           </Select>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="h-7 w-7 p-0 hover:bg-gray-100"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
         </div>
       </div>
       

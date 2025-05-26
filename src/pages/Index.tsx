@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Filter } from 'lucide-react';
@@ -16,7 +17,7 @@ const Index = () => {
     'status'
   ]);
 
-  const [selectedDateFilter, setSelectedDateFilter] = useState('7d');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
 
   const filterByDate = (leads: any[]) => {
     if (selectedDateFilter === 'all') return leads;

@@ -19,7 +19,7 @@ const Leads = () => {
     'location'
   ]);
 
-  const [selectedDateFilter, setSelectedDateFilter] = useState('7d');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
 
   const filterByDate = (leads: any[]) => {
     if (selectedDateFilter === 'all') return leads;
@@ -61,29 +61,27 @@ const Leads = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6 pb-0">
-        <div className="flex items-center mb-6">
-          <SidebarTrigger />
-        </div>
-        
-        <div className="mb-6">
-          <LeadsFilters
-            selectedCategories={selectedCategories}
-            onCategoriesChange={setSelectedCategories}
-            visibleColumns={visibleColumns}
-            onColumnsChange={setVisibleColumns}
-            selectedDateFilter={selectedDateFilter}
-            onDateFilterChange={setSelectedDateFilter}
-          />
-        </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="flex items-center mb-6">
+        <SidebarTrigger />
       </div>
       
-      <div className="px-6">
-        <DraggableTable 
-          leads={dateFilteredLeads} 
+      <div className="space-y-6">
+        <LeadsFilters
+          selectedCategories={selectedCategories}
+          onCategoriesChange={setSelectedCategories}
           visibleColumns={visibleColumns}
+          onColumnsChange={setVisibleColumns}
+          selectedDateFilter={selectedDateFilter}
+          onDateFilterChange={setSelectedDateFilter}
         />
+        
+        <div className="bg-white rounded-lg shadow">
+          <DraggableTable 
+            leads={dateFilteredLeads} 
+            visibleColumns={visibleColumns}
+          />
+        </div>
       </div>
     </div>
   );
