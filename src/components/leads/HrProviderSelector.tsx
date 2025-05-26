@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,8 @@ export function HrProviderSelector({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProviderData, setNewProviderData] = useState({
     company_name: '',
-    company_linkedin_url: ''
+    company_linkedin_url: '',
+    company_linkedin_id: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -44,10 +44,19 @@ export function HrProviderSelector({
   
   // Get current company info
   const currentCompanyName = currentExperience?.company || lead.unipile_company || '';
-  const currentCompanyLinkedInUrl = lead.author_profile_url ? 
-    lead.author_profile_url.replace('/in/', '/company/').split('/')[0] + '/company/' + 
-    (currentCompanyName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')) 
-    : '';
+  
+  // Extract LinkedIn ID from unipile_response if available
+  const getCompanyLinkedInId = () => {
+    if (lead.unipile_response?.linkedin_profile?.experience) {
+      const currentExp = lead.unipile_response.linkedin_profile.experience.find((exp: any) => 
+        !exp.end || exp.end === null || exp.end === ''
+      );
+      return currentExp?.company_linkedin_id || null;
+    }
+    return null;
+  };
+
+  const currentCompanyLinkedInId = getCompanyLinkedInId();
 
   const handleCreateFromCurrentCompany = async () => {
     if (!currentCompanyName) return;
@@ -56,8 +65,8 @@ export function HrProviderSelector({
     try {
       const newProvider = await createHrProvider({
         company_name: currentCompanyName,
-        company_linkedin_url: currentCompanyLinkedInUrl || null,
-        company_linkedin_id: null
+        company_linkedin_url: null,
+        company_linkedin_id: currentCompanyLinkedInId
       });
       
       if (newProvider) {
@@ -79,7 +88,7 @@ export function HrProviderSelector({
       const newProvider = await createHrProvider({
         company_name: newProviderData.company_name.trim(),
         company_linkedin_url: newProviderData.company_linkedin_url.trim() || null,
-        company_linkedin_id: null
+        company_linkedin_id: newProviderData.company_linkedin_id.trim() || null
       });
       
       if (newProvider) {
@@ -102,7 +111,8 @@ export function HrProviderSelector({
     setShowCreateForm(true);
     setNewProviderData({
       company_name: currentCompanyName,
-      company_linkedin_url: currentCompanyLinkedInUrl
+      company_linkedin_url: '',
+      company_linkedin_id: currentCompanyLinkedInId || ''
     });
   };
 
@@ -132,9 +142,9 @@ export function HrProviderSelector({
                       </Badge>
                     </div>
                     <div className="font-medium text-gray-900">{currentCompanyName}</div>
-                    {currentCompanyLinkedInUrl && (
-                      <div className="text-sm text-blue-600 truncate max-w-[300px]">
-                        {currentCompanyLinkedInUrl}
+                    {currentCompanyLinkedInId && (
+                      <div className="text-sm text-blue-600">
+                        LinkedIn ID: {currentCompanyLinkedInId}
                       </div>
                     )}
                   </div>
@@ -192,7 +202,7 @@ export function HrProviderSelector({
             ) : (
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="company_name">Nom de l'entreprise</Label>
+                  <Label htmlFor="company_name">Nom de l'entreprise *</Label>
                   <Input
                     id="company_name"
                     value={newProviderData.company_name}
@@ -201,10 +211,11 @@ export function HrProviderSelector({
                       company_name: e.target.value 
                     }))}
                     placeholder="Nom de l'entreprise"
+                    required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="company_linkedin_url">URL LinkedIn de l'entreprise</Label>
+                  <Label htmlFor="company_linkedin_url">URL LinkedIn de l'entreprise (optionnel)</Label>
                   <Input
                     id="company_linkedin_url"
                     value={newProviderData.company_linkedin_url}
@@ -213,6 +224,18 @@ export function HrProviderSelector({
                       company_linkedin_url: e.target.value 
                     }))}
                     placeholder="https://www.linkedin.com/company/..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="company_linkedin_id">ID LinkedIn de l'entreprise</Label>
+                  <Input
+                    id="company_linkedin_id"
+                    value={newProviderData.company_linkedin_id}
+                    onChange={(e) => setNewProviderData(prev => ({ 
+                      ...prev, 
+                      company_linkedin_id: e.target.value 
+                    }))}
+                    placeholder="ID LinkedIn"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -227,7 +250,11 @@ export function HrProviderSelector({
                     variant="outline"
                     onClick={() => {
                       setShowCreateForm(false);
-                      setNewProviderData({ company_name: '', company_linkedin_url: '' });
+                      setNewProviderData({ 
+                        company_name: '', 
+                        company_linkedin_url: '', 
+                        company_linkedin_id: '' 
+                      });
                     }}
                   >
                     Annuler
