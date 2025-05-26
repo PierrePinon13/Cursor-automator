@@ -44,8 +44,8 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'posted_date',
       label: 'Posted Date',
-      width: '300px',
-      minWidth: '300px',
+      width: '150px',
+      minWidth: '150px',
       render: (lead) => (
         <span className="text-sm whitespace-nowrap">
           {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
@@ -55,8 +55,8 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'job_title',
       label: 'Profil recherché',
-      width: '350px',
-      minWidth: '350px',
+      width: '262px',
+      minWidth: '262px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
@@ -71,7 +71,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'author_name',
       label: 'Lead',
-      width: '120px',
+      width: '144px',
       render: (lead) => (
         <span className="font-medium text-sm">{lead.author_name || 'N/A'}</span>
       )
@@ -79,7 +79,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'company',
       label: 'Entreprise',
-      width: '160px',
+      width: '256px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.unipile_company ? (
@@ -110,16 +110,6 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
         >
           <ExternalLink className="h-4 w-4" />
         </Button>
-      )
-    },
-    {
-      id: 'status',
-      label: 'Statut',
-      width: '100px',
-      render: (lead) => (
-        <Badge className="text-xs">
-          {lead.openai_step3_categorie || 'En cours'}
-        </Badge>
       )
     },
     {
