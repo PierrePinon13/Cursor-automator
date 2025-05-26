@@ -2,11 +2,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Linkedin, Unlink, RefreshCw, CheckCircle, AlertCircle, Clock, XCircle } from 'lucide-react';
+import { Linkedin, Unlink, RefreshCw, CheckCircle, AlertCircle, Clock, XCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 const LinkedInConnectionCard = () => {
-  const { connections, loading, connectLinkedIn, disconnectLinkedIn, checkStatus, refreshConnections } = useLinkedInConnection();
+  const { connections, loading, checkingStatus, connectLinkedIn, disconnectLinkedIn, checkStatus, refreshConnections } = useLinkedInConnection();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -18,6 +18,14 @@ const LinkedInConnectionCard = () => {
         return <XCircle className="h-4 w-4 text-red-600" />;
       case 'credentials_required':
         return <AlertCircle className="h-4 w-4 text-orange-600" />;
+      case 'validation_required':
+        return <AlertTriangle className="h-4 w-4 text-blue-600" />;
+      case 'checkpoint_required':
+        return <ShieldAlert className="h-4 w-4 text-purple-600" />;
+      case 'captcha_required':
+        return <AlertTriangle className="h-4 w-4 text-yellow-700" />;
+      case 'disconnected':
+        return <XCircle className="h-4 w-4 text-gray-600" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-600" />;
     }
@@ -33,6 +41,14 @@ const LinkedInConnectionCard = () => {
         return 'Erreur';
       case 'credentials_required':
         return 'Reconnexion requise';
+      case 'validation_required':
+        return 'Validation requise';
+      case 'checkpoint_required':
+        return 'Vérification requise';
+      case 'captcha_required':
+        return 'Captcha requis';
+      case 'disconnected':
+        return 'Déconnecté';
       default:
         return status;
     }
@@ -45,10 +61,37 @@ const LinkedInConnectionCard = () => {
       case 'pending':
         return 'secondary';
       case 'error':
+      case 'disconnected':
         return 'destructive';
+      case 'credentials_required':
+      case 'validation_required':
+      case 'checkpoint_required':
+      case 'captcha_required':
+        return 'outline';
       default:
         return 'outline';
     }
+  };
+
+  const getStatusHelp = (status: string) => {
+    switch (status) {
+      case 'credentials_required':
+        return 'Cliquez sur "Reconnecter" pour mettre à jour vos identifiants LinkedIn';
+      case 'validation_required':
+        return 'Ouvrez votre application LinkedIn et validez la connexion';
+      case 'checkpoint_required':
+        return 'Une vérification est requise (code 2FA, validation de sécurité)';
+      case 'captcha_required':
+        return 'Un captcha doit être résolu pour rétablir la connexion';
+      case 'disconnected':
+        return 'Le compte a été déconnecté, reconnectez-vous pour continuer';
+      default:
+        return null;
+    }
+  };
+
+  const needsUserAction = (status: string) => {
+    return ['credentials_required', 'validation_required', 'checkpoint_required', 'captcha_required', 'disconnected'].includes(status);
   };
 
   const hasActiveConnection = connections.some(conn => conn.status === 'connected');
@@ -86,66 +129,81 @@ const LinkedInConnectionCard = () => {
         ) : (
           <div className="space-y-3">
             {connections.map((connection) => (
-              <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Linkedin className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(connection.status)}
-                      <p className="font-medium">Compte LinkedIn</p>
+              <div key={connection.id} className="flex flex-col gap-3 p-3 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Linkedin className="h-4 w-4 text-blue-600" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(connection.status)}
+                        <p className="font-medium">Compte LinkedIn</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ID: {connection.account_id || connection.unipile_account_id}
+                      </p>
+                      {connection.linkedin_profile_url && (
+                        <p className="text-xs text-muted-foreground">
+                          Profil: {connection.linkedin_profile_url}
+                        </p>
+                      )}
+                      {connection.connected_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Connecté le: {new Date(connection.connected_at).toLocaleString()}
+                        </p>
+                      )}
+                      {connection.last_update && (
+                        <p className="text-xs text-muted-foreground">
+                          Dernière vérification: {new Date(connection.last_update).toLocaleString()}
+                        </p>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      ID: {connection.unipile_account_id}
-                    </p>
-                    {connection.linkedin_profile_url && (
-                      <p className="text-xs text-muted-foreground">
-                        Profil: {connection.linkedin_profile_url}
-                      </p>
-                    )}
-                    {connection.error_message && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {connection.error_message}
-                      </p>
-                    )}
-                    {connection.connected_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Connecté le: {new Date(connection.connected_at).toLocaleString()}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Créé le: {new Date(connection.created_at).toLocaleString()}
-                    </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={getStatusVariant(connection.status)}>
-                    {getStatusLabel(connection.status)}
-                  </Badge>
-                  {connection.status === 'credentials_required' && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getStatusVariant(connection.status)}>
+                      {getStatusLabel(connection.status)}
+                    </Badge>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={connectLinkedIn}
-                      disabled={loading}
+                      onClick={() => checkStatus(connection.account_id || connection.unipile_account_id)}
+                      disabled={checkingStatus}
                     >
-                      Reconnecter
+                      <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
                     </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => checkStatus(connection.account_id || connection.unipile_account_id)}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => disconnectLinkedIn(connection.id)}
-                  >
-                    <Unlink className="h-4 w-4" />
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => disconnectLinkedIn(connection.id)}
+                    >
+                      <Unlink className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+                
+                {connection.error_message && (
+                  <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    {connection.error_message}
+                  </div>
+                )}
+                
+                {getStatusHelp(connection.status) && (
+                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                    💡 {getStatusHelp(connection.status)}
+                  </div>
+                )}
+                
+                {needsUserAction(connection.status) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={connectLinkedIn}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    <Linkedin className="h-4 w-4 mr-2" />
+                    {loading ? 'Reconnexion...' : 'Reconnecter'}
+                  </Button>
+                )}
               </div>
             ))}
             {!hasActiveConnection && (

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -22,6 +23,7 @@ interface LinkedInConnection {
 export function useLinkedInConnection() {
   const [connections, setConnections] = useState<LinkedInConnection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -150,25 +152,70 @@ export function useLinkedInConnection() {
   };
 
   const checkStatus = async (accountId: string) => {
-    try {
-      // You could add a check-linkedin-status function here
-      await fetchConnections();
-      toast({
-        title: "Statut actualisé",
-        description: "Le statut de la connexion a été vérifié.",
-      });
-    } catch (error: any) {
+    if (!accountId) {
       toast({
         title: "Erreur",
-        description: "Impossible de vérifier le statut.",
+        description: "ID de compte manquant pour vérifier le statut.",
         variant: "destructive",
       });
+      return;
+    }
+
+    setCheckingStatus(true);
+    try {
+      console.log('Checking LinkedIn status for account:', accountId);
+      
+      const { data, error } = await supabase.functions.invoke('linkedin-status', {
+        body: { account_id: accountId }
+      });
+
+      if (error) {
+        console.error('Status check error:', error);
+        throw error;
+      }
+
+      console.log('Status check response:', data);
+
+      if (data && data.success) {
+        await fetchConnections();
+        
+        // Provide specific feedback based on status
+        const statusMessages = {
+          'connected': 'Compte LinkedIn connecté et fonctionnel',
+          'credentials_required': 'Identifiants LinkedIn à renouveler',
+          'validation_required': 'Validation requise dans l\'application LinkedIn',
+          'checkpoint_required': 'Action requise (vérification 2FA)',
+          'captcha_required': 'Résolution de captcha nécessaire',
+          'disconnected': 'Compte LinkedIn déconnecté',
+          'unknown': `Statut inconnu: ${data.account_data?.original_status || 'N/A'}`
+        };
+
+        const message = statusMessages[data.status as keyof typeof statusMessages] || 'Statut vérifié';
+        
+        toast({
+          title: "Statut vérifié",
+          description: message,
+          variant: data.status === 'connected' ? 'default' : 'destructive',
+        });
+      } else {
+        throw new Error('Réponse invalide du serveur');
+      }
+    } catch (error: any) {
+      console.error('Status check failed:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de vérifier le statut du compte.",
+        variant: "destructive",
+      });
+    } finally {
+      setCheckingStatus(false);
     }
   };
 
   return {
     connections,
     loading,
+    checkingStatus,
     connectLinkedIn,
     disconnectLinkedIn,
     checkStatus,
