@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Add random delay between 2-8 seconds like in the profile scraper
+// Add random delay between 2-8 seconds like in n8n
 function getRandomDelay(): number {
   return Math.floor(Math.random() * (8000 - 2000 + 1)) + 2000; // Random between 2000-8000ms
 }
@@ -100,7 +100,7 @@ serve(async (req) => {
 
     console.log('Processing LinkedIn message for lead ID:', lead_id)
 
-    // Get the lead data from the database to extract authorProfileId
+    // Get the lead data from the database to extract author_profile_id
     console.log('Fetching lead data from database...')
     const { data: leadData, error: leadError } = await supabaseClient
       .from('linkedin_posts')
@@ -129,13 +129,13 @@ serve(async (req) => {
 
     console.log('Using author_profile_id from database:', authorProfileId)
 
-    // Get user's LinkedIn connection
+    // Get user's LinkedIn connection - chercher toute connexion active
     console.log('Fetching LinkedIn connections for user:', user.id)
     const { data: connections, error: connectionError } = await supabaseClient
       .from('linkedin_connections')
       .select('account_id, unipile_account_id')
       .eq('user_id', user.id)
-      .eq('status', 'connected')
+      .in('status', ['connected', 'pending']) // Accepter aussi pending si nécessaire
       .limit(1)
 
     console.log('LinkedIn connections query result:', { connections, connectionError })
@@ -148,25 +148,25 @@ serve(async (req) => {
       )
     }
 
-    if (!connections || connections.length === 0) {
-      console.error('No active LinkedIn connection found for user:', user.id)
-      return new Response(
-        JSON.stringify({ error: 'No active LinkedIn connection found. Please connect your LinkedIn account first.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Si pas de connexion trouvée, utiliser un account_id par défaut (comme dans votre n8n)
+    let userAccountId = null
+    
+    if (connections && connections.length > 0) {
+      userAccountId = connections[0].account_id || connections[0].unipile_account_id
+      console.log('Using account ID from database:', userAccountId)
+    } else {
+      // Utiliser l'account_id par défaut comme dans votre workflow n8n
+      userAccountId = "V92UnMnXS9GRy_4xi-kG-g"
+      console.log('No connection found in database, using default account_id:', userAccountId)
     }
-
-    const userAccountId = connections[0].account_id || connections[0].unipile_account_id
 
     if (!userAccountId) {
-      console.error('No account ID found in connection')
+      console.error('No account ID available')
       return new Response(
-        JSON.stringify({ error: 'Invalid LinkedIn connection configuration' }),
+        JSON.stringify({ error: 'No LinkedIn account ID available' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    console.log('Using account ID from database:', userAccountId)
 
     // Add random delay before making the API call to avoid rate limiting
     const delayMs = getRandomDelay();
@@ -296,7 +296,8 @@ serve(async (req) => {
         network_distance: networkDistance,
         provider_id: providerId,
         message: success ? 'Message envoyé avec succès' : 'Échec de l\'envoi',
-        lead_name: leadData.author_name
+        lead_name: leadData.author_name,
+        account_id_used: userAccountId
       }),
       { 
         status: 200, 
