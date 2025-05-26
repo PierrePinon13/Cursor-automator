@@ -96,9 +96,41 @@ serve(async (req) => {
 
     console.log('Using author_profile_id from database:', authorProfileId)
 
-    // Use the provided account ID
-    const userAccountId = 'DdxglDwFT-mMZgxHeCGMdA'
-    console.log('Using account ID:', userAccountId)
+    // Get user's LinkedIn connection
+    const { data: connections, error: connectionError } = await supabaseClient
+      .from('linkedin_connections')
+      .select('account_id, unipile_account_id')
+      .eq('user_id', user.id)
+      .eq('status', 'connected')
+      .limit(1)
+
+    if (connectionError) {
+      console.error('Connection query error:', connectionError)
+      return new Response(
+        JSON.stringify({ error: 'Database error checking connections' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!connections || connections.length === 0) {
+      console.error('No active LinkedIn connection found for user:', user.id)
+      return new Response(
+        JSON.stringify({ error: 'No active LinkedIn connection found. Please connect your LinkedIn account first.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const userAccountId = connections[0].account_id || connections[0].unipile_account_id
+
+    if (!userAccountId) {
+      console.error('No account ID found in connection')
+      return new Response(
+        JSON.stringify({ error: 'Invalid LinkedIn connection configuration' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Using account ID from database:', userAccountId)
 
     // Add random delay before making the API call to avoid rate limiting
     const delayMs = getRandomDelay();
