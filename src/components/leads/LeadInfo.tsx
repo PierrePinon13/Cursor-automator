@@ -23,11 +23,14 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
   return (
     <div className="space-y-6">
       {/* Poste recherché */}
-      <div className="space-y-2">
-        <h4 className="font-medium text-sm text-gray-600">Poste recherché</h4>
-        <div className="space-y-1">
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+        <h4 className="font-semibold text-sm text-slate-700 mb-3 flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          Poste recherché
+        </h4>
+        <div className="flex flex-wrap gap-2">
           {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-            <Badge key={index} className="bg-green-100 text-green-800 border-green-300">
+            <Badge key={index} className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition-colors">
               {poste}
             </Badge>
           ))}
@@ -35,19 +38,24 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
       </div>
 
       {/* Publication LinkedIn */}
-      <div className="space-y-2 flex-1">
-        <h4 className="font-medium text-sm text-gray-600">Publication LinkedIn</h4>
-        <div className="bg-white p-4 rounded-lg border" style={{ height: '500px' }}>
-          <ScrollArea className="h-full">
-            <div className="text-sm text-gray-700 mb-3 whitespace-pre-wrap">
-              {lead.text}
-            </div>
-          </ScrollArea>
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex-1">
+        <h4 className="font-semibold text-sm text-slate-700 mb-3 flex items-center gap-2">
+          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          Publication LinkedIn
+        </h4>
+        <div className="space-y-3">
+          <div className="bg-slate-50 rounded-lg p-4 border border-slate-100" style={{ height: '400px' }}>
+            <ScrollArea className="h-full">
+              <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {lead.text}
+              </div>
+            </ScrollArea>
+          </div>
           <a
             href={lead.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm mt-2"
+            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors"
           >
             Voir la publication
             <ExternalLink className="h-3 w-3" />

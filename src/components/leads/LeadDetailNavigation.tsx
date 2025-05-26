@@ -21,17 +21,17 @@ const LeadDetailNavigation = ({
   onNext
 }: LeadDetailNavigationProps) => {
   return (
-    <div className="flex items-center justify-end">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">
-          {currentIndex + 1}/{totalLeads}
-        </span>
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-slate-600 font-medium">
+        {currentIndex + 1} / {totalLeads}
+      </span>
+      <div className="flex items-center gap-1">
         <Button
           variant="outline"
           size="sm"
           onClick={onPrevious}
           disabled={!canGoPrevious}
-          className="h-8 w-8 p-0"
+          className="h-8 w-8 p-0 border-slate-300 hover:bg-slate-100 disabled:opacity-40"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -40,7 +40,7 @@ const LeadDetailNavigation = ({
           size="sm"
           onClick={onNext}
           disabled={!canGoNext}
-          className="h-8 w-8 p-0"
+          className="h-8 w-8 p-0 border-slate-300 hover:bg-slate-100 disabled:opacity-40"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -120,24 +121,26 @@ const LeadDetailDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden p-0 bg-white">
+        <DialogHeader className="px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200">
           <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">{lead.author_name || 'N/A'}</h3>
-                <div className="text-sm text-gray-600">
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="font-semibold text-xl text-slate-800">{lead.author_name || 'N/A'}</h3>
+                  <a
+                    href={lead.author_profile_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110 transform duration-200"
+                  >
+                    <Linkedin className="h-5 w-5" />
+                  </a>
+                </div>
+                <div className="text-sm text-slate-600 font-medium">
                   {formatCompanyInfo()}
                 </div>
               </div>
-              <a
-                href={lead.author_profile_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                <Linkedin className="h-6 w-6" />
-              </a>
             </div>
             <LeadDetailNavigation
               currentIndex={selectedLeadIndex}
@@ -150,14 +153,16 @@ const LeadDetailDialog = ({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex h-[calc(95vh-120px)]">
+        <div className="flex h-[calc(95vh-100px)]">
           {/* Section gauche - Insights du lead */}
-          <div className="w-1/3 border-r bg-gray-50 overflow-y-auto p-6">
-            <LeadInfo lead={lead} />
+          <div className="w-1/3 border-r border-slate-200 bg-slate-50/50 overflow-y-auto">
+            <div className="p-6">
+              <LeadInfo lead={lead} />
+            </div>
           </div>
 
           {/* Section milieu - Message pré-rédigé */}
-          <div className="w-1/3 p-6 border-r overflow-y-auto">
+          <div className="w-1/3 p-6 border-r border-slate-200 overflow-y-auto bg-white">
             <LeadMessageEditor
               lead={lead}
               message={customMessage}
@@ -167,7 +172,7 @@ const LeadDetailDialog = ({
           </div>
 
           {/* Section droite - Boutons d'actions */}
-          <div className="w-1/3 p-6 overflow-y-auto">
+          <div className="w-1/3 p-6 overflow-y-auto bg-white">
             <LeadActions
               lead={lead}
               onSendLinkedInMessage={handleSendLinkedInMessage}
