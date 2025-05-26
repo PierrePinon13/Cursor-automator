@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Building2, UserCheck, Phone, ExternalLink, Send } from 'lucide-react';
@@ -64,9 +65,10 @@ const LeadActions = ({
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-gray-700 mb-3">Actions</h3>
       
-      {/* LinkedIn Message Section */}
-      {onSendLinkedInMessage && (
-        <div className="space-y-2">
+      {/* Actions verticales */}
+      <div className="space-y-3">
+        {/* LinkedIn Message */}
+        {onSendLinkedInMessage && (
           <Button
             onClick={onSendLinkedInMessage}
             disabled={!canSendMessage || messageSending}
@@ -76,50 +78,51 @@ const LeadActions = ({
             <Send className="h-4 w-4" />
             {messageSending ? 'Envoi...' : 'Envoyer message LinkedIn'}
           </Button>
-        </div>
-      )}
-      
-      {/* Other Actions */}
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleAction('client')}
-          className="flex items-center gap-2 text-xs"
-        >
-          <Building2 className="h-3 w-3" />
-          Client
-        </Button>
+        )}
         
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleAction('hr_provider')}
-          className="flex items-center gap-2 text-xs"
-        >
-          <UserCheck className="h-3 w-3" />
-          Prestataire RH
-        </Button>
-        
+        {/* Phone retrieval */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => handleAction('phone')}
-          className="flex items-center gap-2 text-xs"
+          className="w-full flex items-center gap-2"
           disabled={phoneLoading}
         >
-          <Phone className="h-3 w-3" />
-          {phoneLoading ? 'Recherche...' : 'Téléphone'}
+          <Phone className="h-4 w-4" />
+          {phoneLoading ? 'Recherche...' : 'Récupérer téléphone'}
         </Button>
         
+        {/* Schedule reminder */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleAction('reminder')}
+          className="w-full flex items-center gap-2"
+        >
+          <UserCheck className="h-4 w-4" />
+          Planifier rappel
+        </Button>
+        
+        {/* HR Provider */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleAction('hr_provider')}
+          className="w-full flex items-center gap-2"
+        >
+          <Building2 className="h-4 w-4" />
+          Prestataire RH
+        </Button>
+        
+        {/* Profile link */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => window.open(lead.author_profile_url, '_blank')}
-          className="flex items-center gap-2 text-xs"
+          className="w-full flex items-center gap-2"
         >
-          <ExternalLink className="h-3 w-3" />
-          Profil
+          <ExternalLink className="h-4 w-4" />
+          Voir profil LinkedIn
         </Button>
       </div>
 
