@@ -55,18 +55,34 @@ serve(async (req) => {
       )
     }
 
-    console.log('Requesting LinkedIn connection for user:', user_id, 'with email:', user.email)
+    console.log('Initiating LinkedIn connection for user:', user_id, 'with email:', user.email)
 
-    // Call Unipile API using the correct endpoint from the documentation
-    const unipileResponse = await fetch('https://api.unipile.com/hosted/request-link', {
+    // Clean up existing pending connections
+    await supabaseClient
+      .from('linkedin_connections')
+      .delete()
+      .eq('user_id', user_id)
+      .eq('status', 'pending')
+
+    // Construct webhook URL
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/linkedin-webhook`
+
+    // Call Unipile API using the hosted accounts link endpoint
+    const unipileResponse = await fetch('https://api9.unipile.com:13946/api/v1/hosted/accounts/link', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${unipileApiKey}`,
+        'X-API-KEY': unipileApiKey,
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: user.email,
-        provider: 'linkedin'
+        type: 'create',
+        providers: 'LINKEDIN',
+        notify_url: webhookUrl,
+        metadata: {
+          user_id: user_id,
+          email: user.email
+        }
       }),
     })
 
@@ -82,9 +98,25 @@ serve(async (req) => {
     const unipileData = await unipileResponse.json()
     console.log('Unipile response:', unipileData)
 
+    // Store the pending connection
+    const { error: insertError } = await supabaseClient
+      .from('linkedin_connections')
+      .insert({
+        user_id: user_id,
+        unipile_account_id: unipileData.account_id,
+        account_id: unipileData.account_id,
+        status: 'pending',
+        account_type: 'LINKEDIN'
+      })
+
+    if (insertError) {
+      console.error('Error storing pending connection:', insertError)
+    }
+
     return new Response(
       JSON.stringify({ 
-        link: unipileData.link
+        link: unipileData.hosted_link,
+        account_id: unipileData.account_id
       }),
       { 
         status: 200, 

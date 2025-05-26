@@ -6,9 +6,14 @@ import { useToast } from './use-toast';
 
 interface LinkedInConnection {
   id: string;
+  user_id: string;
   unipile_account_id: string;
-  linkedin_profile_url: string | null;
-  connection_status: string;
+  account_id: string | null;
+  status: string;
+  account_type: string;
+  error_message: string | null;
+  last_update: string;
+  connected_at: string | null;
   created_at: string;
 }
 
@@ -25,10 +30,13 @@ export function useLinkedInConnection() {
   }, [user]);
 
   const fetchConnections = async () => {
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
         .from('linkedin_connections')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -43,7 +51,7 @@ export function useLinkedInConnection() {
 
     setLoading(true);
     try {
-      // Call our edge function to get the hosted auth link from Unipile
+      // Call our edge function to initiate the hosted auth flow
       const { data, error } = await supabase.functions.invoke('linkedin-connect', {
         body: { user_id: user.id }
       });
@@ -52,17 +60,33 @@ export function useLinkedInConnection() {
 
       if (data.link) {
         // Open Unipile hosted auth link in new window
-        window.open(data.link, '_blank', 'width=600,height=700');
+        const popup = window.open(data.link, '_blank', 'width=600,height=700');
         
         toast({
           title: "Connexion LinkedIn",
           description: "Une nouvelle fenêtre s'est ouverte pour connecter votre compte LinkedIn.",
         });
 
-        // Refresh connections after a short delay to catch any updates
-        setTimeout(() => {
-          fetchConnections();
-        }, 3000);
+        // Poll for connection success
+        const pollConnection = () => {
+          const checkInterval = setInterval(async () => {
+            if (popup?.closed) {
+              clearInterval(checkInterval);
+              await fetchConnections();
+              return;
+            }
+
+            // Check if connection is now successful
+            await fetchConnections();
+          }, 2000);
+
+          // Stop polling after 5 minutes
+          setTimeout(() => {
+            clearInterval(checkInterval);
+          }, 300000);
+        };
+
+        pollConnection();
       }
     } catch (error: any) {
       console.error('LinkedIn connection error:', error);
@@ -99,11 +123,29 @@ export function useLinkedInConnection() {
     }
   };
 
+  const checkStatus = async (accountId: string) => {
+    try {
+      // You could add a check-linkedin-status function here
+      await fetchConnections();
+      toast({
+        title: "Statut actualisé",
+        description: "Le statut de la connexion a été vérifié.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de vérifier le statut.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     connections,
     loading,
     connectLinkedIn,
     disconnectLinkedIn,
+    checkStatus,
     refreshConnections: fetchConnections,
   };
 }

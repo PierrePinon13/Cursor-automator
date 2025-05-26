@@ -21,40 +21,85 @@ serve(async (req) => {
     )
 
     const webhookData = await req.json()
-    console.log('LinkedIn webhook received:', webhookData)
+    console.log('LinkedIn webhook received:', JSON.stringify(webhookData, null, 2))
 
-    // Handle different webhook events from Unipile
-    if (webhookData.type === 'account.created' && webhookData.provider === 'linkedin') {
-      const { account_id, metadata } = webhookData
-      const user_id = metadata?.user_id
+    const { account_id, status, metadata, error: unipileError } = webhookData
 
-      if (!user_id || !account_id) {
-        console.error('Missing user_id or account_id in webhook')
-        return new Response('Missing required data', { status: 400 })
-      }
-
-      // Store the LinkedIn connection in our database
-      const { data, error } = await supabaseClient
-        .from('linkedin_connections')
-        .upsert({
-          user_id: user_id,
-          unipile_account_id: account_id,
-          connection_status: 'connected',
-          linkedin_profile_url: webhookData.account?.profile_url || null,
-        })
-
-      if (error) {
-        console.error('Error storing LinkedIn connection:', error)
-        return new Response('Database error', { status: 500 })
-      }
-
-      console.log('LinkedIn connection stored successfully:', data)
+    if (!account_id) {
+      console.error('No account_id in webhook data')
+      return new Response('Missing account_id', { status: 400 })
     }
 
-    return new Response('OK', { status: 200 })
+    // Update connection status based on webhook
+    let updateData: any = {
+      last_update: new Date().toISOString()
+    }
+
+    switch (status) {
+      case 'CREATION_SUCCESS':
+        updateData.status = 'connected'
+        updateData.connected_at = new Date().toISOString()
+        updateData.error_message = null
+        console.log('LinkedIn connection successful for account:', account_id)
+        break
+
+      case 'RECONNECTED':
+        updateData.status = 'connected'
+        updateData.connected_at = new Date().toISOString()
+        updateData.error_message = null
+        console.log('LinkedIn reconnection successful for account:', account_id)
+        break
+
+      case 'CREDENTIALS':
+        updateData.status = 'credentials_required'
+        updateData.error_message = 'Credentials update required'
+        console.log('LinkedIn credentials required for account:', account_id)
+        break
+
+      case 'ERROR':
+        updateData.status = 'error'
+        updateData.error_message = unipileError || 'Unknown error occurred'
+        console.log('LinkedIn connection error for account:', account_id, 'Error:', unipileError)
+        break
+
+      default:
+        console.log('Unknown status received:', status)
+        updateData.status = status
+        if (unipileError) {
+          updateData.error_message = unipileError
+        }
+    }
+
+    // Update the connection in the database
+    const { data, error } = await supabaseClient
+      .from('linkedin_connections')
+      .update(updateData)
+      .eq('unipile_account_id', account_id)
+      .select()
+
+    if (error) {
+      console.error('Error updating LinkedIn connection:', error)
+      return new Response('Database error', { status: 500 })
+    }
+
+    if (!data || data.length === 0) {
+      console.log('No matching connection found for account_id:', account_id)
+      // This might be a webhook for an account created outside our flow
+      return new Response('No matching connection found', { status: 404 })
+    }
+
+    console.log('LinkedIn connection updated successfully:', data[0])
+
+    return new Response('OK', { 
+      status: 200,
+      headers: corsHeaders
+    })
 
   } catch (error) {
     console.error('Error in linkedin-webhook function:', error)
-    return new Response('Internal server error', { status: 500 })
+    return new Response('Internal server error', { 
+      status: 500,
+      headers: corsHeaders
+    })
   }
 })
