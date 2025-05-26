@@ -83,47 +83,35 @@ const CardView = ({ leads }: CardViewProps) => {
             </div>
 
             <div className="mb-3">
-              <div className="p-2 -m-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm mb-1">Profil recherché</h3>
-                    {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-                      <div key={index} className="text-green-600 text-xs">
-                        <span 
-                          className="cursor-pointer hover:text-green-700 hover:underline"
-                          data-clickable="true"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(lead.url, '_blank');
-                          }}
-                        >
-                          {poste}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+              <h3 className="font-medium text-sm mb-1">Profil recherché</h3>
+              {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
+                <div key={index} className="text-green-600 text-xs">
+                  <span 
+                    className="cursor-pointer hover:text-green-700 hover:underline inline-block"
+                    data-clickable="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(lead.url, '_blank');
+                    }}
+                  >
+                    {poste}
+                  </span>
                 </div>
-              </div>
+              ))}
             </div>
 
             <div className="mb-3">
-              <div className="p-2 -m-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-xs mb-0.5">Lead</h4>
-                    <span 
-                      className="text-xs text-gray-700 cursor-pointer hover:text-blue-700 hover:underline"
-                      data-clickable="true"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(lead.author_profile_url, '_blank');
-                      }}
-                    >
-                      {lead.author_name || 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <h4 className="font-medium text-xs mb-0.5">Lead</h4>
+              <span 
+                className="text-xs text-gray-700 cursor-pointer hover:text-blue-700 hover:underline inline-block"
+                data-clickable="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(lead.author_profile_url, '_blank');
+                }}
+              >
+                {lead.author_name || 'N/A'}
+              </span>
             </div>
 
             <div className="border-t border-gray-100 pt-3">

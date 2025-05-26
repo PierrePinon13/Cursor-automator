@@ -68,7 +68,8 @@ export const allColumns: Column[] = [
             {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
               <div key={index} className="text-green-600 text-xs">
                 <span 
-                  className="cursor-pointer hover:text-green-700 hover:underline"
+                  className="cursor-pointer hover:text-green-700 hover:underline inline-block"
+                  data-clickable="true"
                   onClick={(e) => {
                     e.stopPropagation();
                     window.open(lead.url, '_blank');
@@ -92,7 +93,8 @@ export const allColumns: Column[] = [
       <div className="w-full h-full flex items-center">
         <div className="flex items-center justify-between gap-2 w-full">
           <span 
-            className="font-medium text-xs cursor-pointer hover:text-blue-700 hover:underline transition-colors"
+            className="font-medium text-xs cursor-pointer hover:text-blue-700 hover:underline transition-colors inline-block"
+            data-clickable="true"
             onClick={(e) => {
               e.stopPropagation();
               window.open(lead.author_profile_url, '_blank');

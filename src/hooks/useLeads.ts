@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -76,6 +77,8 @@ export const useLeads = () => {
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)
         .neq('openai_step3_categorie', 'Autre')
+        .order('posted_at_timestamp', { ascending: false })
+        .order('posted_at_iso', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -129,6 +132,13 @@ export const useLeads = () => {
         return leadDate >= dateCutoff;
       });
     }
+
+    // Sort filtered leads by publication date (most recent first)
+    filtered.sort((a, b) => {
+      const dateA = a.posted_at_timestamp || new Date(a.posted_at_iso || a.created_at).getTime();
+      const dateB = b.posted_at_timestamp || new Date(b.posted_at_iso || b.created_at).getTime();
+      return dateB - dateA; // Most recent first
+    });
 
     setFilteredLeads(filtered);
   };
