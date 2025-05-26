@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useNavigate } from 'react-router-dom';
 
 const DashboardHeader = () => {
@@ -20,7 +21,7 @@ const DashboardHeader = () => {
     <header className="border-b bg-white">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">CRM LinkedIn</h1>
+          <SidebarTrigger />
         </div>
         
         <DropdownMenu>
