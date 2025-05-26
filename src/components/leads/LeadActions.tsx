@@ -21,7 +21,7 @@ interface LeadActionsProps {
   onAction: (actionName: string) => void;
   messageSending: boolean;
   message: string;
-  onPhoneRetrieved?: () => void;
+  onPhoneRetrieved?: (phoneNumber: string | null) => void;
 }
 
 const LeadActions = ({ 
@@ -45,8 +45,8 @@ const LeadActions = ({
 
   const handlePhoneRetrieval = async () => {
     const phoneNumber = await retrievePhone(lead.id);
-    if (phoneNumber && onPhoneRetrieved) {
-      onPhoneRetrieved();
+    if (onPhoneRetrieved) {
+      onPhoneRetrieved(phoneNumber);
     }
   };
 

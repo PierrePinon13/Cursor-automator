@@ -50,13 +50,19 @@ const LeadDetailDialog = ({
   onActionCompleted 
 }: LeadDetailDialogProps) => {
   const [customMessage, setCustomMessage] = useState('');
+  const [currentLeads, setCurrentLeads] = useState(leads);
   const { sendMessage, loading: messageSending } = useLinkedInMessage();
 
-  if (selectedLeadIndex === null || !leads[selectedLeadIndex]) return null;
+  // Synchroniser les leads avec les props
+  React.useEffect(() => {
+    setCurrentLeads(leads);
+  }, [leads]);
 
-  const lead = leads[selectedLeadIndex];
+  if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return null;
+
+  const lead = currentLeads[selectedLeadIndex];
   const canGoPrevious = selectedLeadIndex > 0;
-  const canGoNext = selectedLeadIndex < leads.length - 1;
+  const canGoNext = selectedLeadIndex < currentLeads.length - 1;
 
   const handlePrevious = () => {
     if (canGoPrevious) {
@@ -97,7 +103,17 @@ const LeadDetailDialog = ({
     }
   };
 
-  const handlePhoneRetrieved = () => {
+  const handlePhoneRetrieved = (phoneNumber: string | null) => {
+    // Mettre à jour le lead local avec le nouveau numéro de téléphone
+    const updatedLeads = [...currentLeads];
+    updatedLeads[selectedLeadIndex] = {
+      ...updatedLeads[selectedLeadIndex],
+      phone_number: phoneNumber,
+      phone_retrieved_at: new Date().toISOString()
+    };
+    setCurrentLeads(updatedLeads);
+    
+    // Appeler le callback pour mettre à jour les données parent
     onActionCompleted();
   };
 
@@ -152,7 +168,7 @@ const LeadDetailDialog = ({
             <div className="flex items-center gap-4">
               <LeadDetailNavigation
                 currentIndex={selectedLeadIndex}
-                totalLeads={leads.length}
+                totalLeads={currentLeads.length}
                 canGoPrevious={canGoPrevious}
                 canGoNext={canGoNext}
                 onPrevious={handlePrevious}
