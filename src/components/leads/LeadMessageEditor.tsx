@@ -23,6 +23,11 @@ const LeadMessageEditor = ({ lead, message, onMessageChange, disabled }: LeadMes
   const remainingChars = MAX_CHARACTERS - message.length;
 
   const generateDefaultMessage = () => {
+    // Use the generated approach message if available, otherwise use the old template
+    if (lead.approach_message) {
+      return lead.approach_message;
+    }
+    
     return `Bonjour ${lead.author_name?.split(' ')[0] || 'Cher(e) professionnel(le)'},
 
 J'ai remarqué votre récente publication concernant la recherche de ${lead.openai_step3_postes_selectionnes?.[0] || 'profils qualifiés'}. 
@@ -59,6 +64,13 @@ Bien cordialement,
           Réinitialiser
         </Button>
       </div>
+      
+      {lead.approach_message && (
+        <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
+          ✓ Message généré automatiquement par l'IA
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Textarea
           value={message}

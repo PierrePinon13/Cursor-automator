@@ -150,6 +150,10 @@ export type Database = {
       linkedin_posts: {
         Row: {
           apify_dataset_id: string
+          approach_message: string | null
+          approach_message_error: string | null
+          approach_message_generated: boolean | null
+          approach_message_generated_at: string | null
           author_headline: string | null
           author_name: string | null
           author_profile_id: string | null
@@ -189,6 +193,10 @@ export type Database = {
         }
         Insert: {
           apify_dataset_id: string
+          approach_message?: string | null
+          approach_message_error?: string | null
+          approach_message_generated?: boolean | null
+          approach_message_generated_at?: string | null
           author_headline?: string | null
           author_name?: string | null
           author_profile_id?: string | null
@@ -228,6 +236,10 @@ export type Database = {
         }
         Update: {
           apify_dataset_id?: string
+          approach_message?: string | null
+          approach_message_error?: string | null
+          approach_message_generated?: boolean | null
+          approach_message_generated_at?: string | null
           author_headline?: string | null
           author_name?: string | null
           author_profile_id?: string | null

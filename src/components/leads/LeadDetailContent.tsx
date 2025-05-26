@@ -1,4 +1,3 @@
-
 import React from 'react';
 import LeadInfo from './LeadInfo';
 import LeadMessageEditor from './LeadMessageEditor';
@@ -25,6 +24,11 @@ interface Lead {
   unipile_profile_scraped_at: string;
   phone_number?: string | null;
   phone_retrieved_at?: string | null;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
+  is_client_lead?: boolean | null;
+  matched_client_name?: string | null;
 }
 
 interface LeadDetailContentProps {
