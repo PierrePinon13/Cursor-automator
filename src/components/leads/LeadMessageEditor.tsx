@@ -8,6 +8,9 @@ interface Lead {
   author_name: string;
   openai_step3_postes_selectionnes: string[];
   openai_step3_categorie: string;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
 }
 
 interface LeadMessageEditorProps {
