@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -43,7 +44,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'posted_date',
       label: 'Posted Date',
-      width: '220px',
+      width: '300px',
       render: (lead) => (
         <span className="text-sm">
           {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
@@ -53,7 +54,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'job_title',
       label: 'Profil recherché',
-      width: '250px',
+      width: '350px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
