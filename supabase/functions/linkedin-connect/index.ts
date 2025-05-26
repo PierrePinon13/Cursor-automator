@@ -55,23 +55,18 @@ serve(async (req) => {
       )
     }
 
-    console.log('Requesting LinkedIn connection for user:', user_id)
+    console.log('Requesting LinkedIn connection for user:', user_id, 'with email:', user.email)
 
     // Call Unipile API using the correct endpoint from the documentation
-    const unipileResponse = await fetch('https://api1.unipile.com:13111/api/v1/hosted/accounts/link', {
+    const unipileResponse = await fetch('https://api.unipile.com/hosted/request-link', {
       method: 'POST',
       headers: {
-        'X-API-KEY': unipileApiKey,
-        'Accept': 'application/json',
+        'Authorization': `Bearer ${unipileApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        type: 'create',
-        providers: 'linkedin',
-        metadata: {
-          user_id: user_id,
-          source: 'crm-linkedin'
-        }
+        email: user.email,
+        provider: 'linkedin'
       }),
     })
 
@@ -89,8 +84,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        hosted_link: unipileData.hosted_link,
-        account_id: unipileData.account_id 
+        link: unipileData.link
       }),
       { 
         status: 200, 

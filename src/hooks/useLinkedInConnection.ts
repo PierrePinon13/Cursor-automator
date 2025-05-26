@@ -43,23 +43,23 @@ export function useLinkedInConnection() {
 
     setLoading(true);
     try {
-      // Call our edge function to initiate LinkedIn connection via Unipile
+      // Call our edge function to get the hosted auth link from Unipile
       const { data, error } = await supabase.functions.invoke('linkedin-connect', {
         body: { user_id: user.id }
       });
 
       if (error) throw error;
 
-      if (data.hosted_link) {
-        // Open Unipile hosted link in new window
-        window.open(data.hosted_link, '_blank', 'width=600,height=700');
+      if (data.link) {
+        // Open Unipile hosted auth link in new window
+        window.open(data.link, '_blank', 'width=600,height=700');
         
         toast({
           title: "Connexion LinkedIn",
           description: "Une nouvelle fenêtre s'est ouverte pour connecter votre compte LinkedIn.",
         });
 
-        // Refresh connections after a short delay to catch the webhook update
+        // Refresh connections after a short delay to catch any updates
         setTimeout(() => {
           fetchConnections();
         }, 3000);
