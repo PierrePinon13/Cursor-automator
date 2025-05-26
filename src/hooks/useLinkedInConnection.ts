@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -30,24 +29,42 @@ export function useLinkedInConnection() {
 
   useEffect(() => {
     if (user) {
+      console.log('User authenticated, fetching LinkedIn connections...');
       fetchConnections();
+    } else {
+      console.log('No user authenticated, clearing connections');
+      setConnections([]);
     }
   }, [user]);
 
   const fetchConnections = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user for fetchConnections');
+      return;
+    }
 
     try {
+      console.log('Fetching LinkedIn connections for user:', user.id);
       const { data, error } = await supabase
         .from('linkedin_connections')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching LinkedIn connections:', error);
+        throw error;
+      }
+      
+      console.log('LinkedIn connections fetched:', data?.length || 0);
       setConnections(data || []);
     } catch (error: any) {
       console.error('Error fetching LinkedIn connections:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer les connexions LinkedIn.",
+        variant: "destructive",
+      });
     }
   };
 

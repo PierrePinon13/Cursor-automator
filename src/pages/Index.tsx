@@ -1,87 +1,36 @@
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Filter } from 'lucide-react';
-import DraggableTable from '@/components/leads/DraggableTable';
-import CardView from '@/components/leads/CardView';
-import LeadsFilters from '@/components/leads/LeadsFilters';
-import { useLeads } from '@/hooks/useLeads';
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
-  const { 
-    filteredLeads, 
-    loading, 
-    selectedCategories, 
-    setSelectedCategories,
-    selectedDateFilter,
-    setSelectedDateFilter
-  } = useLeads();
-  
-  const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'posted_date',
-    'job_title', 
-    'author_name',
-    'company',
-    'post_url',
-    'status'
-  ]);
-
-  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Chargement des leads...</p>
-        </div>
-      </div>
-    );
-  }
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Leads LinkedIn
-          </h1>
-          <p className="text-gray-600">
-            {filteredLeads.length} leads qualifiés
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+        <div className="mb-8">
+          <img 
+            src="/lovable-uploads/0e90fa69-04ca-49b9-a111-f75596b70418.png" 
+            alt="Automator Logo" 
+            className="h-20 w-20 mx-auto mb-4"
+          />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Automator</h1>
+          <p className="text-gray-600">Gérez vos leads LinkedIn efficacement</p>
+        </div>
+        
+        <div className="space-y-4">
+          <Button 
+            onClick={() => navigate('/auth')}
+            className="w-full"
+            size="lg"
+          >
+            Se connecter / S'inscrire
+          </Button>
+          
+          <p className="text-sm text-gray-500">
+            Connectez-vous pour accéder à vos leads et gérer vos connexions LinkedIn
           </p>
         </div>
-
-        <Card className="w-full">
-          <CardHeader className="pb-4">
-            <LeadsFilters
-              selectedCategories={selectedCategories}
-              onCategoriesChange={setSelectedCategories}
-              visibleColumns={visibleColumns}
-              onColumnsChange={setVisibleColumns}
-              selectedDateFilter={selectedDateFilter}
-              onDateFilterChange={setSelectedDateFilter}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
-          </CardHeader>
-          <CardContent className="p-0">
-            {filteredLeads.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Filter className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Aucun lead ne correspond aux filtres sélectionnés</p>
-              </div>
-            ) : (
-              viewMode === 'table' ? (
-                <DraggableTable 
-                  leads={filteredLeads} 
-                  visibleColumns={visibleColumns}
-                />
-              ) : (
-                <CardView leads={filteredLeads} />
-              )
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
