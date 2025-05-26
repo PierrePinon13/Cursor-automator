@@ -21,11 +21,28 @@ export function useLinkedInMessage() {
 
     setLoading(true);
     try {
-      console.log('Sending LinkedIn message to profile:', leadProfileId);
+      // Clean the profile ID to extract just the username
+      let profileId = leadProfileId;
+      
+      // If it's a full URL, extract the username
+      if (profileId.includes('/in/')) {
+        const match = profileId.match(/\/in\/([^\/\?]+)/);
+        if (match) {
+          profileId = match[1];
+        }
+      }
+      
+      // Remove any query parameters
+      if (profileId.includes('?')) {
+        profileId = profileId.split('?')[0];
+      }
+
+      console.log('Sending LinkedIn message to profile:', profileId);
+      console.log('Original profile URL/ID:', leadProfileId);
       
       const { data, error } = await supabase.functions.invoke('linkedin-message', {
         body: { 
-          lead_profile_id: leadProfileId,
+          lead_profile_id: profileId,
           message: message
         }
       });
