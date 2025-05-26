@@ -33,21 +33,35 @@ interface DraggableTableProps {
 }
 
 const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleRowClick = (lead: Lead, event: React.MouseEvent) => {
+  const handleRowClick = (leadIndex: number, event: React.MouseEvent) => {
     // Ne pas ouvrir la dialog si on clique sur un lien
-    if ((event.target as HTMLElement).closest('a, button')) {
+    if ((event.target as HTMLElement).closest('a, button, [data-clickable="true"]')) {
       return;
     }
-    setSelectedLead(lead);
+    setSelectedLeadIndex(leadIndex);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
-    setSelectedLead(null);
+    setSelectedLeadIndex(null);
+  };
+
+  const handleNavigateToLead = (index: number) => {
+    setSelectedLeadIndex(index);
+  };
+
+  const handleActionCompleted = () => {
+    // Passer au lead suivant après une action
+    if (selectedLeadIndex !== null && selectedLeadIndex < leads.length - 1) {
+      setSelectedLeadIndex(selectedLeadIndex + 1);
+    } else {
+      // Si c'est le dernier lead, fermer la dialog
+      handleCloseDialog();
+    }
   };
 
   const [columnOrder, setColumnOrder] = useState(
@@ -89,9 +103,12 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       </DragDropContext>
       
       <LeadDetailDialog 
-        lead={selectedLead}
+        leads={leads}
+        selectedLeadIndex={selectedLeadIndex}
         isOpen={isDialogOpen}
         onClose={handleCloseDialog}
+        onNavigateToLead={handleNavigateToLead}
+        onActionCompleted={handleActionCompleted}
       />
     </div>
   );
