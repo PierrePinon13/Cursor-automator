@@ -3,6 +3,7 @@ import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Lead {
   author_name: string;
@@ -37,7 +38,7 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
         </div>
       </div>
 
-      {/* Publication LinkedIn - prend l'espace restant */}
+      {/* Publication LinkedIn - prend l'espace restant avec scroll interne */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
         <h4 className="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2 flex-shrink-0">
           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -45,8 +46,8 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
         </h4>
         <div className="flex flex-col flex-1 min-h-0 space-y-3">
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 flex-1 min-h-0">
-            <ScrollArea className="h-full">
-              <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+            <ScrollArea className="h-full w-full">
+              <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed pr-4">
                 {lead.text}
               </div>
             </ScrollArea>
