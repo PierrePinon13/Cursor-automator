@@ -58,8 +58,14 @@ export function useLinkedInConnection() {
           title: "Connexion LinkedIn",
           description: "Une nouvelle fenêtre s'est ouverte pour connecter votre compte LinkedIn.",
         });
+
+        // Refresh connections after a short delay to catch the webhook update
+        setTimeout(() => {
+          fetchConnections();
+        }, 3000);
       }
     } catch (error: any) {
+      console.error('LinkedIn connection error:', error);
       toast({
         title: "Erreur",
         description: "Impossible de se connecter à LinkedIn. Veuillez réessayer.",

@@ -2,11 +2,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Linkedin, Unlink } from 'lucide-react';
+import { Linkedin, Unlink, RefreshCw } from 'lucide-react';
 import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 const LinkedInConnectionCard = () => {
-  const { connections, loading, connectLinkedIn, disconnectLinkedIn } = useLinkedInConnection();
+  const { connections, loading, connectLinkedIn, disconnectLinkedIn, refreshConnections } = useLinkedInConnection();
 
   const hasActiveConnection = connections.some(conn => conn.connection_status === 'connected');
 
@@ -16,9 +16,17 @@ const LinkedInConnectionCard = () => {
         <CardTitle className="flex items-center gap-2">
           <Linkedin className="h-5 w-5 text-blue-600" />
           Connexion LinkedIn
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refreshConnections}
+            className="ml-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </CardTitle>
         <CardDescription>
-          Connectez votre compte LinkedIn pour analyser vos publications
+          Connectez votre compte LinkedIn via Unipile pour analyser vos publications
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -29,7 +37,7 @@ const LinkedInConnectionCard = () => {
             </p>
             <Button onClick={connectLinkedIn} disabled={loading}>
               <Linkedin className="h-4 w-4 mr-2" />
-              Connecter LinkedIn
+              {loading ? 'Connexion...' : 'Connecter LinkedIn'}
             </Button>
           </div>
         ) : (
@@ -45,11 +53,14 @@ const LinkedInConnectionCard = () => {
                         {connection.linkedin_profile_url}
                       </p>
                     )}
+                    <p className="text-xs text-muted-foreground">
+                      ID: {connection.unipile_account_id}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={connection.connection_status === 'connected' ? 'default' : 'secondary'}>
-                    {connection.connection_status}
+                    {connection.connection_status === 'connected' ? 'Connecté' : connection.connection_status}
                   </Badge>
                   <Button
                     variant="outline"
@@ -64,7 +75,7 @@ const LinkedInConnectionCard = () => {
             {!hasActiveConnection && (
               <Button onClick={connectLinkedIn} disabled={loading} className="w-full">
                 <Linkedin className="h-4 w-4 mr-2" />
-                Ajouter une connexion LinkedIn
+                {loading ? 'Connexion...' : 'Ajouter une connexion LinkedIn'}
               </Button>
             )}
           </div>

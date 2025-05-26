@@ -1,1 +1,8 @@
+
 project_id = "csilkrfizphtbmevlkme"
+
+[functions.linkedin-connect]
+verify_jwt = true
+
+[functions.linkedin-webhook]
+verify_jwt = false
