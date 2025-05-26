@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { ExternalLink, GripVertical } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -156,20 +156,16 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                         <th
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`text-left p-3 font-medium text-sm bg-gray-50 ${
-                            snapshot.isDragging ? 'shadow-lg' : ''
+                          {...provided.dragHandleProps}
+                          className={`text-left p-3 font-medium text-sm bg-gray-50 cursor-grab select-none ${
+                            snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
                           }`}
                           style={{
                             ...provided.draggableProps.style,
                             width: column.width,
                           }}
                         >
-                          <div className="flex items-center gap-2">
-                            <div {...provided.dragHandleProps}>
-                              <GripVertical className="h-4 w-4 text-gray-400 cursor-grab" />
-                            </div>
-                            {column.label}
-                          </div>
+                          {column.label}
                         </th>
                       )}
                     </Draggable>
