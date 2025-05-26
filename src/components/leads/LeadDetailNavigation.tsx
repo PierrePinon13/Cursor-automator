@@ -21,11 +21,11 @@ const LeadDetailNavigation = ({
   onNext
 }: LeadDetailNavigationProps) => {
   return (
-    <div className="flex items-center justify-between">
-      <h2 className="text-xl font-semibold">
-        Détails du Lead ({currentIndex + 1}/{totalLeads})
-      </h2>
+    <div className="flex items-center justify-end">
       <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-500">
+          {currentIndex + 1}/{totalLeads}
+        </span>
         <Button
           variant="outline"
           size="sm"
