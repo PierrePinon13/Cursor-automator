@@ -1,0 +1,51 @@
+
+import DashboardHeader from '@/components/DashboardHeader';
+import LinkedInConnectionCard from '@/components/LinkedInConnectionCard';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+
+const Profile = () => {
+  const { user } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <DashboardHeader />
+      
+      <main className="p-6 space-y-6 max-w-4xl mx-auto">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Mon profil</h2>
+          <p className="text-muted-foreground">
+            Gérez vos informations personnelles et vos connexions
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informations personnelles</CardTitle>
+              <CardDescription>
+                Vos informations de compte
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <p className="text-sm text-gray-900">{user?.email}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Compte créé le</label>
+                <p className="text-sm text-gray-900">
+                  {user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR') : 'N/A'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <LinkedInConnectionCard />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default Profile;
