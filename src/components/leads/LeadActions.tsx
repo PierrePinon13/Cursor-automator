@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Building2, UserCheck, Phone, ExternalLink, Send } from 'lucide-react';
+import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert } from 'lucide-react';
 import { HrProviderSelector } from './HrProviderSelector';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 
@@ -60,78 +60,92 @@ const LeadActions = ({
   };
 
   const canSendMessage = onSendLinkedInMessage && message.trim().length > 0 && message.length <= 300;
+  const messageIsTooLong = message.length > 300;
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-700 mb-3">Actions</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Actions disponibles</h3>
       
-      {/* Actions verticales */}
-      <div className="space-y-3">
-        {/* LinkedIn Message */}
+      <div className="space-y-4">
+        {/* Message LinkedIn Section */}
         {onSendLinkedInMessage && (
-          <Button
-            onClick={onSendLinkedInMessage}
-            disabled={!canSendMessage || messageSending}
-            className="w-full flex items-center gap-2"
-            size="sm"
-          >
-            <Send className="h-4 w-4" />
-            {messageSending ? 'Envoi...' : 'Envoyer message LinkedIn'}
-          </Button>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-blue-700">
+              <div className="text-blue-600 font-bold text-lg">in</div>
+              <span className="font-medium">Message LinkedIn</span>
+            </div>
+            
+            {messageIsTooLong && (
+              <div className="flex items-start gap-2 text-red-600 text-sm">
+                <span className="text-red-600 font-bold">✕</span>
+                <span>Le message dépasse la limite de 300 caractères. Veuillez le raccourcir.</span>
+              </div>
+            )}
+            
+            <Button
+              onClick={onSendLinkedInMessage}
+              disabled={!canSendMessage || messageSending}
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white flex items-center gap-2"
+              size="lg"
+            >
+              <Send className="h-4 w-4" />
+              {messageSending ? 'Envoi...' : 'Envoyer le message LinkedIn'}
+            </Button>
+          </div>
         )}
         
-        {/* Phone retrieval */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleAction('phone')}
-          className="w-full flex items-center gap-2"
-          disabled={phoneLoading}
-        >
-          <Phone className="h-4 w-4" />
-          {phoneLoading ? 'Recherche...' : 'Récupérer téléphone'}
-        </Button>
+        {/* Phone Section */}
+        {lead.phone_number ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-green-700">
+              <Phone className="h-5 w-5" />
+              <span className="font-medium">Téléphone : {lead.phone_number}</span>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={() => handleAction('phone')}
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
+            disabled={phoneLoading}
+          >
+            <Phone className="h-5 w-5 mr-3" />
+            <span className="font-medium text-gray-700">
+              {phoneLoading ? 'Recherche...' : 'Récupérer téléphone'}
+            </span>
+          </Button>
+        )}
         
         {/* Schedule reminder */}
         <Button
           variant="outline"
-          size="sm"
           onClick={() => handleAction('reminder')}
-          className="w-full flex items-center gap-2"
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
         >
-          <UserCheck className="h-4 w-4" />
-          Planifier rappel
+          <Calendar className="h-5 w-5 mr-3" />
+          <span className="font-medium text-gray-700">Planifier rappel</span>
         </Button>
         
         {/* HR Provider */}
         <Button
           variant="outline"
-          size="sm"
           onClick={() => handleAction('hr_provider')}
-          className="w-full flex items-center gap-2"
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
         >
-          <Building2 className="h-4 w-4" />
-          Prestataire RH
+          <UserCheck className="h-5 w-5 mr-3" />
+          <span className="font-medium text-gray-700">Prestataire RH</span>
         </Button>
         
-        {/* Profile link */}
+        {/* Publication mal ciblée */}
         <Button
           variant="outline"
-          size="sm"
-          onClick={() => window.open(lead.author_profile_url, '_blank')}
-          className="w-full flex items-center gap-2"
+          onClick={() => handleAction('mistargeted')}
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
         >
-          <ExternalLink className="h-4 w-4" />
-          Voir profil LinkedIn
+          <TriangleAlert className="h-5 w-5 mr-3" />
+          <span className="font-medium text-gray-700">Publication mal ciblée</span>
         </Button>
       </div>
-
-      {/* Phone number display */}
-      {lead.phone_number && (
-        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-          <strong>Téléphone:</strong> {lead.phone_number}
-        </div>
-      )}
 
       <HrProviderSelector
         open={showHrProviderSelector}
