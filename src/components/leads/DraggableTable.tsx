@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -31,6 +30,7 @@ interface Column {
   id: string;
   label: string;
   width?: string;
+  minWidth?: string;
   render: (lead: Lead) => React.ReactNode;
 }
 
@@ -45,8 +45,9 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       id: 'posted_date',
       label: 'Posted Date',
       width: '300px',
+      minWidth: '300px',
       render: (lead) => (
-        <span className="text-sm">
+        <span className="text-sm whitespace-nowrap">
           {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
         </span>
       )
@@ -55,6 +56,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       id: 'job_title',
       label: 'Profil recherché',
       width: '350px',
+      minWidth: '350px',
       render: (lead) => (
         <div className="space-y-1">
           {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
@@ -162,7 +164,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
   return (
     <div className="w-full overflow-auto">
       <DragDropContext onDragEnd={handleOnDragEnd}>
-        <table className="w-full border-collapse bg-white">
+        <table className="w-full border-collapse bg-white" style={{ tableLayout: 'fixed' }}>
           <Droppable droppableId="columns" direction="horizontal">
             {(provided) => (
               <thead ref={provided.innerRef} {...provided.droppableProps}>
@@ -174,12 +176,14 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`text-left p-3 font-medium text-sm bg-gray-50 cursor-grab select-none ${
+                          className={`text-left p-3 font-medium text-sm bg-gray-50 cursor-grab select-none whitespace-nowrap ${
                             snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
                           }`}
                           style={{
                             ...provided.draggableProps.style,
                             width: column.width,
+                            minWidth: column.minWidth || column.width,
+                            maxWidth: column.width,
                           }}
                         >
                           {column.label}
@@ -204,7 +208,11 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
                   <td
                     key={column.id}
                     className="p-3 text-sm"
-                    style={{ width: column.width }}
+                    style={{ 
+                      width: column.width,
+                      minWidth: column.minWidth || column.width,
+                      maxWidth: column.width,
+                    }}
                   >
                     {column.render(lead)}
                   </td>
