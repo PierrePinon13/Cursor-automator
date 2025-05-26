@@ -96,46 +96,16 @@ serve(async (req) => {
 
     console.log('Using author_profile_id from database:', authorProfileId)
 
-    // Get user's LinkedIn connection
-    const { data: connections, error: connectionError } = await supabaseClient
-      .from('linkedin_connections')
-      .select('account_id, unipile_account_id')
-      .eq('user_id', user.id)
-      .eq('status', 'connected')
-      .limit(1)
-
-    if (connectionError) {
-      console.error('Connection query error:', connectionError)
-      return new Response(
-        JSON.stringify({ error: 'Database error checking connections' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (!connections || connections.length === 0) {
-      console.error('No active LinkedIn connection found')
-      return new Response(
-        JSON.stringify({ error: 'No active LinkedIn connection found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const userAccountId = connections[0].account_id || connections[0].unipile_account_id
-
-    if (!userAccountId) {
-      console.error('No account ID found in connection')
-      return new Response(
-        JSON.stringify({ error: 'Invalid LinkedIn connection configuration' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Use the provided account ID
+    const userAccountId = 'DdxglDwFT-mMZgxHeCGMdA'
+    console.log('Using account ID:', userAccountId)
 
     // Add random delay before making the API call to avoid rate limiting
     const delayMs = getRandomDelay();
     console.log(`Adding random delay of ${delayMs}ms before Unipile API call`);
     await sleep(delayMs);
 
-    // Step 1: Get profile information to check connection degree using the correct URL format
+    // Step 1: Get profile information to check connection degree and get provider_id
     console.log('Fetching profile information for authorProfileId:', authorProfileId)
     
     const profileParams = new URLSearchParams({
@@ -166,6 +136,10 @@ serve(async (req) => {
     const profileData = await profileResponse.json()
     console.log('Profile data received:', JSON.stringify(profileData, null, 2))
 
+    // Extract provider_id from the profile response
+    const providerId = profileData.provider_id || profileData.id || authorProfileId
+    console.log('Provider ID extracted:', providerId)
+
     // Check connection degree - try multiple possible field names
     const connectionDegree = profileData.connection_degree || 
                            profileData.degree || 
@@ -187,7 +161,7 @@ serve(async (req) => {
 
     if (isFirstDegree) {
       // Send direct message
-      console.log('Sending direct message to 1st degree connection')
+      console.log('Sending direct message to 1st degree connection with provider_id:', providerId)
       
       const messageResponse = await fetch('https://api9.unipile.com:13946/api/v1/messages', {
         method: 'POST',
@@ -198,7 +172,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           account_id: userAccountId,
-          provider_id: authorProfileId,
+          provider_id: providerId,
           text: message,
           provider: 'LINKEDIN'
         }),
@@ -218,7 +192,7 @@ serve(async (req) => {
 
     } else {
       // Send connection request with message
-      console.log('Sending connection request with message to non-1st degree connection')
+      console.log('Sending connection request with message to non-1st degree connection with provider_id:', providerId)
       
       const connectionResponse = await fetch('https://api9.unipile.com:13946/api/v1/linkedin/connection_requests', {
         method: 'POST',
@@ -229,7 +203,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           account_id: userAccountId,
-          provider_id: authorProfileId,
+          provider_id: providerId,
           message: message
         }),
       })
@@ -252,6 +226,7 @@ serve(async (req) => {
         success: success,
         action_taken: actionTaken,
         connection_degree: connectionDegree,
+        provider_id: providerId,
         message: success ? 'Message envoyé avec succès' : 'Échec de l\'envoi',
         lead_name: leadData.author_name
       }),
