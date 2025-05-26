@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExternalLink, Linkedin, Phone, Calendar, Users, X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -85,14 +86,9 @@ Bien cordialement,
 [Votre nom]`;
 
   const handleSendLinkedInMessage = async () => {
-    if (!lead.author_profile_id) {
-      console.error('No author_profile_id found for lead:', lead);
-      return;
-    }
-
-    // Extract profile ID from URL if needed
-    let profileId = lead.author_profile_id;
-    if (!profileId && lead.author_profile_url) {
+    // Extract profile ID from URL if available
+    let profileId = '';
+    if (lead.author_profile_url) {
       // Extract from LinkedIn URL pattern: https://linkedin.com/in/profile-id
       const match = lead.author_profile_url.match(/\/in\/([^\/]+)/);
       if (match) {
@@ -168,6 +164,9 @@ Bien cordialement,
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg">{lead.author_name || 'N/A'}</h3>
+                    <div className="text-sm text-gray-600">
+                      {formatCompanyInfo()}
+                    </div>
                   </div>
                   <a
                     href={lead.author_profile_url}
@@ -177,9 +176,6 @@ Bien cordialement,
                   >
                     <Linkedin className="h-6 w-6" />
                   </a>
-                </div>
-                <div className="text-sm text-gray-600">
-                  {formatCompanyInfo()}
                 </div>
               </div>
 
@@ -198,7 +194,7 @@ Bien cordialement,
               {/* Publication LinkedIn - plus d'espace */}
               <div className="space-y-2 flex-1">
                 <h4 className="font-medium text-sm text-gray-600">Publication LinkedIn</h4>
-                <div className="bg-white p-4 rounded-lg border h-80">
+                <div className="bg-white p-4 rounded-lg border" style={{ height: '400px' }}>
                   <ScrollArea className="h-full">
                     <div className="text-sm text-gray-700 mb-3 whitespace-pre-wrap">
                       {lead.text}

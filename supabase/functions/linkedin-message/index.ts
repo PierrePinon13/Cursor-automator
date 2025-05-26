@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Add random delay between 2-8 seconds like in the profile scraper
+function getRandomDelay(): number {
+  return Math.floor(Math.random() * (8000 - 2000 + 1)) + 2000; // Random between 2000-8000ms
+}
+
+// Sleep function for delay
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -73,6 +83,11 @@ serve(async (req) => {
     }
 
     const userAccountId = connections[0].account_id
+
+    // Add random delay before making the API call to avoid rate limiting
+    const delayMs = getRandomDelay();
+    console.log(`Adding random delay of ${delayMs}ms before Unipile API call`);
+    await sleep(delayMs);
 
     // Step 1: Get profile information to check connection degree
     console.log('Fetching profile information for:', lead_profile_id)
