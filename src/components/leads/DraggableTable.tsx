@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -81,7 +82,17 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       label: 'Lead',
       width: '144px',
       render: (lead) => (
-        <span className="font-medium text-sm">{lead.author_name || 'N/A'}</span>
+        <div 
+          className="group cursor-pointer hover:bg-blue-50 rounded-md p-2 -m-2 transition-all duration-200 relative"
+          onClick={() => window.open(lead.author_profile_url, '_blank')}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-sm group-hover:text-blue-700 transition-colors">
+              {lead.author_name || 'N/A'}
+            </span>
+            <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
+          </div>
+        </div>
       )
     },
     {
