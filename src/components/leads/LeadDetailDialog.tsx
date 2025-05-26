@@ -109,8 +109,8 @@ const LeadDetailDialog = ({
     };
     setCurrentLeads(updatedLeads);
     
-    // Appeler le callback pour mettre à jour les données parent
-    onActionCompleted();
+    // NE PAS appeler onActionCompleted() ici pour éviter la navigation automatique
+    // La récupération du téléphone ne doit pas faire passer au lead suivant
   };
 
   if (!isOpen) return null;
