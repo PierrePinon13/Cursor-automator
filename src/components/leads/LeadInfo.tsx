@@ -21,10 +21,10 @@ interface LeadInfoProps {
 
 const LeadInfo = ({ lead }: LeadInfoProps) => {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full space-y-4">
       {/* Poste recherché */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-        <h4 className="font-semibold text-sm text-slate-700 mb-3 flex items-center gap-2">
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-shrink-0">
+        <h4 className="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           Poste recherché
         </h4>
@@ -37,16 +37,16 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
         </div>
       </div>
 
-      {/* Publication LinkedIn */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex-1">
-        <h4 className="font-semibold text-sm text-slate-700 mb-3 flex items-center gap-2">
+      {/* Publication LinkedIn - prend l'espace restant */}
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
+        <h4 className="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2 flex-shrink-0">
           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
           Publication LinkedIn
         </h4>
-        <div className="space-y-3">
-          <div className="bg-slate-50 rounded-lg p-4 border border-slate-100" style={{ height: '400px' }}>
+        <div className="flex flex-col flex-1 min-h-0 space-y-3">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 flex-1 min-h-0">
             <ScrollArea className="h-full">
-              <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+              <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                 {lead.text}
               </div>
             </ScrollArea>
@@ -55,7 +55,7 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
             href={lead.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors"
+            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors flex-shrink-0"
           >
             Voir la publication
             <ExternalLink className="h-3 w-3" />

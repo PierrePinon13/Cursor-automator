@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 import { Linkedin } from 'lucide-react';
 import LeadDetailNavigation from './LeadDetailNavigation';
@@ -120,71 +121,90 @@ const LeadDetailDialog = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden p-0 bg-white">
-        <DialogHeader className="px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200">
-          <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="font-semibold text-xl text-slate-800">{lead.author_name || 'N/A'}</h3>
-                  <a
-                    href={lead.author_profile_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110 transform duration-200"
-                  >
-                    <Linkedin className="h-5 w-5" />
-                  </a>
-                </div>
-                <div className="text-sm text-slate-600 font-medium">
-                  {formatCompanyInfo()}
+    <TooltipProvider>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden p-0 bg-white">
+          <DialogHeader className="px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h3 className="font-semibold text-lg text-gray-800">{lead.author_name || 'N/A'}</h3>
+                    <a
+                      href={lead.author_profile_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110 transform duration-200"
+                    >
+                      <Linkedin className="h-4 w-4" />
+                    </a>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {lead.unipile_position && (
+                      <span>{lead.unipile_position}</span>
+                    )}
+                    {lead.unipile_position && lead.unipile_company && <span> @ </span>}
+                    {lead.unipile_company && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help hover:text-blue-600 transition-colors">
+                            {lead.unipile_company}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg shadow-lg">
+                          <p className="text-sm">
+                            {lead.author_headline || "Description de l'activité non disponible"}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                 </div>
               </div>
+              <LeadDetailNavigation
+                currentIndex={selectedLeadIndex}
+                totalLeads={leads.length}
+                canGoPrevious={canGoPrevious}
+                canGoNext={canGoNext}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+              />
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex h-[calc(95vh-80px)]">
+            {/* Section gauche - Insights du lead (sans scroll global) */}
+            <div className="w-1/3 border-r border-gray-200 bg-gray-50/30 flex flex-col">
+              <div className="p-6 flex-1 flex flex-col">
+                <LeadInfo lead={lead} />
+              </div>
             </div>
-            <LeadDetailNavigation
-              currentIndex={selectedLeadIndex}
-              totalLeads={leads.length}
-              canGoPrevious={canGoPrevious}
-              canGoNext={canGoNext}
-              onPrevious={handlePrevious}
-              onNext={handleNext}
-            />
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="flex h-[calc(95vh-100px)]">
-          {/* Section gauche - Insights du lead */}
-          <div className="w-1/3 border-r border-slate-200 bg-slate-50/50 overflow-y-auto">
-            <div className="p-6">
-              <LeadInfo lead={lead} />
+
+            {/* Section milieu - Message pré-rédigé */}
+            <div className="w-1/3 p-6 border-r border-gray-200 overflow-y-auto bg-white">
+              <LeadMessageEditor
+                lead={lead}
+                message={customMessage}
+                onMessageChange={setCustomMessage}
+                disabled={messageSending}
+              />
+            </div>
+
+            {/* Section droite - Boutons d'actions */}
+            <div className="w-1/3 p-6 overflow-y-auto bg-white">
+              <LeadActions
+                lead={lead}
+                onSendLinkedInMessage={handleSendLinkedInMessage}
+                onAction={handleAction}
+                messageSending={messageSending}
+                message={customMessage}
+                onPhoneRetrieved={handlePhoneRetrieved}
+              />
             </div>
           </div>
-
-          {/* Section milieu - Message pré-rédigé */}
-          <div className="w-1/3 p-6 border-r border-slate-200 overflow-y-auto bg-white">
-            <LeadMessageEditor
-              lead={lead}
-              message={customMessage}
-              onMessageChange={setCustomMessage}
-              disabled={messageSending}
-            />
-          </div>
-
-          {/* Section droite - Boutons d'actions */}
-          <div className="w-1/3 p-6 overflow-y-auto bg-white">
-            <LeadActions
-              lead={lead}
-              onSendLinkedInMessage={handleSendLinkedInMessage}
-              onAction={handleAction}
-              messageSending={messageSending}
-              message={customMessage}
-              onPhoneRetrieved={handlePhoneRetrieved}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   );
 };
 
