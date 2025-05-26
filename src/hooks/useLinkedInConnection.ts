@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -200,49 +201,62 @@ export function useLinkedInConnection() {
 
     setCheckingStatus(true);
     try {
-      console.log('Checking LinkedIn status for account:', accountId);
+      console.log('Checking LinkedIn status using sync accounts for account:', accountId);
       
-      const { data, error } = await supabase.functions.invoke('linkedin-status', {
-        body: { account_id: accountId }
-      });
+      // Utilise la fonction de synchronisation complète au lieu de l'endpoint individuel
+      const { data, error } = await supabase.functions.invoke('linkedin-sync-accounts');
 
       if (error) {
-        console.error('Status check error:', error);
+        console.error('Sync error during status check:', error);
         throw error;
       }
 
-      console.log('Status check response:', data);
+      console.log('Sync response during status check:', data);
 
       if (data && data.success) {
         await fetchConnections();
         
-        // Provide specific feedback based on status
-        const statusMessages = {
-          'connected': 'Compte LinkedIn connecté et fonctionnel',
-          'pending': 'Connexion en cours, veuillez patienter...',
-          'credentials_required': 'Identifiants LinkedIn à renouveler',
-          'validation_required': 'Validation requise dans l\'application LinkedIn',
-          'checkpoint_required': 'Action requise (vérification 2FA)',
-          'captcha_required': 'Résolution de captcha nécessaire',
-          'disconnected': 'Compte LinkedIn déconnecté',
-          'unknown': `Statut inconnu: ${data.account_data?.original_status || 'N/A'}`
-        };
+        // Chercher les informations spécifiques du compte demandé dans les résultats
+        const accountResult = data.results?.find((result: any) => 
+          result.account_id === accountId && result.status !== 'error'
+        );
 
-        const message = statusMessages[data.status as keyof typeof statusMessages] || 'Statut vérifié';
-        
-        toast({
-          title: "Statut vérifié",
-          description: message,
-          variant: data.status === 'connected' ? 'default' : (data.status === 'pending' ? 'default' : 'destructive'),
-        });
+        if (accountResult) {
+          const statusMessages = {
+            'connected': 'Compte LinkedIn connecté et fonctionnel',
+            'pending': 'Connexion en cours, veuillez patienter...',
+            'credentials_required': 'Identifiants LinkedIn à renouveler',
+            'validation_required': 'Validation requise dans l\'application LinkedIn',
+            'checkpoint_required': 'Action requise (vérification 2FA)',
+            'captcha_required': 'Résolution de captcha nécessaire',
+            'disconnected': 'Compte LinkedIn déconnecté',
+            'unknown': 'Statut inconnu'
+          };
+
+          const accountData = accountResult.data;
+          const status = accountData?.status || 'unknown';
+          const message = statusMessages[status as keyof typeof statusMessages] || 'Statut vérifié via synchronisation complète';
+          
+          toast({
+            title: "Statut vérifié",
+            description: `${message} (Account ID: ${accountId})`,
+            variant: status === 'connected' ? 'default' : (status === 'pending' ? 'default' : 'destructive'),
+          });
+        } else {
+          toast({
+            title: "Compte introuvable",
+            description: `Le compte ${accountId} n'a pas été trouvé dans la synchronisation Unipile`,
+            variant: "destructive",
+          });
+        }
       } else {
         throw new Error('Réponse invalide du serveur');
       }
     } catch (error: any) {
-      console.error('Status check failed:', error);
+      console.error('Status check via sync failed:', error);
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de vérifier le statut du compte.",
+        description: error.message || "Impossible de vérifier le statut du compte via la synchronisation.",
         variant: "destructive",
       });
     } finally {
