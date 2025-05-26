@@ -129,7 +129,7 @@ const LeadDetailDialog = ({
               onSendLinkedInMessage={handleSendLinkedInMessage}
               onAction={handleAction}
               messageSending={messageSending}
-              hasMessage={isMessageValid}
+              message={customMessage}
             />
           }
         />

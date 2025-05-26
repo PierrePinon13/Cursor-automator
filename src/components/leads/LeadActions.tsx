@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Linkedin, Send, CheckCircle, Star, Calendar, Loader2 } from 'lucide-react';
@@ -16,7 +17,7 @@ interface LeadActionsProps {
   onSendLinkedInMessage: () => void;
   onAction: (actionName: string) => void;
   messageSending: boolean;
-  hasMessage: boolean;
+  message: string;
 }
 
 const LeadActions = ({ 
@@ -24,15 +25,17 @@ const LeadActions = ({
   onSendLinkedInMessage, 
   onAction, 
   messageSending, 
-  hasMessage 
+  message 
 }: LeadActionsProps) => {
   const { connections } = useLinkedInConnection();
   const hasActiveConnection = connections.some(conn => conn.status === 'connected');
 
-  // Fonction pour vérifier si le message dépasse la limite
-  const isMessageValid = (message: string) => {
-    return message.trim().length > 0 && message.length <= 300;
+  // Fonction pour vérifier si le message est valide
+  const isMessageValid = (messageText: string) => {
+    return messageText.trim().length > 0 && messageText.length <= 300;
   };
+
+  const messageValid = isMessageValid(message);
 
   return (
     <div className="space-y-6">
@@ -58,9 +61,15 @@ const LeadActions = ({
               </div>
             ) : null}
             
+            {!messageValid && message.length > 300 && (
+              <div className="text-xs text-red-600 bg-red-50 p-2 rounded mb-3">
+                ❌ Le message dépasse la limite de 300 caractères. Veuillez le raccourcir.
+              </div>
+            )}
+            
             <Button
               onClick={onSendLinkedInMessage}
-              disabled={messageSending || !hasMessage || !hasActiveConnection || !isMessageValid(/* message will be validated in parent */)}
+              disabled={messageSending || !messageValid || !hasActiveConnection}
               className="w-full"
               size="sm"
             >
