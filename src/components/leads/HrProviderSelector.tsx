@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,8 @@ interface Lead {
   id: string;
   author_name: string;
   unipile_response?: any;
+  unipile_company?: string;
+  author_profile_url?: string;
 }
 
 interface HrProviderSelectorProps {
@@ -29,21 +32,31 @@ export function HrProviderSelector({
 }: HrProviderSelectorProps) {
   const { hrProviders, createHrProvider } = useHrProviders();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newProviderName, setNewProviderName] = useState('');
+  const [newProviderData, setNewProviderData] = useState({
+    company_name: '',
+    company_linkedin_url: ''
+  });
   const [loading, setLoading] = useState(false);
 
   // Extract work experiences from Unipile data
   const workExperiences = extractWorkExperiences(lead.unipile_response);
-  const lastExperience = workExperiences.length > 0 ? workExperiences[0] : null;
+  const currentExperience = workExperiences.find(exp => exp.isCurrent) || workExperiences[0];
+  
+  // Get current company info
+  const currentCompanyName = currentExperience?.company || lead.unipile_company || '';
+  const currentCompanyLinkedInUrl = lead.author_profile_url ? 
+    lead.author_profile_url.replace('/in/', '/company/').split('/')[0] + '/company/' + 
+    (currentCompanyName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')) 
+    : '';
 
-  const handleCreateFromLastExperience = async () => {
-    if (!lastExperience?.company) return;
+  const handleCreateFromCurrentCompany = async () => {
+    if (!currentCompanyName) return;
     
     setLoading(true);
     try {
       const newProvider = await createHrProvider({
-        company_name: lastExperience.company,
-        company_linkedin_url: null,
+        company_name: currentCompanyName,
+        company_linkedin_url: currentCompanyLinkedInUrl || null,
         company_linkedin_id: null
       });
       
@@ -59,13 +72,13 @@ export function HrProviderSelector({
   };
 
   const handleCreateCustom = async () => {
-    if (!newProviderName.trim()) return;
+    if (!newProviderData.company_name.trim()) return;
     
     setLoading(true);
     try {
       const newProvider = await createHrProvider({
-        company_name: newProviderName.trim(),
-        company_linkedin_url: null,
+        company_name: newProviderData.company_name.trim(),
+        company_linkedin_url: newProviderData.company_linkedin_url.trim() || null,
         company_linkedin_id: null
       });
       
@@ -85,6 +98,14 @@ export function HrProviderSelector({
     onOpenChange(false);
   };
 
+  const handleShowCreateForm = () => {
+    setShowCreateForm(true);
+    setNewProviderData({
+      company_name: currentCompanyName,
+      company_linkedin_url: currentCompanyLinkedInUrl
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
@@ -96,31 +117,30 @@ export function HrProviderSelector({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Last work experience from Unipile */}
-          {lastExperience && (
+          {/* Current company from lead data */}
+          {currentCompanyName && (
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-gray-700">
-                Dernière expérience professionnelle (Unipile)
+                Société actuelle du lead
               </h3>
               <div className="p-3 border rounded-lg bg-blue-50 border-blue-200">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs bg-blue-100">
-                        {lastExperience.isCurrent ? 'Poste actuel' : 'Poste précédent'}
+                        Société actuelle
                       </Badge>
                     </div>
-                    <div className="font-medium text-gray-900">{lastExperience.company}</div>
-                    <div className="text-sm text-gray-600">{lastExperience.position}</div>
-                    {lastExperience.start && (
-                      <div className="text-xs text-gray-500">
-                        {lastExperience.start} - {lastExperience.end || 'Présent'}
+                    <div className="font-medium text-gray-900">{currentCompanyName}</div>
+                    {currentCompanyLinkedInUrl && (
+                      <div className="text-sm text-blue-600 truncate max-w-[300px]">
+                        {currentCompanyLinkedInUrl}
                       </div>
                     )}
                   </div>
                   <Button
                     size="sm"
-                    onClick={handleCreateFromLastExperience}
+                    onClick={handleCreateFromCurrentCompany}
                     disabled={loading}
                     className="ml-4"
                   >
@@ -163,7 +183,7 @@ export function HrProviderSelector({
             {!showCreateForm ? (
               <Button 
                 variant="outline" 
-                onClick={() => setShowCreateForm(true)}
+                onClick={handleShowCreateForm}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -175,15 +195,30 @@ export function HrProviderSelector({
                   <Label htmlFor="company_name">Nom de l'entreprise</Label>
                   <Input
                     id="company_name"
-                    value={newProviderName}
-                    onChange={(e) => setNewProviderName(e.target.value)}
+                    value={newProviderData.company_name}
+                    onChange={(e) => setNewProviderData(prev => ({ 
+                      ...prev, 
+                      company_name: e.target.value 
+                    }))}
                     placeholder="Nom de l'entreprise"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="company_linkedin_url">URL LinkedIn de l'entreprise</Label>
+                  <Input
+                    id="company_linkedin_url"
+                    value={newProviderData.company_linkedin_url}
+                    onChange={(e) => setNewProviderData(prev => ({ 
+                      ...prev, 
+                      company_linkedin_url: e.target.value 
+                    }))}
+                    placeholder="https://www.linkedin.com/company/..."
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button 
                     onClick={handleCreateCustom}
-                    disabled={!newProviderName.trim() || loading}
+                    disabled={!newProviderData.company_name.trim() || loading}
                     className="flex-1"
                   >
                     Créer
@@ -192,7 +227,7 @@ export function HrProviderSelector({
                     variant="outline"
                     onClick={() => {
                       setShowCreateForm(false);
-                      setNewProviderName('');
+                      setNewProviderData({ company_name: '', company_linkedin_url: '' });
                     }}
                   >
                     Annuler
