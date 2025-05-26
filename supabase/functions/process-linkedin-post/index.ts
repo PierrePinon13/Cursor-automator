@@ -1,158 +1,161 @@
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts';
-import { scrapLinkedInProfile } from './unipile-scraper.ts';
-import { checkIfLeadIsFromClient } from './client-matching.ts';
-import { generateApproachMessage } from './message-generation.ts';
-import { 
-  updateProcessingStatus, 
-  updateStep1Results, 
-  updateStep2Results, 
-  updateStep3Results,
-  updateUnipileResults,
-  updateClientMatchResults,
-  updateApproachMessage,
-  fetchPost 
-} from './database-operations.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { processOpenAIStep1, processOpenAIStep2, processOpenAIStep3 } from './openai-steps.ts'
+import { processUnipileProfile } from './unipile-scraper.ts'
+import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost } from './database-operations.ts'
+import { checkClientMatch } from './client-matching.ts'
+import { generateApproachMessage } from './message-generation.ts'
+import { handleLeadDeduplication } from './lead-deduplication.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { postId } = await req.json();
+    console.log('LinkedIn post processing started')
     
-    if (!postId) {
-      return new Response('Post ID is required', { status: 400, headers: corsHeaders });
-    }
-
-    // Initialize Supabase client
+    // Initialize Supabase client with service role
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    // Get API keys
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
-      return new Response('OpenAI API key not configured', { status: 500, headers: corsHeaders });
+    // Parse the incoming request
+    const { postId } = await req.json()
+    
+    if (!postId) {
+      console.error('No post ID provided')
+      return new Response('No post ID provided', { 
+        status: 400,
+        headers: corsHeaders 
+      })
     }
 
-    const unipileApiKey = Deno.env.get('UNIPILE_API_KEY');
-    if (!unipileApiKey) {
-      console.error('Unipile API key not configured');
-      return new Response('Unipile API key not configured', { status: 500, headers: corsHeaders });
-    }
+    console.log('Processing post:', postId)
 
-    console.log('API keys found, starting processing...');
+    // Fetch the post from database
+    const post = await fetchPost(supabaseClient, postId)
+    console.log('Post fetched:', post.id)
 
-    // Fetch the post data
-    const post = await fetchPost(supabaseClient, postId);
-    console.log('Processing post:', post.id);
+    // Mark as processing
+    await updateProcessingStatus(supabaseClient, postId, 'processing')
 
-    // Update status to processing
-    await updateProcessingStatus(supabaseClient, postId, 'processing');
+    // Step 1: OpenAI analysis to determine if it's a job posting
+    console.log('Starting OpenAI Step 1: Job posting detection')
+    const step1Result = await processOpenAIStep1(post.text)
+    await updateStep1Results(supabaseClient, postId, step1Result, step1Result)
 
-    // Step 1: Check if post shows recruitment need
-    const { result: step1Result, data: step1Data } = await executeStep1(openAIApiKey, post);
-    await updateStep1Results(supabaseClient, postId, step1Result, step1Data);
-
-    // If step 1 says "Non", filter out and stop processing
-    if (step1Result.recrute_poste !== 'Oui') {
-      console.log('Post filtered out at step 1 - no recruitment detected');
-      await updateProcessingStatus(supabaseClient, postId, 'filtered_out');
-      
-      return new Response(JSON.stringify({ success: true, filtered_at: 'step1' }), {
+    if (step1Result.recrute_poste !== 'oui') {
+      console.log('Post is not a job posting, marking as completed')
+      await updateProcessingStatus(supabaseClient, postId, 'not_job_posting')
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Post is not a job posting',
+        postId: postId
+      }), { 
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      })
     }
 
-    // Step 2: Check if recruitment is probably in France
-    const { result: step2Result, data: step2Data } = await executeStep2(openAIApiKey, post);
-    await updateStep2Results(supabaseClient, postId, step2Result, step2Data);
+    // Step 2: OpenAI analysis for language and location
+    console.log('Starting OpenAI Step 2: Language and location analysis')
+    const step2Result = await processOpenAIStep2(post.text)
+    await updateStep2Results(supabaseClient, postId, step2Result, step2Result)
 
-    // If step 2 says "Non", filter out and stop processing
-    if (step2Result.reponse !== 'Oui') {
-      console.log('Post filtered out at step 2 - not in France/target zone');
-      await updateProcessingStatus(supabaseClient, postId, 'filtered_out');
-      
-      return new Response(JSON.stringify({ success: true, filtered_at: 'step2' }), {
+    if (step2Result.reponse !== 'oui') {
+      console.log('Post does not meet language/location criteria')
+      await updateProcessingStatus(supabaseClient, postId, 'filtered_out')
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Post filtered out due to language/location criteria',
+        postId: postId
+      }), { 
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      })
     }
 
-    // Step 3: Categorize the selected positions
-    const { result: step3Result, data: step3Data } = await executeStep3(openAIApiKey, post, step1Result);
-    await updateStep3Results(supabaseClient, postId, step3Result, step3Data);
+    // Step 3: OpenAI analysis for category and job selection
+    console.log('Starting OpenAI Step 3: Category and job analysis')
+    const step3Result = await processOpenAIStep3(post.text, step1Result.postes)
+    await updateStep3Results(supabaseClient, postId, step3Result, step3Result)
 
-    // Step 4: Scrap LinkedIn profile via Unipile
-    const scrapingResult = await scrapLinkedInProfile(unipileApiKey, post.author_profile_id);
-    await updateUnipileResults(supabaseClient, postId, scrapingResult);
+    // Step 4: Unipile profile scraping
+    console.log('Starting Unipile profile scraping')
+    const scrapingResult = await processUnipileProfile(post.author_profile_url)
+    await updateUnipileResults(supabaseClient, postId, scrapingResult, scrapingResult.raw_data)
 
-    // Step 5: Check if the lead's company matches any existing client
-    const clientMatch = await checkIfLeadIsFromClient(supabaseClient, scrapingResult.company_id);
-    await updateClientMatchResults(supabaseClient, postId, clientMatch);
+    // Step 5: Check if this is a client lead
+    console.log('Starting client matching')
+    const clientMatch = await checkClientMatch(supabaseClient, scrapingResult.company_id, scrapingResult.company)
+    await updateClientMatchResults(supabaseClient, postId, clientMatch)
 
     // Step 6: Generate approach message for non-client leads
-    let messageResult = null;
     if (!clientMatch.isClientLead) {
-      console.log('Generating approach message for non-client lead');
-      messageResult = await generateApproachMessage(
-        openAIApiKey, 
-        post, 
+      console.log('Lead is not a client, generating approach message')
+      const messageResult = await generateApproachMessage(
         post.author_name,
-        step3Result.postes_selectionnes
-      );
-      await updateApproachMessage(supabaseClient, postId, messageResult);
+        step3Result.postes_selectionnes,
+        step3Result.categorie,
+        step2Result.localisation_detectee
+      )
+      await updateApproachMessage(supabaseClient, postId, messageResult)
     } else {
-      console.log('Skipping approach message generation for client lead');
+      console.log('Lead is a client, skipping approach message generation')
     }
 
-    // Mark as completed
-    await updateProcessingStatus(supabaseClient, postId, 'completed');
+    // Step 7: Handle lead deduplication
+    console.log('Starting lead deduplication')
+    const updatedPost = await fetchPost(supabaseClient, postId)
+    const deduplicationResult = await handleLeadDeduplication(supabaseClient, updatedPost)
+    
+    console.log('Deduplication result:', deduplicationResult)
 
-    console.log('Post processing completed successfully');
+    // Mark as completed or update status based on deduplication
+    let finalStatus = 'completed'
+    if (deduplicationResult.action === 'error') {
+      finalStatus = 'deduplication_error'
+    } else if (deduplicationResult.isExisting) {
+      finalStatus = 'duplicate'
+    }
+
+    await updateProcessingStatus(supabaseClient, postId, finalStatus)
+
+    console.log('LinkedIn post processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true, 
-      postId,
-      step1: step1Result,
-      step2: step2Result,
-      step3: step3Result,
-      clientMatch: clientMatch,
-      messageGenerated: messageResult
-    }), {
+      message: 'Post processed successfully',
+      postId: postId,
+      isJobPosting: step1Result.recrute_poste === 'oui',
+      meetsLocationCriteria: step2Result.reponse === 'oui',
+      category: step3Result.categorie,
+      selectedPositions: step3Result.postes_selectionnes,
+      company: scrapingResult.company,
+      position: scrapingResult.position,
+      isClientLead: clientMatch.isClientLead,
+      clientName: clientMatch.clientName,
+      deduplication: deduplicationResult,
+      finalStatus: finalStatus
+    }), { 
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    })
 
-  } catch (error) {
-    console.error('Error in process-linkedin-post function:', error);
-    
-    // Update status to error if we have a postId
-    if (req.body?.postId) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-        await updateProcessingStatus(supabaseClient, req.body.postId, 'error');
-      } catch (updateError) {
-        console.error('Failed to update error status:', updateError);
-      }
-    }
-    
+  } catch (error: any) {
+    console.error('Error in process-linkedin-post function:', error)
     return new Response('Internal server error', { 
       status: 500,
       headers: corsHeaders
-    });
+    })
   }
-});
+})

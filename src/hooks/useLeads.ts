@@ -23,6 +23,11 @@ interface Lead {
   unipile_profile_scraped_at: string;
   phone_number?: string | null;
   phone_retrieved_at?: string | null;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
+  is_client_lead?: boolean | null;
+  matched_client_name?: string | null;
 }
 
 export const useLeads = () => {
@@ -77,7 +82,12 @@ export const useLeads = () => {
           unipile_profile_scraped,
           unipile_profile_scraped_at,
           phone_number,
-          phone_retrieved_at
+          phone_retrieved_at,
+          approach_message,
+          approach_message_generated,
+          approach_message_generated_at,
+          is_client_lead,
+          matched_client_name
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)
