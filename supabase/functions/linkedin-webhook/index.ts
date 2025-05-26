@@ -171,6 +171,24 @@ serve(async (req) => {
 
     console.log('LinkedIn connection updated successfully:', data[0])
 
+    // Si la connexion a réussi, supprimer les anciennes connexions du même utilisateur
+    if (status === 'CREATION_SUCCESS' || status === 'RECONNECTED') {
+      console.log('Removing old connections for user:', connectionData.user_id)
+      
+      const { error: deleteError } = await supabaseClient
+        .from('linkedin_connections')
+        .delete()
+        .eq('user_id', connectionData.user_id)
+        .neq('id', connectionData.id) // Garder la connexion actuelle
+
+      if (deleteError) {
+        console.error('Error deleting old connections:', deleteError)
+        // Ne pas faire échouer le webhook pour cette erreur
+      } else {
+        console.log('Old connections deleted successfully for user:', connectionData.user_id)
+      }
+    }
+
     return new Response('OK', { 
       status: 200,
       headers: corsHeaders
