@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { AlertCircle } from 'lucide-react';
 
 interface Lead {
   author_name: string;
@@ -17,6 +18,10 @@ interface LeadMessageEditorProps {
 }
 
 const LeadMessageEditor = ({ lead, message, onMessageChange, disabled }: LeadMessageEditorProps) => {
+  const MAX_CHARACTERS = 300;
+  const isOverLimit = message.length > MAX_CHARACTERS;
+  const remainingChars = MAX_CHARACTERS - message.length;
+
   const generateDefaultMessage = () => {
     return `Bonjour ${lead.author_name?.split(' ')[0] || 'Cher(e) professionnel(le)'},
 
@@ -59,12 +64,34 @@ Bien cordialement,
           value={message}
           onChange={(e) => onMessageChange(e.target.value)}
           placeholder="Rédigez votre message LinkedIn..."
-          className="min-h-[380px] resize-none text-sm"
+          className={`min-h-[380px] resize-none text-sm ${isOverLimit ? 'border-red-500 focus:border-red-500' : ''}`}
           disabled={disabled}
         />
-        <div className="text-xs text-gray-500">
-          Ce message sera envoyé via LinkedIn. Vous pouvez le personnaliser avant l'envoi.
+        <div className="flex items-center justify-between text-xs">
+          <div className="text-gray-500">
+            Ce message sera envoyé via LinkedIn. Vous pouvez le personnaliser avant l'envoi.
+          </div>
+          <div className={`flex items-center gap-1 ${isOverLimit ? 'text-red-600' : remainingChars < 50 ? 'text-orange-500' : 'text-gray-500'}`}>
+            {isOverLimit && <AlertCircle className="h-3 w-3" />}
+            <span className="font-medium">
+              {message.length}/{MAX_CHARACTERS}
+            </span>
+            {remainingChars >= 0 ? (
+              <span>({remainingChars} restants)</span>
+            ) : (
+              <span>({Math.abs(remainingChars)} en trop)</span>
+            )}
+          </div>
         </div>
+        {isOverLimit && (
+          <div className="text-xs text-red-600 bg-red-50 p-2 rounded flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>
+              Votre message dépasse la limite de {MAX_CHARACTERS} caractères. 
+              Veuillez le raccourcir pour pouvoir l'envoyer.
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

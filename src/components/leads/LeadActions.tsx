@@ -1,11 +1,14 @@
-
 import React from 'react';
-import { Linkedin, Phone, Calendar, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Linkedin, Send, CheckCircle, Star, Calendar, Loader2 } from 'lucide-react';
+import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 interface Lead {
+  id: string;
+  author_name: string;
+  author_headline: string;
+  openai_step3_postes_selectionnes: string[];
   openai_step3_categorie: string;
-  openai_step2_localisation: string;
 }
 
 interface LeadActionsProps {
@@ -23,61 +26,105 @@ const LeadActions = ({
   messageSending, 
   hasMessage 
 }: LeadActionsProps) => {
+  const { connections } = useLinkedInConnection();
+  const hasActiveConnection = connections.some(conn => conn.status === 'connected');
+
+  // Fonction pour vérifier si le message dépasse la limite
+  const isMessageValid = (message: string) => {
+    return message.trim().length > 0 && message.length <= 300;
+  };
+
   return (
-    <div className="space-y-4">
-      <h4 className="font-medium text-gray-800">Actions</h4>
-      
-      <div className="space-y-3">
-        <Button 
-          className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700"
-          onClick={onSendLinkedInMessage}
-          disabled={messageSending || !hasMessage}
-        >
-          <Linkedin className="h-4 w-4" />
-          {messageSending ? 'Envoi en cours...' : 'Envoyer message LinkedIn'}
-        </Button>
+    <div className="space-y-6">
+      <div>
+        <h4 className="font-medium text-gray-800 mb-4">Actions disponibles</h4>
         
-        <Button 
-          variant="outline" 
-          className="w-full justify-start gap-3"
-          onClick={() => onAction('Récupérer Téléphone')}
-        >
-          <Phone className="h-4 w-4" />
-          Récupérer Téléphone
-        </Button>
-        
-        <Button 
-          variant="outline" 
-          className="w-full justify-start gap-3"
-          onClick={() => onAction('Planifier un Rappel')}
-        >
-          <Calendar className="h-4 w-4" />
-          Planifier un Rappel
-        </Button>
-        
-        <Button 
-          variant="outline" 
-          className="w-full justify-start gap-3"
-          onClick={() => onAction('Prestataire RH')}
-        >
-          <Users className="h-4 w-4" />
-          Prestataire RH
-        </Button>
-        
-        <Button 
-          variant="destructive" 
-          className="w-full justify-start gap-3"
-          onClick={() => onAction('Bad Job')}
-        >
-          <X className="h-4 w-4" />
-          Bad Job
-        </Button>
+        <div className="space-y-3">
+          {/* LinkedIn Message Action */}
+          <div className="p-4 border rounded-lg bg-blue-50">
+            <div className="flex items-center gap-3 mb-3">
+              <Linkedin className="h-5 w-5 text-blue-600" />
+              <div>
+                <h5 className="font-medium text-blue-900">Message LinkedIn</h5>
+                <p className="text-xs text-blue-700">
+                  Envoyer un message personnalisé via LinkedIn
+                </p>
+              </div>
+            </div>
+            
+            {!hasActiveConnection ? (
+              <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded mb-3">
+                ⚠️ Aucune connexion LinkedIn active. Connectez votre compte LinkedIn d'abord.
+              </div>
+            ) : null}
+            
+            <Button
+              onClick={onSendLinkedInMessage}
+              disabled={messageSending || !hasMessage || !hasActiveConnection || !isMessageValid(/* message will be validated in parent */)}
+              className="w-full"
+              size="sm"
+            >
+              {messageSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Envoi en cours...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Envoyer le message LinkedIn
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Other Actions */}
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAction('mark_contacted')}
+              className="w-full justify-start"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Marquer comme contacté
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAction('add_to_favorites')}
+              className="w-full justify-start"
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Ajouter aux favoris
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAction('schedule_followup')}
+              className="w-full justify-start"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Programmer un suivi
+            </Button>
+          </div>
+        </div>
       </div>
-      
-      <div className="pt-4 border-t">
-        <div className="text-xs text-gray-500 space-y-1">
-          <div>Catégorie: {lead.openai_step3_categorie}</div>
-          <div>Localisation: {lead.openai_step2_localisation || 'France'}</div>
+
+      {/* Lead Information Summary */}
+      <div className="p-3 bg-gray-50 rounded-lg">
+        <h5 className="font-medium text-gray-800 mb-2">Résumé du contact</h5>
+        <div className="space-y-1 text-xs text-gray-600">
+          <p><strong>Nom :</strong> {lead.author_name}</p>
+          <p><strong>Titre :</strong> {lead.author_headline}</p>
+          {lead.openai_step3_postes_selectionnes && (
+            <p><strong>Postes recherchés :</strong> {lead.openai_step3_postes_selectionnes.join(', ')}</p>
+          )}
+          {lead.openai_step3_categorie && (
+            <p><strong>Secteur :</strong> {lead.openai_step3_categorie}</p>
+          )}
         </div>
       </div>
     </div>

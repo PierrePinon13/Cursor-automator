@@ -54,6 +54,9 @@ const LeadDetailDialog = ({
   const canGoPrevious = selectedLeadIndex > 0;
   const canGoNext = selectedLeadIndex < leads.length - 1;
 
+  // Vérifier si le message est valide (longueur et contenu)
+  const isMessageValid = customMessage.trim().length > 0 && customMessage.length <= 300;
+
   const handlePrevious = () => {
     if (canGoPrevious) {
       onNavigateToLead(selectedLeadIndex - 1);
@@ -75,8 +78,15 @@ const LeadDetailDialog = ({
 
   const handleSendLinkedInMessage = async () => {
     const messageToSend = customMessage.trim();
+    
+    // Vérification de la longueur du message
     if (!messageToSend) {
       console.error('No message to send');
+      return;
+    }
+    
+    if (messageToSend.length > 300) {
+      console.error('Message too long');
       return;
     }
     
@@ -119,7 +129,7 @@ const LeadDetailDialog = ({
               onSendLinkedInMessage={handleSendLinkedInMessage}
               onAction={handleAction}
               messageSending={messageSending}
-              hasMessage={customMessage.trim().length > 0}
+              hasMessage={isMessageValid}
             />
           }
         />
