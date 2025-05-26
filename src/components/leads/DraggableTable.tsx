@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getTimeAgo } from '@/utils/timeUtils';
 
 interface Lead {
   id: string;
@@ -41,10 +41,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       width: '120px',
       render: (lead) => (
         <span className="text-sm">
-          {lead.posted_at_iso 
-            ? new Date(lead.posted_at_iso).toLocaleDateString('fr-FR')
-            : new Date(lead.created_at).toLocaleDateString('fr-FR')
-          }
+          {getTimeAgo(lead.posted_at_iso || lead.created_at)}
         </span>
       )
     },
