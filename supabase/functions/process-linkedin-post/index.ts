@@ -33,6 +33,8 @@ serve(async (req) => {
       return new Response('OpenAI API key not configured', { status: 500, headers: corsHeaders });
     }
 
+    console.log('OpenAI API key found, starting processing...');
+
     // Fetch the post data
     const { data: post, error: fetchError } = await supabaseClient
       .from('linkedin_posts')
