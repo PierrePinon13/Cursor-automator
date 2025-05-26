@@ -45,8 +45,8 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'posted_date',
       label: 'Posted Date',
-      width: '120px',
-      minWidth: '120px',
+      width: '96px',
+      minWidth: '96px',
       render: (lead) => (
         <span className="text-xs whitespace-nowrap">
           {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
@@ -56,8 +56,8 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'job_title',
       label: 'Profil recherché',
-      width: '220px',
-      minWidth: '220px',
+      width: '154px',
+      minWidth: '154px',
       render: (lead) => (
         <div 
           className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative w-full h-full flex items-center"

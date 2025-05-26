@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Filter } from 'lucide-react';
 import DraggableTable from '@/components/leads/DraggableTable';
+import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import { useLeads } from '@/hooks/useLeads';
 
@@ -24,6 +25,8 @@ const Index = () => {
     'post_url',
     'status'
   ]);
+
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
   if (loading) {
     return (
@@ -57,6 +60,8 @@ const Index = () => {
               onColumnsChange={setVisibleColumns}
               selectedDateFilter={selectedDateFilter}
               onDateFilterChange={setSelectedDateFilter}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
             />
           </CardHeader>
           <CardContent className="p-0">
@@ -66,10 +71,14 @@ const Index = () => {
                 <p>Aucun lead ne correspond aux filtres sélectionnés</p>
               </div>
             ) : (
-              <DraggableTable 
-                leads={filteredLeads} 
-                visibleColumns={visibleColumns}
-              />
+              viewMode === 'table' ? (
+                <DraggableTable 
+                  leads={filteredLeads} 
+                  visibleColumns={visibleColumns}
+                />
+              ) : (
+                <CardView leads={filteredLeads} />
+              )
             )}
           </CardContent>
         </Card>

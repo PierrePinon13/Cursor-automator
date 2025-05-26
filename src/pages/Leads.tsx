@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
+import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
@@ -25,6 +26,8 @@ const Leads = () => {
     'category', 
     'location'
   ]);
+
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
   if (loading) {
     return (
@@ -51,13 +54,19 @@ const Leads = () => {
           onColumnsChange={setVisibleColumns}
           selectedDateFilter={selectedDateFilter}
           onDateFilterChange={setSelectedDateFilter}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
         
         <div className="bg-white rounded-lg shadow">
-          <DraggableTable 
-            leads={filteredLeads} 
-            visibleColumns={visibleColumns}
-          />
+          {viewMode === 'table' ? (
+            <DraggableTable 
+              leads={filteredLeads} 
+              visibleColumns={visibleColumns}
+            />
+          ) : (
+            <CardView leads={filteredLeads} />
+          )}
         </div>
       </div>
     </div>

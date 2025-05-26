@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, Grid } from 'lucide-react';
 import MultiSelectFilter from './MultiSelectFilter';
 import CategoryFilter from './CategoryFilter';
 
@@ -12,6 +13,8 @@ interface LeadsFiltersProps {
   onColumnsChange: (columns: string[]) => void;
   selectedDateFilter: string;
   onDateFilterChange: (filter: string) => void;
+  viewMode: 'table' | 'card';
+  onViewModeChange: (mode: 'table' | 'card') => void;
 }
 
 const columnOptions = [
@@ -50,7 +53,9 @@ const LeadsFilters = ({
   visibleColumns,
   onColumnsChange,
   selectedDateFilter,
-  onDateFilterChange
+  onDateFilterChange,
+  viewMode,
+  onViewModeChange
 }: LeadsFiltersProps) => {
   return (
     <div className="space-y-4">
@@ -74,6 +79,27 @@ const LeadsFilters = ({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('table')}
+            className="h-7 px-3"
+          >
+            <Table className="h-3 w-3 mr-1" />
+            Tableau
+          </Button>
+          <Button
+            variant={viewMode === 'card' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('card')}
+            className="h-7 px-3"
+          >
+            <Grid className="h-3 w-3 mr-1" />
+            Cartes
+          </Button>
         </div>
       </div>
       
