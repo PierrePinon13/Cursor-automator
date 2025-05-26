@@ -27,6 +27,7 @@ export const useLeads = () => {
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export const useLeads = () => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, selectedCategories]);
+  }, [leads, selectedCategories, selectedDateFilter]);
 
   useEffect(() => {
     // Extract unique categories from leads, excluding "Autre"
@@ -85,13 +86,40 @@ export const useLeads = () => {
     }
   };
 
+  const getDateFilterCutoff = (filter: string): Date | null => {
+    const now = new Date();
+    
+    switch (filter) {
+      case '24h':
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      case '48h':
+        return new Date(now.getTime() - 48 * 60 * 60 * 1000);
+      case '7days':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case 'all':
+      default:
+        return null;
+    }
+  };
+
   const filterLeads = () => {
     let filtered = leads;
 
+    // Filter by categories
     if (selectedCategories.length > 0) {
       filtered = filtered.filter(lead => 
         selectedCategories.includes(lead.openai_step3_categorie)
       );
+    }
+
+    // Filter by date
+    const dateCutoff = getDateFilterCutoff(selectedDateFilter);
+    if (dateCutoff) {
+      filtered = filtered.filter(lead => {
+        // Use posted_at_iso if available, otherwise fall back to created_at
+        const leadDate = lead.posted_at_iso ? new Date(lead.posted_at_iso) : new Date(lead.created_at);
+        return leadDate >= dateCutoff;
+      });
     }
 
     setFilteredLeads(filtered);
@@ -103,6 +131,8 @@ export const useLeads = () => {
     loading,
     selectedCategories,
     setSelectedCategories,
+    selectedDateFilter,
+    setSelectedDateFilter,
     availableCategories
   };
 };

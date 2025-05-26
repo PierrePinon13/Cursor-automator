@@ -3,11 +3,17 @@ import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
 import LeadsFilters from '@/components/leads/LeadsFilters';
-import { exportLeadsToCSV } from '@/utils/csvExport';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Leads = () => {
-  const { filteredLeads, loading, selectedCategories, setSelectedCategories } = useLeads();
+  const { 
+    filteredLeads, 
+    loading, 
+    selectedCategories, 
+    setSelectedCategories,
+    selectedDateFilter,
+    setSelectedDateFilter
+  } = useLeads();
   
   const [visibleColumns, setVisibleColumns] = useState([
     'posted_date', 
@@ -19,10 +25,6 @@ const Leads = () => {
     'category', 
     'location'
   ]);
-
-  const handleExport = () => {
-    exportLeadsToCSV(filteredLeads, visibleColumns);
-  };
 
   if (loading) {
     return (
@@ -47,7 +49,8 @@ const Leads = () => {
           onCategoriesChange={setSelectedCategories}
           visibleColumns={visibleColumns}
           onColumnsChange={setVisibleColumns}
-          onExport={handleExport}
+          selectedDateFilter={selectedDateFilter}
+          onDateFilterChange={setSelectedDateFilter}
         />
         
         <div className="bg-white rounded-lg shadow">

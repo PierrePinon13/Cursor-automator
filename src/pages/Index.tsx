@@ -5,10 +5,17 @@ import { Filter } from 'lucide-react';
 import DraggableTable from '@/components/leads/DraggableTable';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import { useLeads } from '@/hooks/useLeads';
-import { exportLeadsToCSV } from '@/utils/csvExport';
 
 const Index = () => {
-  const { filteredLeads, loading, selectedCategories, setSelectedCategories } = useLeads();
+  const { 
+    filteredLeads, 
+    loading, 
+    selectedCategories, 
+    setSelectedCategories,
+    selectedDateFilter,
+    setSelectedDateFilter
+  } = useLeads();
+  
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'posted_date',
     'job_title', 
@@ -17,10 +24,6 @@ const Index = () => {
     'post_url',
     'status'
   ]);
-
-  const handleExport = () => {
-    exportLeadsToCSV(filteredLeads, visibleColumns);
-  };
 
   if (loading) {
     return (
@@ -52,7 +55,8 @@ const Index = () => {
               onCategoriesChange={setSelectedCategories}
               visibleColumns={visibleColumns}
               onColumnsChange={setVisibleColumns}
-              onExport={handleExport}
+              selectedDateFilter={selectedDateFilter}
+              onDateFilterChange={setSelectedDateFilter}
             />
           </CardHeader>
           <CardContent className="p-0">
