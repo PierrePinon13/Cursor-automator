@@ -5,6 +5,16 @@ export interface UnipileScrapingResult {
   success: boolean;
 }
 
+// Add random delay between 2-8 seconds
+function getRandomDelay(): number {
+  return Math.floor(Math.random() * (8000 - 2000 + 1)) + 2000; // Random between 2000-8000ms
+}
+
+// Sleep function for delay
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function scrapLinkedInProfile(
   unipileApiKey: string, 
   authorProfileId: string
@@ -17,6 +27,11 @@ export async function scrapLinkedInProfile(
   }
 
   try {
+    // Add random delay before making the API call
+    const delayMs = getRandomDelay();
+    console.log(`Adding random delay of ${delayMs}ms before Unipile API call`);
+    await sleep(delayMs);
+
     const unipileResponse = await fetch(
       `https://api9.unipile.com:13946/api/v1/users/${authorProfileId}?account_id=DdxglDwFT-mMZgxHeCGMdA&linkedin_sections=experience`, 
       {
