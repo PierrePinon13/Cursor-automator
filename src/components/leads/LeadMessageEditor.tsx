@@ -63,14 +63,11 @@ Bien cordialement,
         <Textarea
           value={message}
           onChange={(e) => onMessageChange(e.target.value)}
-          placeholder="Rédigez votre message LinkedIn..."
-          className={`min-h-[380px] resize-none text-sm ${isOverLimit ? 'border-red-500 focus:border-red-500' : ''}`}
+          placeholder="Cliquez ici pour modifier le message..."
+          className={`min-h-[380px] resize-none text-sm bg-gray-50 focus:bg-white transition-colors ${isOverLimit ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-blue-500'}`}
           disabled={disabled}
         />
-        <div className="flex items-center justify-between text-xs">
-          <div className="text-gray-500">
-            Ce message sera envoyé via LinkedIn. Vous pouvez le personnaliser avant l'envoi.
-          </div>
+        <div className="flex items-center justify-end text-xs">
           <div className={`flex items-center gap-1 ${isOverLimit ? 'text-red-600' : remainingChars < 50 ? 'text-orange-500' : 'text-gray-500'}`}>
             {isOverLimit && <AlertCircle className="h-3 w-3" />}
             <span className="font-medium">
