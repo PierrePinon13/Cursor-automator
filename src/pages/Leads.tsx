@@ -1,7 +1,9 @@
+
 import { useState } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
 import LeadsFilters from '@/components/leads/LeadsFilters';
+import { exportLeadsToCSV } from '@/utils/csvExport';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Leads = () => {
@@ -18,35 +20,9 @@ const Leads = () => {
     'location'
   ]);
 
-  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
-
-  const filterByDate = (leads: any[]) => {
-    if (selectedDateFilter === 'all') return leads;
-    
-    const now = new Date();
-    const cutoffTime = new Date();
-    
-    switch (selectedDateFilter) {
-      case '24h':
-        cutoffTime.setHours(now.getHours() - 24);
-        break;
-      case '48h':
-        cutoffTime.setHours(now.getHours() - 48);
-        break;
-      case '7d':
-        cutoffTime.setDate(now.getDate() - 7);
-        break;
-      default:
-        return leads;
-    }
-    
-    return leads.filter(lead => {
-      const postDate = new Date(lead.posted_at_iso || lead.created_at);
-      return postDate >= cutoffTime;
-    });
+  const handleExport = () => {
+    exportLeadsToCSV(filteredLeads, visibleColumns);
   };
-
-  const dateFilteredLeads = filterByDate(filteredLeads);
 
   if (loading) {
     return (
@@ -60,26 +36,23 @@ const Leads = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex items-center mb-6 px-6 pt-6">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="flex items-center mb-6">
         <SidebarTrigger />
       </div>
       
       <div className="space-y-6">
-        <div className="px-6">
-          <LeadsFilters
-            selectedCategories={selectedCategories}
-            onCategoriesChange={setSelectedCategories}
-            visibleColumns={visibleColumns}
-            onColumnsChange={setVisibleColumns}
-            selectedDateFilter={selectedDateFilter}
-            onDateFilterChange={setSelectedDateFilter}
-          />
-        </div>
+        <LeadsFilters
+          selectedCategories={selectedCategories}
+          onCategoriesChange={setSelectedCategories}
+          visibleColumns={visibleColumns}
+          onColumnsChange={setVisibleColumns}
+          onExport={handleExport}
+        />
         
-        <div className="bg-white shadow h-[calc(100vh-200px)]">
+        <div className="bg-white rounded-lg shadow">
           <DraggableTable 
-            leads={dateFilteredLeads} 
+            leads={filteredLeads} 
             visibleColumns={visibleColumns}
           />
         </div>
