@@ -49,12 +49,36 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
 
   const handleCollaboratorsChange = async (clientId: string, userIds: string[]) => {
     console.log('handleCollaboratorsChange called:', { clientId, userIds });
+    
+    // Vérifications de sécurité
+    if (!clientId || typeof clientId !== 'string') {
+      console.error('Invalid clientId:', clientId);
+      return;
+    }
+    
+    if (!Array.isArray(userIds)) {
+      console.error('Invalid userIds:', userIds);
+      return;
+    }
+    
     await updateCollaborators(clientId, userIds);
   };
 
-  // Vérifications de sécurité
-  const safeClients = Array.isArray(clients) ? clients : [];
-  const safeUsers = Array.isArray(users) ? users : [];
+  // Vérifications de sécurité strictes
+  if (!Array.isArray(clients)) {
+    console.error('ClientsTable: clients is not an array:', clients);
+    return <div>Erreur: données clients invalides</div>;
+  }
+
+  if (!Array.isArray(users)) {
+    console.error('ClientsTable: users is not an array:', users);
+    return <div>Erreur: données utilisateurs invalides</div>;
+  }
+
+  const safeClients = clients.filter(client => client && typeof client === 'object' && client.id);
+  const safeUsers = users.filter(user => user && typeof user === 'object' && user.id);
+
+  console.log('After safety filter:', { safeClients: safeClients.length, safeUsers: safeUsers.length });
 
   return (
     <Table>
@@ -69,10 +93,19 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
       </TableHeader>
       <TableBody>
         {safeClients.map((client) => {
-          // Extraction sécurisée des IDs des collaborateurs
-          const collaboratorIds = Array.isArray(client.collaborators) 
-            ? client.collaborators.map(c => c?.id).filter(id => typeof id === 'string')
-            : [];
+          // Extraction sécurisée des IDs des collaborateurs avec vérifications strictes
+          let collaboratorIds: string[] = [];
+          
+          try {
+            if (client.collaborators && Array.isArray(client.collaborators)) {
+              collaboratorIds = client.collaborators
+                .filter(c => c && typeof c === 'object' && typeof c.id === 'string' && c.id.length > 0)
+                .map(c => c.id);
+            }
+          } catch (error) {
+            console.error('Error extracting collaborator IDs for client:', client.id, error);
+            collaboratorIds = [];
+          }
           
           console.log('Client collaborators for', client.company_name, ':', {
             collaborators: client.collaborators,
