@@ -12,6 +12,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Leads from "./pages/Leads";
+import Clients from "./pages/Clients";
+import HrProviders from "./pages/HrProviders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,6 +90,16 @@ const App = () => (
             <Route path="/leads" element={
               <ProtectedRoute>
                 <Leads />
+              </ProtectedRoute>
+            } />
+            <Route path="/clients" element={
+              <ProtectedRoute>
+                <Clients />
+              </ProtectedRoute>
+            } />
+            <Route path="/hr-providers" element={
+              <ProtectedRoute>
+                <HrProviders />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={

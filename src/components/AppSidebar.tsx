@@ -8,13 +8,23 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { BarChart3, Users, User, Briefcase } from 'lucide-react';
+import { BarChart3, Users, User, Briefcase, Building2, UserCheck } from 'lucide-react';
 
 const menuItems = [
   {
     title: "Leads",
     url: "/leads",
     icon: Briefcase,
+  },
+  {
+    title: "Clients",
+    url: "/clients",
+    icon: Building2,
+  },
+  {
+    title: "Prestataires RH",
+    url: "/hr-providers",
+    icon: UserCheck,
   },
   {
     title: "Tableau de bord",
