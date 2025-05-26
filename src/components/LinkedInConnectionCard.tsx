@@ -1,7 +1,8 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Linkedin, Unlink, RefreshCw, CheckCircle, AlertCircle, Clock, XCircle, AlertTriangle, ShieldAlert, Sync } from 'lucide-react';
+import { Linkedin, Unlink, RefreshCw, CheckCircle, AlertCircle, Clock, XCircle, AlertTriangle, ShieldAlert, RotateCcw } from 'lucide-react';
 import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 const LinkedInConnectionCard = () => {
@@ -109,7 +110,7 @@ const LinkedInConnectionCard = () => {
               disabled={syncing}
               title="Synchroniser avec Unipile"
             >
-              <Sync className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              <RotateCcw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
             <Button
               variant="ghost"
@@ -137,7 +138,7 @@ const LinkedInConnectionCard = () => {
                 {loading ? 'Connexion...' : 'Connecter LinkedIn'}
               </Button>
               <Button variant="outline" onClick={syncAccounts} disabled={syncing}>
-                <Sync className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                <RotateCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 {syncing ? 'Synchronisation...' : 'Synchroniser'}
               </Button>
             </div>
@@ -230,7 +231,7 @@ const LinkedInConnectionCard = () => {
                   {loading ? 'Connexion...' : 'Ajouter une connexion LinkedIn'}
                 </Button>
                 <Button variant="outline" onClick={syncAccounts} disabled={syncing}>
-                  <Sync className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  <RotateCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                   Sync
                 </Button>
               </div>
