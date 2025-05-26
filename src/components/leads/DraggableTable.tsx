@@ -59,12 +59,24 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       minWidth: '262px',
       render: (lead) => (
         <div className="space-y-1">
-          {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-            <div key={index} className="text-green-600 text-sm">
-              {poste}
-              {index < lead.openai_step3_postes_selectionnes.length - 1 && <br />}
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
+                <div key={index} className="text-green-600 text-sm">
+                  {poste}
+                  {index < lead.openai_step3_postes_selectionnes.length - 1 && <br />}
+                </div>
+              ))}
             </div>
-          ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open(lead.url, '_blank')}
+              className="h-6 w-6 p-0 flex-shrink-0"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       )
     },
@@ -95,21 +107,6 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
             </span>
           )}
         </div>
-      )
-    },
-    {
-      id: 'post_url',
-      label: 'URL du post',
-      width: '120px',
-      render: (lead) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => window.open(lead.url, '_blank')}
-          className="h-8 w-8 p-0"
-        >
-          <ExternalLink className="h-4 w-4" />
-        </Button>
       )
     },
     {
