@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getTimeAgo } from '@/utils/timeUtils';
+import LeadDetailDialog from './LeadDetailDialog';
 
 interface Lead {
   id: string;
@@ -52,6 +52,23 @@ const categoryColors = {
 };
 
 const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleRowClick = (lead: Lead, event: React.MouseEvent) => {
+    // Ne pas ouvrir la dialog si on clique sur un lien
+    if ((event.target as HTMLElement).closest('a, button')) {
+      return;
+    }
+    setSelectedLead(lead);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedLead(null);
+  };
+
   const allColumns: Column[] = [
     {
       id: 'posted_date',
@@ -211,9 +228,10 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
             {leads.map((lead, rowIndex) => (
               <tr
                 key={lead.id}
-                className={`hover:bg-gray-50 ${
+                className={`hover:bg-gray-50 cursor-pointer ${
                   rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
                 }`}
+                onClick={(event) => handleRowClick(lead, event)}
               >
                 {displayedColumns.map((column, colIndex) => (
                   <td
@@ -235,6 +253,12 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
           </tbody>
         </table>
       </DragDropContext>
+      
+      <LeadDetailDialog 
+        lead={selectedLead}
+        isOpen={isDialogOpen}
+        onClose={handleCloseDialog}
+      />
     </div>
   );
 };
