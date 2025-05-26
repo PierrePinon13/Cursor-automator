@@ -19,8 +19,12 @@ serve(async (req) => {
     const webhookData = await req.json()
     console.log('Apify webhook data:', JSON.stringify(webhookData, null, 2))
 
-    // Extract the dataset ID from the webhook data
-    const datasetId = webhookData.datasetId || webhookData.dataset_id || webhookData.id
+    // Extract the dataset ID from the webhook data - check multiple possible locations
+    const datasetId = webhookData.datasetId || 
+                     webhookData.dataset_id || 
+                     webhookData.id ||
+                     webhookData.resource?.defaultDatasetId ||
+                     webhookData.eventData?.datasetId
     
     if (!datasetId) {
       console.log('No dataset ID found in webhook data - this might be a test webhook')
@@ -62,15 +66,19 @@ serve(async (req) => {
     }
 
     const datasetItems = await apifyResponse.json()
-    console.log('Dataset items retrieved:', datasetItems.length, 'items')
+    console.log('Dataset items retrieved successfully:', datasetItems.length, 'items')
     console.log('Sample data:', JSON.stringify(datasetItems.slice(0, 2), null, 2))
 
     // TODO: Process the dataset items here
     // You can add logic to store the data in your database or process it as needed
 
-    return new Response('OK', { 
+    return new Response(JSON.stringify({ 
+      success: true, 
+      itemsCount: datasetItems.length,
+      datasetId: datasetId
+    }), { 
       status: 200,
-      headers: corsHeaders
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
   } catch (error) {
