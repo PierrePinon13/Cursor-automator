@@ -72,6 +72,33 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_providers: {
+        Row: {
+          company_linkedin_id: string | null
+          company_linkedin_url: string | null
+          company_name: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_linkedin_id?: string | null
+          company_linkedin_url?: string | null
+          company_name: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_linkedin_id?: string | null
+          company_linkedin_url?: string | null
+          company_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       linkedin_connections: {
         Row: {
           account_id: string | null
