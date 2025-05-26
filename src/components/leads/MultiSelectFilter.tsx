@@ -32,12 +32,14 @@ const MultiSelectFilter = ({
       ? selectedValues.filter(v => v !== value)
       : [...selectedValues, value];
     onSelectionChange(newSelection);
-    // Ne pas fermer le menu après un changement
   };
 
   const clearAll = () => {
     onSelectionChange([]);
-    // Ne pas fermer le menu après avoir tout effacé
+  };
+
+  const selectAll = () => {
+    onSelectionChange(options.map(option => option.value));
   };
 
   return (
@@ -53,19 +55,31 @@ const MultiSelectFilter = ({
           <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="start">
+      <DropdownMenuContent className="w-64" align="end" side="bottom">
         <DropdownMenuLabel className="flex items-center justify-between">
           {title}
-          {selectedValues.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto p-0 text-xs"
-              onClick={clearAll}
-            >
-              Tout effacer
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {selectedValues.length !== options.length && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={selectAll}
+              >
+                Tout sélectionner
+              </Button>
+            )}
+            {selectedValues.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={clearAll}
+              >
+                Tout effacer
+              </Button>
+            )}
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {options.map((option) => (
@@ -73,6 +87,7 @@ const MultiSelectFilter = ({
             key={option.value}
             checked={selectedValues.includes(option.value)}
             onCheckedChange={() => handleToggle(option.value)}
+            onSelect={(e) => e.preventDefault()}
           >
             {option.label}
           </DropdownMenuCheckboxItem>

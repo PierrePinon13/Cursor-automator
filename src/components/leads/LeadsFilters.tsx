@@ -74,12 +74,6 @@ const LeadsFilters = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <MultiSelectFilter
-            title="Colonnes"
-            options={columnOptions}
-            selectedValues={visibleColumns}
-            onSelectionChange={onColumnsChange}
-          />
           <Select value={selectedDateFilter} onValueChange={onDateFilterChange}>
             <SelectTrigger className="w-48 h-8">
               <SelectValue placeholder="Filtrer par date" />
@@ -106,25 +100,33 @@ const LeadsFilters = ({
           </Select>
         </div>
         
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => onViewModeChange('table')}
-            className="h-7 px-3"
-          >
-            <Table className="h-3 w-3 mr-1" />
-            Tableau
-          </Button>
-          <Button
-            variant={viewMode === 'card' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => onViewModeChange('card')}
-            className="h-7 px-3"
-          >
-            <Grid className="h-3 w-3 mr-1" />
-            Cartes
-          </Button>
+        <div className="flex items-center gap-3">
+          <MultiSelectFilter
+            title="Colonnes"
+            options={columnOptions}
+            selectedValues={visibleColumns}
+            onSelectionChange={onColumnsChange}
+          />
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => onViewModeChange('table')}
+              className="h-7 px-3"
+            >
+              <Table className="h-3 w-3 mr-1" />
+              Tableau
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => onViewModeChange('card')}
+              className="h-7 px-3"
+            >
+              <Grid className="h-3 w-3 mr-1" />
+              Cartes
+            </Button>
+          </div>
         </div>
       </div>
       
