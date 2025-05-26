@@ -16,6 +16,10 @@ interface Lead {
   openai_step3_categorie: string;
   openai_step3_postes_selectionnes: string[];
   openai_step3_justification: string;
+  unipile_company: string;
+  unipile_position: string;
+  unipile_profile_scraped: boolean;
+  unipile_profile_scraped_at: string;
 }
 
 export const useLeads = () => {
@@ -61,7 +65,11 @@ export const useLeads = () => {
           openai_step2_localisation,
           openai_step3_categorie,
           openai_step3_postes_selectionnes,
-          openai_step3_justification
+          openai_step3_justification,
+          unipile_company,
+          unipile_position,
+          unipile_profile_scraped,
+          unipile_profile_scraped_at
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)

@@ -33,7 +33,14 @@ serve(async (req) => {
       return new Response('OpenAI API key not configured', { status: 500, headers: corsHeaders });
     }
 
-    console.log('OpenAI API key found, starting processing...');
+    // Get Unipile API key
+    const unipileApiKey = Deno.env.get('UNIPILE_API_KEY');
+    if (!unipileApiKey) {
+      console.error('Unipile API key not configured');
+      return new Response('Unipile API key not configured', { status: 500, headers: corsHeaders });
+    }
+
+    console.log('API keys found, starting processing...');
 
     // Fetch the post data
     const { data: post, error: fetchError } = await supabaseClient
@@ -459,16 +466,89 @@ Répondez dans le format JSON suivant :
     
     console.log('Step 3 result:', step3Result);
 
-    // Update post with step 3 results and mark as completed
+    // Update post with step 3 results
     await supabaseClient
       .from('linkedin_posts')
       .update({
         openai_step3_categorie: step3Result.categorie,
         openai_step3_postes_selectionnes: step3Result.postes_selectionnes,
         openai_step3_justification: step3Result.justification,
-        openai_step3_response: step3Data,
-        processing_status: 'completed'
+        openai_step3_response: step3Data
       })
+      .eq('id', postId);
+
+    // Step 4: Scrap LinkedIn profile via Unipile
+    console.log('Starting Unipile profile scraping');
+    
+    if (post.author_profile_id) {
+      try {
+        const unipileResponse = await fetch(`https://api9.unipile.com:13946/api/v1/users/${post.author_profile_id}?account_id=DdxglDwFT-mMZgxHeCGMdA&linkedin_sections=experience`, {
+          method: 'GET',
+          headers: {
+            'X-API-KEY': unipileApiKey,
+            'accept': 'application/json'
+          }
+        });
+
+        if (unipileResponse.ok) {
+          const unipileData = await unipileResponse.json();
+          console.log('Unipile response received:', unipileData);
+
+          // Extract company and position from first work experience
+          let company = null;
+          let position = null;
+          
+          if (unipileData.linkedin_profile?.experience && unipileData.linkedin_profile.experience.length > 0) {
+            const firstExperience = unipileData.linkedin_profile.experience[0];
+            company = firstExperience.company || null;
+            position = firstExperience.title || null;
+          }
+
+          // Update post with Unipile data
+          await supabaseClient
+            .from('linkedin_posts')
+            .update({
+              unipile_company: company,
+              unipile_position: position,
+              unipile_profile_scraped: true,
+              unipile_profile_scraped_at: new Date().toISOString(),
+              unipile_response: unipileData
+            })
+            .eq('id', postId);
+
+          console.log('Unipile data updated:', { company, position });
+        } else {
+          console.error('Unipile API error:', unipileResponse.status, await unipileResponse.text());
+          
+          // Mark as attempted but failed
+          await supabaseClient
+            .from('linkedin_posts')
+            .update({
+              unipile_profile_scraped: false,
+              unipile_profile_scraped_at: new Date().toISOString()
+            })
+            .eq('id', postId);
+        }
+      } catch (unipileError) {
+        console.error('Error calling Unipile API:', unipileError);
+        
+        // Mark as attempted but failed
+        await supabaseClient
+          .from('linkedin_posts')
+          .update({
+            unipile_profile_scraped: false,
+            unipile_profile_scraped_at: new Date().toISOString()
+          })
+          .eq('id', postId);
+      }
+    } else {
+      console.log('No author_profile_id available for Unipile scraping');
+    }
+
+    // Mark as completed
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({ processing_status: 'completed' })
       .eq('id', postId);
 
     console.log('Post processing completed successfully');

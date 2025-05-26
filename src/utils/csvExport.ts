@@ -13,6 +13,10 @@ interface Lead {
   openai_step3_categorie: string;
   openai_step3_postes_selectionnes: string[];
   openai_step3_justification: string;
+  unipile_company: string;
+  unipile_position: string;
+  unipile_profile_scraped: boolean;
+  unipile_profile_scraped_at: string;
 }
 
 const columnOptions = [
@@ -45,6 +49,13 @@ export const exportLeadsToCSV = (leads: Lead[], visibleColumns: string[]) => {
           case 'author_name':
             return `"${lead.author_name || ''}"`;
           case 'company':
+            // Prioritize Unipile data over basic headline
+            if (lead.unipile_company) {
+              const companyInfo = lead.unipile_position 
+                ? `${lead.unipile_company} - ${lead.unipile_position}`
+                : lead.unipile_company;
+              return `"${companyInfo}"`;
+            }
             return `"${lead.author_headline || ''}"`;
           case 'post_url':
             return lead.url;

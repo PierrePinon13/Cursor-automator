@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ExternalLink } from 'lucide-react';
@@ -19,6 +20,10 @@ interface Lead {
   openai_step3_categorie: string;
   openai_step3_postes_selectionnes: string[];
   openai_step3_justification: string;
+  unipile_company: string;
+  unipile_position: string;
+  unipile_profile_scraped: boolean;
+  unipile_profile_scraped_at: string;
 }
 
 interface Column {
@@ -70,9 +75,22 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
     {
       id: 'company',
       label: 'Entreprise',
-      width: '150px',
+      width: '200px',
       render: (lead) => (
-        <span className="text-sm truncate">{lead.author_headline || 'N/A'}</span>
+        <div className="space-y-1">
+          {lead.unipile_company ? (
+            <div>
+              <div className="font-medium text-sm">{lead.unipile_company}</div>
+              {lead.unipile_position && (
+                <div className="text-xs text-gray-600">{lead.unipile_position}</div>
+              )}
+            </div>
+          ) : (
+            <span className="text-sm text-gray-500 truncate">
+              {lead.author_headline || 'N/A'}
+            </span>
+          )}
+        </div>
       )
     },
     {

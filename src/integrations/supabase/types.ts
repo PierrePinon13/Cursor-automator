@@ -85,6 +85,11 @@ export type Database = {
           raw_data: Json
           text: string
           title: string | null
+          unipile_company: string | null
+          unipile_position: string | null
+          unipile_profile_scraped: boolean | null
+          unipile_profile_scraped_at: string | null
+          unipile_response: Json | null
           updated_at: string | null
           url: string
           urn: string
@@ -116,6 +121,11 @@ export type Database = {
           raw_data: Json
           text: string
           title?: string | null
+          unipile_company?: string | null
+          unipile_position?: string | null
+          unipile_profile_scraped?: boolean | null
+          unipile_profile_scraped_at?: string | null
+          unipile_response?: Json | null
           updated_at?: string | null
           url: string
           urn: string
@@ -147,6 +157,11 @@ export type Database = {
           raw_data?: Json
           text?: string
           title?: string | null
+          unipile_company?: string | null
+          unipile_position?: string | null
+          unipile_profile_scraped?: boolean | null
+          unipile_profile_scraped_at?: string | null
+          unipile_response?: Json | null
           updated_at?: string | null
           url?: string
           urn?: string
