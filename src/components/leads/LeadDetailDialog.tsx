@@ -1,10 +1,10 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExternalLink, Linkedin, Phone, Calendar, Users, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 
 interface Lead {
   id: string;
@@ -44,6 +44,10 @@ const LeadDetailDialog = ({
   onNavigateToLead, 
   onActionCompleted 
 }: LeadDetailDialogProps) => {
+  const [isEditingMessage, setIsEditingMessage] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+  const { sendMessage, loading: messageSending } = useLinkedInMessage();
+
   if (selectedLeadIndex === null || !leads[selectedLeadIndex]) return null;
 
   const lead = leads[selectedLeadIndex];
@@ -79,6 +83,37 @@ Seriez-vous disponible pour un échange téléphonique de 15 minutes cette semai
 
 Bien cordialement,
 [Votre nom]`;
+
+  const handleSendLinkedInMessage = async () => {
+    if (!lead.author_profile_id) {
+      console.error('No author_profile_id found for lead:', lead);
+      return;
+    }
+
+    // Extract profile ID from URL if needed
+    let profileId = lead.author_profile_id;
+    if (!profileId && lead.author_profile_url) {
+      // Extract from LinkedIn URL pattern: https://linkedin.com/in/profile-id
+      const match = lead.author_profile_url.match(/\/in\/([^\/]+)/);
+      if (match) {
+        profileId = match[1];
+      }
+    }
+
+    if (!profileId) {
+      console.error('Could not determine profile ID for lead');
+      return;
+    }
+
+    const messageToSend = isEditingMessage && customMessage.trim() ? customMessage : mockMessage;
+    
+    const success = await sendMessage(profileId, messageToSend);
+    if (success) {
+      onActionCompleted();
+      setIsEditingMessage(false);
+      setCustomMessage('');
+    }
+  };
 
   const formatCompanyInfo = () => {
     if (lead.unipile_company && lead.unipile_position) {
@@ -186,17 +221,42 @@ Bien cordialement,
           {/* Section milieu - Message pré-rédigé */}
           <div className="w-1/3 p-6 border-r overflow-y-auto">
             <div className="space-y-4">
-              <h4 className="font-medium text-gray-800">Message pré-rédigé</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-gray-800">Message pré-rédigé</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingMessage(!isEditingMessage);
+                    if (!isEditingMessage) {
+                      setCustomMessage(mockMessage);
+                    }
+                  }}
+                >
+                  {isEditingMessage ? 'Annuler' : 'Modifier'}
+                </Button>
+              </div>
               <div className="bg-blue-50 p-4 rounded-lg border">
-                <textarea
-                  className="w-full h-80 bg-transparent border-none resize-none text-sm focus:outline-none"
-                  value={mockMessage}
-                  readOnly
-                />
+                {isEditingMessage ? (
+                  <textarea
+                    className="w-full h-80 bg-white border rounded p-2 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    placeholder="Modifiez votre message..."
+                  />
+                ) : (
+                  <textarea
+                    className="w-full h-80 bg-transparent border-none resize-none text-sm focus:outline-none"
+                    value={mockMessage}
+                    readOnly
+                  />
+                )}
               </div>
-              <div className="text-xs text-gray-500">
-                Ce message a été généré automatiquement par IA. Vous pouvez le modifier avant envoi.
-              </div>
+              {!isEditingMessage && (
+                <div className="text-xs text-gray-500">
+                  Ce message a été généré automatiquement par IA. Vous pouvez le modifier avant envoi.
+                </div>
+              )}
             </div>
           </div>
 
@@ -208,10 +268,11 @@ Bien cordialement,
               <div className="space-y-3">
                 <Button 
                   className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700"
-                  onClick={() => handleAction('Envoyer message LinkedIn')}
+                  onClick={handleSendLinkedInMessage}
+                  disabled={messageSending}
                 >
                   <Linkedin className="h-4 w-4" />
-                  Envoyer message LinkedIn
+                  {messageSending ? 'Envoi en cours...' : 'Envoyer message LinkedIn'}
                 </Button>
                 
                 <Button 
