@@ -22,9 +22,27 @@ interface CollaboratorsSelectProps {
 export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectionChange }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
 
-  // Ensure arrays are valid before processing
+  // Logs de débogage
+  console.log('CollaboratorsSelect props:', { 
+    users: users, 
+    selectedUsers: selectedUsers,
+    usersType: typeof users,
+    selectedUsersType: typeof selectedUsers,
+    usersIsArray: Array.isArray(users),
+    selectedUsersIsArray: Array.isArray(selectedUsers)
+  });
+
+  // Vérifications de sécurité strictes
+  const safeUsers = Array.isArray(users) ? users : [];
+  const safeSelectedUsers = Array.isArray(selectedUsers) ? selectedUsers : [];
+
   if (!Array.isArray(users) || !Array.isArray(selectedUsers)) {
-    console.warn('CollaboratorsSelect: Invalid props received', { users, selectedUsers });
+    console.warn('CollaboratorsSelect: Invalid props received', { 
+      users: users, 
+      selectedUsers: selectedUsers,
+      usersType: typeof users,
+      selectedUsersType: typeof selectedUsers 
+    });
     return (
       <div className="text-sm text-gray-500">
         Chargement des collaborateurs...
@@ -32,18 +50,31 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
     );
   }
 
-  const selectedUsersData = users.filter(user => selectedUsers.includes(user.id));
+  const selectedUsersData = safeUsers.filter(user => {
+    if (!user || typeof user.id !== 'string') {
+      console.warn('Invalid user object:', user);
+      return false;
+    }
+    return safeSelectedUsers.includes(user.id);
+  });
 
   const toggleUser = (userId: string) => {
-    const newSelection = selectedUsers.includes(userId)
-      ? selectedUsers.filter(id => id !== userId)
-      : [...selectedUsers, userId];
+    console.log('toggleUser called with:', userId);
+    console.log('Current selectedUsers:', safeSelectedUsers);
     
+    const newSelection = safeSelectedUsers.includes(userId)
+      ? safeSelectedUsers.filter(id => id !== userId)
+      : [...safeSelectedUsers, userId];
+    
+    console.log('New selection:', newSelection);
     onSelectionChange(newSelection);
   };
 
   const removeUser = (userId: string) => {
-    onSelectionChange(selectedUsers.filter(id => id !== userId));
+    console.log('removeUser called with:', userId);
+    const newSelection = safeSelectedUsers.filter(id => id !== userId);
+    console.log('New selection after removal:', newSelection);
+    onSelectionChange(newSelection);
   };
 
   return (
@@ -74,8 +105,8 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
             aria-expanded={open}
             className="justify-between"
           >
-            {selectedUsers.length > 0 
-              ? `${selectedUsers.length} collaborateur(s)` 
+            {safeSelectedUsers.length > 0 
+              ? `${safeSelectedUsers.length} collaborateur(s)` 
               : "Ajouter des collaborateurs"}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -85,25 +116,32 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
             <CommandInput placeholder="Rechercher un utilisateur..." />
             <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
             <CommandGroup>
-              {users.map((user) => (
-                <CommandItem
-                  key={user.id}
-                  onSelect={() => toggleUser(user.id)}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  <div className="flex flex-col">
-                    <span>{user.full_name || user.email}</span>
-                    {user.full_name && (
-                      <span className="text-sm text-gray-500">{user.email}</span>
-                    )}
-                  </div>
-                </CommandItem>
-              ))}
+              {safeUsers.map((user) => {
+                if (!user || typeof user.id !== 'string') {
+                  console.warn('Skipping invalid user in map:', user);
+                  return null;
+                }
+                
+                return (
+                  <CommandItem
+                    key={user.id}
+                    onSelect={() => toggleUser(user.id)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        safeSelectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span>{user.full_name || user.email}</span>
+                      {user.full_name && (
+                        <span className="text-sm text-gray-500">{user.email}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </Command>
         </PopoverContent>

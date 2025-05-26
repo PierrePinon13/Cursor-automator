@@ -33,6 +33,14 @@ interface ClientsTableProps {
 export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
   const { deleteClient, updateCollaborators } = useClients();
 
+  // Logs de débogage
+  console.log('ClientsTable props:', { 
+    clients: clients, 
+    users: users,
+    clientsCount: clients?.length,
+    usersCount: users?.length 
+  });
+
   const handleDelete = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) {
       await deleteClient(id);
@@ -40,8 +48,13 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
   };
 
   const handleCollaboratorsChange = async (clientId: string, userIds: string[]) => {
+    console.log('handleCollaboratorsChange called:', { clientId, userIds });
     await updateCollaborators(clientId, userIds);
   };
+
+  // Vérifications de sécurité
+  const safeClients = Array.isArray(clients) ? clients : [];
+  const safeUsers = Array.isArray(users) ? users : [];
 
   return (
     <Table>
@@ -55,8 +68,16 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
         </TableRow>
       </TableHeader>
       <TableBody>
-        {clients.map((client) => {
-          const collaboratorIds = client.collaborators?.map(c => c.id) || [];
+        {safeClients.map((client) => {
+          // Extraction sécurisée des IDs des collaborateurs
+          const collaboratorIds = Array.isArray(client.collaborators) 
+            ? client.collaborators.map(c => c?.id).filter(id => typeof id === 'string')
+            : [];
+          
+          console.log('Client collaborators for', client.company_name, ':', {
+            collaborators: client.collaborators,
+            collaboratorIds: collaboratorIds
+          });
           
           return (
             <TableRow key={client.id}>
@@ -92,7 +113,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
               </TableCell>
               <TableCell>
                 <CollaboratorsSelect
-                  users={users}
+                  users={safeUsers}
                   selectedUsers={collaboratorIds}
                   onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
                 />
@@ -118,7 +139,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
             </TableRow>
           );
         })}
-        {clients.length === 0 && (
+        {safeClients.length === 0 && (
           <TableRow>
             <TableCell colSpan={5} className="text-center py-8 text-gray-500">
               Aucun client trouvé. Ajoutez votre premier client ou importez un fichier CSV.
