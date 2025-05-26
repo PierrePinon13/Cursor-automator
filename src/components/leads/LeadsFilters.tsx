@@ -39,11 +39,11 @@ const dateFilterOptions = [
 ];
 
 const contactFilterOptions = [
-  { value: 'all', label: 'Tous les leads' },
-  { value: 'contacted', label: 'Leads contactés' },
-  { value: '7days', label: 'Contactés - 7 derniers jours' },
-  { value: '2weeks', label: 'Contactés - 2 semaines' },
-  { value: '1month', label: 'Contactés - 1 mois' },
+  { value: 'exclude_none', label: 'Tous les leads' },
+  { value: 'exclude_2weeks', label: 'Exclure contactés - 2 semaines' },
+  { value: 'exclude_1week', label: 'Exclure contactés - 1 semaine' },
+  { value: 'exclude_1month', label: 'Exclure contactés - 1 mois' },
+  { value: 'exclude_all_contacted', label: 'Exclure tous les contactés' },
 ];
 
 // Get available categories from useLeads hook

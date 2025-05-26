@@ -42,7 +42,7 @@ export const useLeads = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
-  const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
+  const [selectedContactFilter, setSelectedContactFilter] = useState<string>('exclude_2weeks');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -133,19 +133,19 @@ export const useLeads = () => {
     }
   };
 
-  const getContactFilterCutoff = (filter: string): Date | null => {
+  const getContactExclusionCutoff = (filter: string): Date | null => {
     const now = new Date();
     
     switch (filter) {
-      case '7days':
+      case 'exclude_1week':
         return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      case '2weeks':
+      case 'exclude_2weeks':
         return new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-      case '1month':
+      case 'exclude_1month':
         return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      case 'contacted':
-        return new Date(0); // Any contact ever
-      case 'all':
+      case 'exclude_all_contacted':
+        return new Date(0); // Exclude any contact ever
+      case 'exclude_none':
       default:
         return null;
     }
@@ -178,18 +178,18 @@ export const useLeads = () => {
       });
     }
 
-    // Filter by contact status
-    const contactCutoff = getContactFilterCutoff(selectedContactFilter);
-    if (contactCutoff !== null) {
-      if (selectedContactFilter === 'contacted') {
-        // Show only leads that have been contacted
-        filtered = filtered.filter(lead => lead.last_contact_at !== null);
-      } else if (selectedContactFilter !== 'all') {
-        // Show only leads contacted within the specified timeframe
+    // Exclude leads by contact status (inverse logic)
+    const contactExclusionCutoff = getContactExclusionCutoff(selectedContactFilter);
+    if (contactExclusionCutoff !== null) {
+      if (selectedContactFilter === 'exclude_all_contacted') {
+        // Exclude all leads that have been contacted
+        filtered = filtered.filter(lead => lead.last_contact_at === null);
+      } else if (selectedContactFilter !== 'exclude_none') {
+        // Exclude leads contacted within the specified timeframe
         filtered = filtered.filter(lead => {
-          if (!lead.last_contact_at) return false;
+          if (!lead.last_contact_at) return true; // Keep leads that haven't been contacted
           const contactDate = new Date(lead.last_contact_at);
-          return contactDate >= contactCutoff;
+          return contactDate < contactExclusionCutoff; // Keep only leads contacted before the cutoff
         });
       }
     }
