@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -41,6 +42,7 @@ export const useLeads = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
+  const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export const useLeads = () => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, selectedCategories, selectedDateFilter]);
+  }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter]);
 
   useEffect(() => {
     // Extract unique categories from leads, excluding "Autre"
@@ -131,6 +133,24 @@ export const useLeads = () => {
     }
   };
 
+  const getContactFilterCutoff = (filter: string): Date | null => {
+    const now = new Date();
+    
+    switch (filter) {
+      case '7days':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case '2weeks':
+        return new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      case '1month':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case 'contacted':
+        return new Date(0); // Any contact ever
+      case 'all':
+      default:
+        return null;
+    }
+  };
+
   const filterLeads = () => {
     let filtered = leads;
 
@@ -158,6 +178,22 @@ export const useLeads = () => {
       });
     }
 
+    // Filter by contact status
+    const contactCutoff = getContactFilterCutoff(selectedContactFilter);
+    if (contactCutoff !== null) {
+      if (selectedContactFilter === 'contacted') {
+        // Show only leads that have been contacted
+        filtered = filtered.filter(lead => lead.last_contact_at !== null);
+      } else if (selectedContactFilter !== 'all') {
+        // Show only leads contacted within the specified timeframe
+        filtered = filtered.filter(lead => {
+          if (!lead.last_contact_at) return false;
+          const contactDate = new Date(lead.last_contact_at);
+          return contactDate >= contactCutoff;
+        });
+      }
+    }
+
     // Sort filtered leads by publication date (most recent first)
     filtered.sort((a, b) => {
       const dateA = a.posted_at_timestamp || new Date(a.posted_at_iso || a.created_at).getTime();
@@ -176,6 +212,8 @@ export const useLeads = () => {
     setSelectedCategories,
     selectedDateFilter,
     setSelectedDateFilter,
+    selectedContactFilter,
+    setSelectedContactFilter,
     availableCategories,
     refreshLeads: fetchLeads
   };

@@ -14,6 +14,8 @@ const Leads = () => {
     setSelectedCategories,
     selectedDateFilter,
     setSelectedDateFilter,
+    selectedContactFilter,
+    setSelectedContactFilter,
     refreshLeads
   } = useLeads();
   
@@ -22,6 +24,7 @@ const Leads = () => {
     'job_title', 
     'author_name', 
     'company', 
+    'last_contact',
     'post_url', 
     'status', 
     'category', 
@@ -60,6 +63,8 @@ const Leads = () => {
           onColumnsChange={setVisibleColumns}
           selectedDateFilter={selectedDateFilter}
           onDateFilterChange={setSelectedDateFilter}
+          selectedContactFilter={selectedContactFilter}
+          onContactFilterChange={setSelectedContactFilter}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
         />

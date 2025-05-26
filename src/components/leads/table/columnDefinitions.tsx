@@ -23,6 +23,18 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
+  phone_number?: string | null;
+  phone_retrieved_at?: string | null;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
+  is_client_lead?: boolean | null;
+  matched_client_name?: string | null;
+  matched_client_id?: string | null;
+  last_contact_at?: string | null;
+  linkedin_message_sent_at?: string | null;
+  phone_contact_status?: string | null;
+  phone_contact_at?: string | null;
 }
 
 export interface Column {
@@ -127,6 +139,33 @@ export const allColumns: Column[] = [
         )}
       </div>
     )
+  },
+  {
+    id: 'last_contact',
+    label: 'Dernier contact',
+    width: '120px',
+    render: (lead) => {
+      if (!lead.last_contact_at) {
+        return <span className="text-xs text-gray-400">Aucun contact</span>;
+      }
+      
+      return (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-700">
+            {getTimeAgo(lead.last_contact_at)}
+          </div>
+          {lead.phone_contact_status && (
+            <div className={`text-xs px-1 py-0.5 rounded text-center ${
+              lead.phone_contact_status === 'positive' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {lead.phone_contact_status === 'positive' ? 'Positif' : 'Négatif'}
+            </div>
+          )}
+        </div>
+      );
+    }
   },
   {
     id: 'category',

@@ -13,6 +13,8 @@ interface LeadsFiltersProps {
   onColumnsChange: (columns: string[]) => void;
   selectedDateFilter: string;
   onDateFilterChange: (filter: string) => void;
+  selectedContactFilter: string;
+  onContactFilterChange: (filter: string) => void;
   viewMode: 'table' | 'card';
   onViewModeChange: (mode: 'table' | 'card') => void;
 }
@@ -22,6 +24,7 @@ const columnOptions = [
   { value: 'job_title', label: 'Titre de poste recherché' },
   { value: 'author_name', label: 'Prénom et Nom' },
   { value: 'company', label: 'Entreprise' },
+  { value: 'last_contact', label: 'Dernier contact' },
   { value: 'post_url', label: 'URL du post' },
   { value: 'status', label: 'Statut' },
   { value: 'category', label: 'Catégorie' },
@@ -33,6 +36,14 @@ const dateFilterOptions = [
   { value: '48h', label: 'Dernières 48h' },
   { value: '7days', label: '7 derniers jours' },
   { value: 'all', label: 'Tous' },
+];
+
+const contactFilterOptions = [
+  { value: 'all', label: 'Tous les leads' },
+  { value: 'contacted', label: 'Leads contactés' },
+  { value: '7days', label: 'Contactés - 7 derniers jours' },
+  { value: '2weeks', label: 'Contactés - 2 semaines' },
+  { value: '1month', label: 'Contactés - 1 mois' },
 ];
 
 // Get available categories from useLeads hook
@@ -54,6 +65,8 @@ const LeadsFilters = ({
   onColumnsChange,
   selectedDateFilter,
   onDateFilterChange,
+  selectedContactFilter,
+  onContactFilterChange,
   viewMode,
   onViewModeChange
 }: LeadsFiltersProps) => {
@@ -73,6 +86,18 @@ const LeadsFilters = ({
             </SelectTrigger>
             <SelectContent>
               {dateFilterOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedContactFilter} onValueChange={onContactFilterChange}>
+            <SelectTrigger className="w-56 h-8">
+              <SelectValue placeholder="Filtrer par contact" />
+            </SelectTrigger>
+            <SelectContent>
+              {contactFilterOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
