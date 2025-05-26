@@ -30,6 +30,8 @@ serve(async (req) => {
       return new Response('Missing account_id', { status: 400 })
     }
 
+    console.log('Processing webhook for account_id:', account_id, 'with status:', status)
+
     // Trouver la connexion en attente la plus récente
     const { data: connections, error: searchError } = await supabaseClient
       .from('linkedin_connections')
@@ -44,11 +46,12 @@ serve(async (req) => {
     }
 
     const connectionData = connections[0]
+    console.log('Found pending connection:', connectionData.id, 'temp_id:', connectionData.unipile_account_id)
 
     // Update connection status based on webhook
     let updateData: any = {
-      account_id: account_id, // Mettre à jour avec le vrai account_id d'Unipile
-      unipile_account_id: account_id, // Garder une copie dans unipile_account_id aussi
+      account_id: account_id, // Le vrai account_id venant d'Unipile
+      // Garder l'unipile_account_id existant (l'UUID temporaire)
       last_update: new Date().toISOString()
     }
 
