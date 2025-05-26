@@ -1,13 +1,25 @@
 
-export const getTimeAgo = (dateString: string): string => {
-  if (!dateString) return 'Date inconnue';
+export const getTimeAgo = (dateString: string, timestamp?: number): string => {
+  // Prioriser le timestamp Unix si disponible (plus précis)
+  let postDate: Date;
+  
+  if (timestamp) {
+    // timestamp est en millisecondes depuis epoch Unix
+    postDate = new Date(timestamp);
+  } else if (dateString) {
+    postDate = new Date(dateString);
+  } else {
+    return 'Date inconnue';
+  }
+  
+  // Vérifier si la date est valide
+  if (isNaN(postDate.getTime())) {
+    return 'Date invalide';
+  }
   
   // Obtenir l'heure actuelle en heure de Paris
   const now = new Date();
   const parisNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
-  
-  // Créer la date du post
-  const postDate = new Date(dateString);
   
   // Calculer la différence en millisecondes
   const diffMs = parisNow.getTime() - postDate.getTime();

@@ -16,6 +16,7 @@ interface Lead {
   title: string;
   url: string;
   posted_at_iso: string;
+  posted_at_timestamp: number;
   openai_step2_localisation: string;
   openai_step3_categorie: string;
   openai_step3_postes_selectionnes: string[];
@@ -46,7 +47,7 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       width: '120px',
       render: (lead) => (
         <span className="text-sm">
-          {getTimeAgo(lead.posted_at_iso || lead.created_at)}
+          {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
         </span>
       )
     },

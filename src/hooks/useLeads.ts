@@ -12,6 +12,7 @@ interface Lead {
   title: string;
   url: string;
   posted_at_iso: string;
+  posted_at_timestamp: number;
   openai_step2_localisation: string;
   openai_step3_categorie: string;
   openai_step3_postes_selectionnes: string[];
