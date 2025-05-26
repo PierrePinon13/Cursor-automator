@@ -228,14 +228,17 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
                       <Select
                         value={columnMapping.company_linkedin_url}
                         onValueChange={(value) => 
-                          setColumnMapping(prev => ({ ...prev, company_linkedin_url: value }))
+                          setColumnMapping(prev => ({ 
+                            ...prev, 
+                            company_linkedin_url: value === '__none__' ? '' : value 
+                          }))
                         }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Optionnel" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Aucune</SelectItem>
+                          <SelectItem value="__none__">Aucune</SelectItem>
                           {csvData.headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -250,14 +253,17 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
                       <Select
                         value={columnMapping.company_linkedin_id}
                         onValueChange={(value) => 
-                          setColumnMapping(prev => ({ ...prev, company_linkedin_id: value }))
+                          setColumnMapping(prev => ({ 
+                            ...prev, 
+                            company_linkedin_id: value === '__none__' ? '' : value 
+                          }))
                         }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Optionnel" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Aucune</SelectItem>
+                          <SelectItem value="__none__">Aucune</SelectItem>
                           {csvData.headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
