@@ -47,14 +47,40 @@ export async function scrapLinkedInProfile(
       const unipileData = await unipileResponse.json();
       console.log('Unipile response received:', unipileData);
 
-      // Extract company and position from first work experience
+      // Extract company and position from current work experience (most recent with no end date)
       let company = null;
       let position = null;
       
-      if (unipileData.linkedin_profile?.experience && unipileData.linkedin_profile.experience.length > 0) {
-        const firstExperience = unipileData.linkedin_profile.experience[0];
-        company = firstExperience.company || null;
-        position = firstExperience.title || null;
+      // Check both linkedin_profile.experience and work_experience structures
+      const experiences = unipileData.linkedin_profile?.experience || unipileData.work_experience || [];
+      
+      if (experiences && experiences.length > 0) {
+        console.log('Processing work experiences:', experiences);
+        
+        // Find current position (no end date or end is null)
+        let currentExperience = experiences.find((exp: any) => 
+          !exp.end || exp.end === null || exp.end === ''
+        );
+        
+        // If no current position found, take the most recent one (first in array)
+        if (!currentExperience) {
+          currentExperience = experiences[0];
+        }
+        
+        if (currentExperience) {
+          company = currentExperience.company || null;
+          position = currentExperience.position || currentExperience.title || null;
+          
+          console.log('Selected current experience:', {
+            company,
+            position,
+            isCurrentPosition: !currentExperience.end,
+            startDate: currentExperience.start,
+            endDate: currentExperience.end
+          });
+        }
+      } else {
+        console.log('No work experience found in the response');
       }
 
       console.log('Unipile data extracted:', { company, position });
