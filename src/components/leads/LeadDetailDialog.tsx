@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
+import LeadDetailNavigation from './LeadDetailNavigation';
+import LeadDetailLayout from './LeadDetailLayout';
 import LeadInfo from './LeadInfo';
 import LeadMessageEditor from './LeadMessageEditor';
 import LeadActions from './LeadActions';
@@ -58,14 +58,14 @@ const LeadDetailDialog = ({
   const handlePrevious = () => {
     if (canGoPrevious) {
       onNavigateToLead(selectedLeadIndex - 1);
-      setCustomMessage(''); // Reset message when navigating
+      setCustomMessage('');
     }
   };
 
   const handleNext = () => {
     if (canGoNext) {
       onNavigateToLead(selectedLeadIndex + 1);
-      setCustomMessage(''); // Reset message when navigating
+      setCustomMessage('');
     }
   };
 
@@ -105,51 +105,29 @@ const LeadDetailDialog = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
         <DialogHeader className="p-6 pb-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold">
-              Détails du Lead ({selectedLeadIndex + 1}/{leads.length})
-            </DialogTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrevious}
-                disabled={!canGoPrevious}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNext}
-                disabled={!canGoNext}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <DialogTitle asChild>
+            <LeadDetailNavigation
+              currentIndex={selectedLeadIndex}
+              totalLeads={leads.length}
+              canGoPrevious={canGoPrevious}
+              canGoNext={canGoNext}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+            />
+          </DialogTitle>
         </DialogHeader>
         
-        <div className="flex h-[calc(90vh-120px)]">
-          {/* Section gauche - Synthèse du lead */}
-          <div className="w-1/3 p-6 border-r bg-gray-50 overflow-y-auto">
-            <LeadInfo lead={lead} />
-          </div>
-
-          {/* Section milieu - Message pré-rédigé */}
-          <div className="w-1/3 p-6 border-r overflow-y-auto">
+        <LeadDetailLayout
+          leftPanel={<LeadInfo lead={lead} />}
+          centerPanel={
             <LeadMessageEditor
               lead={lead}
               message={customMessage}
               onMessageChange={setCustomMessage}
               disabled={messageSending}
             />
-          </div>
-
-          {/* Section droite - Boutons d'actions */}
-          <div className="w-1/3 p-6 overflow-y-auto">
+          }
+          rightPanel={
             <LeadActions
               lead={lead}
               onSendLinkedInMessage={handleSendLinkedInMessage}
@@ -157,8 +135,8 @@ const LeadDetailDialog = ({
               messageSending={messageSending}
               hasMessage={customMessage.trim().length > 0}
             />
-          </div>
-        </div>
+          }
+        />
       </DialogContent>
     </Dialog>
   );
