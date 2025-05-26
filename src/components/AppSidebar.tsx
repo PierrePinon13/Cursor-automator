@@ -40,7 +40,7 @@ export function AppSidebar() {
           <img 
             src="/lovable-uploads/0e90fa69-04ca-49b9-a111-f75596b70418.png" 
             alt="Automator Logo" 
-            className="h-12 w-12 ml-auto"
+            className="h-12 w-12 ml-auto group-data-[collapsible=icon]:ml-0"
           />
         </div>
       </SidebarHeader>
