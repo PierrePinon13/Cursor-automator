@@ -3,16 +3,23 @@ import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, AlertCircle } from 'lucide-react';
 import { ClientsTable } from '@/components/clients/ClientsTable';
 import { ClientDialog } from '@/components/clients/ClientDialog';
 import { ImportClientsDialog } from '@/components/clients/ImportClientsDialog';
+import { IncompleteClientsDialog } from '@/components/clients/IncompleteClientsDialog';
 
 const Clients = () => {
   const { clients, users, loading } = useClients();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isIncompleteDialogOpen, setIsIncompleteDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
+
+  // Count incomplete clients
+  const incompleteCount = clients.filter(client => 
+    !client.company_linkedin_url || !client.company_linkedin_id
+  ).length;
 
   if (loading) {
     return (
@@ -34,6 +41,16 @@ const Clients = () => {
         </div>
         
         <div className="flex gap-3">
+          {incompleteCount > 0 && (
+            <Button
+              onClick={() => setIsIncompleteDialogOpen(true)}
+              variant="outline"
+              className="flex items-center gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+            >
+              <AlertCircle className="h-4 w-4" />
+              Comptes incomplets ({incompleteCount})
+            </Button>
+          )}
           <Button
             onClick={() => setIsImportDialogOpen(true)}
             variant="outline"
@@ -75,6 +92,12 @@ const Clients = () => {
       <ImportClientsDialog
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
+      />
+
+      <IncompleteClientsDialog
+        open={isIncompleteDialogOpen}
+        onOpenChange={setIsIncompleteDialogOpen}
+        clients={clients}
       />
     </div>
   );
