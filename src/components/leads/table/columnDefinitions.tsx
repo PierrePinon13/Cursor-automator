@@ -62,20 +62,24 @@ export const allColumns: Column[] = [
     width: '108px',
     minWidth: '108px',
     render: (lead) => (
-      <div 
-        className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative w-full h-full flex items-center"
-        onClick={() => window.open(lead.url, '_blank')}
-      >
+      <div className="w-full h-full flex items-center">
         <div className="flex items-start justify-between gap-2 w-full">
           <div className="flex-1">
             {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-              <div key={index} className="text-green-600 text-xs group-hover:text-green-700">
-                {poste}
+              <div key={index} className="text-green-600 text-xs">
+                <span 
+                  className="cursor-pointer hover:text-green-700 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(lead.url, '_blank');
+                  }}
+                >
+                  {poste}
+                </span>
                 {index < lead.openai_step3_postes_selectionnes.length - 1 && <br />}
               </div>
             ))}
           </div>
-          <ExternalLink className="h-2.5 w-2.5 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0 mt-0.5" />
         </div>
       </div>
     )
@@ -85,15 +89,17 @@ export const allColumns: Column[] = [
     label: 'Lead',
     width: '110px',
     render: (lead) => (
-      <div 
-        className="group cursor-pointer hover:bg-blue-50 rounded-md p-1.5 -m-1.5 transition-all duration-200 relative w-full h-full flex items-center"
-        onClick={() => window.open(lead.author_profile_url, '_blank')}
-      >
+      <div className="w-full h-full flex items-center">
         <div className="flex items-center justify-between gap-2 w-full">
-          <span className="font-medium text-xs group-hover:text-blue-700 transition-colors">
+          <span 
+            className="font-medium text-xs cursor-pointer hover:text-blue-700 hover:underline transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(lead.author_profile_url, '_blank');
+            }}
+          >
             {lead.author_name || 'N/A'}
           </span>
-          <ExternalLink className="h-2.5 w-2.5 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
         </div>
       </div>
     )

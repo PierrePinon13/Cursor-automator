@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +36,7 @@ const CardView = ({ leads }: CardViewProps) => {
 
   const handleCardClick = (lead: Lead, event: React.MouseEvent) => {
     // Ne pas ouvrir la dialog si on clique sur un lien
-    if ((event.target as HTMLElement).closest('a, button')) {
+    if ((event.target as HTMLElement).closest('a, button, [data-clickable]')) {
       return;
     }
     setSelectedLead(lead);
@@ -71,37 +72,45 @@ const CardView = ({ leads }: CardViewProps) => {
             </div>
 
             <div className="mb-3">
-              <div 
-                className="group cursor-pointer hover:bg-blue-50 rounded-md p-2 -m-2 transition-all duration-200"
-                onClick={() => window.open(lead.url, '_blank')}
-              >
+              <div className="p-2 -m-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
-                    <h3 className="font-medium text-sm mb-1 group-hover:text-blue-700">Profil recherché</h3>
+                    <h3 className="font-medium text-sm mb-1">Profil recherché</h3>
                     {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-                      <div key={index} className="text-green-600 text-xs group-hover:text-green-700">
-                        {poste}
+                      <div key={index} className="text-green-600 text-xs">
+                        <span 
+                          className="cursor-pointer hover:text-green-700 hover:underline"
+                          data-clickable="true"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(lead.url, '_blank');
+                          }}
+                        >
+                          {poste}
+                        </span>
                       </div>
                     ))}
                   </div>
-                  <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0 mt-1" />
                 </div>
               </div>
             </div>
 
             <div className="mb-3">
-              <div 
-                className="group cursor-pointer hover:bg-blue-50 rounded-md p-2 -m-2 transition-all duration-200"
-                onClick={() => window.open(lead.author_profile_url, '_blank')}
-              >
+              <div className="p-2 -m-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1">
-                    <h4 className="font-medium text-xs mb-0.5 group-hover:text-blue-700">Lead</h4>
-                    <span className="text-xs text-gray-700">
+                    <h4 className="font-medium text-xs mb-0.5">Lead</h4>
+                    <span 
+                      className="text-xs text-gray-700 cursor-pointer hover:text-blue-700 hover:underline"
+                      data-clickable="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(lead.author_profile_url, '_blank');
+                      }}
+                    >
                       {lead.author_name || 'N/A'}
                     </span>
                   </div>
-                  <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
                 </div>
               </div>
             </div>
