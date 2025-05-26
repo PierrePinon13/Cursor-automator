@@ -4,6 +4,7 @@ import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import { exportLeadsToCSV } from '@/utils/csvExport';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Leads = () => {
   const { filteredLeads, loading, selectedCategories, setSelectedCategories } = useLeads();
@@ -36,6 +37,10 @@ const Leads = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      <div className="flex items-center mb-6">
+        <SidebarTrigger />
+      </div>
+      
       <div className="space-y-6">
         <LeadsFilters
           selectedCategories={selectedCategories}

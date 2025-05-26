@@ -34,8 +34,8 @@ export const useLeads = () => {
   }, [leads, selectedCategories]);
 
   useEffect(() => {
-    // Extract unique categories from leads
-    const categories = [...new Set(leads.map(lead => lead.openai_step3_categorie).filter(Boolean))];
+    // Extract unique categories from leads, excluding "Autre"
+    const categories = [...new Set(leads.map(lead => lead.openai_step3_categorie).filter(category => category && category !== 'Autre'))];
     setAvailableCategories(categories);
     
     // If no categories are selected, select all available ones
@@ -65,6 +65,7 @@ export const useLeads = () => {
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)
+        .neq('openai_step3_categorie', 'Autre')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

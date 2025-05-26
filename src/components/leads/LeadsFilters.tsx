@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Download, Filter } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MultiSelectFilter from './MultiSelectFilter';
 import CategoryFilter from './CategoryFilter';
@@ -13,18 +13,6 @@ interface LeadsFiltersProps {
   onExport: () => void;
 }
 
-const availableCategories = [
-  'Tech',
-  'Business',
-  'Product',
-  'Executive Search',
-  'Comptelio',
-  'RH',
-  'Freelance',
-  'Data',
-  'Autre'
-];
-
 const columnOptions = [
   { value: 'posted_date', label: 'Posted Date' },
   { value: 'job_title', label: 'Titre de poste recherché' },
@@ -34,6 +22,18 @@ const columnOptions = [
   { value: 'status', label: 'Statut' },
   { value: 'category', label: 'Catégorie' },
   { value: 'location', label: 'Localisation' },
+];
+
+// Get available categories from useLeads hook
+const availableCategories = [
+  'Tech',
+  'Business',
+  'Product',
+  'Executive Search',
+  'Comptelio',
+  'RH',
+  'Freelance',
+  'Data'
 ];
 
 const LeadsFilters = ({
@@ -46,10 +46,6 @@ const LeadsFilters = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5" />
-          <span className="font-medium">Tableau des leads</span>
-        </div>
         <div className="flex items-center gap-3">
           <MultiSelectFilter
             title="Colonnes"
