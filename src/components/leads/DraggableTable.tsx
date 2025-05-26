@@ -58,24 +58,20 @@ const DraggableTable = ({ leads, visibleColumns }: DraggableTableProps) => {
       width: '262px',
       minWidth: '262px',
       render: (lead) => (
-        <div className="space-y-1">
-          <div className="flex items-start gap-2">
+        <div 
+          className="group cursor-pointer hover:bg-blue-50 rounded-md p-2 -m-2 transition-all duration-200 relative"
+          onClick={() => window.open(lead.url, '_blank')}
+        >
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-                <div key={index} className="text-green-600 text-sm">
+                <div key={index} className="text-green-600 text-sm group-hover:text-green-700">
                   {poste}
                   {index < lead.openai_step3_postes_selectionnes.length - 1 && <br />}
                 </div>
               ))}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => window.open(lead.url, '_blank')}
-              className="h-6 w-6 p-0 flex-shrink-0"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </Button>
+            <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0 mt-0.5" />
           </div>
         </div>
       )
