@@ -41,8 +41,70 @@ serve(async (req) => {
       .limit(1)
 
     if (searchError || !connections || connections.length === 0) {
-      console.log('No pending connection found for account_id:', account_id)
-      return new Response('No matching pending connection found', { status: 404 })
+      console.log('No pending connection found, trying to find existing connection by account_id:', account_id)
+      
+      // Si pas de connexion pending, chercher une connexion existante avec cet account_id
+      const { data: existingConnections, error: existingError } = await supabaseClient
+        .from('linkedin_connections')
+        .select('*')
+        .eq('account_id', account_id)
+        .limit(1)
+
+      if (existingError || !existingConnections || existingConnections.length === 0) {
+        console.log('No matching connection found for account_id:', account_id)
+        return new Response('No matching connection found', { status: 404 })
+      }
+
+      // Utiliser la connexion existante
+      const connectionData = existingConnections[0]
+      console.log('Found existing connection:', connectionData.id, 'account_id:', connectionData.account_id)
+      
+      let updateData: any = {
+        account_id: account_id, // Mettre à jour avec le nouvel account_id d'Unipile
+        last_update: new Date().toISOString()
+      }
+
+      // Mettre à jour le statut selon le webhook
+      switch (status) {
+        case 'CREATION_SUCCESS':
+        case 'RECONNECTED':
+          updateData.status = 'connected'
+          updateData.connection_status = 'connected'
+          updateData.connected_at = new Date().toISOString()
+          updateData.error_message = null
+          break
+        case 'CREDENTIALS':
+          updateData.status = 'credentials_required'
+          updateData.connection_status = 'credentials_required'
+          updateData.error_message = 'Credentials update required'
+          break
+        case 'ERROR':
+          updateData.status = 'error'
+          updateData.connection_status = 'error'
+          updateData.error_message = unipileError || 'Unknown error occurred'
+          break
+        default:
+          updateData.status = status
+          updateData.connection_status = status
+          if (unipileError) {
+            updateData.error_message = unipileError
+          }
+      }
+
+      // Mettre à jour la connexion existante
+      const { data, error } = await supabaseClient
+        .from('linkedin_connections')
+        .update(updateData)
+        .eq('id', connectionData.id)
+        .select()
+
+      if (error) {
+        console.error('Error updating existing LinkedIn connection:', error)
+        return new Response('Database error', { status: 500 })
+      }
+
+      console.log('Existing LinkedIn connection updated successfully:', data[0])
+      return new Response('OK', { status: 200, headers: corsHeaders })
     }
 
     const connectionData = connections[0]
