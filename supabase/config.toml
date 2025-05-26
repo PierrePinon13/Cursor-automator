@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.linkedin-webhook]
 verify_jwt = false
+
+[functions.apify-webhook]
+verify_jwt = false
