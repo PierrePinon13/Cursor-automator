@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 import LeadDetailNavigation from './LeadDetailNavigation';
 import LeadDetailLayout from './LeadDetailLayout';
@@ -107,31 +107,38 @@ const LeadDetailDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle asChild>
-            <LeadDetailNavigation
-              currentIndex={selectedLeadIndex}
-              totalLeads={leads.length}
-              canGoPrevious={canGoPrevious}
-              canGoNext={canGoNext}
-              onPrevious={handlePrevious}
-              onNext={handleNext}
-            />
-          </DialogTitle>
-        </DialogHeader>
-        
-        <LeadDetailLayout
-          leftPanel={<LeadInfo lead={lead} />}
-          centerPanel={
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden p-0">
+        <div className="flex h-[95vh]">
+          {/* Section gauche - Synthèse du lead */}
+          <div className="w-1/3 border-r bg-gray-50 overflow-y-auto relative">
+            <div className="p-6">
+              <LeadInfo lead={lead} />
+            </div>
+            {/* Navigation positionnée en bas à gauche */}
+            <div className="absolute top-4 right-4">
+              <LeadDetailNavigation
+                currentIndex={selectedLeadIndex}
+                totalLeads={leads.length}
+                canGoPrevious={canGoPrevious}
+                canGoNext={canGoNext}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+              />
+            </div>
+          </div>
+
+          {/* Section milieu - Message pré-rédigé */}
+          <div className="w-1/3 p-6 border-r overflow-y-auto">
             <LeadMessageEditor
               lead={lead}
               message={customMessage}
               onMessageChange={setCustomMessage}
               disabled={messageSending}
             />
-          }
-          rightPanel={
+          </div>
+
+          {/* Section droite - Boutons d'actions */}
+          <div className="w-1/3 p-6 overflow-y-auto">
             <LeadActions
               lead={lead}
               onSendLinkedInMessage={handleSendLinkedInMessage}
@@ -140,8 +147,8 @@ const LeadDetailDialog = ({
               message={customMessage}
               onPhoneRetrieved={handlePhoneRetrieved}
             />
-          }
-        />
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
