@@ -44,11 +44,27 @@ const LeadActions = ({
   const messageValid = isMessageValid(message);
 
   const handlePhoneRetrieval = async () => {
-    const phoneNumber = await retrievePhone(lead.id);
-    if (onPhoneRetrieved) {
-      onPhoneRetrieved(phoneNumber);
+    try {
+      console.log('Starting phone retrieval for lead:', lead.id);
+      const phoneNumber = await retrievePhone(lead.id);
+      console.log('Phone retrieval result:', phoneNumber);
+      
+      // Toujours appeler le callback, même si phoneNumber est null
+      if (onPhoneRetrieved) {
+        onPhoneRetrieved(phoneNumber);
+      }
+    } catch (error) {
+      console.error('Error in handlePhoneRetrieval:', error);
+      // En cas d'erreur, appeler le callback avec null
+      if (onPhoneRetrieved) {
+        onPhoneRetrieved(null);
+      }
     }
   };
+
+  // Déterminer si on doit afficher le bouton ou le numéro
+  const shouldShowPhoneButton = !lead.phone_retrieved_at;
+  const hasPhoneNumber = lead.phone_number && lead.phone_number.trim() !== '';
 
   return (
     <div className="space-y-6">
@@ -100,14 +116,7 @@ const LeadActions = ({
           {/* Other Actions */}
           <div className="space-y-2">
             {/* Phone Retrieval Action */}
-            {lead.phone_number ? (
-              <div className="p-3 border rounded-lg bg-green-50">
-                <div className="flex items-center gap-2 text-green-700">
-                  <Phone className="h-4 w-4" />
-                  <span className="font-medium">Téléphone : {lead.phone_number}</span>
-                </div>
-              </div>
-            ) : (
+            {shouldShowPhoneButton ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -127,6 +136,17 @@ const LeadActions = ({
                   </>
                 )}
               </Button>
+            ) : (
+              <div className="p-3 border rounded-lg bg-gray-50">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Phone className="h-4 w-4" />
+                  {hasPhoneNumber ? (
+                    <span className="font-medium text-green-700">Téléphone : {lead.phone_number}</span>
+                  ) : (
+                    <span className="font-medium text-gray-600">Aucun téléphone trouvé</span>
+                  )}
+                </div>
+              </div>
             )}
             
             <Button

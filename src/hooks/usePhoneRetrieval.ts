@@ -29,14 +29,16 @@ export function usePhoneRetrieval() {
             title: "Téléphone récupéré",
             description: `Numéro trouvé : ${data.phone_number}${data.cached ? ' (en cache)' : ''}`,
           });
+          return data.phone_number;
         } else {
+          // Cas où aucun numéro n'a été trouvé - ce n'est pas une erreur
           toast({
             title: "Aucun téléphone trouvé",
             description: "Aucun numéro de téléphone n'a été trouvé pour ce contact.",
-            variant: "destructive",
+            variant: "default", // Changé de "destructive" à "default"
           });
+          return null; // Retourner null explicitement
         }
-        return data.phone_number;
       } else {
         throw new Error(data?.error || 'Échec de la récupération du téléphone');
       }
@@ -47,7 +49,7 @@ export function usePhoneRetrieval() {
         description: error.message || "Impossible de récupérer le numéro de téléphone.",
         variant: "destructive",
       });
-      return null;
+      return null; // Toujours retourner null en cas d'erreur
     } finally {
       setLoading(false);
     }

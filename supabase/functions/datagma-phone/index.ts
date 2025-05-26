@@ -16,8 +16,9 @@ Deno.serve(async (req) => {
     const { lead_id } = await req.json();
 
     if (!lead_id) {
+      console.error('Missing lead_id in request');
       return new Response(
-        JSON.stringify({ error: 'Lead ID is required' }),
+        JSON.stringify({ success: false, error: 'Lead ID is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -26,6 +27,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    console.log('Processing phone retrieval for lead:', lead_id);
 
     // Récupérer les infos du lead
     const { data: lead, error: leadError } = await supabase
@@ -37,18 +40,42 @@ Deno.serve(async (req) => {
     if (leadError || !lead) {
       console.error('Error fetching lead:', leadError);
       return new Response(
-        JSON.stringify({ error: 'Lead not found' }),
+        JSON.stringify({ success: false, error: 'Lead not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Si le numéro a déjà été récupéré, le retourner
-    if (lead.phone_number && lead.phone_retrieved_at) {
+    // Si le numéro a déjà été récupéré (même si null), le retourner
+    if (lead.phone_retrieved_at) {
+      console.log('Phone already retrieved for this lead:', lead.phone_number);
       return new Response(
         JSON.stringify({ 
           success: true, 
           phone_number: lead.phone_number,
           cached: true 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Vérifier que l'URL LinkedIn existe
+    if (!lead.author_profile_url) {
+      console.error('No LinkedIn profile URL for lead:', lead_id);
+      
+      // Marquer comme traité même sans URL
+      await supabase
+        .from('linkedin_posts')
+        .update({
+          phone_number: null,
+          phone_retrieved_at: new Date().toISOString()
+        })
+        .eq('id', lead_id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          phone_number: null,
+          cached: false 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -61,37 +88,40 @@ Deno.serve(async (req) => {
     // Appeler l'API Datagma
     const datagmaUrl = `https://gateway.datagma.net/api/ingress/v1/search?apiId=${datagmaApiKey}&username=${encodedLinkedInUrl}&minimumMatch=1`;
     
-    console.log('Calling Datagma API:', datagmaUrl);
+    console.log('Calling Datagma API for lead:', lead_id);
     
-    const datagmaResponse = await fetch(datagmaUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-
-    if (!datagmaResponse.ok) {
-      console.error('Datagma API error:', datagmaResponse.status, await datagmaResponse.text());
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch data from Datagma API' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const datagmaData = await datagmaResponse.json();
-    console.log('Datagma response:', datagmaData);
-
-    // Extraire le numéro de téléphone des résultats - correction ici
     let phoneNumber = null;
-    if (datagmaData && datagmaData.person && datagmaData.person.phones && Array.isArray(datagmaData.person.phones) && datagmaData.person.phones.length > 0) {
-      // Prendre le premier numéro trouvé, de préférence au format international
-      const firstPhone = datagmaData.person.phones[0];
-      phoneNumber = firstPhone.displayInternational || firstPhone.display || firstPhone.number;
+    
+    try {
+      const datagmaResponse = await fetch(datagmaUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!datagmaResponse.ok) {
+        console.error('Datagma API error:', datagmaResponse.status, await datagmaResponse.text());
+        // Ne pas considérer cela comme une erreur fatale
+      } else {
+        const datagmaData = await datagmaResponse.json();
+        console.log('Datagma response for lead:', lead_id, datagmaData);
+
+        // Extraire le numéro de téléphone des résultats
+        if (datagmaData && datagmaData.person && datagmaData.person.phones && Array.isArray(datagmaData.person.phones) && datagmaData.person.phones.length > 0) {
+          const firstPhone = datagmaData.person.phones[0];
+          phoneNumber = firstPhone.displayInternational || firstPhone.display || firstPhone.number;
+          console.log('Phone number found for lead:', lead_id, phoneNumber);
+        } else {
+          console.log('No phone number found in Datagma response for lead:', lead_id);
+        }
+      }
+    } catch (fetchError) {
+      console.error('Error calling Datagma API for lead:', lead_id, fetchError);
+      // Continuer le traitement même en cas d'erreur
     }
 
-    console.log('Extracted phone number:', phoneNumber);
-
-    // Mettre à jour le lead avec le numéro de téléphone (même si null)
+    // Mettre à jour le lead avec le résultat (même si null)
     const { error: updateError } = await supabase
       .from('linkedin_posts')
       .update({
@@ -101,12 +131,14 @@ Deno.serve(async (req) => {
       .eq('id', lead_id);
 
     if (updateError) {
-      console.error('Error updating lead with phone number:', updateError);
+      console.error('Error updating lead with phone number:', lead_id, updateError);
       return new Response(
-        JSON.stringify({ error: 'Failed to save phone number' }),
+        JSON.stringify({ success: false, error: 'Failed to save phone number' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Phone retrieval completed for lead:', lead_id, 'Result:', phoneNumber);
 
     return new Response(
       JSON.stringify({ 
@@ -118,9 +150,9 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Unexpected error in phone retrieval:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ success: false, error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
