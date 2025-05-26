@@ -18,13 +18,22 @@ function sleep(ms: number): Promise<void> {
 }
 
 serve(async (req) => {
+  console.log('=== LinkedIn Message Function Called ===')
+  console.log('Request method:', req.method)
+  console.log('Request URL:', req.url)
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()))
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request')
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('=== Starting LinkedIn Message Function ===')
+    
     // Initialize Supabase client
+    console.log('Initializing Supabase client...')
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -34,12 +43,17 @@ serve(async (req) => {
         },
       }
     )
+    console.log('Supabase client initialized')
 
     // Get the current user
+    console.log('Getting current user...')
     const {
       data: { user },
       error: userError,
     } = await supabaseClient.auth.getUser()
+
+    console.log('User data:', user ? { id: user.id, email: user.email } : 'null')
+    console.log('User error:', userError)
 
     if (userError || !user) {
       console.error('Auth error:', userError)
@@ -49,7 +63,23 @@ serve(async (req) => {
       )
     }
 
-    const { lead_id, message } = await req.json()
+    // Parse request body
+    console.log('Parsing request body...')
+    let requestBody;
+    try {
+      requestBody = await req.json()
+      console.log('Request body parsed:', requestBody)
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { lead_id, message } = requestBody
+
+    console.log('Parameters received:', { lead_id, message })
 
     if (!lead_id || !message) {
       console.error('Missing parameters:', { lead_id, message })
@@ -71,11 +101,14 @@ serve(async (req) => {
     console.log('Processing LinkedIn message for lead ID:', lead_id)
 
     // Get the lead data from the database to extract authorProfileId
+    console.log('Fetching lead data from database...')
     const { data: leadData, error: leadError } = await supabaseClient
       .from('linkedin_posts')
       .select('author_profile_id, author_profile_url, author_name')
       .eq('id', lead_id)
       .single()
+
+    console.log('Lead data query result:', { leadData, leadError })
 
     if (leadError || !leadData) {
       console.error('Lead not found:', leadError)
@@ -97,12 +130,15 @@ serve(async (req) => {
     console.log('Using author_profile_id from database:', authorProfileId)
 
     // Get user's LinkedIn connection
+    console.log('Fetching LinkedIn connections for user:', user.id)
     const { data: connections, error: connectionError } = await supabaseClient
       .from('linkedin_connections')
       .select('account_id, unipile_account_id')
       .eq('user_id', user.id)
       .eq('status', 'connected')
       .limit(1)
+
+    console.log('LinkedIn connections query result:', { connections, connectionError })
 
     if (connectionError) {
       console.error('Connection query error:', connectionError)
@@ -156,6 +192,8 @@ serve(async (req) => {
       }
     })
 
+    console.log('Profile response status:', profileResponse.status)
+
     if (!profileResponse.ok) {
       const errorText = await profileResponse.text()
       console.error('Profile fetch error:', profileResponse.status, errorText)
@@ -190,6 +228,8 @@ serve(async (req) => {
                          connectionDegree === '1' ||
                          connectionDegree === 'FIRST_DEGREE' ||
                          (typeof connectionDegree === 'string' && connectionDegree.toLowerCase().includes('first'))
+
+    console.log('Is first degree connection:', isFirstDegree)
 
     if (isFirstDegree) {
       // Send direct message
@@ -253,6 +293,7 @@ serve(async (req) => {
       }
     }
 
+    console.log('=== Function completed successfully ===')
     return new Response(
       JSON.stringify({ 
         success: success,
@@ -269,7 +310,9 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in linkedin-message function:', error)
+    console.error('=== ERROR in linkedin-message function ===')
+    console.error('Error details:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
