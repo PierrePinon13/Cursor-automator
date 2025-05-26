@@ -188,7 +188,7 @@ serve(async (req) => {
       method: 'GET',
       headers: {
         'X-API-KEY': unipileApiKey,
-        'Accept': 'application/json',
+        'accept': 'application/json',
       }
     })
 
@@ -210,86 +210,81 @@ serve(async (req) => {
     const providerId = profileData.provider_id || profileData.id || authorProfileId
     console.log('Provider ID extracted:', providerId)
 
-    // Check connection degree - try multiple possible field names
-    const connectionDegree = profileData.connection_degree || 
+    // Check connection degree - look for network_distance like in n8n
+    const networkDistance = profileData.network_distance || 
+                           profileData.connection_degree || 
                            profileData.degree || 
                            profileData.connection || 
-                           profileData.network_distance ||
                            'unknown'
-    console.log('Connection degree determined:', connectionDegree)
+    console.log('Network distance determined:', networkDistance)
 
     let actionTaken = ''
     let success = false
 
-    // Try to determine if this is a 1st degree connection
-    const isFirstDegree = connectionDegree === 'first' || 
-                         connectionDegree === '1st' || 
-                         connectionDegree === 1 ||
-                         connectionDegree === '1' ||
-                         connectionDegree === 'FIRST_DEGREE' ||
-                         (typeof connectionDegree === 'string' && connectionDegree.toLowerCase().includes('first'))
-
-    console.log('Is first degree connection:', isFirstDegree)
+    // Check if this is a first degree connection like in n8n workflow
+    const isFirstDegree = networkDistance === 'FIRST_DEGREE'
+    console.log('Is first degree connection (FIRST_DEGREE):', isFirstDegree)
 
     if (isFirstDegree) {
-      // Send direct message
-      console.log('Sending direct message to 1st degree connection with provider_id:', providerId)
+      // Send direct message using /api/v1/chats endpoint like in n8n
+      console.log('Sending direct chat message to 1st degree connection with provider_id:', providerId)
       
-      const messageResponse = await fetch('https://api9.unipile.com:13946/api/v1/messages', {
+      // Create FormData for multipart-form-data like in n8n
+      const formData = new FormData();
+      formData.append('account_id', userAccountId);
+      formData.append('attendees_ids', providerId);
+      formData.append('text', message);
+      
+      const chatResponse = await fetch('https://api9.unipile.com:13946/api/v1/chats', {
         method: 'POST',
         headers: {
           'X-API-KEY': unipileApiKey,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'accept': 'application/json',
         },
-        body: JSON.stringify({
-          account_id: userAccountId,
-          provider_id: providerId,
-          text: message,
-          provider: 'LINKEDIN'
-        }),
+        body: formData,
       })
 
-      const messageData = await messageResponse.json()
-      console.log('Message response:', messageResponse.status, JSON.stringify(messageData, null, 2))
+      const chatData = await chatResponse.json()
+      console.log('Chat response:', chatResponse.status, JSON.stringify(chatData, null, 2))
 
-      if (messageResponse.ok) {
-        console.log('Message sent successfully')
+      if (chatResponse.ok) {
+        console.log('Chat message sent successfully')
         actionTaken = 'direct_message'
         success = true
       } else {
-        console.error('Message send error:', messageData)
-        throw new Error(`Failed to send message: ${JSON.stringify(messageData)}`)
+        console.error('Chat message send error:', chatData)
+        throw new Error(`Failed to send chat message: ${JSON.stringify(chatData)}`)
       }
 
     } else {
-      // Send connection request with message
-      console.log('Sending connection request with message to non-1st degree connection with provider_id:', providerId)
+      // Send invitation using /api/v1/users/invite endpoint like in n8n
+      console.log('Sending invitation to non-1st degree connection with provider_id:', providerId)
       
-      const connectionResponse = await fetch('https://api9.unipile.com:13946/api/v1/linkedin/connection_requests', {
+      const inviteResponse = await fetch('https://api9.unipile.com:13946/api/v1/users/invite', {
         method: 'POST',
         headers: {
           'X-API-KEY': unipileApiKey,
+          'accept': 'application/json',
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
         },
         body: JSON.stringify({
           account_id: userAccountId,
+          provider: 'LINKEDIN',
           provider_id: providerId,
-          message: message
+          text: message
         }),
       })
 
-      const connectionData = await connectionResponse.json()
-      console.log('Connection response:', connectionResponse.status, JSON.stringify(connectionData, null, 2))
+      const inviteData = await inviteResponse.json()
+      console.log('Invite response:', inviteResponse.status, JSON.stringify(inviteData, null, 2))
 
-      if (connectionResponse.ok) {
-        console.log('Connection request sent successfully')
+      if (inviteResponse.ok) {
+        console.log('Invitation sent successfully')
         actionTaken = 'connection_request'
         success = true
       } else {
-        console.error('Connection request error:', connectionData)
-        throw new Error(`Failed to send connection request: ${JSON.stringify(connectionData)}`)
+        console.error('Invitation send error:', inviteData)
+        throw new Error(`Failed to send invitation: ${JSON.stringify(inviteData)}`)
       }
     }
 
@@ -298,7 +293,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: success,
         action_taken: actionTaken,
-        connection_degree: connectionDegree,
+        network_distance: networkDistance,
         provider_id: providerId,
         message: success ? 'Message envoyé avec succès' : 'Échec de l\'envoi',
         lead_name: leadData.author_name
