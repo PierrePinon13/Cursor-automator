@@ -49,12 +49,12 @@ serve(async (req) => {
       )
     }
 
-    const { lead_profile_id, message } = await req.json()
+    const { lead_id, message } = await req.json()
 
-    if (!lead_profile_id || !message) {
-      console.error('Missing parameters:', { lead_profile_id, message })
+    if (!lead_id || !message) {
+      console.error('Missing parameters:', { lead_id, message })
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
+        JSON.stringify({ error: 'Missing required parameters: lead_id and message' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -68,7 +68,33 @@ serve(async (req) => {
       )
     }
 
-    console.log('Processing LinkedIn message for lead profile:', lead_profile_id)
+    console.log('Processing LinkedIn message for lead ID:', lead_id)
+
+    // Get the lead data from the database to extract authorProfileId
+    const { data: leadData, error: leadError } = await supabaseClient
+      .from('linkedin_posts')
+      .select('author_profile_id, author_profile_url, author_name')
+      .eq('id', lead_id)
+      .single()
+
+    if (leadError || !leadData) {
+      console.error('Lead not found:', leadError)
+      return new Response(
+        JSON.stringify({ error: 'Lead not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const authorProfileId = leadData.author_profile_id
+    if (!authorProfileId) {
+      console.error('No author_profile_id found for lead:', lead_id)
+      return new Response(
+        JSON.stringify({ error: 'No LinkedIn profile ID found for this lead' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Using author_profile_id from database:', authorProfileId)
 
     // Get user's LinkedIn connection
     const { data: connections, error: connectionError } = await supabaseClient
@@ -109,23 +135,18 @@ serve(async (req) => {
     console.log(`Adding random delay of ${delayMs}ms before Unipile API call`);
     await sleep(delayMs);
 
-    // Extract clean profile ID from the lead_profile_id
-    let cleanProfileId = lead_profile_id;
-    if (lead_profile_id.includes('?')) {
-      cleanProfileId = lead_profile_id.split('?')[0];
-    }
-    
-    console.log('Clean profile ID:', cleanProfileId);
-
-    // Step 1: Get profile information to check connection degree
-    console.log('Fetching profile information for:', cleanProfileId)
+    // Step 1: Get profile information to check connection degree using the correct URL format
+    console.log('Fetching profile information for authorProfileId:', authorProfileId)
     
     const profileParams = new URLSearchParams({
       account_id: userAccountId,
       linkedin_sections: 'experience'
     });
 
-    const profileResponse = await fetch(`https://api9.unipile.com:13946/api/v1/users/${cleanProfileId}?${profileParams}`, {
+    const profileUrl = `https://api9.unipile.com:13946/api/v1/users/${authorProfileId}?${profileParams}`;
+    console.log('Profile API URL:', profileUrl);
+
+    const profileResponse = await fetch(profileUrl, {
       method: 'GET',
       headers: {
         'X-API-KEY': unipileApiKey,
@@ -161,6 +182,7 @@ serve(async (req) => {
                          connectionDegree === '1st' || 
                          connectionDegree === 1 ||
                          connectionDegree === '1' ||
+                         connectionDegree === 'FIRST_DEGREE' ||
                          (typeof connectionDegree === 'string' && connectionDegree.toLowerCase().includes('first'))
 
     if (isFirstDegree) {
@@ -176,7 +198,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           account_id: userAccountId,
-          provider_id: cleanProfileId,
+          provider_id: authorProfileId,
           text: message,
           provider: 'LINKEDIN'
         }),
@@ -207,7 +229,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           account_id: userAccountId,
-          provider_id: cleanProfileId,
+          provider_id: authorProfileId,
           message: message
         }),
       })
@@ -230,7 +252,8 @@ serve(async (req) => {
         success: success,
         action_taken: actionTaken,
         connection_degree: connectionDegree,
-        message: success ? 'Message envoyé avec succès' : 'Échec de l\'envoi'
+        message: success ? 'Message envoyé avec succès' : 'Échec de l\'envoi',
+        lead_name: leadData.author_name
       }),
       { 
         status: 200, 

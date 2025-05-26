@@ -9,7 +9,7 @@ export function useLinkedInMessage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const sendMessage = async (leadProfileId: string, message: string) => {
+  const sendMessage = async (leadId: string, message: string) => {
     if (!user) {
       toast({
         title: "Erreur",
@@ -21,28 +21,11 @@ export function useLinkedInMessage() {
 
     setLoading(true);
     try {
-      // Clean the profile ID to extract just the username
-      let profileId = leadProfileId;
-      
-      // If it's a full URL, extract the username
-      if (profileId.includes('/in/')) {
-        const match = profileId.match(/\/in\/([^\/\?]+)/);
-        if (match) {
-          profileId = match[1];
-        }
-      }
-      
-      // Remove any query parameters
-      if (profileId.includes('?')) {
-        profileId = profileId.split('?')[0];
-      }
-
-      console.log('Sending LinkedIn message to profile:', profileId);
-      console.log('Original profile URL/ID:', leadProfileId);
+      console.log('Sending LinkedIn message to lead:', leadId);
       
       const { data, error } = await supabase.functions.invoke('linkedin-message', {
         body: { 
-          lead_profile_id: profileId,
+          lead_id: leadId,
           message: message
         }
       });
@@ -61,7 +44,7 @@ export function useLinkedInMessage() {
         
         toast({
           title: "Succès",
-          description: `${actionText} (Contact ${data.connection_degree} degré)`,
+          description: `${actionText} à ${data.lead_name || 'le contact'} (${data.connection_degree} degré)`,
         });
         return true;
       } else {

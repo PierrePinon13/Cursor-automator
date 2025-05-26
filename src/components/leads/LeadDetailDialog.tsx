@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -75,26 +74,13 @@ const LeadDetailDialog = ({
   };
 
   const handleSendLinkedInMessage = async () => {
-    let profileId = '';
-    if (lead.author_profile_url) {
-      const match = lead.author_profile_url.match(/\/in\/([^\/]+)/);
-      if (match) {
-        profileId = match[1];
-      }
-    }
-
-    if (!profileId) {
-      console.error('Could not determine profile ID for lead');
-      return;
-    }
-
     const messageToSend = customMessage.trim();
     if (!messageToSend) {
       console.error('No message to send');
       return;
     }
     
-    const success = await sendMessage(profileId, messageToSend);
+    const success = await sendMessage(lead.id, messageToSend);
     if (success) {
       onActionCompleted();
       setCustomMessage('');
