@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
+import { Linkedin } from 'lucide-react';
 import LeadDetailNavigation from './LeadDetailNavigation';
 import LeadDetailLayout from './LeadDetailLayout';
 import LeadInfo from './LeadInfo';
@@ -105,26 +105,55 @@ const LeadDetailDialog = ({
     onActionCompleted();
   };
 
+  const formatCompanyInfo = () => {
+    if (lead.unipile_company && lead.unipile_position) {
+      return `${lead.unipile_position} @ ${lead.unipile_company}`;
+    } else if (lead.unipile_company) {
+      return `@ ${lead.unipile_company}`;
+    } else if (lead.unipile_position) {
+      return lead.unipile_position;
+    } else if (lead.author_headline) {
+      return lead.author_headline;
+    }
+    return 'Informations non disponibles';
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden p-0">
-        <div className="flex h-[95vh]">
-          {/* Section gauche - Synthèse du lead */}
-          <div className="w-1/3 border-r bg-gray-50 overflow-y-auto relative">
-            <div className="p-6">
-              <LeadInfo lead={lead} />
+        <DialogHeader className="p-6 pb-4 border-b">
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg">{lead.author_name || 'N/A'}</h3>
+                <div className="text-sm text-gray-600">
+                  {formatCompanyInfo()}
+                </div>
+              </div>
+              <a
+                href={lead.author_profile_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <Linkedin className="h-6 w-6" />
+              </a>
             </div>
-            {/* Navigation positionnée en bas à gauche */}
-            <div className="absolute top-4 right-4">
-              <LeadDetailNavigation
-                currentIndex={selectedLeadIndex}
-                totalLeads={leads.length}
-                canGoPrevious={canGoPrevious}
-                canGoNext={canGoNext}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-              />
-            </div>
+            <LeadDetailNavigation
+              currentIndex={selectedLeadIndex}
+              totalLeads={leads.length}
+              canGoPrevious={canGoPrevious}
+              canGoNext={canGoNext}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+            />
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex h-[calc(95vh-120px)]">
+          {/* Section gauche - Insights du lead */}
+          <div className="w-1/3 border-r bg-gray-50 overflow-y-auto p-6">
+            <LeadInfo lead={lead} />
           </div>
 
           {/* Section milieu - Message pré-rédigé */}
