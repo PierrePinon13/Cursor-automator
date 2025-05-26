@@ -23,9 +23,9 @@ serve(async (req) => {
     const datasetId = webhookData.datasetId || webhookData.dataset_id || webhookData.id
     
     if (!datasetId) {
-      console.error('No dataset ID found in webhook data')
-      return new Response('Missing dataset ID', { 
-        status: 400,
+      console.log('No dataset ID found in webhook data - this might be a test webhook')
+      return new Response('OK - Test webhook received', { 
+        status: 200,
         headers: corsHeaders 
       })
     }
