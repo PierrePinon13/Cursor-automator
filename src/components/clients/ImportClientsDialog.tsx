@@ -1,11 +1,11 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText } from 'lucide-react';
+import { FileText, Upload, X } from 'lucide-react';
 import { useClientImport } from '@/hooks/useClientImport';
+import { useState, useRef } from 'react';
 
 interface ImportClientsDialogProps {
   open: boolean;
@@ -23,11 +23,44 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
     reset,
   } = useClientImport();
 
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (file: File) => {
+    console.log('Fichier sélectionné :', file);
+    if (file && file.type === 'text/csv') {
+      handleFileUpload(file);
+    } else {
+      console.error('Type de fichier invalide:', file.type);
+    }
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log('Fichier sélectionné :', file);
     if (file) {
-      handleFileUpload(file);
+      handleFileSelect(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    const csvFile = files.find(file => file.name.toLowerCase().endsWith('.csv'));
+    
+    if (csvFile) {
+      handleFileSelect(csvFile);
     }
   };
 
@@ -40,13 +73,14 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
 
   const handleImportClick = async () => {
     await handleImport();
-    // Close dialog only on successful import (handleImport will handle errors)
     if (csvData && columnMapping.company_name) {
       onOpenChange(false);
     }
   };
 
-  console.log('csvData:', csvData);
+  const openFileDialog = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -58,17 +92,52 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
         <div className="space-y-6">
           {!csvData ? (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="csvFile">Fichier CSV</Label>
-                <Input
-                  id="csvFile"
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                />
+              {/* Zone de drag and drop */}
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  isDragOver
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="p-4 rounded-full bg-gray-100">
+                    <Upload className="h-8 w-8 text-gray-600" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Glissez votre fichier CSV ici
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      ou cliquez pour sélectionner un fichier
+                    </p>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openFileDialog}
+                    className="mt-4"
+                  >
+                    Choisir un fichier
+                  </Button>
+                </div>
               </div>
+
+              {/* Input file caché */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
               
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
                 <p className="font-medium mb-2">Format attendu :</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>Fichier CSV avec virgules comme séparateurs</li>
@@ -79,15 +148,26 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
-                <FileText className="h-4 w-4" />
-                <span>Fichier chargé : {csvData.rows.length} ligne(s) détectée(s)</span>
+              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium">Fichier chargé : {csvData.rows.length} ligne(s) détectée(s)</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={reset}
+                  className="text-green-700 hover:text-green-800"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
               <div className="space-y-3">
                 <h4 className="font-medium">Mapping des colonnes</h4>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nom de l'entreprise *</Label>
                     <Select
@@ -131,7 +211,7 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label>ID LinkedIn</Label>
                     <Select
                       value={columnMapping.company_linkedin_id}
@@ -158,14 +238,14 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
               {csvData.rows.slice(0, 3).length > 0 && (
                 <div className="space-y-2">
                   <h4 className="font-medium">Aperçu des données</h4>
-                  <div className="border rounded-md p-3 bg-gray-50 text-sm">
+                  <div className="border rounded-md p-3 bg-gray-50 text-sm max-h-32 overflow-y-auto">
                     {csvData.rows.slice(0, 3).map((row, index) => (
-                      <div key={index} className="mb-2">
+                      <div key={index} className="mb-2 pb-2 border-b border-gray-200 last:border-b-0">
                         <strong>Ligne {index + 1}:</strong> {row.join(' | ')}
                       </div>
                     ))}
                     {csvData.rows.length > 3 && (
-                      <div className="text-gray-500">... et {csvData.rows.length - 3} ligne(s) de plus</div>
+                      <div className="text-gray-500 italic">... et {csvData.rows.length - 3} ligne(s) de plus</div>
                     )}
                   </div>
                 </div>
@@ -173,7 +253,7 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
             </div>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
               variant="outline"
@@ -182,21 +262,12 @@ export function ImportClientsDialog({ open, onOpenChange }: ImportClientsDialogP
               Annuler
             </Button>
             {csvData && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={reset}
-                >
-                  Nouveau fichier
-                </Button>
-                <Button
-                  onClick={handleImportClick}
-                  disabled={loading || !columnMapping.company_name}
-                >
-                  {loading ? 'Import en cours...' : 'Importer'}
-                </Button>
-              </>
+              <Button
+                onClick={handleImportClick}
+                disabled={loading || !columnMapping.company_name}
+              >
+                {loading ? 'Import en cours...' : 'Importer'}
+              </Button>
             )}
           </div>
         </div>
