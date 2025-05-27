@@ -26,95 +26,146 @@ export function CollaboratorsSelect({
 }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
 
-  console.log('CollaboratorsSelect render:', { 
-    users, 
-    selectedUsers,
+  // Vérification exhaustive des props
+  console.log('CollaboratorsSelect - Props reçues:', { 
+    users: users,
     usersType: typeof users,
-    selectedUsersType: typeof selectedUsers,
     usersIsArray: Array.isArray(users),
-    selectedUsersIsArray: Array.isArray(selectedUsers),
     usersLength: users?.length,
-    selectedUsersLength: selectedUsers?.length
+    selectedUsers: selectedUsers,
+    selectedUsersType: typeof selectedUsers,
+    selectedUsersIsArray: Array.isArray(selectedUsers),
+    selectedUsersLength: selectedUsers?.length,
+    onSelectionChange: typeof onSelectionChange
   });
 
-  // Vérifications de sécurité avec valeurs par défaut
-  const safeUsers = Array.isArray(users) ? users : [];
-  const safeSelectedUsers = Array.isArray(selectedUsers) ? selectedUsers : [];
-
-  // Validation des fonctions
-  if (!onSelectionChange || typeof onSelectionChange !== 'function') {
-    console.error('CollaboratorsSelect: onSelectionChange is not a function:', onSelectionChange);
-    return (
-      <div className="text-sm text-gray-500">
-        Erreur: fonction de callback invalide
-      </div>
-    );
+  // Arrêt immédiat si les props sont invalides
+  if (!users || !Array.isArray(users)) {
+    console.error('CollaboratorsSelect: users prop is invalid:', users);
+    return <div className="text-sm text-red-500">Erreur: données utilisateurs invalides</div>;
   }
 
-  // S'assurer que tous les éléments de users sont valides
-  const validUsers = safeUsers.filter(user => {
-    const isValid = user && typeof user === 'object' && typeof user.id === 'string' && user.id.length > 0;
-    if (!isValid) {
-      console.warn('CollaboratorsSelect: Invalid user object:', user);
-    }
-    return isValid;
+  if (!selectedUsers || !Array.isArray(selectedUsers)) {
+    console.error('CollaboratorsSelect: selectedUsers prop is invalid:', selectedUsers);
+    return <div className="text-sm text-red-500">Erreur: sélection utilisateurs invalide</div>;
+  }
+
+  if (!onSelectionChange || typeof onSelectionChange !== 'function') {
+    console.error('CollaboratorsSelect: onSelectionChange is not a function:', onSelectionChange);
+    return <div className="text-sm text-red-500">Erreur: fonction de callback invalide</div>;
+  }
+
+  // Validation et nettoyage des données
+  let validUsers;
+  let validSelectedUsers;
+
+  try {
+    validUsers = users.filter(user => {
+      const isValid = user && 
+                     typeof user === 'object' && 
+                     typeof user.id === 'string' && 
+                     user.id.length > 0 &&
+                     typeof user.email === 'string' &&
+                     user.email.length > 0;
+      if (!isValid) {
+        console.warn('CollaboratorsSelect: Invalid user filtered out:', user);
+      }
+      return isValid;
+    });
+
+    validSelectedUsers = selectedUsers.filter(userId => {
+      const isValid = typeof userId === 'string' && userId.length > 0;
+      if (!isValid) {
+        console.warn('CollaboratorsSelect: Invalid selected user ID filtered out:', userId);
+      }
+      return isValid;
+    });
+  } catch (error) {
+    console.error('CollaboratorsSelect: Error during validation:', error);
+    return <div className="text-sm text-red-500">Erreur lors de la validation des données</div>;
+  }
+
+  console.log('CollaboratorsSelect - Après validation:', { 
+    validUsers: validUsers.length, 
+    validSelectedUsers: validSelectedUsers.length,
+    validUsersData: validUsers,
+    validSelectedUsersData: validSelectedUsers
   });
 
-  // S'assurer que tous les éléments de selectedUsers sont des strings valides
-  const validSelectedUsers = safeSelectedUsers.filter(userId => {
-    const isValid = typeof userId === 'string' && userId.length > 0;
-    if (!isValid) {
-      console.warn('CollaboratorsSelect: Invalid selected user ID:', userId);
-    }
-    return isValid;
-  });
-
-  console.log('After validation:', { validUsers: validUsers.length, validSelectedUsers: validSelectedUsers.length });
-
-  // Filtrer les utilisateurs sélectionnés avec une vérification supplémentaire
-  const selectedUsersData = validUsers.filter(user => {
-    try {
-      return validSelectedUsers.includes(user.id);
-    } catch (error) {
-      console.error('Error filtering selected users:', error, { user, validSelectedUsers });
-      return false;
-    }
-  });
-
-  console.log('selectedUsersData:', selectedUsersData);
+  // Calcul des utilisateurs sélectionnés avec gestion d'erreur
+  let selectedUsersData;
+  try {
+    selectedUsersData = validUsers.filter(user => {
+      try {
+        return validSelectedUsers.includes(user.id);
+      } catch (error) {
+        console.error('Error checking if user is selected:', error, { user, validSelectedUsers });
+        return false;
+      }
+    });
+    console.log('CollaboratorsSelect - selectedUsersData calculé:', selectedUsersData);
+  } catch (error) {
+    console.error('CollaboratorsSelect: Error calculating selectedUsersData:', error);
+    selectedUsersData = [];
+  }
 
   const toggleUser = (userId: string) => {
-    console.log('toggleUser called with:', userId);
-    console.log('Current validSelectedUsers:', validSelectedUsers);
+    console.log('toggleUser appelé avec:', userId);
+    console.log('validSelectedUsers actuel:', validSelectedUsers);
     
     try {
+      if (!userId || typeof userId !== 'string') {
+        console.error('toggleUser: Invalid userId:', userId);
+        return;
+      }
+
       const newSelection = validSelectedUsers.includes(userId)
         ? validSelectedUsers.filter(id => id !== userId)
         : [...validSelectedUsers, userId];
       
-      console.log('New selection:', newSelection);
+      console.log('toggleUser - Nouvelle sélection:', newSelection);
       onSelectionChange(newSelection);
     } catch (error) {
-      console.error('Error in toggleUser:', error);
+      console.error('Erreur dans toggleUser:', error);
     }
   };
 
   const removeUser = (userId: string) => {
-    console.log('removeUser called with:', userId);
+    console.log('removeUser appelé avec:', userId);
     try {
+      if (!userId || typeof userId !== 'string') {
+        console.error('removeUser: Invalid userId:', userId);
+        return;
+      }
+
       const newSelection = validSelectedUsers.filter(id => id !== userId);
-      console.log('New selection after removal:', newSelection);
+      console.log('removeUser - Nouvelle sélection:', newSelection);
       onSelectionChange(newSelection);
     } catch (error) {
-      console.error('Error in removeUser:', error);
+      console.error('Erreur dans removeUser:', error);
     }
   };
+
+  // Protection supplémentaire avant le rendu
+  if (!Array.isArray(validUsers) || !Array.isArray(validSelectedUsers) || !Array.isArray(selectedUsersData)) {
+    console.error('CollaboratorsSelect: Arrays are not properly initialized', {
+      validUsers: Array.isArray(validUsers),
+      validSelectedUsers: Array.isArray(validSelectedUsers),
+      selectedUsersData: Array.isArray(selectedUsersData)
+    });
+    return <div className="text-sm text-red-500">Erreur: données corrompues</div>;
+  }
 
   return (
     <div className="flex flex-col gap-2">
       {selectedUsersData.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {selectedUsersData.map((user) => {
+            if (!user || !user.id) {
+              console.error('CollaboratorsSelect: Invalid user in selectedUsersData:', user);
+              return null;
+            }
+            
             try {
               return (
                 <Badge key={user.id} variant="secondary" className="flex items-center gap-1">
@@ -130,7 +181,7 @@ export function CollaboratorsSelect({
                 </Badge>
               );
             } catch (error) {
-              console.error('Error rendering selected user badge:', error, user);
+              console.error('Erreur lors du rendu du badge utilisateur:', error, user);
               return null;
             }
           })}
@@ -157,6 +208,11 @@ export function CollaboratorsSelect({
             <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
             <CommandGroup>
               {validUsers.map((user) => {
+                if (!user || !user.id) {
+                  console.error('CollaboratorsSelect: Invalid user in validUsers:', user);
+                  return null;
+                }
+                
                 try {
                   return (
                     <CommandItem
@@ -178,7 +234,7 @@ export function CollaboratorsSelect({
                     </CommandItem>
                   );
                 } catch (error) {
-                  console.error('Error rendering user item:', error, user);
+                  console.error('Erreur lors du rendu de l\'item utilisateur:', error, user);
                   return null;
                 }
               })}

@@ -33,12 +33,15 @@ interface ClientsTableProps {
 export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
   const { deleteClient, updateCollaborators } = useClients();
 
-  // Logs de débogage
-  console.log('ClientsTable props:', { 
+  console.log('ClientsTable - Props reçues:', { 
     clients: clients, 
     users: users,
     clientsCount: clients?.length,
-    usersCount: users?.length 
+    usersCount: users?.length,
+    clientsType: typeof clients,
+    usersType: typeof users,
+    clientsIsArray: Array.isArray(clients),
+    usersIsArray: Array.isArray(users)
   });
 
   const handleDelete = async (id: string) => {
@@ -48,30 +51,73 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
   };
 
   const handleCollaboratorsChange = async (clientId: string, userIds: string[]) => {
-    console.log('handleCollaboratorsChange called:', { clientId, userIds });
+    console.log('handleCollaboratorsChange appelé:', { clientId, userIds });
     
-    // Vérifications de sécurité
-    if (!clientId || typeof clientId !== 'string') {
-      console.error('Invalid clientId:', clientId);
+    // Vérifications de sécurité renforcées
+    if (!clientId || typeof clientId !== 'string' || clientId.trim().length === 0) {
+      console.error('handleCollaboratorsChange: Invalid clientId:', clientId);
       return;
     }
     
     if (!Array.isArray(userIds)) {
-      console.error('Invalid userIds:', userIds);
+      console.error('handleCollaboratorsChange: userIds is not an array:', userIds);
       return;
     }
+
+    // Vérifier que tous les userIds sont des strings valides
+    const validUserIds = userIds.filter(id => typeof id === 'string' && id.trim().length > 0);
+    if (validUserIds.length !== userIds.length) {
+      console.warn('handleCollaboratorsChange: Some invalid userIds filtered out:', {
+        original: userIds,
+        filtered: validUserIds
+      });
+    }
     
-    await updateCollaborators(clientId, userIds);
+    try {
+      await updateCollaborators(clientId, validUserIds);
+    } catch (error) {
+      console.error('handleCollaboratorsChange: Error updating collaborators:', error);
+    }
   };
 
   // Vérifications de sécurité strictes avec valeurs par défaut
   const safeClients = Array.isArray(clients) ? clients : [];
   const safeUsers = Array.isArray(users) ? users : [];
 
-  const validClients = safeClients.filter(client => client && typeof client === 'object' && client.id);
-  const validUsers = safeUsers.filter(user => user && typeof user === 'object' && user.id);
+  console.log('ClientsTable - Données sécurisées:', {
+    safeClients: safeClients.length,
+    safeUsers: safeUsers.length
+  });
 
-  console.log('After safety filter:', { validClients: validClients.length, validUsers: validUsers.length });
+  const validClients = safeClients.filter(client => {
+    const isValid = client && 
+                   typeof client === 'object' && 
+                   typeof client.id === 'string' && 
+                   client.id.length > 0 &&
+                   typeof client.company_name === 'string';
+    if (!isValid) {
+      console.warn('ClientsTable: Invalid client filtered out:', client);
+    }
+    return isValid;
+  });
+
+  const validUsers = safeUsers.filter(user => {
+    const isValid = user && 
+                   typeof user === 'object' && 
+                   typeof user.id === 'string' && 
+                   user.id.length > 0 &&
+                   typeof user.email === 'string' &&
+                   user.email.length > 0;
+    if (!isValid) {
+      console.warn('ClientsTable: Invalid user filtered out:', user);
+    }
+    return isValid;
+  });
+
+  console.log('ClientsTable - Après validation:', { 
+    validClients: validClients.length, 
+    validUsers: validUsers.length 
+  });
 
   return (
     <Table>
@@ -86,8 +132,8 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
       </TableHeader>
       <TableBody>
         {validClients.map((client) => {
-          // Extraction sécurisée des IDs des collaborateurs avec vérifications strictes
-          let collaboratorIds: string[] = [];
+          // Extraction sécurisée des IDs des collaborateurs
+          let collaboratorIds = [];
           
           try {
             if (client.collaborators && Array.isArray(client.collaborators)) {
@@ -96,13 +142,14 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                 .map(c => c.id);
             }
           } catch (error) {
-            console.error('Error extracting collaborator IDs for client:', client.id, error);
+            console.error('ClientsTable: Error extracting collaborator IDs for client:', client.id, error);
             collaboratorIds = [];
           }
           
-          console.log('Client collaborators for', client.company_name, ':', {
+          console.log(`ClientsTable - Collaborateurs pour ${client.company_name}:`, {
             collaborators: client.collaborators,
-            collaboratorIds: collaboratorIds
+            collaboratorIds: collaboratorIds,
+            validUsers: validUsers.length
           });
           
           return (
@@ -138,11 +185,18 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                 )}
               </TableCell>
               <TableCell>
-                <CollaboratorsSelect
-                  users={validUsers}
-                  selectedUsers={collaboratorIds}
-                  onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
-                />
+                {/* Vérification supplémentaire avant de passer les props */}
+                {Array.isArray(validUsers) && Array.isArray(collaboratorIds) ? (
+                  <CollaboratorsSelect
+                    users={validUsers}
+                    selectedUsers={collaboratorIds}
+                    onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
+                  />
+                ) : (
+                  <div className="text-sm text-red-500">
+                    Erreur: données invalides pour les collaborateurs
+                  </div>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
