@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -42,7 +41,7 @@ const Leads = () => {
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
 
-  // Load default view whenever we come to this page or when default view changes
+  // Load default view only on initial mount, not on every change
   useEffect(() => {
     const loadDefaultView = () => {
       const defaultView = getDefaultView();
@@ -59,12 +58,24 @@ const Leads = () => {
       setHasLoadedDefaultView(true);
     };
 
-    // Load on mount
-    loadDefaultView();
-
-    // Listen for default view changes
-    const handleDefaultViewChange = () => {
+    // Load only on initial mount
+    if (!hasLoadedDefaultView) {
       loadDefaultView();
+    }
+  }, [getDefaultView, applyView, setSelectedCategories, setSelectedDateFilter, setSelectedContactFilter, hasLoadedDefaultView]);
+
+  // Listen for default view changes (when user sets a new default view)
+  useEffect(() => {
+    const handleDefaultViewChange = () => {
+      const defaultView = getDefaultView();
+      if (defaultView) {
+        const viewConfig = applyView(defaultView);
+        setSelectedCategories(viewConfig.selectedCategories);
+        setVisibleColumns(viewConfig.visibleColumns);
+        setSelectedDateFilter(viewConfig.selectedDateFilter);
+        setSelectedContactFilter(viewConfig.selectedContactFilter);
+        setViewMode(viewConfig.viewMode);
+      }
     };
 
     window.addEventListener('defaultViewChanged', handleDefaultViewChange);
