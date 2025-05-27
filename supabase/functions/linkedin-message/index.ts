@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -37,8 +36,37 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
     )
+
+    // Get the current user from the request
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser()
+
+    if (userError || !user) {
+      console.error('User authentication error:', userError)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Authentication required',
+          error_type: 'authentication',
+          user_message: 'Vous devez être connecté pour envoyer un message.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      )
+    }
+
+    console.log('User authenticated:', user.id, user.email)
 
     // Get lead data including unipile_response for provider_id
     const { data: lead, error: leadError } = await supabaseClient
@@ -63,15 +91,16 @@ serve(async (req) => {
       )
     }
 
-    // Get active LinkedIn connection
+    // Get active LinkedIn connection for the authenticated user
     const { data: connections } = await supabaseClient
       .from('linkedin_connections')
       .select('account_id, unipile_account_id')
+      .eq('user_id', user.id)  // Filter by current user
       .eq('status', 'connected')
       .limit(1)
 
     if (!connections || connections.length === 0) {
-      console.error('No active LinkedIn connection found')
+      console.error('No active LinkedIn connection found for user:', user.id)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -88,6 +117,13 @@ serve(async (req) => {
 
     const connection = connections[0]
     const accountId = connection.account_id || connection.unipile_account_id
+
+    console.log('Using LinkedIn account for user', user.email, ':', accountId)
+
+    // Verify this is the expected account for Pierre Pinon
+    if (user.email === 'ppinon@getpro.fr' && accountId !== 'DdxglDwFT-mMZgxHeCGMdA') {
+      console.warn('WARNING: Expected account DdxglDwFT-mMZgxHeCGMdA for Pierre Pinon but found:', accountId)
+    }
 
     // Get LinkedIn provider ID from unipile_response or fall back to profile ID extraction
     let linkedinProviderId = null
@@ -199,7 +235,9 @@ serve(async (req) => {
         lead_name: lead.author_name || 'Contact',
         connection_degree: connectionDegree,
         provider_id_used: linkedinProviderId,
-        unipile_response: responseData
+        unipile_response: responseData,
+        account_used: accountId,
+        user_email: user.email
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
