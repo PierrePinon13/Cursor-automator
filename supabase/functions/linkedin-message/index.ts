@@ -38,10 +38,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get lead data
+    // Get lead data including unipile_response for provider_id
     const { data: lead, error: leadError } = await supabaseClient
       .from('linkedin_posts')
-      .select('author_profile_url, author_name, author_profile_id')
+      .select('author_profile_url, author_name, author_profile_id, unipile_response')
       .eq('id', lead_id)
       .single()
 
@@ -98,19 +98,31 @@ serve(async (req) => {
       )
     }
 
-    // Extract LinkedIn profile ID from URL
-    let linkedinProfileId = lead.author_profile_id
-    if (!linkedinProfileId && lead.author_profile_url) {
+    // Get LinkedIn provider ID from unipile_response or fall back to profile ID extraction
+    let linkedinProviderId = null
+    
+    if (lead.unipile_response?.provider_id) {
+      linkedinProviderId = lead.unipile_response.provider_id
+      console.log('Using provider_id from unipile_response:', linkedinProviderId)
+    } else if (lead.unipile_response?.publicIdentifier) {
+      linkedinProviderId = lead.unipile_response.publicIdentifier
+      console.log('Using publicIdentifier from unipile_response:', linkedinProviderId)
+    } else if (lead.author_profile_id) {
+      linkedinProviderId = lead.author_profile_id
+      console.log('Using author_profile_id as fallback:', linkedinProviderId)
+    } else if (lead.author_profile_url) {
+      // Extract LinkedIn profile ID from URL as last fallback
       const urlMatch = lead.author_profile_url.match(/linkedin\.com\/in\/([^\/\?]+)/)
-      linkedinProfileId = urlMatch ? urlMatch[1] : null
+      linkedinProviderId = urlMatch ? urlMatch[1] : null
+      console.log('Extracted from URL as last fallback:', linkedinProviderId)
     }
 
-    if (!linkedinProfileId) {
-      console.error('Cannot extract LinkedIn profile ID from:', lead.author_profile_url)
+    if (!linkedinProviderId) {
+      console.error('Cannot determine LinkedIn provider ID for lead:', lead.author_name)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid LinkedIn profile URL' 
+          error: 'Cannot determine LinkedIn profile identifier' 
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -119,10 +131,10 @@ serve(async (req) => {
       )
     }
 
-    console.log('Checking connection status for profile:', linkedinProfileId)
+    console.log('Checking connection status for provider ID:', linkedinProviderId)
 
     // Check connection status with the profile
-    const connectionCheckResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/accounts/${accountId}/connections/${linkedinProfileId}`, {
+    const connectionCheckResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/accounts/${accountId}/connections/${linkedinProviderId}`, {
       method: 'GET',
       headers: {
         'X-API-KEY': unipileApiKey,
@@ -159,7 +171,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          recipient: linkedinProfileId,
+          recipient: linkedinProviderId,
           message: message
         }),
       })
@@ -184,7 +196,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          recipient: linkedinProfileId,
+          recipient: linkedinProviderId,
           message: message
         }),
       })
@@ -226,6 +238,7 @@ serve(async (req) => {
         action_taken: actionTaken,
         lead_name: lead.author_name || 'Contact',
         connection_degree: connectionDegree,
+        provider_id_used: linkedinProviderId,
         unipile_response: responseData
       }),
       {

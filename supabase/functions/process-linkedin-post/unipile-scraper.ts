@@ -2,7 +2,8 @@
 export interface UnipileScrapingResult {
   company: string | null;
   position: string | null;
-  company_id: string | null; // Add company_id to the result
+  company_id: string | null;
+  provider_id: string | null; // Add provider_id to the result
   success: boolean;
 }
 
@@ -24,7 +25,7 @@ export async function scrapLinkedInProfile(
   
   if (!authorProfileId) {
     console.log('No author_profile_id available for Unipile scraping');
-    return { company: null, position: null, company_id: null, success: false };
+    return { company: null, position: null, company_id: null, provider_id: null, success: false };
   }
 
   try {
@@ -48,10 +49,14 @@ export async function scrapLinkedInProfile(
       const unipileData = await unipileResponse.json();
       console.log('Unipile response received:', unipileData);
 
-      // Extract company, position, and company_id from current work experience
+      // Extract company, position, company_id and provider_id from response
       let company = null;
       let position = null;
       let company_id = null;
+      let provider_id = null;
+      
+      // Get provider_id from the main profile data
+      provider_id = unipileData.provider_id || unipileData.publicIdentifier || unipileData.linkedin_profile?.publicIdentifier || null;
       
       // Check both work_experience and linkedin_profile.experience structures
       const experiences = unipileData.work_experience || unipileData.linkedin_profile?.experience || [];
@@ -72,7 +77,7 @@ export async function scrapLinkedInProfile(
         if (currentExperience) {
           company = currentExperience.company || null;
           position = currentExperience.position || currentExperience.title || null;
-          company_id = currentExperience.company_id || null; // Extract company_id
+          company_id = currentExperience.company_id || null;
           
           console.log('Selected current experience:', {
             company,
@@ -87,14 +92,14 @@ export async function scrapLinkedInProfile(
         console.log('No work experience found in the response');
       }
 
-      console.log('Unipile data extracted:', { company, position, company_id });
-      return { company, position, company_id, success: true };
+      console.log('Unipile data extracted:', { company, position, company_id, provider_id });
+      return { company, position, company_id, provider_id, success: true };
     } else {
       console.error('Unipile API error:', unipileResponse.status, await unipileResponse.text());
-      return { company: null, position: null, company_id: null, success: false };
+      return { company: null, position: null, company_id: null, provider_id: null, success: false };
     }
   } catch (unipileError) {
     console.error('Error calling Unipile API:', unipileError);
-    return { company: null, position: null, company_id: null, success: false };
+    return { company: null, position: null, company_id: null, provider_id: null, success: false };
   }
 }

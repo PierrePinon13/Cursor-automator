@@ -5,7 +5,7 @@ export interface WorkExperience {
   start?: string;
   end?: string;
   isCurrent: boolean;
-  company_id?: string; // Add company_id field
+  company_id?: string;
 }
 
 export function extractWorkExperiences(unipileResponse: any): WorkExperience[] {
@@ -26,7 +26,7 @@ export function extractWorkExperiences(unipileResponse: any): WorkExperience[] {
     start: exp.start || '',
     end: exp.end || '',
     isCurrent: !exp.end || exp.end === null || exp.end === '',
-    company_id: exp.company_id || null // Extract company_id
+    company_id: exp.company_id || null
   })).filter((exp: WorkExperience) => exp.company); // Only keep experiences with company names
 }
 
@@ -41,4 +41,15 @@ export function getCurrentCompanyLinkedInId(unipileResponse: any): string | null
   const experiences = extractWorkExperiences(unipileResponse);
   const currentExperience = experiences.find(exp => exp.isCurrent);
   return currentExperience?.company_id || null;
+}
+
+export function getLinkedInProviderId(unipileResponse: any): string | null {
+  if (!unipileResponse) {
+    return null;
+  }
+  
+  return unipileResponse.provider_id || 
+         unipileResponse.publicIdentifier || 
+         unipileResponse.linkedin_profile?.publicIdentifier || 
+         null;
 }
