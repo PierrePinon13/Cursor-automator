@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -117,18 +118,18 @@ serve(async (req) => {
 
     console.log('Checking connection status from profile data for provider ID:', linkedinProviderId)
 
-    // Check network_distance from the unipile_response (like in your n8n workflow)
+    // Check network_distance from the unipile_response
     let connectionStatus = 'not_connected'
     let connectionDegree = '3+'
     let actionTaken = ''
     let responseData = null
 
-    // Use the Unipile queue for rate limiting with high priority (1) for LinkedIn messages
+    // Use the simplified Unipile rate limiting with priority for LinkedIn messages
     const queueResponse = await supabaseClient.functions.invoke('unipile-queue', {
       body: {
-        action: 'execute_now', // High priority, execute immediately but with delay
+        action: 'execute',
         account_id: accountId,
-        priority: 1, // Highest priority for LinkedIn messages
+        priority: true, // LinkedIn messages have priority
         operation: lead.unipile_response?.network_distance === 'FIRST_DEGREE' ? 'send_message' : 'send_invitation',
         payload: {
           providerId: linkedinProviderId,
@@ -149,13 +150,13 @@ serve(async (req) => {
         connectionStatus = 'connected'
         connectionDegree = '1er'
         actionTaken = 'direct_message'
-        console.log('Direct message sent successfully via queue')
+        console.log('Direct message sent successfully')
       } else {
         actionTaken = 'connection_request'
-        console.log('Connection invitation sent successfully via queue')
+        console.log('Connection invitation sent successfully')
       }
     } else {
-      throw new Error('Failed to process message through queue');
+      throw new Error('Failed to process message through rate limiting');
     }
 
     // Update the lead with LinkedIn message timestamp

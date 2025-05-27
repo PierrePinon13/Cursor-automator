@@ -13,7 +13,7 @@ export async function scrapLinkedInProfile(
   accountId: string,
   supabaseClient: any
 ): Promise<UnipileScrapingResult> {
-  console.log('Starting Unipile profile scraping via queue');
+  console.log('Starting Unipile profile scraping with rate limiting');
   
   if (!authorProfileId) {
     console.log('No author_profile_id available for Unipile scraping');
@@ -21,12 +21,12 @@ export async function scrapLinkedInProfile(
   }
 
   try {
-    // Use the queue system for rate limiting with medium priority (2) for scraping
+    // Use the simplified rate limiting system (no priority for scraping)
     const queueResponse = await supabaseClient.functions.invoke('unipile-queue', {
       body: {
-        action: 'add_to_queue',
+        action: 'execute',
         account_id: accountId,
-        priority: 2, // Medium priority for scraping (lower than LinkedIn messages)
+        priority: false, // Lower priority for scraping
         operation: 'scrape_profile',
         payload: {
           authorProfileId: authorProfileId
@@ -35,25 +35,17 @@ export async function scrapLinkedInProfile(
     });
 
     if (queueResponse.error) {
-      console.error('Queue error:', queueResponse.error);
+      console.error('Rate limiting error:', queueResponse.error);
       return { company: null, position: null, company_id: null, provider_id: null, success: false };
     }
 
-    // Now process the queue
-    const processResponse = await supabaseClient.functions.invoke('unipile-queue', {
-      body: {
-        action: 'process_queue',
-        account_id: accountId
-      }
-    });
-
-    if (processResponse.error || !processResponse.data?.success) {
-      console.error('Queue processing error:', processResponse.error);
+    if (!queueResponse.data?.success) {
+      console.error('Rate limiting processing error:', queueResponse.data);
       return { company: null, position: null, company_id: null, provider_id: null, success: false };
     }
 
-    const unipileData = processResponse.data.result;
-    console.log('Unipile response received via queue:', unipileData);
+    const unipileData = queueResponse.data.result;
+    console.log('Unipile response received with rate limiting:', unipileData);
 
     // Extract company, position, company_id and provider_id from response
     let company = null;
@@ -98,11 +90,11 @@ export async function scrapLinkedInProfile(
       console.log('No work experience found in the response');
     }
 
-    console.log('Unipile data extracted via queue:', { company, position, company_id, provider_id });
+    console.log('Unipile data extracted with rate limiting:', { company, position, company_id, provider_id });
     return { company, position, company_id, provider_id, success: true };
 
   } catch (unipileError) {
-    console.error('Error calling Unipile API via queue:', unipileError);
+    console.error('Error calling Unipile API with rate limiting:', unipileError);
     return { company: null, position: null, company_id: null, provider_id: null, success: false };
   }
 }
