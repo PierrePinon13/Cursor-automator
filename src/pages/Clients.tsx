@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 
 const Clients = () => {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
   const [visibleColumns, setVisibleColumns] = useState([
     'author_name',
@@ -111,9 +111,9 @@ const Clients = () => {
                 <Table className="h-4 w-4" />
               </Button>
               <Button
-                variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                variant={viewMode === 'card' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('cards')}
+                onClick={() => setViewMode('card')}
               >
                 <Grid3X3 className="h-4 w-4" />
               </Button>

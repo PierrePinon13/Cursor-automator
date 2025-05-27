@@ -78,7 +78,7 @@ export default function LeadsFilters({
     visibleColumns: string[];
     selectedDateFilter: string;
     selectedContactFilter: string;
-    viewMode: 'table' | 'cards';
+    viewMode: 'table' | 'card';
   }) => {
     setSelectedCategories(view.selectedCategories);
     setVisibleColumns(view.visibleColumns);
