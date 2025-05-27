@@ -22,12 +22,14 @@ const CustomSidebarTrigger = React.forwardRef<
       size="icon"
       className={cn(
         "h-7 w-7 relative",
-        open && "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-black before:rounded-r",
         className
       )}
       onClick={toggleSidebar}
       {...props}
     >
+      {open && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-black rounded-r" />
+      )}
       <PanelLeft />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
