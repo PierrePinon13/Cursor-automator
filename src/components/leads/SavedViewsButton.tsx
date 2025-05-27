@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Save, Bookmark, Trash2, Eye } from 'lucide-react';
+import { Save, Bookmark, Trash2, Eye, Star } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +44,7 @@ const SavedViewsButton = ({
   viewMode,
   onApplyView,
 }: SavedViewsButtonProps) => {
-  const { savedViews, saveView, deleteView, applyView } = useSavedViews();
+  const { savedViews, saveView, deleteView, setDefaultView, applyView } = useSavedViews();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewName, setViewName] = useState('');
 
@@ -66,6 +66,10 @@ const SavedViewsButton = ({
   const handleApplyView = (view: SavedView) => {
     const viewConfig = applyView(view);
     onApplyView(viewConfig);
+  };
+
+  const handleSetDefault = (viewId: string) => {
+    setDefaultView(viewId);
   };
 
   return (
@@ -106,16 +110,32 @@ const SavedViewsButton = ({
                         className="flex items-center flex-1 text-left"
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        {view.name}
+                        <span className={view.isDefault ? "font-semibold" : ""}>
+                          {view.name}
+                        </span>
+                        {view.isDefault && (
+                          <Star className="h-3 w-3 ml-1 text-yellow-500 fill-current" />
+                        )}
                       </button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-red-100"
-                        onClick={() => deleteView(view.id)}
-                      >
-                        <Trash2 className="h-3 w-3 text-red-500" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-yellow-100"
+                          onClick={() => handleSetDefault(view.id)}
+                          title={view.isDefault ? "Vue par défaut" : "Définir comme défaut"}
+                        >
+                          <Star className={`h-3 w-3 ${view.isDefault ? 'text-yellow-500 fill-current' : 'text-gray-400'}`} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-red-100"
+                          onClick={() => deleteView(view.id)}
+                        >
+                          <Trash2 className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </div>
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 ))}

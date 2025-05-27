@@ -10,6 +10,7 @@ export interface SavedView {
   selectedContactFilter: string;
   viewMode: 'table' | 'card';
   createdAt: string;
+  isDefault?: boolean;
 }
 
 export const useSavedViews = () => {
@@ -60,6 +61,19 @@ export const useSavedViews = () => {
     localStorage.setItem('leads-saved-views', JSON.stringify(updatedViews));
   };
 
+  const setDefaultView = (id: string) => {
+    const updatedViews = savedViews.map(view => ({
+      ...view,
+      isDefault: view.id === id
+    }));
+    setSavedViews(updatedViews);
+    localStorage.setItem('leads-saved-views', JSON.stringify(updatedViews));
+  };
+
+  const getDefaultView = (): SavedView | null => {
+    return savedViews.find(view => view.isDefault) || null;
+  };
+
   const applyView = (view: SavedView) => {
     return {
       selectedCategories: view.selectedCategories,
@@ -74,6 +88,8 @@ export const useSavedViews = () => {
     savedViews,
     saveView,
     deleteView,
+    setDefaultView,
+    getDefaultView,
     applyView,
   };
 };

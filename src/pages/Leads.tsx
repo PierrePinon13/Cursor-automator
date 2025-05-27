@@ -1,6 +1,7 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
+import { useSavedViews } from '@/hooks/useSavedViews';
 import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
@@ -20,6 +21,8 @@ const Leads = () => {
     refreshLeads
   } = useLeads();
   
+  const { getDefaultView, applyView } = useSavedViews();
+  
   const [visibleColumns, setVisibleColumns] = useState([
     'posted_date', 
     'job_title', 
@@ -33,6 +36,19 @@ const Leads = () => {
   ]);
 
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+
+  // Load default view on component mount
+  useEffect(() => {
+    const defaultView = getDefaultView();
+    if (defaultView) {
+      const viewConfig = applyView(defaultView);
+      setSelectedCategories(viewConfig.selectedCategories);
+      setVisibleColumns(viewConfig.visibleColumns);
+      setSelectedDateFilter(viewConfig.selectedDateFilter);
+      setSelectedContactFilter(viewConfig.selectedContactFilter);
+      setViewMode(viewConfig.viewMode);
+    }
+  }, []);
 
   const handleActionCompleted = () => {
     // Refresh leads data when an action is completed
