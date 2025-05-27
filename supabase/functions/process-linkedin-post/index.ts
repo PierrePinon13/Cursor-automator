@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts'
-import { processUnipileProfile } from './unipile-scraper.ts'
+import { scrapLinkedInProfile } from './unipile-scraper.ts'
 import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost, updateRetryCount } from './database-operations.ts'
 import { checkIfLeadIsFromClient } from './client-matching.ts'
 import { generateApproachMessage } from './message-generation.ts'
@@ -115,8 +115,14 @@ serve(async (req) => {
 
     // Step 4: Unipile profile scraping
     console.log('Starting Unipile profile scraping')
-    const scrapingResult = await processUnipileProfile(post.author_profile_url)
-    await updateUnipileResults(supabaseClient, postId, scrapingResult, scrapingResult.raw_data)
+    const unipileApiKey = Deno.env.get('UNIPILE_API_KEY') ?? '';
+    const scrapingResult = await scrapLinkedInProfile(
+      unipileApiKey,
+      post.author_profile_id,
+      post.author_profile_url, // Using this as accountId for now
+      supabaseClient
+    )
+    await updateUnipileResults(supabaseClient, postId, scrapingResult, { scrapingResult })
 
     // Step 5: Check if this is a client lead
     console.log('Starting client matching')
