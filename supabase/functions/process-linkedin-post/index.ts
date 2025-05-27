@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { processOpenAIStep1, processOpenAIStep2, processOpenAIStep3 } from './openai-steps.ts'
 import { processUnipileProfile } from './unipile-scraper.ts'
 import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost } from './database-operations.ts'
-import { checkClientMatch } from './client-matching.ts'
+import { checkIfLeadIsFromClient } from './client-matching.ts'
 import { generateApproachMessage } from './message-generation.ts'
 import { handleLeadDeduplication } from './lead-deduplication.ts'
 
@@ -96,7 +96,7 @@ serve(async (req) => {
 
     // Step 5: Check if this is a client lead
     console.log('Starting client matching')
-    const clientMatch = await checkClientMatch(supabaseClient, scrapingResult.company_id, scrapingResult.company)
+    const clientMatch = await checkIfLeadIsFromClient(supabaseClient, scrapingResult.company_id)
     await updateClientMatchResults(supabaseClient, postId, clientMatch)
 
     // Step 6: Generate approach message for non-client leads
