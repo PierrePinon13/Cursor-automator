@@ -1,6 +1,6 @@
 
 import { JOB_CATEGORIES_PROMPT } from './job-categories.ts';
-import { OpenAIStep1Result } from './openai-step1.ts';
+import type { OpenAIStep1Result } from './openai-step1.ts';
 
 export interface OpenAIStep3Result {
   categorie: string;
