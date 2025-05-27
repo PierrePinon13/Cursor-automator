@@ -75,7 +75,7 @@ export function CollaboratorsSelect({
       console.log('Nouvelle sélection:', newSelection);
       await onSelectionChange(newSelection);
       
-      // Fermer le popover après une sélection réussie
+      // Fermer le popover immédiatement après sélection
       setOpen(false);
     } catch (error) {
       console.error('Erreur lors de la sélection:', error);
@@ -115,27 +115,30 @@ export function CollaboratorsSelect({
       {/* Affichage des collaborateurs sélectionnés */}
       {selectedUsersData.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {selectedUsersData.map((user) => (
-            <Badge key={user.id} variant="secondary" className="flex items-center gap-1">
-              {getDisplayName(user)}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto p-0 hover:bg-transparent"
-                disabled={pendingActions.has(user.id) || isLoading}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeUser(user.id);
-                }}
-              >
-                {pendingActions.has(user.id) ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <X className="h-3 w-3" />
-                )}
-              </Button>
-            </Badge>
-          ))}
+          {selectedUsersData.map((user) => {
+            const userPending = pendingActions.has(user.id);
+            return (
+              <Badge key={user.id} variant="secondary" className="flex items-center gap-1">
+                {getDisplayName(user)}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 hover:bg-transparent"
+                  disabled={userPending || isLoading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeUser(user.id);
+                  }}
+                >
+                  {userPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <X className="h-3 w-3" />
+                  )}
+                </Button>
+              </Badge>
+            );
+          })}
         </div>
       )}
       

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -207,22 +208,49 @@ export function useClients() {
         if (insertError) throw insertError;
       }
 
-      // Actualiser les données
-      await fetchClients();
+      // Mise à jour immédiate de l'état local
+      setClients(prevClients => 
+        prevClients.map(client => {
+          if (client.id === clientId) {
+            const selectedCollaborators = users.filter(user => userIds.includes(user.id));
+            return {
+              ...client,
+              collaborators: selectedCollaborators
+            };
+          }
+          return client;
+        })
+      );
       
-      toast({
+      // Toast avec durée limitée
+      const toastId = toast({
         title: "Succès",
         description: "Collaborateurs mis à jour avec succès.",
       });
+
+      // Fermer le toast après 2 secondes
+      setTimeout(() => {
+        if (toastId && toastId.dismiss) {
+          toastId.dismiss();
+        }
+      }, 2000);
       
       console.log('Mise à jour collaborateurs réussie');
     } catch (error: any) {
       console.error('Error updating collaborators:', error);
-      toast({
+      const errorToastId = toast({
         title: "Erreur",
         description: "Impossible de mettre à jour les collaborateurs.",
         variant: "destructive",
       });
+
+      // Fermer le toast d'erreur après 3 secondes
+      setTimeout(() => {
+        if (errorToastId && errorToastId.dismiss) {
+          errorToastId.dismiss();
+        }
+      }, 3000);
+      
       throw error;
     } finally {
       // Retirer le client des opérations en cours
