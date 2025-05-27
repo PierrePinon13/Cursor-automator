@@ -84,10 +84,7 @@ export const useUserStats = () => {
     try {
       let query = supabase
         .from('user_stats')
-        .select(`
-          *,
-          profiles!inner(email)
-        `);
+        .select('*');
 
       // Filtre par utilisateur pour la vue personnelle
       if (viewType === 'personal') {
@@ -102,13 +99,27 @@ export const useUserStats = () => {
           .lte('stat_date', dateRange.end.toISOString().split('T')[0]);
       }
 
-      const { data, error } = await query.order('stat_date', { ascending: false });
+      const { data: statsData, error: statsError } = await query.order('stat_date', { ascending: false });
 
-      if (error) throw error;
+      if (statsError) throw statsError;
 
-      const processedStats = data?.map(stat => ({
+      // Récupérer les informations des profils utilisateur séparément
+      const userIds = [...new Set(statsData?.map(stat => stat.user_id) || [])];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.warn('Error fetching profiles:', profilesError);
+      }
+
+      // Créer un map des emails par user_id
+      const emailMap = new Map(profilesData?.map(profile => [profile.id, profile.email]) || []);
+
+      const processedStats = statsData?.map(stat => ({
         ...stat,
-        user_email: stat.profiles?.email
+        user_email: emailMap.get(stat.user_id) || 'Utilisateur inconnu'
       })) || [];
 
       setStats(processedStats);
