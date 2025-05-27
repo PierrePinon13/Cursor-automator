@@ -5,6 +5,7 @@ interface UseKeyboardShortcutsProps {
   onToggleSidebar?: () => void;
   onPreviousItem?: () => void;
   onNextItem?: () => void;
+  onEscape?: () => void;
   enabled?: boolean;
 }
 
@@ -12,6 +13,7 @@ export const useKeyboardShortcuts = ({
   onToggleSidebar,
   onPreviousItem,
   onNextItem,
+  onEscape,
   enabled = true
 }: UseKeyboardShortcutsProps) => {
   
@@ -37,8 +39,12 @@ export const useKeyboardShortcuts = ({
         event.preventDefault();
         onNextItem?.();
         break;
+      case 'Escape':
+        event.preventDefault();
+        onEscape?.();
+        break;
     }
-  }, [enabled, onToggleSidebar, onPreviousItem, onNextItem]);
+  }, [enabled, onToggleSidebar, onPreviousItem, onNextItem, onEscape]);
 
   useEffect(() => {
     if (enabled) {

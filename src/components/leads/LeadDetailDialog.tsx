@@ -89,6 +89,7 @@ const LeadDetailDialog = ({
   useKeyboardShortcuts({
     onNextItem: handleNext,
     onPreviousItem: handlePrevious,
+    onEscape: onClose,
     enabled: isOpen
   });
 
@@ -96,6 +97,7 @@ const LeadDetailDialog = ({
   useTouchGestures({
     onSwipeLeft: handleNext,
     onSwipeRight: handlePrevious,
+    onSwipeUp: onClose,
     enabled: isOpen
   });
 
@@ -161,10 +163,10 @@ const LeadDetailDialog = ({
   return (
     <TooltipProvider>
       {/* Overlay */}
-      <div className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0 duration-200" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0 duration-500" onClick={onClose} />
       
-      {/* Fullscreen sliding view */}
-      <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-top duration-300 ease-out">
+      {/* Fullscreen sliding view with slower animation */}
+      <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-top duration-500 ease-out">
         <LeadDetailHeader
           lead={currentLeads[selectedLeadIndex]}
           selectedLeadIndex={selectedLeadIndex}
@@ -190,7 +192,8 @@ const LeadDetailDialog = ({
         {/* Keyboard shortcuts hint */}
         <div className="fixed bottom-4 right-4 bg-black/80 text-white text-sm px-3 py-2 rounded-lg">
           <kbd className="px-1 py-0.5 bg-white/20 rounded text-xs">←</kbd>
-          <kbd className="px-1 py-0.5 bg-white/20 rounded text-xs ml-1">→</kbd> pour naviguer
+          <kbd className="px-1 py-0.5 bg-white/20 rounded text-xs ml-1">→</kbd> pour naviguer • 
+          <kbd className="px-1 py-0.5 bg-white/20 rounded text-xs ml-1">Esc</kbd> pour fermer
         </div>
       </div>
     </TooltipProvider>
