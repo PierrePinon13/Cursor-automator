@@ -23,7 +23,7 @@ export async function generateApproachMessage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           {
             role: 'system',
@@ -58,11 +58,11 @@ Tu recevras :
 
 2. **Phrase d'accroche**
 
-   * Forme : "J'ai vu que vous recherchiez [un poste]"
-   * Adapter la tournure du poste selon le niveau de clarté de la publication :
-
-     * Si la formulation est naturelle et simple : la reprendre telle quelle
-     * Si la tournure est longue, floue ou jargonneuse : reformuler de façon simple (ex : "un profil marketing")
+   * Forme : "J'ai vu que vous recherchiez un [nom du poste]"
+   * Utiliser directement le **nom du poste** sans ajouter le mot "profil" devant
+   * Exemples : "un Content Manager", "un Développeur Frontend", "un Data Scientist"
+   * Simplifier seulement si nécessaire mais éviter la sur-simplification
+   * Si plusieurs postes : utiliser le premier ou les grouper intelligemment
 
 3. **Positionnement sobre**
 
@@ -87,7 +87,7 @@ Tu recevras :
 
 \`\`\`json
 {
-  "message_approche": "Bonjour Julie,\\n\\nJ'ai vu que vous recherchiez un profil marketing. Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps. Bonne journée"
+  "message_approche": "Bonjour Julie,\\n\\nJ'ai vu que vous recherchiez un Content Manager. Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps. Bonne journée"
 }
 \`\`\``
           },
