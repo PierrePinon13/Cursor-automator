@@ -59,6 +59,7 @@ export function CollaboratorsSelect({
   );
 
   const toggleUser = (userId: string) => {
+    console.log('Tentative de sélection utilisateur:', userId);
     try {
       const newSelection = safeSelectedUsers.includes(userId)
         ? safeSelectedUsers.filter(id => id !== userId)
@@ -96,7 +97,10 @@ export function CollaboratorsSelect({
                 variant="ghost"
                 size="sm"
                 className="h-auto p-0 hover:bg-transparent"
-                onClick={() => removeUser(user.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeUser(user.id);
+                }}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -105,7 +109,7 @@ export function CollaboratorsSelect({
         </div>
       )}
       
-      {/* Sélecteur de collaborateurs simplifié */}
+      {/* Sélecteur de collaborateurs */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -131,36 +135,44 @@ export function CollaboratorsSelect({
                 Aucun utilisateur disponible dans le système.
               </div>
             ) : (
-              <div className="space-y-2">
-                {safeUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
-                    onClick={() => {
-                      console.log('Utilisateur sélectionné:', user);
-                      toggleUser(user.id);
-                    }}
-                  >
-                    <div className="flex items-center space-x-2 flex-1">
-                      <Check
-                        className={cn(
-                          "h-4 w-4",
-                          safeSelectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-medium">{getDisplayName(user)}</span>
+              <div className="space-y-1">
+                {safeUsers.map((user) => {
+                  const isSelected = safeSelectedUsers.includes(user.id);
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-100 rounded-md border border-transparent hover:border-gray-200 transition-colors"
+                      onClick={() => {
+                        console.log('Clic sur utilisateur:', user);
+                        toggleUser(user.id);
+                      }}
+                    >
+                      <div className="flex items-center justify-center w-4 h-4">
+                        <Check
+                          className={cn(
+                            "h-4 w-4 text-blue-600",
+                            isSelected ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          {getDisplayName(user)}
+                        </div>
                         {user.full_name && user.email && (
-                          <span className="text-sm text-muted-foreground">{user.email}</span>
+                          <div className="text-sm text-gray-500">
+                            {user.email}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
             
-            <div className="mt-3 pt-3 border-t">
+            <div className="mt-4 pt-3 border-t border-gray-200">
               <Button
                 variant="outline"
                 size="sm"
