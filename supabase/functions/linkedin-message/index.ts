@@ -131,48 +131,31 @@ serve(async (req) => {
       )
     }
 
-    console.log('Checking connection status for provider ID:', linkedinProviderId)
+    console.log('Checking connection status from profile data for provider ID:', linkedinProviderId)
 
-    // Check connection status with the profile
-    const connectionCheckResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/accounts/${accountId}/connections/${linkedinProviderId}`, {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': unipileApiKey,
-        'Accept': 'application/json',
-      },
-    })
-
+    // Check network_distance from the unipile_response (like in your n8n workflow)
     let connectionStatus = 'not_connected'
     let connectionDegree = '3+'
-
-    if (connectionCheckResponse.ok) {
-      const connectionData = await connectionCheckResponse.json()
-      console.log('Connection check response:', connectionData)
-      
-      if (connectionData.connected === true || connectionData.connection_degree === 1) {
-        connectionStatus = 'connected'
-        connectionDegree = '1er'
-      }
-    } else {
-      console.log('Connection check failed, assuming not connected')
-    }
-
     let actionTaken = ''
     let responseData = null
 
-    if (connectionStatus === 'connected') {
-      console.log('Sending direct message to connected contact')
+    if (lead.unipile_response?.network_distance === 'FIRST_DEGREE') {
+      connectionStatus = 'connected'
+      connectionDegree = '1er'
+      console.log('User is 1st degree connection, sending direct message')
       
-      // Send direct message
-      const messageResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/accounts/${accountId}/messages`, {
+      // Send direct message using /chats endpoint (like your n8n workflow)
+      const messageResponse = await fetch(`https://api9.unipile.com:13946/api/v1/chats`, {
         method: 'POST',
         headers: {
           'X-API-KEY': unipileApiKey,
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({
-          recipient: linkedinProviderId,
-          message: message
+        body: new URLSearchParams({
+          account_id: accountId,
+          attendees_ids: linkedinProviderId,
+          text: message
         }),
       })
 
@@ -186,29 +169,32 @@ serve(async (req) => {
         throw new Error(`Failed to send message: ${messageResponse.status} ${errorText}`)
       }
     } else {
-      console.log('Sending connection request with message')
+      console.log('User is not 1st degree connection, sending invitation with message')
       
-      // Send connection request with message
-      const connectionResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/accounts/${accountId}/connections`, {
+      // Send invitation with message using /users/invite endpoint (like your n8n workflow)
+      const invitationResponse = await fetch(`https://api9.unipile.com:13946/api/v1/users/invite`, {
         method: 'POST',
         headers: {
           'X-API-KEY': unipileApiKey,
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({
-          recipient: linkedinProviderId,
-          message: message
+        body: new URLSearchParams({
+          account_id: accountId,
+          provider: 'LINKEDIN',
+          provider_id: linkedinProviderId,
+          text: message
         }),
       })
 
-      if (connectionResponse.ok) {
-        responseData = await connectionResponse.json()
+      if (invitationResponse.ok) {
+        responseData = await invitationResponse.json()
         actionTaken = 'connection_request'
-        console.log('Connection request sent successfully')
+        console.log('Connection invitation sent successfully')
       } else {
-        const errorText = await connectionResponse.text()
-        console.error('Failed to send connection request:', errorText)
-        throw new Error(`Failed to send connection request: ${connectionResponse.status} ${errorText}`)
+        const errorText = await invitationResponse.text()
+        console.error('Failed to send invitation:', errorText)
+        throw new Error(`Failed to send invitation: ${invitationResponse.status} ${errorText}`)
       }
     }
 
