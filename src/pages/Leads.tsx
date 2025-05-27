@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -6,6 +7,7 @@ import { useTouchGestures } from '@/hooks/useTouchGestures';
 import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
+import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
 const Leads = () => {
@@ -174,6 +176,14 @@ const Leads = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center gap-3 mb-6">
         <SidebarTrigger />
+        <SavedViewsButton
+          selectedCategories={selectedCategories}
+          visibleColumns={visibleColumns}
+          selectedDateFilter={selectedDateFilter}
+          selectedContactFilter={selectedContactFilter}
+          viewMode={viewMode}
+          onApplyView={handleApplyView}
+        />
       </div>
       
       <div className="space-y-6">
@@ -191,7 +201,6 @@ const Leads = () => {
           showAssignmentColumn={false}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          onApplyView={handleApplyView}
         />
         
         <div className="bg-white rounded-lg shadow">

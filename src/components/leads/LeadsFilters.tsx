@@ -1,6 +1,4 @@
-
 import MultiSelectFilter from './MultiSelectFilter';
-import SavedViewsButton from './SavedViewsButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { X, Table, Grid3X3 } from 'lucide-react';
@@ -19,13 +17,6 @@ interface LeadsFiltersProps {
   showAssignmentColumn?: boolean;
   viewMode: 'table' | 'card';
   setViewMode: (mode: 'table' | 'card') => void;
-  onApplyView?: (view: {
-    selectedCategories: string[];
-    visibleColumns: string[];
-    selectedDateFilter: string;
-    selectedContactFilter: string;
-    viewMode: 'table' | 'card';
-  }) => void;
 }
 
 const dateFilterOptions = [
@@ -78,30 +69,9 @@ export default function LeadsFilters({
   showContactFilter = true,
   showAssignmentColumn = false,
   viewMode,
-  setViewMode,
-  onApplyView
+  setViewMode
 }: LeadsFiltersProps) {
   const columnOptions = getColumnOptions(showAssignmentColumn);
-
-  const handleApplyView = (view: {
-    selectedCategories: string[];
-    visibleColumns: string[];
-    selectedDateFilter: string;
-    selectedContactFilter: string;
-    viewMode: 'table' | 'card';
-  }) => {
-    setSelectedCategories(view.selectedCategories);
-    setVisibleColumns(view.visibleColumns);
-    setSelectedDateFilter(view.selectedDateFilter);
-    if (setSelectedContactFilter) {
-      setSelectedContactFilter(view.selectedContactFilter);
-    }
-    setViewMode(view.viewMode);
-    
-    if (onApplyView) {
-      onApplyView(view);
-    }
-  };
 
   const removeCategory = (categoryToRemove: string) => {
     setSelectedCategories(selectedCategories.filter(cat => cat !== categoryToRemove));
@@ -117,16 +87,7 @@ export default function LeadsFilters({
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
-      <div className="flex items-center justify-between">
-        <SavedViewsButton
-          selectedCategories={selectedCategories}
-          visibleColumns={visibleColumns}
-          selectedDateFilter={selectedDateFilter}
-          selectedContactFilter={selectedContactFilter || 'exclude_2weeks'}
-          viewMode={viewMode}
-          onApplyView={handleApplyView}
-        />
-        
+      <div className="flex items-center justify-end">
         {/* Table/Card View Toggle with old UX/UI style */}
         <div className="flex rounded-lg border border-gray-200 bg-white p-1">
           <Button
