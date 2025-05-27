@@ -79,6 +79,8 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Scrape profile failed: ${response.status} - ${errorText}`);
     throw new Error(`Scrape profile failed: ${response.status}`);
   }
 
@@ -87,6 +89,8 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
 
 async function sendMessage(unipileApiKey: string, accountId: string, payload: any) {
   const { providerId, message } = payload;
+
+  console.log(`Sending message to ${providerId} on account ${accountId}`);
 
   const response = await fetch(`https://api9.unipile.com:13946/api/v1/chats`, {
     method: 'POST',
@@ -103,6 +107,8 @@ async function sendMessage(unipileApiKey: string, accountId: string, payload: an
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Send message failed: ${response.status} - ${errorText}`);
     throw new Error(`Send message failed: ${response.status}`);
   }
 
@@ -112,6 +118,18 @@ async function sendMessage(unipileApiKey: string, accountId: string, payload: an
 async function sendInvitation(unipileApiKey: string, accountId: string, payload: any) {
   const { providerId, message } = payload;
 
+  console.log(`Sending invitation to ${providerId} on account ${accountId}`);
+  console.log(`Invitation message: ${message}`);
+
+  const formData = new URLSearchParams({
+    account_id: accountId,
+    provider: 'LINKEDIN',
+    provider_id: providerId,
+    text: message
+  });
+
+  console.log(`Form data being sent:`, formData.toString());
+
   const response = await fetch(`https://api9.unipile.com:13946/api/v1/users/invite`, {
     method: 'POST',
     headers: {
@@ -119,19 +137,19 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
       'Accept': 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      account_id: accountId,
-      provider: 'LINKEDIN',
-      provider_id: providerId,
-      text: message
-    }),
+    body: formData,
   });
 
   if (!response.ok) {
-    throw new Error(`Send invitation failed: ${response.status}`);
+    const errorText = await response.text();
+    console.error(`Send invitation failed: ${response.status} - ${errorText}`);
+    console.error(`Response body: ${errorText}`);
+    throw new Error(`Send invitation failed: ${response.status} - ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log(`Invitation sent successfully:`, result);
+  return result;
 }
 
 serve(async (req) => {
