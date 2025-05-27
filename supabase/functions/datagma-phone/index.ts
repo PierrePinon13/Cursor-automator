@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
     console.log('Calling Datagma API for lead:', lead_id);
     
     let phoneNumber = null;
+    let datagmaError = null;
     
     try {
       const datagmaResponse = await fetch(datagmaUrl, {
@@ -101,8 +102,20 @@ Deno.serve(async (req) => {
       });
 
       if (!datagmaResponse.ok) {
-        console.error('Datagma API error:', datagmaResponse.status, await datagmaResponse.text());
-        // Ne pas considérer cela comme une erreur fatale
+        const errorText = await datagmaResponse.text();
+        console.error('Datagma API error:', datagmaResponse.status, errorText);
+        
+        // Essayer de parser l'erreur JSON si possible
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.message) {
+            datagmaError = `Erreur Datagma: ${errorData.message}`;
+          } else {
+            datagmaError = `Erreur Datagma (${datagmaResponse.status}): ${errorText}`;
+          }
+        } catch {
+          datagmaError = `Erreur Datagma (${datagmaResponse.status}): ${errorText}`;
+        }
       } else {
         const datagmaData = await datagmaResponse.json();
         console.log('Datagma response for lead:', lead_id, datagmaData);
@@ -118,7 +131,7 @@ Deno.serve(async (req) => {
       }
     } catch (fetchError) {
       console.error('Error calling Datagma API for lead:', lead_id, fetchError);
-      // Continuer le traitement même en cas d'erreur
+      datagmaError = `Erreur de connexion à Datagma: ${fetchError.message}`;
     }
 
     // Mettre à jour le lead avec le résultat (même si null)
@@ -138,13 +151,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Phone retrieval completed for lead:', lead_id, 'Result:', phoneNumber);
+    console.log('Phone retrieval completed for lead:', lead_id, 'Result:', phoneNumber, 'Error:', datagmaError);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         phone_number: phoneNumber,
-        cached: false
+        cached: false,
+        datagma_error: datagmaError
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

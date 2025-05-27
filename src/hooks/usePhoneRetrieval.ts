@@ -30,14 +30,22 @@ export function usePhoneRetrieval() {
             description: `Numéro trouvé : ${data.phone_number}${data.cached ? ' (en cache)' : ''}`,
           });
           return data.phone_number;
+        } else if (data.datagma_error) {
+          // Afficher l'erreur spécifique de Datagma
+          toast({
+            title: "Erreur Datagma",
+            description: data.datagma_error,
+            variant: "destructive",
+          });
+          return null;
         } else {
           // Cas où aucun numéro n'a été trouvé - ce n'est pas une erreur
           toast({
             title: "Aucun téléphone trouvé",
             description: "Aucun numéro de téléphone n'a été trouvé pour ce contact.",
-            variant: "default", // Changé de "destructive" à "default"
+            variant: "default",
           });
-          return null; // Retourner null explicitement
+          return null;
         }
       } else {
         throw new Error(data?.error || 'Échec de la récupération du téléphone');
@@ -49,7 +57,7 @@ export function usePhoneRetrieval() {
         description: error.message || "Impossible de récupérer le numéro de téléphone.",
         variant: "destructive",
       });
-      return null; // Toujours retourner null en cas d'erreur
+      return null;
     } finally {
       setLoading(false);
     }
