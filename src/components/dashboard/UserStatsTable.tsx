@@ -55,7 +55,7 @@ const UserStatsTable = ({ stats }: UserStatsTableProps) => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Comparaison des performances</CardTitle>
+          <CardTitle>Performances par collaborateur</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-center py-8">
@@ -69,13 +69,13 @@ const UserStatsTable = ({ stats }: UserStatsTableProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Comparaison des performances par utilisateur</CardTitle>
+        <CardTitle>Performances par collaborateur</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Utilisateur</TableHead>
+              <TableHead>Collaborateur</TableHead>
               <TableHead className="text-right">Messages LinkedIn</TableHead>
               <TableHead className="text-right">Appels +</TableHead>
               <TableHead className="text-right">Appels -</TableHead>

@@ -33,7 +33,7 @@ const StatsFilters = ({
             Global
           </ToggleGroupItem>
           <ToggleGroupItem value="comparison" className="text-xs">
-            Comparaison
+            Par collaborateur
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
