@@ -6,6 +6,11 @@ export interface OpenAIStep1Result {
 
 export async function executeStep1(openAIApiKey: string, post: any): Promise<{ result: OpenAIStep1Result; data: any }> {
   console.log('Starting OpenAI Step 1: Recruitment detection');
+  console.log('Post details for analysis:', {
+    title: post.title,
+    textPreview: (post.text || '').substring(0, 200),
+    author: post.author_name
+  });
   
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -68,20 +73,60 @@ Le post :
 * Concerne uniquement des **stages, alternances, techniciens, assistants**.
 * Mentionne **plus de 3 postes** (même s'ils sont clairs et précis).
 * Est **vague, non ciblé ou purement théorique**.
-* **Ne mentionne aucun poste clair**.`
+* **Ne mentionne aucun poste clair**.
+
+---
+
+### 📝 EXEMPLES
+
+**Exemple 1 - OUI :**
+"Nous recrutons un Développeur Full Stack et un Product Manager pour rejoindre notre équipe à Paris. Postulez sur notre site !"
+
+**Exemple 2 - NON :**
+"Je recherche activement un poste de Data Scientist. N'hésitez pas à me contacter."
+
+**Exemple 3 - NON :**
+"Nous recrutons pour nos clients : 5 développeurs, 3 designers, 2 chefs de projet, 4 commerciaux..." (trop de postes)
+
+Soyez TRÈS attentif aux nuances et analysez bien si c'est l'entreprise de l'auteur qui recrute directement.`
         },
         {
           role: 'user',
-          content: `Titre : ${post.title || ''}\nPost : ${post.text}`
+          content: `Analysez ce post LinkedIn :
+
+Titre : ${post.title || 'Aucun titre'}
+
+Contenu : ${post.text}
+
+Auteur : ${post.author_name}`
         }
       ],
-      response_format: { type: 'json_object' }
+      response_format: { type: 'json_object' },
+      temperature: 0.1
     }),
   });
 
   const data = await response.json();
-  const result = JSON.parse(data.choices[0].message.content);
   
-  console.log('Step 1 result:', result);
+  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    console.error('❌ Invalid OpenAI response structure:', data);
+    throw new Error('Invalid OpenAI response');
+  }
+  
+  let result;
+  try {
+    result = JSON.parse(data.choices[0].message.content);
+  } catch (parseError) {
+    console.error('❌ Failed to parse OpenAI JSON response:', data.choices[0].message.content);
+    throw new Error('Failed to parse OpenAI response as JSON');
+  }
+  
+  console.log('✅ Step 1 result parsed successfully:', result);
+  console.log('📊 Full OpenAI response data:', {
+    usage: data.usage,
+    model: data.model,
+    choices_length: data.choices?.length
+  });
+  
   return { result, data };
 }

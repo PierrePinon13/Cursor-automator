@@ -8,7 +8,7 @@ export const diagnoseMissingLeads = async () => {
     // Check all processing statuses
     const { data: allPosts, error: allError } = await supabase
       .from('linkedin_posts')
-      .select('processing_status, openai_step3_categorie, created_at, author_name, openai_step1_recrute_poste, openai_step2_reponse')
+      .select('processing_status, openai_step3_categorie, created_at, author_name, openai_step1_recrute_poste, openai_step2_reponse, text, title, openai_step1_response')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -40,7 +40,7 @@ export const diagnoseMissingLeads = async () => {
     const postsWithValidCategory = completedPosts.filter(post => 
       post.openai_step3_categorie && post.openai_step3_categorie !== 'Autre'
     );
-    console.log(`🏷️ ${postsWithValidCategory.length} completed posts with valid category (should appear in UI)`);
+    console.log(`🏷️ ${postsWithValidCategory.length} completed posts with valid categories (should appear in UI)`);
 
     // Check step 1 results
     const step1Results = allPosts?.reduce((acc, post) => {
@@ -71,6 +71,44 @@ export const diagnoseMissingLeads = async () => {
     postsWithValidCategory.slice(0, 10).forEach((post, index) => {
       console.log(`  ${index + 1}. ${post.author_name} - ${post.openai_step3_categorie} (${new Date(post.created_at).toLocaleDateString()})`);
     });
+
+    // NEW: Analyze posts classified as "Non" but might be recruitment posts
+    console.log('\n🚨 INVESTIGATING POSTS CLASSIFIED AS "NON":');
+    const postsClassifiedAsNon = allPosts?.filter(post => 
+      post.openai_step1_recrute_poste === 'Non' || post.openai_step1_recrute_poste === 'non'
+    ) || [];
+    
+    console.log(`Found ${postsClassifiedAsNon.length} posts classified as "Non"`);
+    
+    // Show some examples of posts classified as "Non" to analyze
+    console.log('\n📝 Sample posts classified as "Non" (first 5):');
+    postsClassifiedAsNon.slice(0, 5).forEach((post, index) => {
+      console.log(`\n--- Post ${index + 1} ---`);
+      console.log(`Author: ${post.author_name}`);
+      console.log(`Title: ${post.title || 'No title'}`);
+      console.log(`Text preview: ${(post.text || '').substring(0, 200)}...`);
+      console.log(`OpenAI Step 1 Response:`, post.openai_step1_response);
+      console.log(`Processing Status: ${post.processing_status}`);
+    });
+
+    // Look for potential recruitment keywords in "Non" classified posts
+    const recruitmentKeywords = ['recrute', 'recrutement', 'poste', 'offre', 'embauche', 'rejoignez', 'candidat', 'cv', 'emploi'];
+    const potentiallyMissclassified = postsClassifiedAsNon.filter(post => {
+      const fullText = ((post.title || '') + ' ' + (post.text || '')).toLowerCase();
+      return recruitmentKeywords.some(keyword => fullText.includes(keyword));
+    });
+
+    console.log(`\n⚠️ Found ${potentiallyMissclassified.length} posts classified as "Non" but containing recruitment keywords`);
+    
+    if (potentiallyMissclassified.length > 0) {
+      console.log('\n🔍 Potentially misclassified posts:');
+      potentiallyMissclassified.slice(0, 3).forEach((post, index) => {
+        console.log(`\n--- Potentially Misclassified Post ${index + 1} ---`);
+        console.log(`Author: ${post.author_name}`);
+        console.log(`Title: ${post.title || 'No title'}`);
+        console.log(`Text: ${(post.text || '').substring(0, 300)}...`);
+      });
+    }
 
   } catch (error) {
     console.error('💥 Error in diagnostics:', error);
