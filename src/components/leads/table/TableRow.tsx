@@ -21,6 +21,7 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
+  unipile_response?: any; // Add this field
   phone_number?: string | null;
   phone_retrieved_at?: string | null;
   approach_message?: string | null;

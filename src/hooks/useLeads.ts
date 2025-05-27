@@ -90,6 +90,7 @@ export const useLeads = () => {
           unipile_company_linkedin_id,
           unipile_profile_scraped,
           unipile_profile_scraped_at,
+          unipile_response,
           phone_number,
           phone_retrieved_at,
           approach_message,
@@ -116,7 +117,8 @@ export const useLeads = () => {
       console.log('Sample lead company data:', data?.[0] ? {
         unipile_company: data[0].unipile_company,
         unipile_position: data[0].unipile_position,
-        author_headline: data[0].author_headline
+        author_headline: data[0].author_headline,
+        has_unipile_response: !!data[0].unipile_response
       } : 'No data');
       
       setLeads(data || []);

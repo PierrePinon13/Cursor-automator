@@ -3,6 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTimeAgo } from '@/utils/timeUtils';
 import { LeadAssignmentSelect } from '@/components/clients/LeadAssignmentSelect';
+import { extractWorkExperiences } from '@/utils/unipileDataExtractor';
 
 interface Lead {
   id: string;
@@ -34,6 +35,7 @@ interface Lead {
   linkedin_message_sent_at?: string | null;
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
+  unipile_response?: any;
 }
 
 export interface Column {
@@ -127,16 +129,40 @@ export const allColumns: Column[] = [
         author_name: lead.author_name,
         unipile_company: lead.unipile_company,
         unipile_position: lead.unipile_position,
-        author_headline: lead.author_headline
+        author_headline: lead.author_headline,
+        has_unipile_response: !!lead.unipile_response
       });
+      
+      // Try to extract company and position from unipile_response
+      let company = lead.unipile_company;
+      let position = lead.unipile_position;
+      
+      if (!company && lead.unipile_response) {
+        try {
+          const workExperiences = extractWorkExperiences(lead.unipile_response);
+          if (workExperiences && workExperiences.length > 0) {
+            const currentExperience = workExperiences[0]; // First experience (most recent)
+            company = currentExperience.company;
+            position = currentExperience.position;
+            
+            console.log('Extracted from unipile_response:', {
+              company,
+              position,
+              totalExperiences: workExperiences.length
+            });
+          }
+        } catch (error) {
+          console.error('Error extracting work experience:', error);
+        }
+      }
       
       return (
         <div className="space-y-1">
-          {lead.unipile_company ? (
+          {company ? (
             <div>
-              <div className="font-medium text-xs">{lead.unipile_company}</div>
-              {lead.unipile_position && (
-                <div className="text-xs text-gray-600">{lead.unipile_position}</div>
+              <div className="font-medium text-xs">{company}</div>
+              {position && (
+                <div className="text-xs text-gray-600">{position}</div>
               )}
             </div>
           ) : (
