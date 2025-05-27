@@ -113,7 +113,13 @@ export const useClientLeads = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLeads(data || []);
+      
+      const clientLeads = data || [];
+      
+      // Vérifier et créer les assignations automatiques pour les nouveaux leads
+      await checkAndCreateAutoAssignments(clientLeads);
+      
+      setLeads(clientLeads);
     } catch (error: any) {
       console.error('Error fetching client leads:', error);
       toast({
@@ -123,6 +129,67 @@ export const useClientLeads = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAndCreateAutoAssignments = async (clientLeads: ClientLead[]) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      // Récupérer les assignations existantes
+      const { data: existingAssignments } = await supabase
+        .from('lead_assignments')
+        .select('lead_id');
+
+      const assignedLeadIds = existingAssignments?.map(a => a.lead_id) || [];
+
+      // Récupérer les collaborateurs des clients
+      const { data: clientCollaborators } = await supabase
+        .from('client_collaborators')
+        .select(`
+          client_id,
+          user_id,
+          profiles (
+            id,
+            email,
+            full_name
+          )
+        `);
+
+      // Créer les assignations automatiques pour les leads non assignés
+      const autoAssignments = [];
+      
+      for (const lead of clientLeads) {
+        if (!assignedLeadIds.includes(lead.id) && lead.matched_client_id) {
+          // Trouver les collaborateurs pour ce client
+          const collaborators = clientCollaborators?.filter(cc => cc.client_id === lead.matched_client_id) || [];
+          
+          for (const collaborator of collaborators) {
+            autoAssignments.push({
+              lead_id: lead.id,
+              user_id: collaborator.user_id,
+              assigned_by: null, // null indique une assignation automatique
+              assigned_at: new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      // Insérer les assignations automatiques
+      if (autoAssignments.length > 0) {
+        const { error: assignError } = await supabase
+          .from('lead_assignments')
+          .insert(autoAssignments);
+
+        if (assignError) {
+          console.error('Error creating auto assignments:', assignError);
+        } else {
+          console.log(`Créé ${autoAssignments.length} assignations automatiques`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in auto assignment process:', error);
     }
   };
 
@@ -173,13 +240,18 @@ export const useClientLeads = () => {
       try {
         const { data: user } = await supabase.auth.getUser();
         if (user.user) {
-          const { data: assignments } = await supabase
+          // Récupérer les leads assignés à cet utilisateur
+          const { data: myAssignments } = await supabase
             .from('lead_assignments')
             .select('lead_id')
             .eq('user_id', user.user.id);
 
-          const myLeadIds = assignments?.map(a => a.lead_id) || [];
+          const myLeadIds = myAssignments?.map(a => a.lead_id) || [];
+          
+          // Filtrer pour ne garder que les leads assignés à cet utilisateur
           filtered = filtered.filter(lead => myLeadIds.includes(lead.id));
+          
+          console.log(`Filtre "Mes tâches": ${myLeadIds.length} leads assignés à l'utilisateur`);
         }
       } catch (error) {
         console.error('Error filtering my tasks:', error);
