@@ -88,7 +88,7 @@ export const useAdminActions = () => {
     });
 
     if (error) throw error;
-    return { postsAffected: data.retried || 0 };
+    return { postsAffected: data?.retried || 0 };
   };
 
   const deletePosts = async (filters: any) => {
@@ -100,7 +100,7 @@ export const useAdminActions = () => {
       .gte('retry_count', 3);
 
     if (error) throw error;
-    return { postsAffected: data?.length || 0 };
+    return { postsAffected: Array.isArray(data) ? data.length : 0 };
   };
 
   const collectCurrentMetrics = async () => {
