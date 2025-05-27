@@ -103,7 +103,7 @@ const DraggableTable = ({ leads, visibleColumns, onActionCompleted, selectedLead
   return (
     <div className="w-full">
       <DragDropContext onDragEnd={handleOnDragEnd}>
-        <table className="w-full border-collapse bg-white">
+        <table className="w-full border-collapse bg-white min-h-screen">
           <DraggableTableHeader displayedColumns={displayedColumns} />
           <tbody>
             {leads.map((lead, rowIndex) => (

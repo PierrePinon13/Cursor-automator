@@ -174,7 +174,9 @@ const Leads = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
-      <div className="p-6">
+      
+      {/* Section des filtres avec padding */}
+      <div className="px-6 pt-6 pb-4 bg-gray-50">
         <div className="flex items-center gap-3 mb-6">
           <SidebarTrigger />
           <SavedViewsButton
@@ -187,42 +189,43 @@ const Leads = () => {
           />
         </div>
         
-        <div className="space-y-6">
-          <LeadsFilters
-            selectedCategories={selectedCategories}
-            setSelectedCategories={setSelectedCategories}
+        <LeadsFilters
+          selectedCategories={selectedCategories}
+          setSelectedCategories={setSelectedCategories}
+          visibleColumns={visibleColumns}
+          setVisibleColumns={setVisibleColumns}
+          selectedDateFilter={selectedDateFilter}
+          setSelectedDateFilter={setSelectedDateFilter}
+          selectedContactFilter={selectedContactFilter}
+          setSelectedContactFilter={setSelectedContactFilter}
+          availableCategories={availableCategories}
+          showContactFilter={true}
+          showAssignmentColumn={false}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+      </div>
+      
+      {/* Tableau sans padding ni borders, fusion directe avec la page */}
+      <div className="bg-white">
+        {viewMode === 'table' ? (
+          <DraggableTable 
+            leads={filteredLeads} 
             visibleColumns={visibleColumns}
-            setVisibleColumns={setVisibleColumns}
-            selectedDateFilter={selectedDateFilter}
-            setSelectedDateFilter={setSelectedDateFilter}
-            selectedContactFilter={selectedContactFilter}
-            setSelectedContactFilter={setSelectedContactFilter}
-            availableCategories={availableCategories}
-            showContactFilter={true}
-            showAssignmentColumn={false}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
+            onActionCompleted={handleActionCompleted}
+            selectedLeadIndex={selectedLeadIndex}
+            onLeadSelect={setSelectedLeadIndex}
           />
-          
-          <div className="bg-white rounded-lg shadow">
-            {viewMode === 'table' ? (
-              <DraggableTable 
-                leads={filteredLeads} 
-                visibleColumns={visibleColumns}
-                onActionCompleted={handleActionCompleted}
-                selectedLeadIndex={selectedLeadIndex}
-                onLeadSelect={setSelectedLeadIndex}
-              />
-            ) : (
-              <CardView 
-                leads={filteredLeads}
-                onActionCompleted={handleActionCompleted}
-                selectedLeadIndex={selectedLeadIndex}
-                onLeadSelect={setSelectedLeadIndex}
-              />
-            )}
+        ) : (
+          <div className="px-6 pb-6">
+            <CardView 
+              leads={filteredLeads}
+              onActionCompleted={handleActionCompleted}
+              selectedLeadIndex={selectedLeadIndex}
+              onLeadSelect={setSelectedLeadIndex}
+            />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
