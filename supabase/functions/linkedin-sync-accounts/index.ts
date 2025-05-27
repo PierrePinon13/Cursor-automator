@@ -10,7 +10,6 @@ const corsHeaders = {
 serve(async (req) => {
   console.log('=== LinkedIn Sync Accounts Function Called ===')
   console.log('Request method:', req.method)
-  console.log('Request headers:', Object.fromEntries(req.headers.entries()))
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -81,11 +80,36 @@ serve(async (req) => {
       )
     }
 
-    const accountsData = await unipileResponse.json()
-    console.log('Unipile accounts data received:', JSON.stringify(accountsData, null, 2))
+    const unipileData = await unipileResponse.json()
+    console.log('Unipile response structure:', {
+      hasItems: 'items' in unipileData,
+      isArray: Array.isArray(unipileData),
+      keys: Object.keys(unipileData || {}),
+      totalLength: unipileData?.items?.length || unipileData?.length || 0
+    })
+
+    // FIX: Handle both array and object responses from Unipile API
+    let accountsArray = []
+    if (Array.isArray(unipileData)) {
+      accountsArray = unipileData
+    } else if (unipileData && unipileData.items && Array.isArray(unipileData.items)) {
+      accountsArray = unipileData.items
+    } else {
+      console.error('Unexpected Unipile response format:', unipileData)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Unexpected response format from Unipile API',
+          received: typeof unipileData,
+          structure: Object.keys(unipileData || {})
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Accounts array extracted, length:', accountsArray.length)
 
     // Filter LinkedIn accounts only
-    const linkedinAccounts = accountsData.filter((account: any) => 
+    const linkedinAccounts = accountsArray.filter((account: any) => 
       account.provider === 'LINKEDIN' || account.account_type === 'LINKEDIN'
     )
 
@@ -113,27 +137,30 @@ serve(async (req) => {
     for (const account of linkedinAccounts) {
       console.log('Processing account:', account.id, 'status:', account.status)
 
-      // Map Unipile status to our database status
+      // Map Unipile status to our database status with better validation
       let mappedStatus = 'unknown'
       let connectionStatus = 'unknown'
       let errorMessage = null
 
-      const unipileStatus = account.status || 'UNKNOWN'
+      const unipileStatus = (account.status || 'UNKNOWN').toString().toUpperCase()
       console.log('Processing Unipile status:', unipileStatus)
 
-      switch (unipileStatus.toUpperCase()) {
+      switch (unipileStatus) {
         case 'OK':
         case 'CONNECTED':
+        case 'ACTIVE':
           mappedStatus = 'connected'
           connectionStatus = 'connected'
           errorMessage = null
           break
         case 'CREDENTIALS':
+        case 'INVALID_CREDENTIALS':
           mappedStatus = 'credentials_required'
           connectionStatus = 'credentials_required'
           errorMessage = 'Identifiants LinkedIn invalides ou expirés'
           break
         case 'IN_APP_VALIDATION':
+        case 'VALIDATION_REQUIRED':
           mappedStatus = 'validation_required'
           connectionStatus = 'validation_required'
           errorMessage = 'Validation dans l\'application LinkedIn requise'
@@ -149,6 +176,7 @@ serve(async (req) => {
           errorMessage = 'Résolution de captcha nécessaire'
           break
         case 'DISCONNECTED':
+        case 'DISABLED':
           mappedStatus = 'disconnected'
           connectionStatus = 'disconnected'
           errorMessage = 'Compte déconnecté'
@@ -156,13 +184,18 @@ serve(async (req) => {
         case 'UNKNOWN':
         case 'UNDEFINED':
         case '':
-        case null:
-        case undefined:
-          // Si on a les infos du compte, il est probablement connecté
-          mappedStatus = 'connected'
-          connectionStatus = 'connected'
-          errorMessage = null
-          console.log('Status was undefined/unknown, defaulting to: connected')
+        case 'NULL':
+          // Si on a les infos du compte, on suppose qu'il est connecté
+          if (account.id && account.provider) {
+            mappedStatus = 'connected'
+            connectionStatus = 'connected'
+            errorMessage = null
+            console.log('Status was undefined/unknown, defaulting to: connected')
+          } else {
+            mappedStatus = 'unknown'
+            connectionStatus = 'unknown'
+            errorMessage = `Statut Unipile non reconnu: ${unipileStatus}`
+          }
           break
         default:
           mappedStatus = 'unknown'

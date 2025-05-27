@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -91,7 +92,7 @@ export function useLinkedInConnection() {
           description: `${data.accounts_processed} compte(s) LinkedIn synchronisé(s)`,
         });
       } else {
-        throw new Error('Réponse invalide du serveur');
+        throw new Error(data?.error || 'Réponse invalide du serveur');
       }
     } catch (error: any) {
       console.error('Sync failed:', error);
@@ -267,7 +268,7 @@ export function useLinkedInConnection() {
           });
         }
       } else {
-        throw new Error('Réponse invalide du serveur');
+        throw new Error(data?.error || 'Réponse invalide du serveur');
       }
     } catch (error: any) {
       console.error('Status check via sync failed:', error);

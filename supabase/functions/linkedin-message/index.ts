@@ -16,6 +16,75 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function validateAndGetActiveConnection(supabaseClient: any, userId: string) {
+  console.log('Validating and getting active LinkedIn connection for user:', userId)
+  
+  // Get connections from database
+  const { data: connections, error: connectionsError } = await supabaseClient
+    .from('linkedin_connections')
+    .select('*')
+    .eq('user_id', userId)
+    .order('connected_at', { ascending: false })
+
+  if (connectionsError) {
+    console.error('Database error fetching connections:', connectionsError)
+    throw new Error('Erreur lors de la récupération des connexions LinkedIn.')
+  }
+
+  if (!connections || connections.length === 0) {
+    console.error('No LinkedIn connections found for user:', userId)
+    throw new Error('Aucune connexion LinkedIn trouvée. Veuillez connecter votre compte LinkedIn.')
+  }
+
+  // Find a connected account with valid account_id
+  const validConnection = connections.find(conn => 
+    conn.status === 'connected' && 
+    conn.account_id && 
+    conn.account_id.trim() !== ''
+  )
+
+  if (validConnection) {
+    console.log('Found valid connected account:', validConnection.account_id)
+    return validConnection
+  }
+
+  // If no valid connection, try to sync accounts automatically
+  console.log('No valid connected account found, attempting auto-sync...')
+  
+  try {
+    const syncResponse = await supabaseClient.functions.invoke('linkedin-sync-accounts')
+    
+    if (syncResponse.error) {
+      console.error('Auto-sync failed:', syncResponse.error)
+    } else if (syncResponse.data && syncResponse.data.success) {
+      console.log('Auto-sync successful, re-checking for valid connections...')
+      
+      // Re-fetch connections after sync
+      const { data: updatedConnections, error: refetchError } = await supabaseClient
+        .from('linkedin_connections')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'connected')
+        .not('account_id', 'is', null)
+        .order('connected_at', { ascending: false })
+        .limit(1)
+
+      if (!refetchError && updatedConnections && updatedConnections.length > 0) {
+        console.log('Found valid connection after auto-sync:', updatedConnections[0].account_id)
+        return updatedConnections[0]
+      }
+    }
+  } catch (syncError) {
+    console.error('Auto-sync attempt failed:', syncError)
+  }
+
+  // If still no valid connection, provide helpful error message
+  const statusSummary = connections.map(conn => `${conn.account_id || 'no-id'}: ${conn.status}`).join(', ')
+  console.error('No valid LinkedIn connection available. Status summary:', statusSummary)
+  
+  throw new Error('Aucune connexion LinkedIn active avec un identifiant valide. Veuillez reconnecter votre compte LinkedIn dans les paramètres.')
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -118,41 +187,18 @@ serve(async (req) => {
       )
     }
 
-    // Get active LinkedIn connection for the authenticated user
-    const { data: connections, error: connectionsError } = await supabaseClient
-      .from('linkedin_connections')
-      .select('account_id, unipile_account_id, id')
-      .eq('user_id', user.id)
-      .eq('status', 'connected')
-      .not('account_id', 'is', null)
-      .order('connected_at', { ascending: false })
-      .limit(1)
-
-    if (connectionsError) {
-      console.error('Database error fetching connections:', connectionsError)
+    // Get active LinkedIn connection with validation and auto-sync
+    let connection
+    try {
+      connection = await validateAndGetActiveConnection(supabaseClient, user.id)
+    } catch (error) {
+      console.error('Connection validation failed:', error.message)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Database error',
-          error_type: 'database_error',
-          user_message: 'Erreur lors de la récupération des connexions LinkedIn.'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      )
-    }
-
-    if (!connections || connections.length === 0) {
-      console.error('No active LinkedIn connection with valid account_id found for user:', user.id)
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'No active LinkedIn connection. Please connect your LinkedIn account first.',
+          error: error.message,
           error_type: 'no_connection',
-          user_message: 'Aucune connexion LinkedIn active. Veuillez connecter votre compte LinkedIn.'
+          user_message: error.message
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -161,9 +207,7 @@ serve(async (req) => {
       )
     }
 
-    const connection = connections[0]
     const accountId = connection.account_id
-
     console.log('Using LinkedIn account for user', user.email, ':', accountId)
 
     if (!lead.author_profile_id) {
