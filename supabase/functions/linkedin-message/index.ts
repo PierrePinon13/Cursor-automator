@@ -13,10 +13,24 @@ serve(async (req) => {
   }
 
   try {
-    const { leadId, message } = await req.json()
+    const { lead_id, message } = await req.json()
     
-    console.log('Sending LinkedIn message for lead:', leadId)
+    console.log('Sending LinkedIn message for lead:', lead_id)
     console.log('Message:', message)
+
+    if (!lead_id || !message) {
+      console.error('Missing required parameters:', { lead_id, message })
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Lead ID and message are required' 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
+    }
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -33,14 +47,14 @@ serve(async (req) => {
         linkedin_message_sent_at: now,
         last_contact_at: now
       })
-      .eq('id', leadId)
+      .eq('id', lead_id)
 
     if (updateError) {
       console.error('Error updating lead timestamps:', updateError)
       throw updateError
     }
 
-    console.log('LinkedIn message timestamps updated for lead:', leadId)
+    console.log('LinkedIn message timestamps updated for lead:', lead_id)
 
     // Here you would integrate with your actual LinkedIn messaging service
     // For now, we'll simulate success
@@ -49,7 +63,10 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Message sent successfully',
-        timestamp: now
+        timestamp: now,
+        action_taken: 'direct_message',
+        lead_name: 'Contact',
+        connection_degree: '1er'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
