@@ -1,3 +1,4 @@
+
 export interface OpenAIStep1Result {
   recrute_poste: string;
   postes: string;
@@ -26,7 +27,7 @@ export async function executeStep1(openAIApiKey: string, post: any): Promise<{ r
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-mini',
       messages: [
         {
           role: 'system',
@@ -108,7 +109,7 @@ export async function executeStep2(openAIApiKey: string, post: any): Promise<{ r
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-mini',
       messages: [
         {
           role: 'system',
@@ -167,7 +168,7 @@ export async function executeStep3(openAIApiKey: string, post: any, step1Result:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-mini',
       messages: [
         {
           role: 'system',
