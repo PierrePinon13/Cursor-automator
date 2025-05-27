@@ -1,4 +1,3 @@
-
 export interface OpenAIStep1Result {
   recrute_poste: string;
   postes: string;
