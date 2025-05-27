@@ -84,6 +84,13 @@ serve(async (req) => {
     if (recrutePoste !== 'oui' && recrutePoste !== 'yes') {
       console.log('Post is not a job posting, marking as completed. Recrute poste:', recrutePoste)
       await updateProcessingStatus(supabaseClient, postId, 'not_job_posting')
+      
+      // Update last_updated_at timestamp after final status
+      await supabaseClient
+        .from('linkedin_posts')
+        .update({ last_updated_at: new Date().toISOString() })
+        .eq('id', postId)
+      
       return new Response(JSON.stringify(buildNotJobPostingResponse(postId)), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -102,6 +109,13 @@ serve(async (req) => {
     if (reponseStep2 !== 'oui' && reponseStep2 !== 'yes') {
       console.log('Post does not meet language/location criteria. Reponse:', reponseStep2)
       await updateProcessingStatus(supabaseClient, postId, 'filtered_out')
+      
+      // Update last_updated_at timestamp after final status
+      await supabaseClient
+        .from('linkedin_posts')
+        .update({ last_updated_at: new Date().toISOString() })
+        .eq('id', postId)
+      
       return new Response(JSON.stringify(buildFilteredOutResponse(postId)), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -111,7 +125,7 @@ serve(async (req) => {
     console.log('Post meets language/location criteria, continuing processing...')
 
     // Step 3: OpenAI analysis for category and job selection
-    const step3Response = await executeOpenAIStep3(context, step1Response.result)
+    const step3Response = await executeOpenAIStep3(context)
 
     // Step 4: Unipile profile scraping
     const scrapingResult = await executeUnipileScraping(context)
@@ -134,6 +148,12 @@ serve(async (req) => {
     }
 
     await updateProcessingStatus(supabaseClient, postId, finalStatus)
+
+    // Update last_updated_at timestamp ONLY after the entire process is completed
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({ last_updated_at: new Date().toISOString() })
+      .eq('id', postId)
 
     console.log('LinkedIn post processing completed successfully with status:', finalStatus)
 

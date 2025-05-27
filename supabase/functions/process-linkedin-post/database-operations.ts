@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { OpenAIStep1Result, OpenAIStep2Result, OpenAIStep3Result } from './openai-steps.ts';
 import { UnipileScrapingResult } from './unipile-scraper.ts';
@@ -9,6 +10,7 @@ export async function updateProcessingStatus(
   postId: string,
   status: string
 ) {
+  // Update processing status without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update({ processing_status: status })
@@ -20,6 +22,7 @@ export async function updateRetryCount(
   postId: string,
   retryCount: number
 ) {
+  // Update retry count without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update({ 
@@ -35,6 +38,7 @@ export async function updateStep1Results(
   result: OpenAIStep1Result,
   data: any
 ) {
+  // Update step 1 results without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update({
@@ -51,6 +55,7 @@ export async function updateStep2Results(
   result: OpenAIStep2Result,
   data: any
 ) {
+  // Update step 2 results without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update({
@@ -69,6 +74,7 @@ export async function updateStep3Results(
   result: OpenAIStep3Result,
   data: any
 ) {
+  // Update step 3 results without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update({
@@ -100,6 +106,7 @@ export async function updateUnipileResults(
 
   console.log('Updating Unipile results with data:', updateData);
 
+  // Update unipile results without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update(updateData)
@@ -119,6 +126,7 @@ export async function updateClientMatchResults(
 
   console.log('Updating client match results:', updateData);
 
+  // Update client match results without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update(updateData)
@@ -153,6 +161,7 @@ export async function updateApproachMessage(
 
   console.log('Updating approach message results:', updateData);
 
+  // Update approach message without updating last_updated_at
   await supabaseClient
     .from('linkedin_posts')
     .update(updateData)
