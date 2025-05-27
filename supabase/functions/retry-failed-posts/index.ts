@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -31,8 +30,44 @@ serve(async (req) => {
       includePending = false,
       pendingOlderThanMinutes = 60,
       includeCompleted = false,
-      completedOlderThanMinutes = 60
+      completedOlderThanMinutes = 60,
+      retryLastHour = false
     } = await req.json()
+
+    // Simple option to retry all posts from the last hour
+    if (retryLastHour) {
+      console.log('=== RETRY LAST HOUR MODE ===')
+      
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      console.log(`Fetching all posts created since: ${oneHourAgo}`);
+      
+      const { data: recentPosts, error: fetchError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('id, retry_count, created_at, processing_status, author_name')
+        .gte('created_at', oneHourAgo)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) {
+        console.error('Error fetching recent posts:', fetchError);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Failed to fetch recent posts' 
+        }), { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`Found ${recentPosts?.length || 0} posts from the last hour`);
+      
+      if (recentPosts) {
+        recentPosts.forEach(post => {
+          console.log(`- ID: ${post.id}, Status: ${post.processing_status}, Created: ${post.created_at}, Author: ${post.author_name}`);
+        });
+      }
+
+      return await processRetries(supabaseClient, recentPosts || [], 5, false, false);
+    }
 
     // Investigation queries first
     if (investigate) {
@@ -113,7 +148,6 @@ serve(async (req) => {
         }
       }
 
-      // ... keep existing code (recent posts investigation)
       const { data: recentPosts, error: recentError } = await supabaseClient
         .from('linkedin_posts')
         .select('id, processing_status, retry_count, created_at, author_name')
