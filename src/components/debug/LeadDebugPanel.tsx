@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -124,12 +123,35 @@ const LeadDebugPanel = ({ leadId: initialLeadId }: LeadDebugPanelProps) => {
 
                   {leadData.approach_message_error && (
                     <div>
-                      <strong>Erreur:</strong>
+                      <strong>Détails d'erreur:</strong>
                       <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                         {leadData.approach_message_error}
                       </div>
+                      
+                      {/* Analyse des détails de retry */}
+                      {leadData.approach_message_error.includes('attempts') && (
+                        <div className="mt-2 text-xs text-gray-600">
+                          {leadData.approach_message_error.includes('[Used default template]') ? (
+                            <span className="text-orange-600">⚠️ Template par défaut utilisé après échec des tentatives OpenAI</span>
+                          ) : (
+                            <span className="text-red-600">❌ Toutes les tentatives ont échoué</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {/* Indicateur de qualité du message */}
+                  <div className="mt-3 p-2 rounded border">
+                    <strong>Qualité du message:</strong>
+                    {leadData.approach_message_generated && leadData.approach_message && !leadData.approach_message_error?.includes('[Used default template]') ? (
+                      <span className="ml-2 text-green-600">✅ Message IA de qualité</span>
+                    ) : leadData.approach_message_error?.includes('[Used default template]') ? (
+                      <span className="ml-2 text-orange-600">⚠️ Template par défaut</span>
+                    ) : (
+                      <span className="ml-2 text-red-600">❌ Échec de génération</span>
+                    )}
+                  </div>
                 </div>
               </div>
 

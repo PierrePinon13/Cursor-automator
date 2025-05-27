@@ -139,8 +139,16 @@ export async function updateApproachMessage(
     updateData.approach_message = messageResult.message;
   }
 
-  if (!messageResult.success && messageResult.error) {
-    updateData.approach_message_error = messageResult.error;
+  // Stocker les détails d'erreur avec les informations de retry
+  if (messageResult.error) {
+    let errorDetails = messageResult.error;
+    if (messageResult.attempts) {
+      errorDetails += ` (${messageResult.attempts} attempts)`;
+    }
+    if (messageResult.usedDefaultTemplate) {
+      errorDetails += ' [Used default template]';
+    }
+    updateData.approach_message_error = errorDetails;
   }
 
   console.log('Updating approach message results:', updateData);

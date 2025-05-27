@@ -3,7 +3,7 @@ import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts'
 import { scrapLinkedInProfile } from './unipile-scraper.ts'
 import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage } from './database-operations.ts'
 import { checkIfLeadIsFromClient } from './client-matching.ts'
-import { generateApproachMessage } from './message-generation.ts'
+import { generateApproachMessageWithRetry } from './message-generation.ts'
 import { handleLeadDeduplication } from './lead-deduplication.ts'
 import { ProcessingContext } from './types.ts'
 
@@ -61,13 +61,23 @@ export async function executeClientMatching(context: ProcessingContext, scraping
 
 export async function executeMessageGeneration(context: ProcessingContext, step3Result: any, step2Result: any, clientMatch: any) {
   if (!clientMatch.isClientLead) {
-    console.log('Lead is not a client, generating approach message')
-    const messageResult = await generateApproachMessage(
+    console.log('Lead is not a client, generating approach message with retry system')
+    
+    // Utiliser le nouveau système de retry
+    const messageResult = await generateApproachMessageWithRetry(
+      context.openAIApiKey,
+      context.post,
       context.post.author_name,
-      step3Result.postes_selectionnes,
-      step3Result.categorie,
-      step2Result.localisation_detectee
+      step3Result.postes_selectionnes
     )
+    
+    // Log détaillé du résultat
+    if (messageResult.usedDefaultTemplate) {
+      console.log(`⚠️ Used default template after ${messageResult.attempts} failed attempts`)
+    } else {
+      console.log(`✅ Successfully generated AI message on attempt ${messageResult.attempts}`)
+    }
+    
     await updateApproachMessage(context.supabaseClient, context.postId, messageResult)
     return messageResult
   } else {

@@ -2,15 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw, Sparkles, FileText } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Lead {
+  id: string;
   author_name: string;
   openai_step3_postes_selectionnes: string[];
   openai_step3_categorie: string;
   approach_message?: string | null;
   approach_message_generated?: boolean | null;
   approach_message_generated_at?: string | null;
+  approach_message_error?: string | null;
 }
 
 interface LeadMessageEditorProps {
@@ -21,16 +25,23 @@ interface LeadMessageEditorProps {
 }
 
 const LeadMessageEditor = ({ lead, message, onMessageChange, disabled }: LeadMessageEditorProps) => {
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const { toast } = useToast();
   const MAX_CHARACTERS = 300;
   const isOverLimit = message.length > MAX_CHARACTERS;
   const remainingChars = MAX_CHARACTERS - message.length;
 
+  // Déterminer si le message actuel vient de l'IA ou du template par défaut
+  const isAIGenerated = lead.approach_message_generated && lead.approach_message && !lead.approach_message_error?.includes('[Used default template]');
+  const usedDefaultTemplate = lead.approach_message_error?.includes('[Used default template]');
+
   const generateDefaultMessage = () => {
-    // Use the generated approach message if available, otherwise use the old template
+    // Prioriser le message généré par l'IA s'il existe
     if (lead.approach_message) {
       return lead.approach_message;
     }
     
+    // Fallback sur le template par défaut
     return `Bonjour ${lead.author_name?.split(' ')[0] || 'Cher(e) professionnel(le)'},
 
 J'ai remarqué votre récente publication concernant la recherche de ${lead.openai_step3_postes_selectionnes?.[0] || 'profils qualifiés'}. 
@@ -47,6 +58,42 @@ Bien cordialement,
     onMessageChange(generateDefaultMessage());
   };
 
+  const handleRegenerate = async () => {
+    if (!lead.id) return;
+    
+    setIsRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-approach-message', {
+        body: { leadId: lead.id }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        onMessageChange(data.message);
+        toast({
+          title: "Message régénéré",
+          description: data.usedDefaultTemplate 
+            ? `Template par défaut utilisé après ${data.attempts} tentatives`
+            : `Message IA généré en ${data.attempts} tentative(s)`,
+        });
+      } else {
+        throw new Error(data.error || 'Erreur lors de la régénération');
+      }
+    } catch (error) {
+      console.error('Error regenerating message:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de régénérer le message",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   // Initialize message only once when component mounts
   useEffect(() => {
     if (!message) {
@@ -58,19 +105,46 @@ Bien cordialement,
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="font-medium text-gray-800">Message LinkedIn</h4>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReset}
-          disabled={disabled}
-        >
-          Réinitialiser
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerate}
+            disabled={disabled || isRegenerating}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+            Régénérer
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            disabled={disabled}
+          >
+            Réinitialiser
+          </Button>
+        </div>
       </div>
       
-      {lead.approach_message && (
-        <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-          ✓ Message généré automatiquement par l'IA
+      {/* Indicateur du type de message */}
+      {isAIGenerated && (
+        <div className="text-xs text-green-600 bg-green-50 p-2 rounded flex items-center gap-1">
+          <Sparkles className="h-3 w-3" />
+          Message généré automatiquement par l'IA
+        </div>
+      )}
+      
+      {usedDefaultTemplate && (
+        <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded flex items-center gap-1">
+          <FileText className="h-3 w-3" />
+          Template par défaut utilisé (échec de génération IA)
+        </div>
+      )}
+
+      {lead.approach_message_error && !usedDefaultTemplate && (
+        <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+          Erreur de génération : {lead.approach_message_error}
         </div>
       )}
       
