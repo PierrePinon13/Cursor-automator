@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -71,7 +72,7 @@ serve(async (req) => {
     // Get lead data including unipile_response for provider_id
     const { data: lead, error: leadError } = await supabaseClient
       .from('linkedin_posts')
-      .select('author_profile_url, author_name, author_profile_id, unipile_response')
+      .select('author_profile_url, author_name, author_profile_id, unipile_response, unipile_profile_scraped')
       .eq('id', lead_id)
       .single()
 
@@ -87,6 +88,23 @@ serve(async (req) => {
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 404,
+        }
+      )
+    }
+
+    // CRITICAL: Check if profile was scraped by Unipile
+    if (!lead.unipile_profile_scraped || !lead.unipile_response) {
+      console.error('Profile not scraped by Unipile for lead:', lead.author_name)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Profile not scraped by Unipile',
+          error_type: 'profile_not_scraped',
+          user_message: 'Le profil LinkedIn de ce contact n\'a pas été analysé par Unipile. Impossible d\'envoyer un message.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
         }
       )
     }
@@ -125,33 +143,26 @@ serve(async (req) => {
       console.warn('WARNING: Expected account DdxglDwFT-mMZgxHeCGMdA for Pierre Pinon but found:', accountId)
     }
 
-    // Get LinkedIn provider ID from unipile_response or fall back to profile ID extraction
+    // CRITICAL: Get ONLY the Unipile provider_id - NO FALLBACKS
     let linkedinProviderId = null
     
     if (lead.unipile_response?.provider_id) {
       linkedinProviderId = lead.unipile_response.provider_id
-      console.log('Using provider_id from unipile_response:', linkedinProviderId)
+      console.log('Using Unipile provider_id:', linkedinProviderId)
     } else if (lead.unipile_response?.publicIdentifier) {
       linkedinProviderId = lead.unipile_response.publicIdentifier
-      console.log('Using publicIdentifier from unipile_response:', linkedinProviderId)
-    } else if (lead.author_profile_id) {
-      linkedinProviderId = lead.author_profile_id
-      console.log('Using author_profile_id as fallback:', linkedinProviderId)
-    } else if (lead.author_profile_url) {
-      // Extract LinkedIn profile ID from URL as last fallback
-      const urlMatch = lead.author_profile_url.match(/linkedin\.com\/in\/([^\/\?]+)/)
-      linkedinProviderId = urlMatch ? urlMatch[1] : null
-      console.log('Extracted from URL as last fallback:', linkedinProviderId)
+      console.log('Using Unipile publicIdentifier:', linkedinProviderId)
     }
 
     if (!linkedinProviderId) {
-      console.error('Cannot determine LinkedIn provider ID for lead:', lead.author_name)
+      console.error('No Unipile provider_id found in scraped data for lead:', lead.author_name)
+      console.error('Unipile response available fields:', Object.keys(lead.unipile_response || {}))
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Cannot determine LinkedIn profile identifier',
-          error_type: 'invalid_profile',
-          user_message: 'Impossible de déterminer l\'identifiant LinkedIn du contact.'
+          error: 'No Unipile provider ID found',
+          error_type: 'missing_provider_id',
+          user_message: 'Identifiant Unipile manquant pour ce contact. Le profil doit être re-analysé.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -160,7 +171,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Checking connection status from profile data for provider ID:', linkedinProviderId)
+    console.log('Using Unipile provider_id for LinkedIn API call:', linkedinProviderId)
 
     // Check network_distance from the unipile_response
     let connectionStatus = 'not_connected'
