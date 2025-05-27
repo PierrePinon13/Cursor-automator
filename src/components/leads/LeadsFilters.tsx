@@ -69,11 +69,6 @@ export default function LeadsFilters({
   showContactFilter = true,
   showAssignmentColumn = false
 }: LeadsFiltersProps) {
-  const categoryOptions = availableCategories.map(category => ({
-    value: category,
-    label: category
-  }));
-
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
   const handleApplyView = (view: {
