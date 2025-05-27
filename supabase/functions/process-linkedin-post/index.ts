@@ -1,19 +1,24 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts'
-import { scrapLinkedInProfile } from './unipile-scraper.ts'
-import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost, updateRetryCount } from './database-operations.ts'
-import { checkIfLeadIsFromClient } from './client-matching.ts'
-import { generateApproachMessage } from './message-generation.ts'
-import { handleLeadDeduplication } from './lead-deduplication.ts'
+import { updateProcessingStatus, fetchPost } from './database-operations.ts'
+import { handleRetryLogic, scheduleRetry } from './retry-handler.ts'
+import { 
+  executeOpenAIStep1, 
+  executeOpenAIStep2, 
+  executeOpenAIStep3, 
+  executeUnipileScraping,
+  executeClientMatching,
+  executeMessageGeneration,
+  executeLeadDeduplication
+} from './processing-steps.ts'
+import { buildSuccessResponse, buildNotJobPostingResponse, buildFilteredOutResponse } from './response-builder.ts'
+import { ProcessingContext } from './types.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-const MAX_RETRY_ATTEMPTS = 3;
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -43,114 +48,72 @@ serve(async (req) => {
 
     console.log('Processing post:', postId, isRetry ? '(retry)' : '(first attempt)')
 
+    // Handle retry logic
+    const retryResult = await handleRetryLogic(postId, isRetry)
+    if (!retryResult.shouldContinue) {
+      return new Response(JSON.stringify(retryResult.response), { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // Fetch the post from database
     const post = await fetchPost(supabaseClient, postId)
     console.log('Post fetched:', post.id)
 
-    // Check retry count for retry attempts
-    if (isRetry) {
-      const retryCount = post.retry_count || 0;
-      if (retryCount >= MAX_RETRY_ATTEMPTS) {
-        console.log(`Post ${postId} has reached max retry attempts (${MAX_RETRY_ATTEMPTS}), marking as failed`);
-        await updateProcessingStatus(supabaseClient, postId, 'failed_max_retries');
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Max retry attempts reached',
-          postId: postId
-        }), { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      // Increment retry count
-      await updateRetryCount(supabaseClient, postId, retryCount + 1);
-      console.log(`Retry attempt ${retryCount + 1} for post ${postId}`);
+    // Create processing context
+    const context: ProcessingContext = {
+      postId,
+      post,
+      supabaseClient,
+      openAIApiKey: Deno.env.get('OPENAI_API_KEY') ?? '',
+      unipileApiKey: Deno.env.get('UNIPILE_API_KEY') ?? '',
+      isRetry
     }
 
     // Mark as processing
     await updateProcessingStatus(supabaseClient, postId, 'processing')
 
     // Step 1: OpenAI analysis to determine if it's a job posting
-    console.log('Starting OpenAI Step 1: Job posting detection')
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY') ?? '';
-    const step1Response = await executeStep1(openAIApiKey, post)
-    await updateStep1Results(supabaseClient, postId, step1Response.result, step1Response.data)
+    const step1Response = await executeOpenAIStep1(context)
 
     if (step1Response.result.recrute_poste !== 'oui') {
       console.log('Post is not a job posting, marking as completed')
       await updateProcessingStatus(supabaseClient, postId, 'not_job_posting')
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Post is not a job posting',
-        postId: postId
-      }), { 
+      return new Response(JSON.stringify(buildNotJobPostingResponse(postId)), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
     // Step 2: OpenAI analysis for language and location
-    console.log('Starting OpenAI Step 2: Language and location analysis')
-    const step2Response = await executeStep2(openAIApiKey, post)
-    await updateStep2Results(supabaseClient, postId, step2Response.result, step2Response.data)
+    const step2Response = await executeOpenAIStep2(context)
 
     if (step2Response.result.reponse !== 'oui') {
       console.log('Post does not meet language/location criteria')
       await updateProcessingStatus(supabaseClient, postId, 'filtered_out')
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Post filtered out due to language/location criteria',
-        postId: postId
-      }), { 
+      return new Response(JSON.stringify(buildFilteredOutResponse(postId)), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
     // Step 3: OpenAI analysis for category and job selection
-    console.log('Starting OpenAI Step 3: Category and job analysis')
-    const step3Response = await executeStep3(openAIApiKey, post, step1Response.result)
-    await updateStep3Results(supabaseClient, postId, step3Response.result, step3Response.data)
+    const step3Response = await executeOpenAIStep3(context, step1Response.result)
 
     // Step 4: Unipile profile scraping
-    console.log('Starting Unipile profile scraping')
-    const unipileApiKey = Deno.env.get('UNIPILE_API_KEY') ?? '';
-    const scrapingResult = await scrapLinkedInProfile(
-      unipileApiKey,
-      post.author_profile_id,
-      post.author_profile_url, // Using this as accountId for now
-      supabaseClient
-    )
-    await updateUnipileResults(supabaseClient, postId, scrapingResult, { scrapingResult })
+    const scrapingResult = await executeUnipileScraping(context)
 
     // Step 5: Check if this is a client lead
-    console.log('Starting client matching')
-    const clientMatch = await checkIfLeadIsFromClient(supabaseClient, scrapingResult.company_id)
-    await updateClientMatchResults(supabaseClient, postId, clientMatch)
+    const clientMatch = await executeClientMatching(context, scrapingResult)
 
     // Step 6: Generate approach message for non-client leads
-    if (!clientMatch.isClientLead) {
-      console.log('Lead is not a client, generating approach message')
-      const messageResult = await generateApproachMessage(
-        post.author_name,
-        step3Response.result.postes_selectionnes,
-        step3Response.result.categorie,
-        step2Response.result.localisation_detectee
-      )
-      await updateApproachMessage(supabaseClient, postId, messageResult)
-    } else {
-      console.log('Lead is a client, skipping approach message generation')
-    }
+    await executeMessageGeneration(context, step3Response.result, step2Response.result, clientMatch)
 
     // Step 7: Handle lead deduplication
-    console.log('Starting lead deduplication')
-    const updatedPost = await fetchPost(supabaseClient, postId)
-    const deduplicationResult = await handleLeadDeduplication(supabaseClient, updatedPost)
-    
-    console.log('Deduplication result:', deduplicationResult)
+    const deduplicationResult = await executeLeadDeduplication(context)
 
-    // Mark as completed or update status based on deduplication
+    // Determine final status based on deduplication
     let finalStatus = 'completed'
     if (deduplicationResult.action === 'error') {
       finalStatus = 'deduplication_error'
@@ -162,21 +125,18 @@ serve(async (req) => {
 
     console.log('LinkedIn post processing completed successfully')
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Post processed successfully',
-      postId: postId,
-      isJobPosting: step1Response.result.recrute_poste === 'oui',
-      meetsLocationCriteria: step2Response.result.reponse === 'oui',
-      category: step3Response.result.categorie,
-      selectedPositions: step3Response.result.postes_selectionnes,
-      company: scrapingResult.company,
-      position: scrapingResult.position,
-      isClientLead: clientMatch.isClientLead,
-      clientName: clientMatch.clientName,
-      deduplication: deduplicationResult,
-      finalStatus: finalStatus
-    }), { 
+    const successResponse = buildSuccessResponse(
+      postId,
+      step1Response.result,
+      step2Response.result,
+      step3Response.result,
+      scrapingResult,
+      clientMatch,
+      deduplicationResult,
+      finalStatus
+    )
+
+    return new Response(JSON.stringify(successResponse), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -193,40 +153,8 @@ serve(async (req) => {
       console.error('Could not parse postId from request for retry scheduling');
     }
 
-    // If we have a postId, schedule a retry
-    if (postId) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-        
-        const post = await fetchPost(supabaseClient, postId);
-        const retryCount = post.retry_count || 0;
-        
-        if (retryCount < MAX_RETRY_ATTEMPTS) {
-          console.log(`Scheduling retry for post ${postId} (attempt ${retryCount + 1})`);
-          await updateProcessingStatus(supabaseClient, postId, 'retry_scheduled');
-          await updateRetryCount(supabaseClient, postId, retryCount + 1);
-          
-          // Schedule retry after 5 minutes
-          setTimeout(async () => {
-            try {
-              await supabaseClient.functions.invoke('process-linkedin-post', {
-                body: { postId: postId, isRetry: true }
-              });
-            } catch (retryError) {
-              console.error('Error scheduling retry:', retryError);
-            }
-          }, 5 * 60 * 1000); // 5 minutes delay
-        } else {
-          console.log(`Post ${postId} has reached max retry attempts, marking as failed`);
-          await updateProcessingStatus(supabaseClient, postId, 'failed_max_retries');
-        }
-      } catch (retryScheduleError) {
-        console.error('Error scheduling retry:', retryScheduleError);
-      }
-    }
+    // Schedule retry if we have a postId
+    await scheduleRetry(postId, error)
 
     return new Response('Internal server error', { 
       status: 500,
