@@ -387,12 +387,56 @@ export type Database = {
         }
         Relationships: []
       }
+      user_stats: {
+        Row: {
+          created_at: string
+          id: string
+          linkedin_messages_sent: number
+          negative_calls: number
+          positive_calls: number
+          stat_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          linkedin_messages_sent?: number
+          negative_calls?: number
+          positive_calls?: number
+          stat_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          linkedin_messages_sent?: number
+          negative_calls?: number
+          positive_calls?: number
+          stat_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_linkedin_messages: {
+        Args: { user_uuid: string }
+        Returns: undefined
+      }
+      increment_negative_calls: {
+        Args: { user_uuid: string }
+        Returns: undefined
+      }
+      increment_positive_calls: {
+        Args: { user_uuid: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
