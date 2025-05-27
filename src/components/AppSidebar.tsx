@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { BarChart3, Users, User, Briefcase, Building2, UserCheck } from 'lucide-react';
+import { BarChart3, Users, User, Briefcase, Building2, UserCheck, Settings } from 'lucide-react';
 
 const menuItems = [
   {

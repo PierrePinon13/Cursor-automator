@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
+import ClientSettings from "./pages/ClientSettings";
 import HrProviders from "./pages/HrProviders";
 import NotFound from "./pages/NotFound";
 
@@ -95,6 +96,11 @@ const App = () => (
             <Route path="/clients" element={
               <ProtectedRoute>
                 <Clients />
+              </ProtectedRoute>
+            } />
+            <Route path="/client-settings" element={
+              <ProtectedRoute>
+                <ClientSettings />
               </ProtectedRoute>
             } />
             <Route path="/hr-providers" element={

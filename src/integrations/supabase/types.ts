@@ -43,6 +43,20 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_client_collaborators_client_id"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_client_collaborators_user_id"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       clients: {
@@ -98,6 +112,55 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      lead_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          created_at: string | null
+          id: string
+          lead_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       linkedin_connections: {
         Row: {

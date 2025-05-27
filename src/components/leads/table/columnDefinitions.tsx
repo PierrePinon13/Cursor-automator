@@ -1,8 +1,8 @@
-
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTimeAgo } from '@/utils/timeUtils';
+import { LeadAssignmentSelect } from '@/components/clients/LeadAssignmentSelect';
 
 interface Lead {
   id: string;
@@ -187,5 +187,17 @@ export const allColumns: Column[] = [
     render: (lead) => (
       <span className="text-xs">{lead.openai_step2_localisation || 'France'}</span>
     )
-  }
+  },
+  {
+    id: 'assignment',
+    title: 'Assignation',
+    width: '200px',
+    render: (lead: any) => (
+      <LeadAssignmentSelect
+        leadId={lead.id}
+        clientId={lead.matched_client_id}
+        preAssignedUsers={lead.preAssignedUsers || []}
+      />
+    ),
+  },
 ];
