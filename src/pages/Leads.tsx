@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -9,7 +8,7 @@ import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import DashboardHeader from '@/components/DashboardHeader';
-import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 
 const Leads = () => {
   const { 
@@ -178,7 +177,6 @@ const Leads = () => {
       {/* Section des filtres avec padding */}
       <div className="px-6 pt-6 pb-4 bg-gray-50">
         <div className="flex items-center gap-3 mb-6">
-          <SidebarTrigger />
           <SavedViewsButton
             selectedCategories={selectedCategories}
             visibleColumns={visibleColumns}

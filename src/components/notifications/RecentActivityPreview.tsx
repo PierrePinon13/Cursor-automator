@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -71,7 +70,7 @@ const RecentActivityPreview = () => {
           // Récupérer les détails du lead
           const { data: leadData } = await supabase
             .from('linkedin_posts')
-            .select('author_name, matched_client_name, job_title')
+            .select('author_name, matched_client_name, unipile_position')
             .eq('id', assignment.lead_id)
             .single();
 
@@ -80,7 +79,7 @@ const RecentActivityPreview = () => {
               id: `assignment-${assignment.id}`,
               type: 'assignment',
               title: 'Lead assigné',
-              description: `${leadData.author_name} - ${leadData.job_title || 'Poste non spécifié'}`,
+              description: `${leadData.author_name} - ${leadData.unipile_position || 'Poste non spécifié'}`,
               timestamp: assignment.assigned_at,
               icon: <UserPlus className="h-4 w-4 text-purple-500" />
             });
@@ -93,7 +92,7 @@ const RecentActivityPreview = () => {
           .select(`
             id,
             author_name,
-            job_title,
+            unipile_position,
             linkedin_message_sent_at,
             phone_contact_at,
             phone_contact_status,
@@ -110,7 +109,7 @@ const RecentActivityPreview = () => {
                 id: `linkedin-${lead.id}`,
                 type: 'lead_action',
                 title: 'Message LinkedIn envoyé',
-                description: `À ${lead.author_name} - ${lead.job_title || 'Poste non spécifié'}`,
+                description: `À ${lead.author_name} - ${lead.unipile_position || 'Poste non spécifié'}`,
                 timestamp: lead.linkedin_message_sent_at,
                 icon: <MessageSquare className="h-4 w-4 text-blue-500" />
               });
@@ -120,7 +119,7 @@ const RecentActivityPreview = () => {
                 id: `phone-${lead.id}`,
                 type: 'lead_action',
                 title: `Appel ${lead.phone_contact_status === 'positive' ? 'positif' : 'négatif'}`,
-                description: `Avec ${lead.author_name} - ${lead.job_title || 'Poste non spécifié'}`,
+                description: `Avec ${lead.author_name} - ${lead.unipile_position || 'Poste non spécifié'}`,
                 timestamp: lead.phone_contact_at,
                 icon: lead.phone_contact_status === 'positive' ? 
                   <Phone className="h-4 w-4 text-green-500" /> : 

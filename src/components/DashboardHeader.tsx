@@ -1,50 +1,61 @@
 
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import { LogOut, User, Settings } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import NotificationButton from './notifications/NotificationButton';
+import CustomSidebarTrigger from './ui/CustomSidebarTrigger';
 
 const DashboardHeader = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const handleProfileClick = () => {
+    navigate('/profile');
+  };
+
   return (
-    <header className="border-b bg-white">
-      <div className="flex h-16 items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger />
+    <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <CustomSidebarTrigger />
+          <h1 className="text-xl font-semibold text-gray-900">
+            Automator
+          </h1>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <NotificationButton />
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <User className="h-4 w-4" />
-                {user?.email}
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} alt="Profile" />
+                  <AvatarFallback>
+                    {user?.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
-                <Settings className="h-4 w-4 mr-2" />
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuItem onClick={handleProfileClick}>
                 Profil
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={signOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Déconnexion
+              <DropdownMenuItem onClick={handleSignOut}>
+                Se déconnecter
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
