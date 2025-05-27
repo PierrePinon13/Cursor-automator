@@ -106,7 +106,7 @@ const AdminActions = () => {
               <p className="text-lg">{bottlenecks?.total_processing || 0}</p>
             </div>
             <div>
-              <p className="font-medium">Bloqués > 24h</p>
+              <p className="font-medium">Bloqués &gt; 24h</p>
               <p className={`text-lg ${(bottlenecks?.older_than_24h || 0) > 50 ? 'text-red-600' : ''}`}>
                 {bottlenecks?.older_than_24h || 0}
               </p>
@@ -194,10 +194,10 @@ const AdminActions = () => {
                 <li>• Retry immédiat des posts bloqués depuis plus de 24h</li>
                 <li>• Vérifier les logs des fonctions edge</li>
                 {bottlenecks?.step1_pending && bottlenecks.step1_pending > 200 && (
-                  <li>• Problème possible avec l'API OpenAI</li>
+                  <li>• Problème possible avec l&apos;API OpenAI</li>
                 )}
                 {bottlenecks?.unipile_pending && bottlenecks.unipile_pending > 200 && (
-                  <li>• Problème possible avec l'API Unipile</li>
+                  <li>• Problème possible avec l&apos;API Unipile</li>
                 )}
               </ul>
             </div>
