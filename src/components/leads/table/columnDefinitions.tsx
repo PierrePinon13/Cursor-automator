@@ -121,23 +121,33 @@ export const allColumns: Column[] = [
     id: 'company',
     label: 'Entreprise',
     width: '200px',
-    render: (lead) => (
-      <div className="space-y-1">
-        {lead.unipile_company ? (
-          <div>
-            <div className="font-medium text-xs">{lead.unipile_company}</div>
-            {lead.unipile_position && (
-              <div className="text-xs text-gray-600">{lead.unipile_position}</div>
-            )}
-          </div>
-        ) : (
-          <div className="text-xs text-gray-500">
-            <div>Données non disponibles</div>
-            <div className="text-xs text-gray-400 truncate">{lead.author_headline || 'N/A'}</div>
-          </div>
-        )}
-      </div>
-    )
+    render: (lead) => {
+      console.log('Rendering company for lead:', {
+        id: lead.id,
+        author_name: lead.author_name,
+        unipile_company: lead.unipile_company,
+        unipile_position: lead.unipile_position,
+        author_headline: lead.author_headline
+      });
+      
+      return (
+        <div className="space-y-1">
+          {lead.unipile_company ? (
+            <div>
+              <div className="font-medium text-xs">{lead.unipile_company}</div>
+              {lead.unipile_position && (
+                <div className="text-xs text-gray-600">{lead.unipile_position}</div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500">
+              <div>Données non disponibles</div>
+              <div className="text-xs text-gray-400 truncate">{lead.author_headline || 'N/A'}</div>
+            </div>
+          )}
+        </div>
+      );
+    }
   },
   {
     id: 'last_contact',

@@ -21,6 +21,18 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
+  phone_number?: string | null;
+  phone_retrieved_at?: string | null;
+  approach_message?: string | null;
+  approach_message_generated?: boolean | null;
+  approach_message_generated_at?: string | null;
+  is_client_lead?: boolean | null;
+  matched_client_name?: string | null;
+  matched_client_id?: string | null;
+  last_contact_at?: string | null;
+  linkedin_message_sent_at?: string | null;
+  phone_contact_status?: string | null;
+  phone_contact_at?: string | null;
 }
 
 interface TableRowProps {
@@ -31,6 +43,13 @@ interface TableRowProps {
 }
 
 const TableRow = ({ lead, rowIndex, displayedColumns, onRowClick }: TableRowProps) => {
+  console.log('TableRow lead data:', {
+    id: lead.id,
+    author_name: lead.author_name,
+    unipile_company: lead.unipile_company,
+    unipile_position: lead.unipile_position
+  });
+
   return (
     <tr
       className={`hover:bg-gray-50 cursor-pointer ${

@@ -66,6 +66,8 @@ export const useLeads = () => {
 
   const fetchLeads = async () => {
     try {
+      console.log('Fetching leads with company data...');
+      
       const { data, error } = await supabase
         .from('linkedin_posts')
         .select(`
@@ -109,6 +111,14 @@ export const useLeads = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('Fetched leads data:', data?.slice(0, 3)); // Log first 3 leads for debugging
+      console.log('Sample lead company data:', data?.[0] ? {
+        unipile_company: data[0].unipile_company,
+        unipile_position: data[0].unipile_position,
+        author_headline: data[0].author_headline
+      } : 'No data');
+      
       setLeads(data || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
