@@ -3,8 +3,7 @@ import MultiSelectFilter from './MultiSelectFilter';
 import SavedViewsButton from './SavedViewsButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { X, Table, Grid } from 'lucide-react';
+import { X, Table, Grid3X3 } from 'lucide-react';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -20,6 +19,13 @@ interface LeadsFiltersProps {
   showAssignmentColumn?: boolean;
   viewMode: 'table' | 'card';
   setViewMode: (mode: 'table' | 'card') => void;
+  onApplyView?: (view: {
+    selectedCategories: string[];
+    visibleColumns: string[];
+    selectedDateFilter: string;
+    selectedContactFilter: string;
+    viewMode: 'table' | 'card';
+  }) => void;
 }
 
 const dateFilterOptions = [
@@ -72,7 +78,8 @@ export default function LeadsFilters({
   showContactFilter = true,
   showAssignmentColumn = false,
   viewMode,
-  setViewMode
+  setViewMode,
+  onApplyView
 }: LeadsFiltersProps) {
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
@@ -90,6 +97,10 @@ export default function LeadsFilters({
       setSelectedContactFilter(view.selectedContactFilter);
     }
     setViewMode(view.viewMode);
+    
+    if (onApplyView) {
+      onApplyView(view);
+    }
   };
 
   const removeCategory = (categoryToRemove: string) => {
@@ -115,20 +126,28 @@ export default function LeadsFilters({
           viewMode={viewMode}
           onApplyView={handleApplyView}
         />
-        <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as 'table' | 'card')}>
-          <ToggleGroupItem value="table" aria-label="Vue tableau">
+        
+        {/* Table/Card View Toggle with old UX/UI style */}
+        <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('table')}
+          >
             <Table className="h-4 w-4" />
-            <span className="ml-1">Tableau</span>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="card" aria-label="Vue cartes">
-            <Grid className="h-4 w-4" />
-            <span className="ml-1">Cartes</span>
-          </ToggleGroupItem>
-        </ToggleGroup>
+          </Button>
+          <Button
+            variant={viewMode === 'card' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('card')}
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       
       <div className="space-y-4">
-        {/* Categories chips without label */}
+        {/* Categories chips */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
