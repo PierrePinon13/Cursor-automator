@@ -1,6 +1,5 @@
-
-import { MultiSelectFilter } from './MultiSelectFilter';
-import { SavedViewsButton } from './SavedViewsButton';
+import MultiSelectFilter from './MultiSelectFilter';
+import SavedViewsButton from './SavedViewsButton';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -53,7 +52,7 @@ const getColumnOptions = (showAssignmentColumn = false) => {
   return baseColumns;
 };
 
-export function LeadsFilters({ 
+export default function LeadsFilters({ 
   selectedCategories, 
   setSelectedCategories,
   selectedDateFilter,

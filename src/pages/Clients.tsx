@@ -7,9 +7,9 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Settings, Table, Grid3X3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { LeadsFilters } from '@/components/leads/LeadsFilters';
+import LeadsFilters from '@/components/leads/LeadsFilters';
 import DraggableTable from '@/components/leads/DraggableTable';
-import { CardView } from '@/components/leads/CardView';
+import CardView from '@/components/leads/CardView';
 import { Badge } from '@/components/ui/badge';
 
 const Clients = () => {

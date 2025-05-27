@@ -27,7 +27,6 @@ interface Lead {
   phone_retrieved_at?: string | null;
   approach_message?: string | null;
   approach_message_generated?: boolean | null;
-  approach_message_generated_at?: string | null;
   is_client_lead?: boolean | null;
   matched_client_name?: string | null;
   matched_client_id?: string | null;
@@ -190,7 +189,7 @@ export const allColumns: Column[] = [
   },
   {
     id: 'assignment',
-    title: 'Assignation',
+    label: 'Assignation',
     width: '200px',
     render: (lead: any) => (
       <LeadAssignmentSelect
