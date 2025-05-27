@@ -24,20 +24,21 @@ export function usePhoneRetrieval() {
       }
 
       if (data && data.success) {
-        if (data.phone_number) {
-          toast({
-            title: "Téléphone récupéré",
-            description: `Numéro trouvé : ${data.phone_number}${data.cached ? ' (en cache)' : ''}`,
-          });
-          return data.phone_number;
-        } else if (data.datagma_error) {
-          // Afficher l'erreur spécifique de Datagma
+        // Vérifier d'abord s'il y a une erreur Datagma
+        if (data.datagma_error) {
           toast({
             title: "Erreur Datagma",
             description: data.datagma_error,
             variant: "destructive",
           });
           return null;
+        } else if (data.phone_number) {
+          // Numéro trouvé avec succès
+          toast({
+            title: "Téléphone récupéré",
+            description: `Numéro trouvé : ${data.phone_number}${data.cached ? ' (en cache)' : ''}`,
+          });
+          return data.phone_number;
         } else {
           // Cas où aucun numéro n'a été trouvé - ce n'est pas une erreur
           toast({
