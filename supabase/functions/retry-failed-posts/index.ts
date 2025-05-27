@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -13,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting retry of failed posts')
+    console.log('Starting retry of posts')
     
     // Initialize Supabase client with service role
     const supabaseClient = createClient(
@@ -28,7 +29,9 @@ serve(async (req) => {
       olderThanMinutes = 30, 
       investigate = true,
       includePending = false,
-      pendingOlderThanMinutes = 60
+      pendingOlderThanMinutes = 60,
+      includeCompleted = false,
+      completedOlderThanMinutes = 60
     } = await req.json()
 
     // Investigation queries first
@@ -89,6 +92,27 @@ serve(async (req) => {
         }
       }
 
+      // 4. Check completed posts if includeCompleted is true
+      if (includeCompleted) {
+        const completedCutoffTime = new Date(Date.now() - completedOlderThanMinutes * 60 * 1000).toISOString();
+        const { data: completedPosts, error: completedError } = await supabaseClient
+          .from('linkedin_posts')
+          .select('id, processing_status, retry_count, created_at, author_name, approach_message_error')
+          .in('processing_status', ['completed', 'duplicate', 'not_job_posting', 'filtered_out'])
+          .lt('created_at', completedCutoffTime)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (completedError) {
+          console.error('Error getting completed posts:', completedError);
+        } else {
+          console.log(`Found ${completedPosts?.length || 0} completed posts older than ${completedOlderThanMinutes} minutes:`);
+          completedPosts?.forEach(post => {
+            console.log(`- ID: ${post.id}, Status: ${post.processing_status}, Created: ${post.created_at}, Author: ${post.author_name}, Has Error: ${!!post.approach_message_error}`);
+          });
+        }
+      }
+
       // ... keep existing code (recent posts investigation)
       const { data: recentPosts, error: recentError } = await supabaseClient
         .from('linkedin_posts')
@@ -105,13 +129,16 @@ serve(async (req) => {
         });
       }
 
-      // 4. Check cutoff time calculation
+      // 5. Check cutoff time calculation
       const cutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
       console.log(`Cutoff time for retry (older than ${olderThanMinutes} minutes): ${cutoffTime}`);
       
       const statusesToCheck = ['error', 'retry_scheduled'];
       if (includePending) {
         statusesToCheck.push('pending');
+      }
+      if (includeCompleted) {
+        statusesToCheck.push('completed', 'duplicate', 'not_job_posting', 'filtered_out');
       }
 
       const { data: oldEnoughPosts, error: oldEnoughError } = await supabaseClient
@@ -130,7 +157,7 @@ serve(async (req) => {
       }
     }
 
-    // Original retry logic with pending support
+    // Original retry logic with completed status support
     let query = supabaseClient
       .from('linkedin_posts')
       .select('id, retry_count, created_at, processing_status, last_retry_at');
@@ -140,6 +167,9 @@ serve(async (req) => {
     if (includePending) {
       statusesToRetry.push('pending');
     }
+    if (includeCompleted) {
+      statusesToRetry.push('completed', 'duplicate', 'not_job_posting', 'filtered_out');
+    }
 
     query = query.in('processing_status', statusesToRetry);
 
@@ -148,12 +178,14 @@ serve(async (req) => {
       query = query.in('id', postIds);
       console.log(`Filtering by specific post IDs: ${postIds.join(', ')}`);
     } else {
-      // Use different cutoff times for pending vs error posts
-      if (includePending) {
-        // For pending posts, use the pendingOlderThanMinutes parameter
+      // Use different cutoff times for different types of posts
+      if (includeCompleted || includePending) {
+        // For completed posts, use the completedOlderThanMinutes parameter
+        const completedCutoffTime = new Date(Date.now() - completedOlderThanMinutes * 60 * 1000).toISOString();
         const pendingCutoffTime = new Date(Date.now() - pendingOlderThanMinutes * 60 * 1000).toISOString();
         const errorCutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
         
+        console.log(`Using completed cutoff time: ${completedCutoffTime}`);
         console.log(`Using pending cutoff time: ${pendingCutoffTime}`);
         console.log(`Using error cutoff time: ${errorCutoffTime}`);
         
@@ -164,21 +196,35 @@ serve(async (req) => {
           .in('processing_status', ['error', 'retry_scheduled'])
           .lt('created_at', errorCutoffTime);
 
-        const { data: pendingPosts } = await supabaseClient
-          .from('linkedin_posts')
-          .select('id, retry_count, created_at, processing_status, last_retry_at')
-          .eq('processing_status', 'pending')
-          .lt('created_at', pendingCutoffTime);
+        let pendingPosts = [];
+        if (includePending) {
+          const { data } = await supabaseClient
+            .from('linkedin_posts')
+            .select('id, retry_count, created_at, processing_status, last_retry_at')
+            .eq('processing_status', 'pending')
+            .lt('created_at', pendingCutoffTime);
+          pendingPosts = data || [];
+        }
 
-        const failedPosts = [...(errorPosts || []), ...(pendingPosts || [])];
+        let completedPosts = [];
+        if (includeCompleted) {
+          const { data } = await supabaseClient
+            .from('linkedin_posts')
+            .select('id, retry_count, created_at, processing_status, last_retry_at')
+            .in('processing_status', ['completed', 'duplicate', 'not_job_posting', 'filtered_out'])
+            .lt('created_at', completedCutoffTime);
+          completedPosts = data || [];
+        }
+
+        const allPosts = [...(errorPosts || []), ...pendingPosts, ...completedPosts];
         
         // Sort by created_at
-        failedPosts.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        allPosts.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         
         // Apply the limit
-        const limitedPosts = failedPosts.slice(0, 50);
+        const limitedPosts = allPosts.slice(0, 50);
         
-        return await processRetries(supabaseClient, limitedPosts, maxRetries, investigate);
+        return await processRetries(supabaseClient, limitedPosts, maxRetries, investigate, includeCompleted);
       } else {
         // Only retry posts that are older than the specified time to avoid immediate retries
         const cutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
@@ -187,12 +233,12 @@ serve(async (req) => {
       }
     }
 
-    const { data: failedPosts, error: fetchError } = await query
+    const { data: postsToRetry, error: fetchError } = await query
       .order('created_at', { ascending: true })
       .limit(50); // Limit to 50 posts per batch to avoid overwhelming the system
 
     if (fetchError) {
-      console.error('Error fetching failed posts:', fetchError);
+      console.error('Error fetching posts to retry:', fetchError);
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Failed to fetch posts' 
@@ -202,7 +248,7 @@ serve(async (req) => {
       });
     }
 
-    return await processRetries(supabaseClient, failedPosts || [], maxRetries, investigate);
+    return await processRetries(supabaseClient, postsToRetry || [], maxRetries, investigate, includeCompleted);
 
   } catch (error: any) {
     console.error('Error in retry-failed-posts function:', error);
@@ -216,12 +262,12 @@ serve(async (req) => {
   }
 });
 
-async function processRetries(supabaseClient: any, failedPosts: any[], maxRetries: number, investigate: boolean) {
-  if (!failedPosts || failedPosts.length === 0) {
-    console.log('No failed posts found to retry');
+async function processRetries(supabaseClient: any, postsToRetry: any[], maxRetries: number, investigate: boolean, includeCompleted: boolean = false) {
+  if (!postsToRetry || postsToRetry.length === 0) {
+    console.log('No posts found to retry');
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'No failed posts found to retry',
+      message: 'No posts found to retry',
       retriedCount: 0,
       investigation: investigate ? 'Check console logs for detailed investigation' : 'Investigation disabled'
     }), { 
@@ -230,29 +276,49 @@ async function processRetries(supabaseClient: any, failedPosts: any[], maxRetrie
     });
   }
 
-  console.log(`Found ${failedPosts.length} failed posts to retry`);
+  console.log(`Found ${postsToRetry.length} posts to retry`);
 
-  // Filter posts that haven't exceeded max retries (pending posts don't have retry count)
-  const postsToRetry = failedPosts.filter(post => {
+  // Filter posts that haven't exceeded max retries (or allow completed posts if includeCompleted is true)
+  const eligiblePosts = postsToRetry.filter(post => {
     if (post.processing_status === 'pending') {
       return true; // Always retry pending posts
+    }
+    if (includeCompleted && ['completed', 'duplicate', 'not_job_posting', 'filtered_out'].includes(post.processing_status)) {
+      return true; // Allow retrying completed posts when includeCompleted is true
     }
     return (post.retry_count || 0) < maxRetries;
   });
   
-  console.log(`${postsToRetry.length} posts are eligible for retry`);
+  console.log(`${eligiblePosts.length} posts are eligible for retry`);
 
   let retriedCount = 0;
   let errors = [];
 
   // Process retries with a small delay between each to avoid overwhelming the system
-  for (const post of postsToRetry) {
+  for (const post of eligiblePosts) {
     try {
+      const isCompletedRetry = ['completed', 'duplicate', 'not_job_posting', 'filtered_out'].includes(post.processing_status);
       const retryAttempt = post.processing_status === 'pending' ? 1 : (post.retry_count || 0) + 1;
-      console.log(`Retrying post ${post.id} (attempt ${retryAttempt})`);
+      
+      console.log(`Retrying post ${post.id} (attempt ${retryAttempt})${isCompletedRetry ? ' [COMPLETED POST RETRY]' : ''}`);
+      
+      // Reset the post status to pending before retrying if it was completed
+      if (isCompletedRetry) {
+        await supabaseClient
+          .from('linkedin_posts')
+          .update({ 
+            processing_status: 'pending',
+            retry_count: 0,
+            approach_message_error: null,
+            approach_message_generated: false
+          })
+          .eq('id', post.id);
+        
+        console.log(`Reset post ${post.id} status to pending for retry`);
+      }
       
       const { error: retryError } = await supabaseClient.functions.invoke('process-linkedin-post', {
-        body: { postId: post.id, isRetry: post.processing_status !== 'pending' }
+        body: { postId: post.id, isRetry: !isCompletedRetry }
       });
 
       if (retryError) {
@@ -264,7 +330,7 @@ async function processRetries(supabaseClient: any, failedPosts: any[], maxRetrie
       }
 
       // Small delay between retries to avoid overwhelming the system
-      if (postsToRetry.indexOf(post) < postsToRetry.length - 1) {
+      if (eligiblePosts.indexOf(post) < eligiblePosts.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
       }
 
@@ -274,9 +340,10 @@ async function processRetries(supabaseClient: any, failedPosts: any[], maxRetrie
     }
   }
 
-  // Mark posts that have exceeded max retries as permanently failed (excluding pending)
-  const exceededRetryPosts = failedPosts.filter(post => 
-    post.processing_status !== 'pending' && (post.retry_count || 0) >= maxRetries
+  // Mark posts that have exceeded max retries as permanently failed (excluding pending and completed)
+  const exceededRetryPosts = postsToRetry.filter(post => 
+    !['pending', 'completed', 'duplicate', 'not_job_posting', 'filtered_out'].includes(post.processing_status) && 
+    (post.retry_count || 0) >= maxRetries
   );
   
   if (exceededRetryPosts.length > 0) {
@@ -298,11 +365,12 @@ async function processRetries(supabaseClient: any, failedPosts: any[], maxRetrie
     success: true, 
     message: 'Retry batch completed',
     retriedCount: retriedCount,
-    totalFound: failedPosts.length,
-    eligibleForRetry: postsToRetry.length,
+    totalFound: postsToRetry.length,
+    eligibleForRetry: eligiblePosts.length,
     permanentlyFailed: exceededRetryPosts.length,
     errors: errors,
-    investigation: investigate ? 'Check console logs for detailed investigation' : 'Investigation disabled'
+    investigation: investigate ? 'Check console logs for detailed investigation' : 'Investigation disabled',
+    includeCompleted: includeCompleted
   }), { 
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
