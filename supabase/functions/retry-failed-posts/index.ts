@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -23,8 +24,82 @@ serve(async (req) => {
     )
 
     // Parse the incoming request
-    const { postIds = null, maxRetries = 3, olderThanMinutes = 30 } = await req.json()
+    const { postIds = null, maxRetries = 3, olderThanMinutes = 30, investigate = true } = await req.json()
 
+    // Investigation queries first
+    if (investigate) {
+      console.log('=== INVESTIGATION MODE ===')
+      
+      // 1. Count all posts by status
+      const { data: statusCounts, error: statusError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('processing_status')
+        .not('processing_status', 'is', null);
+
+      if (statusError) {
+        console.error('Error getting status counts:', statusError);
+      } else {
+        const counts = statusCounts.reduce((acc, post) => {
+          acc[post.processing_status] = (acc[post.processing_status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('Posts by status:', counts);
+      }
+
+      // 2. Look for error posts specifically
+      const { data: errorPosts, error: errorPostsError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('id, processing_status, retry_count, created_at, last_retry_at, author_name')
+        .in('processing_status', ['error', 'retry_scheduled'])
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (errorPostsError) {
+        console.error('Error getting error posts:', errorPostsError);
+      } else {
+        console.log(`Found ${errorPosts?.length || 0} posts with error/retry_scheduled status:`);
+        errorPosts?.forEach(post => {
+          console.log(`- ID: ${post.id}, Status: ${post.processing_status}, Retry Count: ${post.retry_count}, Created: ${post.created_at}, Author: ${post.author_name}`);
+        });
+      }
+
+      // 3. Check recent posts regardless of status
+      const { data: recentPosts, error: recentError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('id, processing_status, retry_count, created_at, author_name')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (recentError) {
+        console.error('Error getting recent posts:', recentError);
+      } else {
+        console.log(`Recent 20 posts (any status):`);
+        recentPosts?.forEach(post => {
+          console.log(`- ID: ${post.id}, Status: ${post.processing_status}, Retry Count: ${post.retry_count || 0}, Created: ${post.created_at}, Author: ${post.author_name}`);
+        });
+      }
+
+      // 4. Check cutoff time calculation
+      const cutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
+      console.log(`Cutoff time for retry (older than ${olderThanMinutes} minutes): ${cutoffTime}`);
+      
+      const { data: oldEnoughPosts, error: oldEnoughError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('id, processing_status, retry_count, created_at')
+        .in('processing_status', ['error', 'retry_scheduled'])
+        .lt('created_at', cutoffTime);
+
+      if (oldEnoughError) {
+        console.error('Error getting old enough posts:', oldEnoughError);
+      } else {
+        console.log(`Posts old enough for retry (${oldEnoughPosts?.length || 0}):`);
+        oldEnoughPosts?.forEach(post => {
+          console.log(`- ID: ${post.id}, Status: ${post.processing_status}, Created: ${post.created_at}`);
+        });
+      }
+    }
+
+    // Original retry logic
     let query = supabaseClient
       .from('linkedin_posts')
       .select('id, retry_count, created_at, processing_status, last_retry_at')
@@ -33,10 +108,12 @@ serve(async (req) => {
     // Filter by specific post IDs if provided
     if (postIds && Array.isArray(postIds)) {
       query = query.in('id', postIds);
+      console.log(`Filtering by specific post IDs: ${postIds.join(', ')}`);
     } else {
       // Only retry posts that are older than the specified time to avoid immediate retries
       const cutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
       query = query.lt('created_at', cutoffTime);
+      console.log(`Using cutoff time: ${cutoffTime}`);
     }
 
     const { data: failedPosts, error: fetchError } = await query
@@ -59,7 +136,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'No failed posts found to retry',
-        retriedCount: 0
+        retriedCount: 0,
+        investigation: investigate ? 'Check console logs for detailed investigation' : 'Investigation disabled'
       }), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -128,7 +206,8 @@ serve(async (req) => {
       totalFound: failedPosts.length,
       eligibleForRetry: postsToRetry.length,
       permanentlyFailed: exceededRetryPosts.length,
-      errors: errors
+      errors: errors,
+      investigation: investigate ? 'Check console logs for detailed investigation' : 'Investigation disabled'
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -145,3 +224,4 @@ serve(async (req) => {
     });
   }
 });
+

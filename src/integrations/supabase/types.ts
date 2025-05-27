@@ -226,6 +226,7 @@ export type Database = {
           id: string
           is_client_lead: boolean | null
           last_contact_at: string | null
+          last_retry_at: string | null
           linkedin_message_sent_at: string | null
           matched_client_id: string | null
           matched_client_name: string | null
@@ -249,6 +250,7 @@ export type Database = {
           posted_at_timestamp: number | null
           processing_status: string | null
           raw_data: Json
+          retry_count: number | null
           text: string
           title: string | null
           unipile_company: string | null
@@ -276,6 +278,7 @@ export type Database = {
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
+          last_retry_at?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
@@ -299,6 +302,7 @@ export type Database = {
           posted_at_timestamp?: number | null
           processing_status?: string | null
           raw_data: Json
+          retry_count?: number | null
           text: string
           title?: string | null
           unipile_company?: string | null
@@ -326,6 +330,7 @@ export type Database = {
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
+          last_retry_at?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
@@ -349,6 +354,7 @@ export type Database = {
           posted_at_timestamp?: number | null
           processing_status?: string | null
           raw_data?: Json
+          retry_count?: number | null
           text?: string
           title?: string | null
           unipile_company?: string | null
