@@ -42,6 +42,9 @@ const MultiSelectFilter = ({
     onSelectionChange(options.map(option => option.value));
   };
 
+  const selectedCount = selectedValues.length;
+  const totalCount = options.length;
+
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -56,30 +59,30 @@ const MultiSelectFilter = ({
             variant="secondary" 
             className="ml-2 h-5 px-2 bg-blue-100 text-blue-700 border-0 font-semibold text-xs rounded-full"
           >
-            {selectedValues.length}
+            {selectedCount}
           </Badge>
           <ChevronDown className="ml-2 h-4 w-4 text-gray-500" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64" align="end" side="bottom">
+      <DropdownMenuContent className="w-64 bg-white shadow-lg z-50" align="end" side="bottom">
         <DropdownMenuLabel className="flex items-center justify-between">
           {title}
           <div className="flex gap-2">
-            {selectedValues.length !== options.length && (
+            {selectedCount !== totalCount && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto p-0 text-xs"
+                className="h-auto p-0 text-xs text-blue-600 hover:text-blue-800"
                 onClick={selectAll}
               >
                 Tout sélectionner
               </Button>
             )}
-            {selectedValues.length > 0 && (
+            {selectedCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto p-0 text-xs"
+                className="h-auto p-0 text-xs text-gray-600 hover:text-gray-800"
                 onClick={clearAll}
               >
                 Tout effacer
@@ -88,16 +91,19 @@ const MultiSelectFilter = ({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {options.map((option) => (
-          <DropdownMenuCheckboxItem
-            key={option.value}
-            checked={selectedValues.includes(option.value)}
-            onCheckedChange={() => handleToggle(option.value)}
-            onSelect={(e) => e.preventDefault()}
-          >
-            {option.label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <div className="max-h-64 overflow-y-auto">
+          {options.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={selectedValues.includes(option.value)}
+              onCheckedChange={() => handleToggle(option.value)}
+              onSelect={(e) => e.preventDefault()}
+              className="cursor-pointer"
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
