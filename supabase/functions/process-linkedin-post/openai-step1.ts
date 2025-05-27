@@ -75,19 +75,6 @@ Le post :
 * Est **vague, non ciblé ou purement théorique**.
 * **Ne mentionne aucun poste clair**.
 
----
-
-### 📝 EXEMPLES
-
-**Exemple 1 - OUI :**
-"Nous recrutons un Développeur Full Stack et un Product Manager pour rejoindre notre équipe à Paris. Postulez sur notre site !"
-
-**Exemple 2 - NON :**
-"Je recherche activement un poste de Data Scientist. N'hésitez pas à me contacter."
-
-**Exemple 3 - NON :**
-"Nous recrutons pour nos clients : 5 développeurs, 3 designers, 2 chefs de projet, 4 commerciaux..." (trop de postes)
-
 Soyez TRÈS attentif aux nuances et analysez bien si c'est l'entreprise de l'auteur qui recrute directement.`
         },
         {
