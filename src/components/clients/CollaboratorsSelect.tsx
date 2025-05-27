@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -106,7 +105,7 @@ export function CollaboratorsSelect({
         </div>
       )}
       
-      {/* Sélecteur de collaborateurs */}
+      {/* Sélecteur de collaborateurs simplifié */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -122,44 +121,56 @@ export function CollaboratorsSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0">
-          <Command>
-            <CommandInput placeholder="Rechercher un collaborateur..." />
-            <CommandEmpty>
-              {safeUsers.length === 0 
-                ? "Aucun utilisateur disponible dans le système."
-                : "Aucun utilisateur trouvé avec cette recherche."
-              }
-            </CommandEmpty>
-            {safeUsers.length > 0 && (
-              <CommandGroup>
-                <div className="px-2 py-1 text-xs text-muted-foreground">
-                  Utilisateurs disponibles ({safeUsers.length})
-                </div>
+          <div className="p-4">
+            <div className="text-sm font-medium mb-3">
+              Collaborateurs disponibles ({safeUsers.length})
+            </div>
+            
+            {safeUsers.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                Aucun utilisateur disponible dans le système.
+              </div>
+            ) : (
+              <div className="space-y-2">
                 {safeUsers.map((user) => (
-                  <CommandItem
+                  <div
                     key={user.id}
-                    onSelect={() => {
+                    className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                    onClick={() => {
                       console.log('Utilisateur sélectionné:', user);
                       toggleUser(user.id);
                     }}
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        safeSelectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{getDisplayName(user)}</span>
-                      {user.full_name && user.email && (
-                        <span className="text-sm text-muted-foreground">{user.email}</span>
-                      )}
+                    <div className="flex items-center space-x-2 flex-1">
+                      <Check
+                        className={cn(
+                          "h-4 w-4",
+                          safeSelectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{getDisplayName(user)}</span>
+                        {user.full_name && user.email && (
+                          <span className="text-sm text-muted-foreground">{user.email}</span>
+                        )}
+                      </div>
                     </div>
-                  </CommandItem>
+                  </div>
                 ))}
-              </CommandGroup>
+              </div>
             )}
-          </Command>
+            
+            <div className="mt-3 pt-3 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setOpen(false)}
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
         </PopoverContent>
       </Popover>
       
