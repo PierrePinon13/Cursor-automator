@@ -13,24 +13,18 @@ const CustomSidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   CustomSidebarTriggerProps
 >(({ className, ...props }, ref) => {
-  const { toggleSidebar, open } = useSidebar();
+  const { toggleSidebar } = useSidebar();
 
   return (
     <Button
       ref={ref}
       variant="ghost"
       size="icon"
-      className={cn(
-        "h-7 w-7 relative overflow-visible",
-        className
-      )}
+      className={cn("h-7 w-7", className)}
       onClick={toggleSidebar}
       {...props}
     >
-      {open && (
-        <div className="absolute left-0 top-0 h-full w-1 bg-black rounded-r-sm z-10" />
-      )}
-      <PanelLeft className="relative z-0" />
+      <PanelLeft />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );
