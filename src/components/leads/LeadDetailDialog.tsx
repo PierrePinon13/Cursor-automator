@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -65,27 +66,23 @@ const LeadDetailDialog = ({
     setCurrentLeads(leads);
   }, [leads]);
 
-  if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return null;
-
-  const lead = currentLeads[selectedLeadIndex];
-  const canGoPrevious = selectedLeadIndex > 0;
-  const canGoNext = selectedLeadIndex < currentLeads.length - 1;
-
+  // Définir les fonctions de navigation
   const handlePrevious = () => {
-    if (canGoPrevious) {
+    if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
       onNavigateToLead(selectedLeadIndex - 1);
       setCustomMessage('');
     }
   };
 
   const handleNext = () => {
-    if (canGoNext) {
+    if (selectedLeadIndex !== null && selectedLeadIndex < currentLeads.length - 1) {
       onNavigateToLead(selectedLeadIndex + 1);
       setCustomMessage('');
     }
   };
 
   // Keyboard shortcuts pour la navigation dans le dialog
+  // IMPORTANT: Les hooks doivent TOUJOURS être appelés, même si isOpen est false
   useKeyboardShortcuts({
     onNextItem: handleNext,
     onPreviousItem: handlePrevious,
@@ -94,12 +91,20 @@ const LeadDetailDialog = ({
   });
 
   // Touch gestures pour la navigation dans le dialog
+  // IMPORTANT: Les hooks doivent TOUJOURS être appelés, même si isOpen est false
   useTouchGestures({
     onSwipeLeft: handleNext,
     onSwipeRight: handlePrevious,
     onSwipeUp: onClose,
     enabled: isOpen
   });
+
+  // Maintenant on peut faire le return conditionnel APRÈS tous les hooks
+  if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return null;
+
+  const lead = currentLeads[selectedLeadIndex];
+  const canGoPrevious = selectedLeadIndex > 0;
+  const canGoNext = selectedLeadIndex < currentLeads.length - 1;
 
   const handleAction = (actionName: string) => {
     console.log(`Action ${actionName} executée pour le lead ${lead.author_name}`);
