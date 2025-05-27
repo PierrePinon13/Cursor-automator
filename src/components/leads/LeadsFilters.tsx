@@ -57,38 +57,50 @@ const getColumnOptions = (showAssignmentColumn = false) => {
   return baseColumns;
 };
 
+// Toutes les catégories possibles avec leurs couleurs
+const allCategories = [
+  'Tech',
+  'Business', 
+  'Product',
+  'Executive Search',
+  'Comptelio',
+  'RH',
+  'Freelance',
+  'Data'
+];
+
 const categoryColors = {
   'Tech': {
     active: 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'Business': {
     active: 'bg-green-100 border-green-300 text-green-800 hover:bg-green-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'Product': {
     active: 'bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'Executive Search': {
     active: 'bg-red-100 border-red-300 text-red-800 hover:bg-red-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'Comptelio': {
     active: 'bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'RH': {
     active: 'bg-pink-100 border-pink-300 text-pink-800 hover:bg-pink-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'Freelance': {
     active: 'bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   },
   'Data': {
     active: 'bg-teal-100 border-teal-300 text-teal-800 hover:bg-teal-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   }
 };
 
@@ -118,7 +130,7 @@ export default function LeadsFilters({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Top row with filters and view toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -146,42 +158,41 @@ export default function LeadsFilters({
           )}
         </div>
 
-        {/* Table/Card View Toggle */}
-        <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+        {/* Table/Card View Toggle - Sans encadré et plus compact */}
+        <div className="flex gap-1">
           <Button
             variant={viewMode === 'table' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('table')}
+            className="h-7 px-3 text-sm"
           >
-            <Table className="h-4 w-4" />
+            <Table className="h-4 w-4 mr-1" />
             Tableau
           </Button>
           <Button
             variant={viewMode === 'card' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('card')}
+            className="h-7 px-3 text-sm"
           >
-            <Grid3X3 className="h-4 w-4" />
+            <Grid3X3 className="h-4 w-4 mr-1" />
             Cartes
           </Button>
         </div>
       </div>
       
-      {/* Categories badges row */}
-      <div className="flex flex-wrap gap-2">
-        {availableCategories.map((category) => {
+      {/* Categories badges row - Plus compact */}
+      <div className="flex flex-wrap gap-1.5">
+        {allCategories.map((category) => {
           const isSelected = selectedCategories.includes(category);
-          const colors = categoryColors[category as keyof typeof categoryColors] || {
-            active: 'bg-gray-100 border-gray-300 text-gray-800 hover:bg-gray-150',
-            inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
-          };
+          const colors = categoryColors[category as keyof typeof categoryColors];
           const colorClass = isSelected ? colors.active : colors.inactive;
           
           return (
             <Badge
               key={category}
               variant="outline"
-              className={`text-xs px-2 py-1 cursor-pointer transition-colors border ${colorClass}`}
+              className={`text-xs px-2 py-0.5 h-6 cursor-pointer transition-colors border ${colorClass}`}
               onClick={() => toggleCategory(category)}
             >
               {category}
