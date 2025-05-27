@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { allColumns } from './table/columnDefinitions';
@@ -37,6 +36,7 @@ interface Lead {
   linkedin_message_sent_at?: string | null;
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
+  last_updated_at?: string | null;
 }
 
 interface DraggableTableProps {

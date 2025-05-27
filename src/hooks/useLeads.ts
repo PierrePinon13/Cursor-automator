@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,6 +34,7 @@ interface Lead {
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
   processing_status?: string;
+  last_updated_at?: string | null;
 }
 
 export const useLeads = () => {
@@ -129,7 +129,8 @@ export const useLeads = () => {
           linkedin_message_sent_at,
           phone_contact_status,
           phone_contact_at,
-          processing_status
+          processing_status,
+          last_updated_at
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)

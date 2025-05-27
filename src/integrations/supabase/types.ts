@@ -227,6 +227,7 @@ export type Database = {
           is_client_lead: boolean | null
           last_contact_at: string | null
           last_retry_at: string | null
+          last_updated_at: string | null
           linkedin_message_sent_at: string | null
           matched_client_id: string | null
           matched_client_name: string | null
@@ -279,6 +280,7 @@ export type Database = {
           is_client_lead?: boolean | null
           last_contact_at?: string | null
           last_retry_at?: string | null
+          last_updated_at?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
@@ -331,6 +333,7 @@ export type Database = {
           is_client_lead?: boolean | null
           last_contact_at?: string | null
           last_retry_at?: string | null
+          last_updated_at?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null

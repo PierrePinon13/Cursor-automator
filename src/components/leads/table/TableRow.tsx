@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Column } from './columnDefinitions';
 
@@ -21,7 +20,7 @@ interface Lead {
   unipile_position: string;
   unipile_profile_scraped: boolean;
   unipile_profile_scraped_at: string;
-  unipile_response?: any; // Add this field
+  unipile_response?: any;
   phone_number?: string | null;
   phone_retrieved_at?: string | null;
   approach_message?: string | null;
@@ -34,6 +33,7 @@ interface Lead {
   linkedin_message_sent_at?: string | null;
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
+  last_updated_at?: string | null;
 }
 
 interface TableRowProps {

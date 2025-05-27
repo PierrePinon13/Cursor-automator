@@ -1,4 +1,3 @@
-
 import React from 'react';
 import LeadInfo from './LeadInfo';
 import LeadMessageEditor from './LeadMessageEditor';
@@ -35,6 +34,7 @@ interface Lead {
   linkedin_message_sent_at?: string | null;
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
+  last_updated_at?: string | null;
 }
 
 interface LeadDetailContentProps {

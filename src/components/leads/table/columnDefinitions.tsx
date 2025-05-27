@@ -36,6 +36,7 @@ interface Lead {
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
   unipile_response?: any;
+  last_updated_at?: string | null;
 }
 
 export interface Column {
@@ -66,6 +67,17 @@ export const allColumns: Column[] = [
     render: (lead) => (
       <span className="text-xs whitespace-nowrap">
         {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
+      </span>
+    )
+  },
+  {
+    id: 'last_updated',
+    label: 'Dernière MAJ',
+    width: '90px',
+    minWidth: '90px',
+    render: (lead) => (
+      <span className="text-xs whitespace-nowrap text-gray-600">
+        {lead.last_updated_at ? getTimeAgo(lead.last_updated_at) : 'N/A'}
       </span>
     )
   },

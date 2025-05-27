@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -31,7 +32,8 @@ const Leads = () => {
   const { toggleSidebar } = useSidebar();
   
   const [visibleColumns, setVisibleColumns] = useState([
-    'posted_date', 
+    'posted_date',
+    'last_updated', 
     'job_title', 
     'author_name', 
     'company', 
