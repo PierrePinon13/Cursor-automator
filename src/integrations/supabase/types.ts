@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_actions_log: {
+        Row: {
+          action_details: Json | null
+          action_type: string
+          created_at: string
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          posts_affected: number | null
+          success: boolean
+          user_id: string | null
+        }
+        Insert: {
+          action_details?: Json | null
+          action_type: string
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          posts_affected?: number | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          action_details?: Json | null
+          action_type?: string
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          posts_affected?: number | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       client_collaborators: {
         Row: {
           client_id: string
@@ -372,6 +408,93 @@ export type Database = {
         }
         Relationships: []
       }
+      processing_metrics_hourly: {
+        Row: {
+          avg_processing_time_minutes: number | null
+          created_at: string
+          duplicate_rate: number
+          error_rate: number
+          hour_timestamp: string
+          id: string
+          median_processing_time_minutes: number | null
+          message_pending: number
+          posts_completed: number
+          posts_failed: number
+          posts_in_processing: number
+          recorded_at: string
+          step1_conversion_rate: number
+          step1_passed: number
+          step1_pending: number
+          step1_total: number
+          step2_conversion_rate: number
+          step2_passed: number
+          step2_pending: number
+          step2_total: number
+          step3_conversion_rate: number
+          step3_passed: number
+          step3_pending: number
+          step3_total: number
+          total_posts_processed: number
+          unipile_pending: number
+        }
+        Insert: {
+          avg_processing_time_minutes?: number | null
+          created_at?: string
+          duplicate_rate?: number
+          error_rate?: number
+          hour_timestamp: string
+          id?: string
+          median_processing_time_minutes?: number | null
+          message_pending?: number
+          posts_completed?: number
+          posts_failed?: number
+          posts_in_processing?: number
+          recorded_at?: string
+          step1_conversion_rate?: number
+          step1_passed?: number
+          step1_pending?: number
+          step1_total?: number
+          step2_conversion_rate?: number
+          step2_passed?: number
+          step2_pending?: number
+          step2_total?: number
+          step3_conversion_rate?: number
+          step3_passed?: number
+          step3_pending?: number
+          step3_total?: number
+          total_posts_processed?: number
+          unipile_pending?: number
+        }
+        Update: {
+          avg_processing_time_minutes?: number | null
+          created_at?: string
+          duplicate_rate?: number
+          error_rate?: number
+          hour_timestamp?: string
+          id?: string
+          median_processing_time_minutes?: number | null
+          message_pending?: number
+          posts_completed?: number
+          posts_failed?: number
+          posts_in_processing?: number
+          recorded_at?: string
+          step1_conversion_rate?: number
+          step1_passed?: number
+          step1_pending?: number
+          step1_total?: number
+          step2_conversion_rate?: number
+          step2_passed?: number
+          step2_pending?: number
+          step2_total?: number
+          step3_conversion_rate?: number
+          step3_passed?: number
+          step3_pending?: number
+          step3_total?: number
+          total_posts_processed?: number
+          unipile_pending?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -434,6 +557,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      collect_processing_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       increment_linkedin_messages: {
         Args: { user_uuid: string }
         Returns: undefined

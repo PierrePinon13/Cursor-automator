@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import DashboardHeader from '@/components/DashboardHeader';
 import StatsFilters from '@/components/dashboard/StatsFilters';
@@ -6,6 +5,9 @@ import StatsCards from '@/components/dashboard/StatsCards';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
 import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
 import ProcessingBottlenecks from '@/components/dashboard/ProcessingBottlenecks';
+import MetricsChart from '@/components/dashboard/MetricsChart';
+import AdminActions from '@/components/dashboard/AdminActions';
+import ProcessingTrends from '@/components/dashboard/ProcessingTrends';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats, TimeFilter, ViewType } from '@/hooks/useUserStats';
@@ -49,10 +51,11 @@ const Dashboard = () => {
         />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full lg:w-[500px] grid-cols-3">
+          <TabsList className="grid w-full lg:w-[600px] grid-cols-4">
             <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
             <TabsTrigger value="processing">Pipeline LinkedIn</TabsTrigger>
             <TabsTrigger value="bottlenecks">Goulots</TabsTrigger>
+            <TabsTrigger value="admin">Administration</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -72,6 +75,12 @@ const Dashboard = () => {
                 {viewType === 'comparison' && stats.length > 0 && (
                   <UserStatsTable stats={stats} />
                 )}
+
+                {/* Métriques et tendances */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <MetricsChart hours={24} />
+                  <ProcessingTrends />
+                </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Résumé de la période - Plus compact */}
@@ -161,6 +170,14 @@ const Dashboard = () => {
 
           <TabsContent value="bottlenecks" className="space-y-6">
             <ProcessingBottlenecks />
+          </TabsContent>
+
+          <TabsContent value="admin" className="space-y-6">
+            <AdminActions />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MetricsChart hours={168} />
+              <ProcessingTrends />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
