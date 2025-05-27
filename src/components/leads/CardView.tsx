@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -40,10 +41,11 @@ interface Lead {
 interface CardViewProps {
   leads: Lead[];
   onActionCompleted: () => void;
+  selectedLeadIndex: number | null;
+  onLeadSelect: (index: number | null) => void;
 }
 
-const CardView = ({ leads, onActionCompleted }: CardViewProps) => {
-  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
+const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }: CardViewProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleCardClick = (leadIndex: number, event: React.MouseEvent) => {
@@ -51,17 +53,17 @@ const CardView = ({ leads, onActionCompleted }: CardViewProps) => {
     if ((event.target as HTMLElement).closest('a, button, [data-clickable]')) {
       return;
     }
-    setSelectedLeadIndex(leadIndex);
+    onLeadSelect(leadIndex);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
-    setSelectedLeadIndex(null);
+    onLeadSelect(null);
   };
 
   const handleNavigateToLead = (newIndex: number) => {
-    setSelectedLeadIndex(newIndex);
+    onLeadSelect(newIndex);
   };
 
   const handleActionCompleted = () => {
@@ -69,7 +71,7 @@ const CardView = ({ leads, onActionCompleted }: CardViewProps) => {
     onActionCompleted();
     
     if (selectedLeadIndex !== null && selectedLeadIndex < leads.length - 1) {
-      setSelectedLeadIndex(selectedLeadIndex + 1);
+      onLeadSelect(selectedLeadIndex + 1);
     } else {
       handleCloseDialog();
     }
