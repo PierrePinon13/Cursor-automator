@@ -1,6 +1,9 @@
 
 import MultiSelectFilter from './MultiSelectFilter';
 import SavedViewsButton from './SavedViewsButton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -88,6 +91,18 @@ export default function LeadsFilters({
     }
   };
 
+  const removeCategory = (categoryToRemove: string) => {
+    setSelectedCategories(selectedCategories.filter(cat => cat !== categoryToRemove));
+  };
+
+  const clearAllCategories = () => {
+    setSelectedCategories([]);
+  };
+
+  const selectAllCategories = () => {
+    setSelectedCategories(availableCategories);
+  };
+
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
       <div className="flex items-center justify-between">
@@ -103,15 +118,59 @@ export default function LeadsFilters({
       </div>
       
       <div className="space-y-4">
-        {/* Ligne principale avec les 3 filtres principaux */}
-        <div className="flex flex-wrap items-center gap-3">
-          <MultiSelectFilter
-            title="Catégories"
-            options={categoryOptions}
-            selectedValues={selectedCategories}
-            onSelectionChange={setSelectedCategories}
-          />
+        {/* Section catégories avec chips */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Catégories</label>
+            <div className="flex gap-2">
+              {selectedCategories.length !== availableCategories.length && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-xs text-blue-600 hover:text-blue-800"
+                  onClick={selectAllCategories}
+                >
+                  Tout sélectionner
+                </Button>
+              )}
+              {selectedCategories.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-xs text-gray-600 hover:text-gray-800"
+                  onClick={clearAllCategories}
+                >
+                  Tout effacer
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedCategories.map((category) => (
+              <Badge
+                key={category}
+                variant="secondary"
+                className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 cursor-pointer hover:bg-blue-200 transition-colors"
+              >
+                {category}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto w-auto p-0 ml-2 hover:bg-transparent"
+                  onClick={() => removeCategory(category)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            ))}
+            {selectedCategories.length === 0 && (
+              <span className="text-sm text-gray-500 italic">Aucune catégorie sélectionnée</span>
+            )}
+          </div>
+        </div>
 
+        {/* Filtres période et colonnes visibles */}
+        <div className="flex flex-wrap items-center gap-3">
           <MultiSelectFilter
             title="Période"
             options={dateFilterOptions}
@@ -127,7 +186,7 @@ export default function LeadsFilters({
           />
         </div>
 
-        {/* Filtre de contact sur une ligne séparée si affiché */}
+        {/* Filtre de contact si affiché */}
         {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
           <div className="flex items-center">
             <MultiSelectFilter
