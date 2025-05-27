@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -184,11 +183,6 @@ const Leads = () => {
           viewMode={viewMode}
           onApplyView={handleApplyView}
         />
-        <div className="text-sm text-muted-foreground ml-auto">
-          <kbd className="px-2 py-1 text-xs bg-white border rounded">Espace</kbd> pour basculer la sidebar • 
-          <kbd className="px-2 py-1 text-xs bg-white border rounded ml-1">←</kbd>
-          <kbd className="px-2 py-1 text-xs bg-white border rounded">→</kbd> pour naviguer
-        </div>
       </div>
       
       <div className="space-y-6">
@@ -204,6 +198,8 @@ const Leads = () => {
           availableCategories={availableCategories}
           showContactFilter={true}
           showAssignmentColumn={false}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
         />
         
         <div className="bg-white rounded-lg shadow">

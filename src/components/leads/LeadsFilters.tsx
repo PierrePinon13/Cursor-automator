@@ -3,7 +3,8 @@ import MultiSelectFilter from './MultiSelectFilter';
 import SavedViewsButton from './SavedViewsButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { X, Table, Grid } from 'lucide-react';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -17,6 +18,8 @@ interface LeadsFiltersProps {
   setVisibleColumns: (columns: string[]) => void;
   showContactFilter?: boolean;
   showAssignmentColumn?: boolean;
+  viewMode: 'table' | 'card';
+  setViewMode: (mode: 'table' | 'card') => void;
 }
 
 const dateFilterOptions = [
@@ -67,7 +70,9 @@ export default function LeadsFilters({
   visibleColumns,
   setVisibleColumns,
   showContactFilter = true,
-  showAssignmentColumn = false
+  showAssignmentColumn = false,
+  viewMode,
+  setViewMode
 }: LeadsFiltersProps) {
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
@@ -84,6 +89,7 @@ export default function LeadsFilters({
     if (setSelectedContactFilter) {
       setSelectedContactFilter(view.selectedContactFilter);
     }
+    setViewMode(view.viewMode);
   };
 
   const removeCategory = (categoryToRemove: string) => {
@@ -101,22 +107,30 @@ export default function LeadsFilters({
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Filtres</h2>
         <SavedViewsButton
           selectedCategories={selectedCategories}
           visibleColumns={visibleColumns}
           selectedDateFilter={selectedDateFilter}
           selectedContactFilter={selectedContactFilter || 'exclude_2weeks'}
-          viewMode="table"
+          viewMode={viewMode}
           onApplyView={handleApplyView}
         />
+        <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as 'table' | 'card')}>
+          <ToggleGroupItem value="table" aria-label="Vue tableau">
+            <Table className="h-4 w-4" />
+            <span className="ml-1">Tableau</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="card" aria-label="Vue cartes">
+            <Grid className="h-4 w-4" />
+            <span className="ml-1">Cartes</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
       
       <div className="space-y-4">
-        {/* Section catégories avec chips */}
+        {/* Categories chips without label */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">Catégories</label>
             <div className="flex gap-2">
               {selectedCategories.length !== availableCategories.length && (
                 <Button
@@ -164,7 +178,7 @@ export default function LeadsFilters({
           </div>
         </div>
 
-        {/* Filtres période et colonnes visibles */}
+        {/* Filters row */}
         <div className="flex flex-wrap items-center gap-3">
           <MultiSelectFilter
             title="Période"
@@ -179,19 +193,16 @@ export default function LeadsFilters({
             selectedValues={visibleColumns}
             onSelectionChange={setVisibleColumns}
           />
-        </div>
 
-        {/* Filtre de contact si affiché */}
-        {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
-          <div className="flex items-center">
+          {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
             <MultiSelectFilter
               title="Statut de contact"
               options={contactFilterOptions}
               selectedValues={[selectedContactFilter]}
               onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
