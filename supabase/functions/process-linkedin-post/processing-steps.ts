@@ -44,8 +44,8 @@ export async function executeUnipileScraping(context: ProcessingContext) {
   console.log('Starting Unipile profile scraping')
   const scrapingResult = await scrapLinkedInProfile(
     context.unipileApiKey,
-    context.post.author_profile_id,
-    context.post.author_profile_url,
+    context.post.author_profile_id, // Utiliser author_profile_id au lieu de author_profile_url
+    'DdxglDwFT-mMZgxHeCGMdA', // Account ID fixe
     context.supabaseClient
   )
   await updateUnipileResults(context.supabaseClient, context.postId, scrapingResult, { scrapingResult })
