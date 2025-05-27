@@ -144,6 +144,7 @@ Tu recevras :
    * Exemples : "un Content Manager", "un Développeur Frontend", "un Data Scientist"
    * Simplifier seulement si nécessaire mais éviter la sur-simplification
    * Si plusieurs postes : utiliser le premier ou les grouper intelligemment
+   * (Ajouter un saut de ligne après cette phrase)
 
 3. **Positionnement sobre**
 
@@ -152,6 +153,7 @@ Tu recevras :
 4. **Proposition de valeur concrète**
 
    * "Je peux vous présenter des candidats si cela peut vous faire gagner du temps."
+   * (Ajouter un saut de ligne après cette phrase)
 
 5. **Clôture polie**
 
@@ -168,7 +170,7 @@ Tu recevras :
 
 \`\`\`json
 {
-  "message_approche": "Bonjour Julie,\\n\\nJ'ai vu que vous recherchiez un Content Manager. Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps. Bonne journée"
+  "message_approche": "Bonjour Julie,\\n\\nJ'ai vu que vous recherchiez un Content Manager.\\n\\nJe connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps.\\n\\nBonne journée"
 }
 \`\`\``
           },
@@ -233,7 +235,9 @@ function generateDefaultTemplate(authorName: string, selectedPositions: string[]
   
   return `Bonjour ${firstName},
 
-J'ai vu que vous recherchiez un ${position}. Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps.
+J'ai vu que vous recherchiez un ${position}.
+
+Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps.
 
 Bonne journée`;
 }
