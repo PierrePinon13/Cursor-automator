@@ -1,3 +1,4 @@
+
 import MultiSelectFilter from './MultiSelectFilter';
 import SavedViewsButton from './SavedViewsButton';
 
@@ -72,48 +73,64 @@ export default function LeadsFilters({
 
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
+  const handleApplyView = (view: {
+    selectedCategories: string[];
+    visibleColumns: string[];
+    selectedDateFilter: string;
+    selectedContactFilter: string;
+    viewMode: 'table' | 'cards';
+  }) => {
+    setSelectedCategories(view.selectedCategories);
+    setVisibleColumns(view.visibleColumns);
+    setSelectedDateFilter(view.selectedDateFilter);
+    if (setSelectedContactFilter) {
+      setSelectedContactFilter(view.selectedContactFilter);
+    }
+  };
+
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Filtres</h2>
-        <SavedViewsButton />
+        <SavedViewsButton
+          selectedCategories={selectedCategories}
+          visibleColumns={visibleColumns}
+          selectedDateFilter={selectedDateFilter}
+          selectedContactFilter={selectedContactFilter || 'exclude_2weeks'}
+          viewMode="table"
+          onApplyView={handleApplyView}
+        />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MultiSelectFilter
-          label="Catégories"
+          title="Catégories"
           options={categoryOptions}
           selectedValues={selectedCategories}
           onSelectionChange={setSelectedCategories}
-          placeholder="Sélectionner les catégories"
         />
 
         <MultiSelectFilter
-          label="Période"
+          title="Période"
           options={dateFilterOptions}
           selectedValues={[selectedDateFilter]}
           onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
-          placeholder="Sélectionner la période"
-          singleSelect
         />
 
         {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
           <MultiSelectFilter
-            label="Statut de contact"
+            title="Statut de contact"
             options={contactFilterOptions}
             selectedValues={[selectedContactFilter]}
             onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
-            placeholder="Statut de contact"
-            singleSelect
           />
         )}
 
         <MultiSelectFilter
-          label="Colonnes visibles"
+          title="Colonnes visibles"
           options={columnOptions}
           selectedValues={visibleColumns}
           onSelectionChange={setVisibleColumns}
-          placeholder="Sélectionner les colonnes"
         />
       </div>
     </div>

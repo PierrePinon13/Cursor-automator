@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -19,6 +20,7 @@ const Leads = () => {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
+    availableCategories,
     refreshLeads
   } = useLeads();
   
@@ -104,15 +106,39 @@ const Leads = () => {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onToggleSidebar: toggleSidebar,
-    onNextItem: handleNavigateToNextLead,
-    onPreviousItem: handleNavigateToPreviousLead,
+    onNextItem: () => {
+      if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
+        setSelectedLeadIndex(selectedLeadIndex + 1);
+      } else if (filteredLeads.length > 0) {
+        setSelectedLeadIndex(0);
+      }
+    },
+    onPreviousItem: () => {
+      if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
+        setSelectedLeadIndex(selectedLeadIndex - 1);
+      } else if (filteredLeads.length > 0) {
+        setSelectedLeadIndex(filteredLeads.length - 1);
+      }
+    },
     enabled: true
   });
 
   // Touch gestures
   useTouchGestures({
-    onSwipeLeft: handleNavigateToNextLead,
-    onSwipeRight: handleNavigateToPreviousLead,
+    onSwipeLeft: () => {
+      if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
+        setSelectedLeadIndex(selectedLeadIndex + 1);
+      } else if (filteredLeads.length > 0) {
+        setSelectedLeadIndex(0);
+      }
+    },
+    onSwipeRight: () => {
+      if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
+        setSelectedLeadIndex(selectedLeadIndex - 1);
+      } else if (filteredLeads.length > 0) {
+        setSelectedLeadIndex(filteredLeads.length - 1);
+      }
+    },
     enabled: true
   });
 
@@ -168,15 +194,16 @@ const Leads = () => {
       <div className="space-y-6">
         <LeadsFilters
           selectedCategories={selectedCategories}
-          onCategoriesChange={setSelectedCategories}
+          setSelectedCategories={setSelectedCategories}
           visibleColumns={visibleColumns}
-          onColumnsChange={setVisibleColumns}
+          setVisibleColumns={setVisibleColumns}
           selectedDateFilter={selectedDateFilter}
-          onDateFilterChange={setSelectedDateFilter}
+          setSelectedDateFilter={setSelectedDateFilter}
           selectedContactFilter={selectedContactFilter}
-          onContactFilterChange={setSelectedContactFilter}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
+          setSelectedContactFilter={setSelectedContactFilter}
+          availableCategories={availableCategories}
+          showContactFilter={true}
+          showAssignmentColumn={false}
         />
         
         <div className="bg-white rounded-lg shadow">
