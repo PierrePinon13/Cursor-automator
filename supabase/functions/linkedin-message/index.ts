@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -143,16 +144,8 @@ serve(async (req) => {
       console.warn('WARNING: Expected account DdxglDwFT-mMZgxHeCGMdA for Pierre Pinon but found:', accountId)
     }
 
-    // CRITICAL: Get ONLY the Unipile provider_id - NO FALLBACKS
-    let linkedinProviderId = null
-    
-    if (lead.unipile_response?.provider_id) {
-      linkedinProviderId = lead.unipile_response.provider_id
-      console.log('Using Unipile provider_id:', linkedinProviderId)
-    } else if (lead.unipile_response?.publicIdentifier) {
-      linkedinProviderId = lead.unipile_response.publicIdentifier
-      console.log('Using Unipile publicIdentifier:', linkedinProviderId)
-    }
+    // CRITICAL: Get ONLY the Unipile provider_id - NO OTHER FALLBACKS
+    const linkedinProviderId = lead.unipile_response?.provider_id
 
     if (!linkedinProviderId) {
       console.error('No Unipile provider_id found in scraped data for lead:', lead.author_name)
@@ -162,7 +155,7 @@ serve(async (req) => {
           success: false, 
           error: 'No Unipile provider ID found',
           error_type: 'missing_provider_id',
-          user_message: 'Identifiant Unipile manquant pour ce contact. Le profil doit être re-analysé.'
+          user_message: 'Identifiant Unipile provider_id manquant pour ce contact. Le profil doit être re-analysé par Unipile.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -171,7 +164,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Using Unipile provider_id for LinkedIn API call:', linkedinProviderId)
+    console.log('Using ONLY Unipile provider_id for LinkedIn API call:', linkedinProviderId)
 
     // Check network_distance from the unipile_response
     let connectionStatus = 'not_connected'
@@ -285,3 +278,4 @@ serve(async (req) => {
     )
   }
 })
+
