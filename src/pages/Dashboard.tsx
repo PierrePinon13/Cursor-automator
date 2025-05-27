@@ -48,9 +48,10 @@ const Dashboard = () => {
         />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full lg:w-[400px] grid-cols-2">
+          <TabsList className="grid w-full lg:w-[500px] grid-cols-3">
             <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
             <TabsTrigger value="processing">Pipeline LinkedIn</TabsTrigger>
+            <TabsTrigger value="bottlenecks">Goulots</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -155,6 +156,10 @@ const Dashboard = () => {
 
           <TabsContent value="processing" className="space-y-6">
             <ProcessingMetrics timeFilter={timeFilter} />
+          </TabsContent>
+
+          <TabsContent value="bottlenecks" className="space-y-6">
+            <ProcessingBottlenecks />
           </TabsContent>
         </Tabs>
       </main>
