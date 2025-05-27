@@ -8,7 +8,7 @@ import { handleLeadDeduplication } from './lead-deduplication.ts'
 import { ProcessingContext } from './types.ts'
 
 export async function executeOpenAIStep1(context: ProcessingContext) {
-  console.log('Starting OpenAI Step 1: Job posting detection')
+  console.log('Executing OpenAI Step 1: Recruitment detection analysis')
   const step1Response = await executeStep1(context.openAIApiKey, context.post)
   await updateStep1Results(context.supabaseClient, context.postId, step1Response.result, step1Response.data)
   
