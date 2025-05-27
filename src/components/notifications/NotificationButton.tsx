@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuHeader,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +32,8 @@ const NotificationButton = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuHeader className="flex items-center justify-between p-3 border-b">
-          <h3 className="font-semibold">Notifications</h3>
+        <div className="flex items-center justify-between p-3 border-b">
+          <DropdownMenuLabel className="p-0 font-semibold">Notifications</DropdownMenuLabel>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
@@ -43,7 +44,7 @@ const NotificationButton = () => {
               Tout marquer lu
             </Button>
           )}
-        </DropdownMenuHeader>
+        </div>
         <NotificationsList 
           notifications={notifications} 
           onMarkAsRead={markAsRead}
