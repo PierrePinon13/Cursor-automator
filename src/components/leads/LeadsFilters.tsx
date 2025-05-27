@@ -102,36 +102,42 @@ export default function LeadsFilters({
         />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MultiSelectFilter
-          title="Catégories"
-          options={categoryOptions}
-          selectedValues={selectedCategories}
-          onSelectionChange={setSelectedCategories}
-        />
-
-        <MultiSelectFilter
-          title="Période"
-          options={dateFilterOptions}
-          selectedValues={[selectedDateFilter]}
-          onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
-        />
-
-        {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
+      <div className="space-y-4">
+        {/* Ligne principale avec les 3 filtres principaux */}
+        <div className="flex flex-wrap items-center gap-3">
           <MultiSelectFilter
-            title="Statut de contact"
-            options={contactFilterOptions}
-            selectedValues={[selectedContactFilter]}
-            onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
+            title="Catégories"
+            options={categoryOptions}
+            selectedValues={selectedCategories}
+            onSelectionChange={setSelectedCategories}
           />
-        )}
 
-        <MultiSelectFilter
-          title="Colonnes visibles"
-          options={columnOptions}
-          selectedValues={visibleColumns}
-          onSelectionChange={setVisibleColumns}
-        />
+          <MultiSelectFilter
+            title="Période"
+            options={dateFilterOptions}
+            selectedValues={[selectedDateFilter]}
+            onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
+          />
+
+          <MultiSelectFilter
+            title="Colonnes visibles"
+            options={columnOptions}
+            selectedValues={visibleColumns}
+            onSelectionChange={setVisibleColumns}
+          />
+        </div>
+
+        {/* Filtre de contact sur une ligne séparée si affiché */}
+        {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
+          <div className="flex items-center">
+            <MultiSelectFilter
+              title="Statut de contact"
+              options={contactFilterOptions}
+              selectedValues={[selectedContactFilter]}
+              onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
