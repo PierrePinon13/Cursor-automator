@@ -77,8 +77,12 @@ serve(async (req) => {
     // Step 1: OpenAI analysis to determine if it's a job posting
     const step1Response = await executeOpenAIStep1(context)
 
-    if (step1Response.result.recrute_poste !== 'oui') {
-      console.log('Post is not a job posting, marking as completed')
+    // Fix: Use case-insensitive comparison and handle variations
+    const recrutePoste = step1Response.result.recrute_poste?.toLowerCase?.() || step1Response.result.recrute_poste
+    console.log('Step 1 recrute_poste value:', recrutePoste, 'Type:', typeof recrutePoste)
+
+    if (recrutePoste !== 'oui' && recrutePoste !== 'yes') {
+      console.log('Post is not a job posting, marking as completed. Recrute poste:', recrutePoste)
       await updateProcessingStatus(supabaseClient, postId, 'not_job_posting')
       return new Response(JSON.stringify(buildNotJobPostingResponse(postId)), { 
         status: 200,
@@ -86,17 +90,25 @@ serve(async (req) => {
       })
     }
 
+    console.log('Post identified as job posting, continuing processing...')
+
     // Step 2: OpenAI analysis for language and location
     const step2Response = await executeOpenAIStep2(context)
 
-    if (step2Response.result.reponse !== 'oui') {
-      console.log('Post does not meet language/location criteria')
+    // Fix: Use case-insensitive comparison
+    const reponseStep2 = step2Response.result.reponse?.toLowerCase?.() || step2Response.result.reponse
+    console.log('Step 2 reponse value:', reponseStep2, 'Type:', typeof reponseStep2)
+
+    if (reponseStep2 !== 'oui' && reponseStep2 !== 'yes') {
+      console.log('Post does not meet language/location criteria. Reponse:', reponseStep2)
       await updateProcessingStatus(supabaseClient, postId, 'filtered_out')
       return new Response(JSON.stringify(buildFilteredOutResponse(postId)), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    console.log('Post meets language/location criteria, continuing processing...')
 
     // Step 3: OpenAI analysis for category and job selection
     const step3Response = await executeOpenAIStep3(context, step1Response.result)
@@ -123,7 +135,7 @@ serve(async (req) => {
 
     await updateProcessingStatus(supabaseClient, postId, finalStatus)
 
-    console.log('LinkedIn post processing completed successfully')
+    console.log('LinkedIn post processing completed successfully with status:', finalStatus)
 
     const successResponse = buildSuccessResponse(
       postId,

@@ -11,6 +11,10 @@ export async function executeOpenAIStep1(context: ProcessingContext) {
   console.log('Starting OpenAI Step 1: Job posting detection')
   const step1Response = await executeStep1(context.openAIApiKey, context.post)
   await updateStep1Results(context.supabaseClient, context.postId, step1Response.result, step1Response.data)
+  
+  // Log the actual response for debugging
+  console.log('Step 1 detailed response:', JSON.stringify(step1Response.result))
+  
   return step1Response
 }
 
@@ -18,6 +22,10 @@ export async function executeOpenAIStep2(context: ProcessingContext) {
   console.log('Starting OpenAI Step 2: Language and location analysis')
   const step2Response = await executeStep2(context.openAIApiKey, context.post)
   await updateStep2Results(context.supabaseClient, context.postId, step2Response.result, step2Response.data)
+  
+  // Log the actual response for debugging
+  console.log('Step 2 detailed response:', JSON.stringify(step2Response.result))
+  
   return step2Response
 }
 
@@ -25,6 +33,10 @@ export async function executeOpenAIStep3(context: ProcessingContext, step1Result
   console.log('Starting OpenAI Step 3: Category and job analysis')
   const step3Response = await executeStep3(context.openAIApiKey, context.post, step1Result)
   await updateStep3Results(context.supabaseClient, context.postId, step3Response.result, step3Response.data)
+  
+  // Log the actual response for debugging
+  console.log('Step 3 detailed response:', JSON.stringify(step3Response.result))
+  
   return step3Response
 }
 
