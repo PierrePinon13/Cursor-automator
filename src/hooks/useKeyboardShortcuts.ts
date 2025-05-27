@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 
 interface UseKeyboardShortcutsProps {
   onToggleSidebar?: () => void;
@@ -17,6 +17,18 @@ export const useKeyboardShortcuts = ({
   enabled = true
 }: UseKeyboardShortcutsProps) => {
   
+  // Use refs to store the latest callback functions
+  const onToggleSidebarRef = useRef(onToggleSidebar);
+  const onPreviousItemRef = useRef(onPreviousItem);
+  const onNextItemRef = useRef(onNextItem);
+  const onEscapeRef = useRef(onEscape);
+
+  // Update refs when callbacks change
+  onToggleSidebarRef.current = onToggleSidebar;
+  onPreviousItemRef.current = onPreviousItem;
+  onNextItemRef.current = onNextItem;
+  onEscapeRef.current = onEscape;
+  
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (!enabled) return;
     
@@ -29,22 +41,22 @@ export const useKeyboardShortcuts = ({
     switch (event.code) {
       case 'Space':
         event.preventDefault();
-        onToggleSidebar?.();
+        onToggleSidebarRef.current?.();
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        onPreviousItem?.();
+        onPreviousItemRef.current?.();
         break;
       case 'ArrowRight':
         event.preventDefault();
-        onNextItem?.();
+        onNextItemRef.current?.();
         break;
       case 'Escape':
         event.preventDefault();
-        onEscape?.();
+        onEscapeRef.current?.();
         break;
     }
-  }, [enabled, onToggleSidebar, onPreviousItem, onNextItem, onEscape]);
+  }, [enabled]);
 
   useEffect(() => {
     if (enabled) {

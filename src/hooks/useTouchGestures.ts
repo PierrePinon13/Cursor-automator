@@ -19,6 +19,16 @@ export const useTouchGestures = ({
   const touchStartTime = useRef<number>(0);
   const isTwoFingerGesture = useRef<boolean>(false);
   const isThreeFingerGesture = useRef<boolean>(false);
+  
+  // Use refs to store the latest callback functions
+  const onSwipeLeftRef = useRef(onSwipeLeft);
+  const onSwipeRightRef = useRef(onSwipeRight);
+  const onSwipeUpRef = useRef(onSwipeUp);
+
+  // Update refs when callbacks change
+  onSwipeLeftRef.current = onSwipeLeft;
+  onSwipeRightRef.current = onSwipeRight;
+  onSwipeUpRef.current = onSwipeUp;
 
   const handleTouchStart = useCallback((event: TouchEvent) => {
     if (!enabled) return;
@@ -56,7 +66,7 @@ export const useTouchGestures = ({
       // Check if it's an upward swipe (more vertical than horizontal movement)
       // and if it's fast enough and long enough
       if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY < -50 && deltaTime < 500) {
-        onSwipeUp?.();
+        onSwipeUpRef.current?.();
       }
       
       isThreeFingerGesture.current = false;
@@ -73,15 +83,15 @@ export const useTouchGestures = ({
       // and if it's fast enough and long enough
       if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50 && deltaTime < 500) {
         if (deltaX > 0) {
-          onSwipeRight?.();
+          onSwipeRightRef.current?.();
         } else {
-          onSwipeLeft?.();
+          onSwipeLeftRef.current?.();
         }
       }
       
       isTwoFingerGesture.current = false;
     }
-  }, [enabled, onSwipeLeft, onSwipeRight, onSwipeUp]);
+  }, [enabled]);
 
   useEffect(() => {
     if (enabled) {
