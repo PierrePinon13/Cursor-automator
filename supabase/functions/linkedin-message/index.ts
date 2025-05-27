@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -82,21 +81,6 @@ serve(async (req) => {
 
     const connection = connections[0]
     const accountId = connection.account_id || connection.unipile_account_id
-    const unipileApiKey = Deno.env.get('UNIPILE_API_KEY')
-
-    if (!unipileApiKey) {
-      console.error('Unipile API key not configured')
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'LinkedIn messaging service not configured' 
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      )
-    }
 
     // Get LinkedIn provider ID from unipile_response or fall back to profile ID extraction
     let linkedinProviderId = null
@@ -139,63 +123,39 @@ serve(async (req) => {
     let actionTaken = ''
     let responseData = null
 
-    if (lead.unipile_response?.network_distance === 'FIRST_DEGREE') {
-      connectionStatus = 'connected'
-      connectionDegree = '1er'
-      console.log('User is 1st degree connection, sending direct message')
-      
-      // Send direct message using /chats endpoint (like your n8n workflow)
-      const messageResponse = await fetch(`https://api9.unipile.com:13946/api/v1/chats`, {
-        method: 'POST',
-        headers: {
-          'X-API-KEY': unipileApiKey,
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          account_id: accountId,
-          attendees_ids: linkedinProviderId,
-          text: message
-        }),
-      })
+    // Use the Unipile queue for rate limiting with high priority (1) for LinkedIn messages
+    const queueResponse = await supabaseClient.functions.invoke('unipile-queue', {
+      body: {
+        action: 'execute_now', // High priority, execute immediately but with delay
+        account_id: accountId,
+        priority: 1, // Highest priority for LinkedIn messages
+        operation: lead.unipile_response?.network_distance === 'FIRST_DEGREE' ? 'send_message' : 'send_invitation',
+        payload: {
+          providerId: linkedinProviderId,
+          message: message
+        }
+      }
+    });
 
-      if (messageResponse.ok) {
-        responseData = await messageResponse.json()
+    if (queueResponse.error) {
+      console.error('Queue error:', queueResponse.error);
+      throw new Error(`Queue processing failed: ${queueResponse.error.message}`);
+    }
+
+    if (queueResponse.data && queueResponse.data.success) {
+      responseData = queueResponse.data.result;
+      
+      if (lead.unipile_response?.network_distance === 'FIRST_DEGREE') {
+        connectionStatus = 'connected'
+        connectionDegree = '1er'
         actionTaken = 'direct_message'
-        console.log('Direct message sent successfully')
+        console.log('Direct message sent successfully via queue')
       } else {
-        const errorText = await messageResponse.text()
-        console.error('Failed to send direct message:', errorText)
-        throw new Error(`Failed to send message: ${messageResponse.status} ${errorText}`)
+        actionTaken = 'connection_request'
+        console.log('Connection invitation sent successfully via queue')
       }
     } else {
-      console.log('User is not 1st degree connection, sending invitation with message')
-      
-      // Send invitation with message using /users/invite endpoint (like your n8n workflow)
-      const invitationResponse = await fetch(`https://api9.unipile.com:13946/api/v1/users/invite`, {
-        method: 'POST',
-        headers: {
-          'X-API-KEY': unipileApiKey,
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          account_id: accountId,
-          provider: 'LINKEDIN',
-          provider_id: linkedinProviderId,
-          text: message
-        }),
-      })
-
-      if (invitationResponse.ok) {
-        responseData = await invitationResponse.json()
-        actionTaken = 'connection_request'
-        console.log('Connection invitation sent successfully')
-      } else {
-        const errorText = await invitationResponse.text()
-        console.error('Failed to send invitation:', errorText)
-        throw new Error(`Failed to send invitation: ${invitationResponse.status} ${errorText}`)
-      }
+      throw new Error('Failed to process message through queue');
     }
 
     // Update the lead with LinkedIn message timestamp
