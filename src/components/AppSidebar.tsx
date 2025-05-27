@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Sidebar, 
@@ -46,7 +45,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="h-16 flex items-center px-4 border-b bg-white">
         <div className="flex items-center gap-3 w-full">
-          <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">Menu</h1>
+          <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">Automator</h1>
         </div>
       </SidebarHeader>
       <SidebarContent className="bg-white">
