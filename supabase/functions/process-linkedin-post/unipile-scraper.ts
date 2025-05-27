@@ -54,7 +54,7 @@ export async function scrapLinkedInProfile(
     let provider_id = null;
     
     // Get provider_id from the main profile data
-    provider_id = unipileData.provider_id || unipileData.publicIdentifier || unipileData.linkedin_profile?.publicIdentifier || null;
+    provider_id = unipileData.provider_id || unipileData.public_identifier || unipileData.linkedin_profile?.publicIdentifier || null;
     console.log('📱 Provider ID extracted:', provider_id);
     
     // Log available top-level keys for debugging
@@ -77,6 +77,7 @@ export async function scrapLinkedInProfile(
       }
     }
     
+    // Process work experiences if available
     if (experiences && experiences.length > 0) {
       console.log('🏢 Processing work experiences. Total count:', experiences.length);
       
@@ -129,7 +130,7 @@ export async function scrapLinkedInProfile(
                     currentExperience.company_linkedin_id ||
                     null;
         
-        console.log('🎯 EXTRACTED DATA:', {
+        console.log('🎯 EXTRACTED FROM EXPERIENCES:', {
           company,
           position,
           company_id,
@@ -140,7 +141,49 @@ export async function scrapLinkedInProfile(
         });
       }
     } else {
-      console.log('❌ No work experience found or experiences array is empty');
+      console.log('❌ No work experience found, trying to extract from headline');
+      
+      // Fallback: Try to extract company and position from headline
+      if (unipileData.headline) {
+        console.log('🔍 Trying to parse headline:', unipileData.headline);
+        
+        // Common patterns in headlines:
+        // "Position at Company"
+        // "Position chez Company" 
+        // "Position - Company"
+        // "Founder at Company"
+        // "CEO chez Company"
+        
+        const headline = unipileData.headline;
+        
+        // Pattern 1: "Position chez Company"
+        let match = headline.match(/^(.+?)\s+chez\s+(.+)$/i);
+        if (match) {
+          position = match[1].trim();
+          company = match[2].trim();
+          console.log('📍 Extracted from "chez" pattern:', { position, company });
+        } else {
+          // Pattern 2: "Position at Company"
+          match = headline.match(/^(.+?)\s+at\s+(.+)$/i);
+          if (match) {
+            position = match[1].trim();
+            company = match[2].trim();
+            console.log('📍 Extracted from "at" pattern:', { position, company });
+          } else {
+            // Pattern 3: "Position - Company"
+            match = headline.match(/^(.+?)\s*-\s*(.+)$/);
+            if (match && match[2].length > 3) { // Company should be more than 3 chars
+              position = match[1].trim();
+              company = match[2].trim();
+              console.log('📍 Extracted from "-" pattern:', { position, company });
+            } else {
+              // If no pattern matches, use the whole headline as position
+              position = headline;
+              console.log('📍 Using full headline as position:', position);
+            }
+          }
+        }
+      }
     }
 
     const result = { company, position, company_id, provider_id, success: true };
