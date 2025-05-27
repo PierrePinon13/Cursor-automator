@@ -23,8 +23,8 @@ export async function scrapLinkedInProfile(
   try {
     console.log('Scraping profile with ID:', authorProfileId);
     
-    // Utiliser l'account ID fixe et l'API Unipile directe
-    const unipileUrl = `https://api9.unipile.com:13946/api/v1/users/${authorProfileId}?account_id=DdxglDwFT-mMZgxHeCGMdA`;
+    // Utiliser l'account ID fixe et l'API Unipile directe avec linkedin_sections=experience
+    const unipileUrl = `https://api9.unipile.com:13946/api/v1/users/${authorProfileId}?account_id=DdxglDwFT-mMZgxHeCGMdA&linkedin_sections=experience`;
     
     console.log('Calling Unipile API:', unipileUrl);
     
@@ -141,49 +141,7 @@ export async function scrapLinkedInProfile(
         });
       }
     } else {
-      console.log('❌ No work experience found, trying to extract from headline');
-      
-      // Fallback: Try to extract company and position from headline
-      if (unipileData.headline) {
-        console.log('🔍 Trying to parse headline:', unipileData.headline);
-        
-        // Common patterns in headlines:
-        // "Position at Company"
-        // "Position chez Company" 
-        // "Position - Company"
-        // "Founder at Company"
-        // "CEO chez Company"
-        
-        const headline = unipileData.headline;
-        
-        // Pattern 1: "Position chez Company"
-        let match = headline.match(/^(.+?)\s+chez\s+(.+)$/i);
-        if (match) {
-          position = match[1].trim();
-          company = match[2].trim();
-          console.log('📍 Extracted from "chez" pattern:', { position, company });
-        } else {
-          // Pattern 2: "Position at Company"
-          match = headline.match(/^(.+?)\s+at\s+(.+)$/i);
-          if (match) {
-            position = match[1].trim();
-            company = match[2].trim();
-            console.log('📍 Extracted from "at" pattern:', { position, company });
-          } else {
-            // Pattern 3: "Position - Company"
-            match = headline.match(/^(.+?)\s*-\s*(.+)$/);
-            if (match && match[2].length > 3) { // Company should be more than 3 chars
-              position = match[1].trim();
-              company = match[2].trim();
-              console.log('📍 Extracted from "-" pattern:', { position, company });
-            } else {
-              // If no pattern matches, use the whole headline as position
-              position = headline;
-              console.log('📍 Using full headline as position:', position);
-            }
-          }
-        }
-      }
+      console.log('❌ No work experience found even with linkedin_sections=experience parameter');
     }
 
     const result = { company, position, company_id, provider_id, success: true };
