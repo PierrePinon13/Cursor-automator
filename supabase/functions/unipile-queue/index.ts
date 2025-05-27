@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -7,7 +8,7 @@ const corsHeaders = {
 }
 
 // Simple timestamp tracking per account_id
-const lastCallTime = new Map<string, number>(); // account_id -> timestamp
+const lastCallTime = new Map<string, number>();
 
 // Random delay between 2-8 seconds
 function getRandomDelay(): number {
@@ -109,6 +110,10 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
 async function scrapeProfile(unipileApiKey: string, accountId: string, payload: any) {
   const { authorProfileId } = payload;
   
+  if (!authorProfileId) {
+    throw new Error('Missing authorProfileId in payload');
+  }
+  
   console.log(`Scraping profile ${authorProfileId} for account ${accountId}`);
   
   const response = await fetch(
@@ -142,6 +147,10 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
 async function sendMessage(unipileApiKey: string, accountId: string, payload: any) {
   const { providerId, message } = payload;
 
+  if (!providerId || !message) {
+    throw new Error('Missing providerId or message in payload');
+  }
+
   console.log(`Sending message to ${providerId} on account ${accountId}`);
 
   const response = await fetch(`https://api9.unipile.com:13946/api/v1/chats`, {
@@ -170,8 +179,11 @@ async function sendMessage(unipileApiKey: string, accountId: string, payload: an
 async function sendInvitation(unipileApiKey: string, accountId: string, payload: any) {
   const { providerId, message } = payload;
 
+  if (!providerId || !message) {
+    throw new Error('Missing providerId or message in payload');
+  }
+
   console.log(`Sending invitation to ${providerId} on account ${accountId}`);
-  console.log(`Invitation message: ${message}`);
 
   const formData = new URLSearchParams({
     account_id: accountId,
@@ -195,7 +207,6 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Send invitation failed: ${response.status} - ${errorText}`);
-    console.error(`Response body: ${errorText}`);
     throw new Error(`Send invitation failed: ${response.status} - ${errorText}`);
   }
 
@@ -210,7 +221,24 @@ serve(async (req) => {
   }
 
   try {
-    const { action, account_id, operation, payload, priority = false } = await req.json()
+    const requestBody = await req.json()
+    const { action, account_id, operation, payload, priority = false } = requestBody
+
+    console.log('Unipile queue request:', { action, account_id, operation, priority })
+
+    if (!account_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Account ID is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    if (!operation) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Operation is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
 
     const unipileApiKey = Deno.env.get('UNIPILE_API_KEY')
     if (!unipileApiKey) {
