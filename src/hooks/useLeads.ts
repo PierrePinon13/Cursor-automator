@@ -34,6 +34,7 @@ interface Lead {
   linkedin_message_sent_at?: string | null;
   phone_contact_status?: string | null;
   phone_contact_at?: string | null;
+  processing_status?: string;
 }
 
 export const useLeads = () => {
@@ -66,8 +67,33 @@ export const useLeads = () => {
 
   const fetchLeads = async () => {
     try {
-      console.log('Fetching leads with company data...');
+      console.log('🔍 Fetching leads with company data...');
       
+      // First, let's check all processing statuses to understand what we have
+      const { data: statusCheck, error: statusError } = await supabase
+        .from('linkedin_posts')
+        .select('processing_status, openai_step3_categorie, created_at, author_name')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (statusError) {
+        console.error('❌ Error checking statuses:', statusError);
+      } else {
+        console.log('📊 Recent processing statuses:', statusCheck?.reduce((acc, post) => {
+          acc[post.processing_status || 'null'] = (acc[post.processing_status || 'null'] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>));
+
+        // Log posts that should appear but might be filtered
+        const completedPosts = statusCheck?.filter(post => post.processing_status === 'completed');
+        console.log(`✅ Found ${completedPosts?.length} completed posts`);
+        
+        const postsWithCategories = completedPosts?.filter(post => 
+          post.openai_step3_categorie && post.openai_step3_categorie !== 'Autre'
+        );
+        console.log(`🏷️ Found ${postsWithCategories?.length} completed posts with valid categories`);
+      }
+
       const { data, error } = await supabase
         .from('linkedin_posts')
         .select(`
@@ -102,7 +128,8 @@ export const useLeads = () => {
           last_contact_at,
           linkedin_message_sent_at,
           phone_contact_status,
-          phone_contact_at
+          phone_contact_at,
+          processing_status
         `)
         .eq('processing_status', 'completed')
         .not('openai_step3_categorie', 'is', null)
@@ -111,19 +138,30 @@ export const useLeads = () => {
         .order('posted_at_iso', { ascending: false })
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching leads:', error);
+        throw error;
+      }
       
-      console.log('Fetched leads data:', data?.slice(0, 3)); // Log first 3 leads for debugging
-      console.log('Sample lead company data:', data?.[0] ? {
+      console.log(`📋 Raw query returned ${data?.length || 0} leads`);
+      console.log('🔍 Sample lead data:', data?.[0] ? {
+        id: data[0].id,
+        processing_status: data[0].processing_status,
+        openai_step3_categorie: data[0].openai_step3_categorie,
         unipile_company: data[0].unipile_company,
         unipile_position: data[0].unipile_position,
-        author_headline: data[0].author_headline,
+        author_name: data[0].author_name,
+        created_at: data[0].created_at,
         has_unipile_response: !!data[0].unipile_response
       } : 'No data');
+
+      // Log the categories found
+      const categoriesFound = [...new Set(data?.map(lead => lead.openai_step3_categorie).filter(Boolean))];
+      console.log('🏷️ Categories found in results:', categoriesFound);
       
       setLeads(data || []);
     } catch (error) {
-      console.error('Error fetching leads:', error);
+      console.error('💥 Error fetching leads:', error);
     } finally {
       setLoading(false);
     }
@@ -165,17 +203,21 @@ export const useLeads = () => {
 
   const filterLeads = () => {
     let filtered = leads;
+    console.log(`🔄 Starting to filter ${leads.length} leads`);
 
     // Filter by categories
     if (selectedCategories.length > 0) {
+      const beforeCategoryFilter = filtered.length;
       filtered = filtered.filter(lead => 
         selectedCategories.includes(lead.openai_step3_categorie)
       );
+      console.log(`🏷️ Category filter: ${beforeCategoryFilter} → ${filtered.length} leads (selected categories: ${selectedCategories.join(', ')})`);
     }
 
     // Filter by date
     const dateCutoff = getDateFilterCutoff(selectedDateFilter);
     if (dateCutoff) {
+      const beforeDateFilter = filtered.length;
       filtered = filtered.filter(lead => {
         // Use posted_at_timestamp if available, otherwise fall back to posted_at_iso or created_at
         let leadDate: Date;
@@ -188,11 +230,13 @@ export const useLeads = () => {
         }
         return leadDate >= dateCutoff;
       });
+      console.log(`📅 Date filter (${selectedDateFilter}): ${beforeDateFilter} → ${filtered.length} leads`);
     }
 
     // Exclude leads by contact status (inverse logic)
     const contactExclusionCutoff = getContactExclusionCutoff(selectedContactFilter);
     if (contactExclusionCutoff !== null) {
+      const beforeContactFilter = filtered.length;
       if (selectedContactFilter === 'exclude_all_contacted') {
         // Exclude all leads that have been contacted
         filtered = filtered.filter(lead => lead.last_contact_at === null);
@@ -204,6 +248,7 @@ export const useLeads = () => {
           return contactDate < contactExclusionCutoff; // Keep only leads contacted before the cutoff
         });
       }
+      console.log(`📞 Contact filter (${selectedContactFilter}): ${beforeContactFilter} → ${filtered.length} leads`);
     }
 
     // Sort filtered leads by publication date (most recent first)
@@ -213,6 +258,7 @@ export const useLeads = () => {
       return dateB - dateA; // Most recent first
     });
 
+    console.log(`✅ Final filtered results: ${filtered.length} leads`);
     setFilteredLeads(filtered);
   };
 

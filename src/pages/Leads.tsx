@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -10,6 +9,9 @@ import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
+import { diagnoseMissingLeads } from '@/utils/leadsDiagnostics';
+import { Button } from '@/components/ui/button';
+import { Search } from 'lucide-react';
 
 const Leads = () => {
   const { 
@@ -160,6 +162,10 @@ const Leads = () => {
     setViewMode(view.viewMode);
   };
 
+  const handleDiagnostics = () => {
+    diagnoseMissingLeads();
+  };
+
   if (loading || !hasLoadedDefaultView) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -185,6 +191,15 @@ const Leads = () => {
             viewMode={viewMode}
             onApplyView={handleApplyView}
           />
+          <Button
+            onClick={handleDiagnostics}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Search className="h-4 w-4" />
+            Diagnostiquer leads manqués
+          </Button>
         </div>
         
         <LeadsFilters
