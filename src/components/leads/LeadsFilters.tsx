@@ -1,4 +1,3 @@
-
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,17 +36,13 @@ const contactFilterOptions = [
 
 const getColumnOptions = (showAssignmentColumn = false) => {
   const baseColumns = [
-    { value: 'author_name', label: 'Auteur' },
-    { value: 'author_headline', label: 'Titre' },
-    { value: 'unipile_company', label: 'Entreprise' },
-    { value: 'unipile_position', label: 'Poste' },
-    { value: 'openai_step3_categorie', label: 'Catégorie' },
-    { value: 'openai_step2_localisation', label: 'Localisation' },
-    { value: 'posted_at', label: 'Date de publication' },
-    { value: 'phone_number', label: 'Téléphone' },
-    { value: 'approach_message', label: 'Message d\'approche' },
-    { value: 'contact_status', label: 'Statut contact' },
-    { value: 'matched_client_name', label: 'Client correspondant' },
+    { value: 'posted_date', label: 'Date de publication' },
+    { value: 'job_title', label: 'Profil recherché' },
+    { value: 'author_name', label: 'Lead' },
+    { value: 'company', label: 'Entreprise' },
+    { value: 'last_contact', label: 'Dernier contact' },
+    { value: 'category', label: 'Catégorie' },
+    { value: 'location', label: 'Localisation' },
   ];
 
   if (showAssignmentColumn) {

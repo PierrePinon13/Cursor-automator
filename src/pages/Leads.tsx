@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -33,8 +32,6 @@ const Leads = () => {
     'author_name', 
     'company', 
     'last_contact',
-    'post_url', 
-    'status', 
     'category', 
     'location'
   ]);
