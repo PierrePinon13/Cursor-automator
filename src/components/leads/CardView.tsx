@@ -79,74 +79,88 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
         {leads.map((lead, index) => (
           <div 
             key={lead.id} 
-            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+            className="bg-white rounded-xl border border-gray-100 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1 overflow-hidden"
             onClick={(event) => handleCardClick(index, event)}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <div className="text-xs text-gray-500 mb-1">
-                  {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
-                </div>
-                <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                  {lead.openai_step3_categorie}
-                </Badge>
-              </div>
-              <span className="text-xs text-gray-600">
-                {lead.openai_step2_localisation || 'France'}
-              </span>
-            </div>
-
-            <div className="mb-3">
-              <h3 className="font-medium text-sm mb-1">Profil recherché</h3>
-              {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-                <div key={index} className="text-green-600 text-xs">
-                  <span 
-                    className="cursor-pointer hover:text-green-700 hover:underline inline-block"
-                    data-clickable="true"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(lead.url, '_blank');
-                    }}
+            {/* Header avec gradient subtil */}
+            <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b border-gray-100">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-2 font-medium">
+                    {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
+                  </div>
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 font-medium"
                   >
-                    {poste}
-                  </span>
+                    {lead.openai_step3_categorie}
+                  </Badge>
                 </div>
-              ))}
+                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full font-medium">
+                  {lead.openai_step2_localisation || 'France'}
+                </span>
+              </div>
             </div>
 
-            <div className="mb-3">
-              <h4 className="font-medium text-xs mb-0.5">Lead</h4>
-              <span 
-                className="text-xs text-gray-700 cursor-pointer hover:text-blue-700 hover:underline inline-block"
-                data-clickable="true"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(lead.author_profile_url, '_blank');
-                }}
-              >
-                {lead.author_name || 'N/A'}
-              </span>
-            </div>
+            {/* Contenu principal */}
+            <div className="p-4 space-y-4">
+              <div>
+                <h3 className="font-semibold text-sm mb-2 text-gray-800">Profil recherché</h3>
+                <div className="space-y-1">
+                  {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
+                    <div key={index} className="text-green-600 text-sm">
+                      <span 
+                        className="cursor-pointer hover:text-green-700 hover:underline inline-block font-medium"
+                        data-clickable="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(lead.url, '_blank');
+                        }}
+                      >
+                        {poste}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            <div className="border-t border-gray-100 pt-3">
-              <h4 className="font-medium text-xs mb-1">Entreprise</h4>
-              {lead.unipile_company ? (
-                <div>
-                  <div className="font-medium text-xs">{lead.unipile_company}</div>
-                  {lead.unipile_position && (
-                    <div className="text-xs text-gray-600">{lead.unipile_position}</div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-500">
-                  <div>Données non disponibles</div>
-                  <div className="text-xs text-gray-400 truncate">{lead.author_headline || 'N/A'}</div>
-                </div>
-              )}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h4 className="font-semibold text-sm mb-1 text-gray-800">Lead</h4>
+                <span 
+                  className="text-sm text-gray-700 cursor-pointer hover:text-blue-600 hover:underline inline-block font-medium"
+                  data-clickable="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(lead.author_profile_url, '_blank');
+                  }}
+                >
+                  {lead.author_name || 'N/A'}
+                </span>
+              </div>
+
+              <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-lg p-3 border border-gray-100">
+                <h4 className="font-semibold text-sm mb-2 text-gray-800 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  Entreprise
+                </h4>
+                {lead.unipile_company ? (
+                  <div className="space-y-1">
+                    <div className="font-semibold text-sm text-gray-900">{lead.unipile_company}</div>
+                    {lead.unipile_position && (
+                      <div className="text-sm text-gray-600">{lead.unipile_position}</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="text-sm text-orange-600 font-medium">Données non disponibles</div>
+                    <div className="text-xs text-gray-500 truncate">{lead.author_headline || 'N/A'}</div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}
