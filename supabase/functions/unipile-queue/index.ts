@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -110,6 +109,8 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
 async function scrapeProfile(unipileApiKey: string, accountId: string, payload: any) {
   const { authorProfileId } = payload;
   
+  console.log(`Scraping profile ${authorProfileId} for account ${accountId}`);
+  
   const response = await fetch(
     `https://api9.unipile.com:13946/api/v1/users/${authorProfileId}?account_id=${accountId}&linkedin_sections=experience`,
     {
@@ -127,7 +128,15 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
     throw new Error(`Scrape profile failed: ${response.status} - ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log('Profile scraping result:', { 
+    provider_id: result.provider_id, 
+    network_distance: result.network_distance,
+    headline: result.headline,
+    company: result.company?.name 
+  });
+
+  return result;
 }
 
 async function sendMessage(unipileApiKey: string, accountId: string, payload: any) {

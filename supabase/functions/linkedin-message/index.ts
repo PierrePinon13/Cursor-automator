@@ -8,6 +8,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Random delay between 3-8 seconds (like in N8N flow)
+function getRandomDelay(): number {
+  return Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -70,10 +79,10 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id, user.email)
 
-    // Get lead data including unipile_response for provider_id
+    // Get lead data
     const { data: lead, error: leadError } = await supabaseClient
       .from('linkedin_posts')
-      .select('author_profile_url, author_name, author_profile_id, unipile_response, unipile_profile_scraped')
+      .select('author_profile_url, author_name, author_profile_id')
       .eq('id', lead_id)
       .single()
 
@@ -93,28 +102,11 @@ serve(async (req) => {
       )
     }
 
-    // CRITICAL: Check if profile was scraped by Unipile
-    if (!lead.unipile_profile_scraped || !lead.unipile_response) {
-      console.error('Profile not scraped by Unipile for lead:', lead.author_name)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Profile not scraped by Unipile',
-          error_type: 'profile_not_scraped',
-          user_message: 'Le profil LinkedIn de ce contact n\'a pas été analysé par Unipile. Impossible d\'envoyer un message.'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
-      )
-    }
-
     // Get active LinkedIn connection for the authenticated user
     const { data: connections } = await supabaseClient
       .from('linkedin_connections')
       .select('account_id, unipile_account_id')
-      .eq('user_id', user.id)  // Filter by current user
+      .eq('user_id', user.id)
       .eq('status', 'connected')
       .limit(1)
 
@@ -144,18 +136,17 @@ serve(async (req) => {
       console.warn('WARNING: Expected account DdxglDwFT-mMZgxHeCGMdA for Pierre Pinon but found:', accountId)
     }
 
-    // CRITICAL: Get ONLY the Unipile provider_id - NO OTHER FALLBACKS
-    const linkedinProviderId = lead.unipile_response?.provider_id
-
-    if (!linkedinProviderId) {
-      console.error('No Unipile provider_id found in scraped data for lead:', lead.author_name)
-      console.error('Unipile response available fields:', Object.keys(lead.unipile_response || {}))
+    // STEP 1: ALWAYS scrape the profile to get network_distance and provider_id
+    console.log('Starting profile scraping for lead:', lead.author_name)
+    
+    if (!lead.author_profile_id) {
+      console.error('No author_profile_id found for lead:', lead.author_name)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'No Unipile provider ID found',
-          error_type: 'missing_provider_id',
-          user_message: 'Identifiant Unipile provider_id manquant pour ce contact. Le profil doit être re-analysé par Unipile.'
+          error: 'No author profile ID found',
+          error_type: 'missing_profile_id',
+          user_message: 'Identifiant de profil LinkedIn manquant pour ce contact.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -164,58 +155,176 @@ serve(async (req) => {
       )
     }
 
-    console.log('Using ONLY Unipile provider_id for LinkedIn API call:', linkedinProviderId)
+    // Scrape profile via unipile-queue
+    const scrapeResponse = await supabaseClient.functions.invoke('unipile-queue', {
+      body: {
+        action: 'execute',
+        account_id: accountId,
+        priority: true,
+        operation: 'scrape_profile',
+        payload: {
+          authorProfileId: lead.author_profile_id
+        }
+      }
+    });
 
-    // Check network_distance from the unipile_response
+    if (scrapeResponse.error) {
+      console.error('Profile scraping error:', scrapeResponse.error);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Profile scraping failed',
+          error_type: 'scraping_failed',
+          user_message: 'Impossible d\'analyser le profil LinkedIn de ce contact.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
+
+    if (!scrapeResponse.data || !scrapeResponse.data.success) {
+      console.error('Profile scraping failed:', scrapeResponse.data);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Profile scraping failed',
+          error_type: 'scraping_failed',
+          user_message: 'Échec de l\'analyse du profil LinkedIn.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
+
+    const scrapedData = scrapeResponse.data.result;
+    console.log('Profile scraped successfully:', { 
+      provider_id: scrapedData.provider_id, 
+      network_distance: scrapedData.network_distance 
+    });
+
+    // Update lead with scraped data
+    const { error: updateError } = await supabaseClient
+      .from('linkedin_posts')
+      .update({
+        unipile_response: scrapedData,
+        unipile_profile_scraped: true,
+        unipile_profile_scraped_at: new Date().toISOString(),
+        unipile_company: scrapedData.company?.name || null,
+        unipile_position: scrapedData.headline || null
+      })
+      .eq('id', lead_id)
+
+    if (updateError) {
+      console.error('Error updating lead with scraped data:', updateError)
+    }
+
+    // Extract provider_id and network_distance
+    const linkedinProviderId = scrapedData.provider_id;
+    const networkDistance = scrapedData.network_distance;
+
+    if (!linkedinProviderId) {
+      console.error('No provider_id found in scraped data for lead:', lead.author_name)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'No provider ID found after scraping',
+          error_type: 'missing_provider_id',
+          user_message: 'Impossible de récupérer l\'identifiant du profil LinkedIn après analyse.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
+    }
+
+    // STEP 2: Wait random delay (3-8 seconds like in N8N)
+    const waitTime = getRandomDelay();
+    console.log(`Waiting ${waitTime}ms before LinkedIn action (simulating N8N random wait)`);
+    await sleep(waitTime);
+
+    // STEP 3: Decide action based on network_distance
     let connectionStatus = 'not_connected'
     let connectionDegree = '3+'
     let actionTaken = ''
     let responseData = null
 
-    // Use the enhanced Unipile rate limiting with priority for LinkedIn messages
-    const queueResponse = await supabaseClient.functions.invoke('unipile-queue', {
-      body: {
-        action: 'execute',
-        account_id: accountId,
-        priority: true, // LinkedIn messages have priority
-        operation: lead.unipile_response?.network_distance === 'FIRST_DEGREE' ? 'send_message' : 'send_invitation',
-        payload: {
-          providerId: linkedinProviderId,
-          message: message
-        }
-      }
-    });
+    console.log('Network distance detected:', networkDistance);
 
-    if (queueResponse.error) {
-      console.error('Queue error:', queueResponse.error);
-      throw new Error(`Queue processing failed: ${queueResponse.error.message}`);
-    }
-
-    if (queueResponse.data && queueResponse.data.success) {
-      responseData = queueResponse.data.result;
+    if (networkDistance === 'FIRST_DEGREE') {
+      // Send direct message to 1st degree connection
+      console.log('Sending direct message to 1st degree connection');
       
-      if (lead.unipile_response?.network_distance === 'FIRST_DEGREE') {
+      const messageResponse = await supabaseClient.functions.invoke('unipile-queue', {
+        body: {
+          action: 'execute',
+          account_id: accountId,
+          priority: true,
+          operation: 'send_message',
+          payload: {
+            providerId: linkedinProviderId,
+            message: message
+          }
+        }
+      });
+
+      if (messageResponse.error) {
+        console.error('Direct message error:', messageResponse.error);
+        throw new Error(`Direct message failed: ${messageResponse.error.message}`);
+      }
+
+      if (messageResponse.data && messageResponse.data.success) {
+        responseData = messageResponse.data.result;
         connectionStatus = 'connected'
         connectionDegree = '1er'
         actionTaken = 'direct_message'
         console.log('Direct message sent successfully')
       } else {
-        actionTaken = 'connection_request'
-        console.log('Connection invitation sent successfully')
+        const errorData = messageResponse.data || {};
+        const userMessage = errorData.user_message || 'Échec de l\'envoi du message LinkedIn direct.';
+        throw new Error(userMessage);
       }
     } else {
-      // Handle enhanced error responses from unipile-queue
-      const errorData = queueResponse.data || {};
-      const errorType = errorData.error_type || 'unknown';
-      const userMessage = errorData.user_message || 'Échec de l\'envoi du message LinkedIn.';
+      // Send connection invitation with message
+      console.log('Sending connection invitation with message');
       
-      throw new Error(userMessage);
+      const invitationResponse = await supabaseClient.functions.invoke('unipile-queue', {
+        body: {
+          action: 'execute',
+          account_id: accountId,
+          priority: true,
+          operation: 'send_invitation',
+          payload: {
+            providerId: linkedinProviderId,
+            message: message
+          }
+        }
+      });
+
+      if (invitationResponse.error) {
+        console.error('Invitation error:', invitationResponse.error);
+        throw new Error(`Invitation failed: ${invitationResponse.error.message}`);
+      }
+
+      if (invitationResponse.data && invitationResponse.data.success) {
+        responseData = invitationResponse.data.result;
+        actionTaken = 'connection_request'
+        console.log('Connection invitation sent successfully')
+      } else {
+        const errorData = invitationResponse.data || {};
+        const userMessage = errorData.user_message || 'Échec de l\'envoi de la demande de connexion LinkedIn.';
+        throw new Error(userMessage);
+      }
     }
 
     // Update the lead with LinkedIn message timestamp
     const now = new Date().toISOString()
     
-    const { error: updateError } = await supabaseClient
+    const { error: timestampUpdateError } = await supabaseClient
       .from('linkedin_posts')
       .update({
         linkedin_message_sent_at: now,
@@ -223,8 +332,8 @@ serve(async (req) => {
       })
       .eq('id', lead_id)
 
-    if (updateError) {
-      console.error('Error updating lead timestamps:', updateError)
+    if (timestampUpdateError) {
+      console.error('Error updating lead timestamps:', timestampUpdateError)
       // Don't throw here, the message was sent successfully
     }
 
@@ -239,6 +348,7 @@ serve(async (req) => {
         lead_name: lead.author_name || 'Contact',
         connection_degree: connectionDegree,
         provider_id_used: linkedinProviderId,
+        network_distance: networkDistance,
         unipile_response: responseData,
         account_used: accountId,
         user_email: user.email
