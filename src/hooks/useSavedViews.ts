@@ -68,6 +68,11 @@ export const useSavedViews = () => {
     }));
     setSavedViews(updatedViews);
     localStorage.setItem('leads-saved-views', JSON.stringify(updatedViews));
+    
+    // Trigger a storage event to notify other components
+    window.dispatchEvent(new CustomEvent('defaultViewChanged', { 
+      detail: { viewId: id } 
+    }));
   };
 
   const getDefaultView = (): SavedView | null => {

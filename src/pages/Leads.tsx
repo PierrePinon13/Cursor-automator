@@ -36,19 +36,39 @@ const Leads = () => {
   ]);
 
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
 
-  // Load default view on component mount
+  // Load default view whenever we come to this page or when default view changes
   useEffect(() => {
-    const defaultView = getDefaultView();
-    if (defaultView) {
-      const viewConfig = applyView(defaultView);
-      setSelectedCategories(viewConfig.selectedCategories);
-      setVisibleColumns(viewConfig.visibleColumns);
-      setSelectedDateFilter(viewConfig.selectedDateFilter);
-      setSelectedContactFilter(viewConfig.selectedContactFilter);
-      setViewMode(viewConfig.viewMode);
-    }
-  }, []);
+    const loadDefaultView = () => {
+      const defaultView = getDefaultView();
+      console.log('Loading default view:', defaultView);
+      
+      if (defaultView) {
+        const viewConfig = applyView(defaultView);
+        setSelectedCategories(viewConfig.selectedCategories);
+        setVisibleColumns(viewConfig.visibleColumns);
+        setSelectedDateFilter(viewConfig.selectedDateFilter);
+        setSelectedContactFilter(viewConfig.selectedContactFilter);
+        setViewMode(viewConfig.viewMode);
+      }
+      setHasLoadedDefaultView(true);
+    };
+
+    // Load on mount
+    loadDefaultView();
+
+    // Listen for default view changes
+    const handleDefaultViewChange = () => {
+      loadDefaultView();
+    };
+
+    window.addEventListener('defaultViewChanged', handleDefaultViewChange);
+    
+    return () => {
+      window.removeEventListener('defaultViewChanged', handleDefaultViewChange);
+    };
+  }, [getDefaultView, applyView, setSelectedCategories, setSelectedDateFilter, setSelectedContactFilter]);
 
   const handleActionCompleted = () => {
     // Refresh leads data when an action is completed
@@ -69,7 +89,7 @@ const Leads = () => {
     setViewMode(view.viewMode);
   };
 
-  if (loading) {
+  if (loading || !hasLoadedDefaultView) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
