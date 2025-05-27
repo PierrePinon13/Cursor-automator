@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { processOpenAIStep1, processOpenAIStep2, processOpenAIStep3 } from './openai-steps.ts'
+import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts'
 import { processUnipileProfile } from './unipile-scraper.ts'
 import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost, updateRetryCount } from './database-operations.ts'
 import { checkIfLeadIsFromClient } from './client-matching.ts'
@@ -73,10 +73,11 @@ serve(async (req) => {
 
     // Step 1: OpenAI analysis to determine if it's a job posting
     console.log('Starting OpenAI Step 1: Job posting detection')
-    const step1Result = await processOpenAIStep1(post.text)
-    await updateStep1Results(supabaseClient, postId, step1Result, step1Result)
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY') ?? '';
+    const step1Response = await executeStep1(openAIApiKey, post)
+    await updateStep1Results(supabaseClient, postId, step1Response.result, step1Response.data)
 
-    if (step1Result.recrute_poste !== 'oui') {
+    if (step1Response.result.recrute_poste !== 'oui') {
       console.log('Post is not a job posting, marking as completed')
       await updateProcessingStatus(supabaseClient, postId, 'not_job_posting')
       return new Response(JSON.stringify({ 
@@ -91,10 +92,10 @@ serve(async (req) => {
 
     // Step 2: OpenAI analysis for language and location
     console.log('Starting OpenAI Step 2: Language and location analysis')
-    const step2Result = await processOpenAIStep2(post.text)
-    await updateStep2Results(supabaseClient, postId, step2Result, step2Result)
+    const step2Response = await executeStep2(openAIApiKey, post)
+    await updateStep2Results(supabaseClient, postId, step2Response.result, step2Response.data)
 
-    if (step2Result.reponse !== 'oui') {
+    if (step2Response.result.reponse !== 'oui') {
       console.log('Post does not meet language/location criteria')
       await updateProcessingStatus(supabaseClient, postId, 'filtered_out')
       return new Response(JSON.stringify({ 
@@ -109,8 +110,8 @@ serve(async (req) => {
 
     // Step 3: OpenAI analysis for category and job selection
     console.log('Starting OpenAI Step 3: Category and job analysis')
-    const step3Result = await processOpenAIStep3(post.text, step1Result.postes)
-    await updateStep3Results(supabaseClient, postId, step3Result, step3Result)
+    const step3Response = await executeStep3(openAIApiKey, post, step1Response.result)
+    await updateStep3Results(supabaseClient, postId, step3Response.result, step3Response.data)
 
     // Step 4: Unipile profile scraping
     console.log('Starting Unipile profile scraping')
@@ -127,9 +128,9 @@ serve(async (req) => {
       console.log('Lead is not a client, generating approach message')
       const messageResult = await generateApproachMessage(
         post.author_name,
-        step3Result.postes_selectionnes,
-        step3Result.categorie,
-        step2Result.localisation_detectee
+        step3Response.result.postes_selectionnes,
+        step3Response.result.categorie,
+        step2Response.result.localisation_detectee
       )
       await updateApproachMessage(supabaseClient, postId, messageResult)
     } else {
@@ -159,10 +160,10 @@ serve(async (req) => {
       success: true, 
       message: 'Post processed successfully',
       postId: postId,
-      isJobPosting: step1Result.recrute_poste === 'oui',
-      meetsLocationCriteria: step2Result.reponse === 'oui',
-      category: step3Result.categorie,
-      selectedPositions: step3Result.postes_selectionnes,
+      isJobPosting: step1Response.result.recrute_poste === 'oui',
+      meetsLocationCriteria: step2Response.result.reponse === 'oui',
+      category: step3Response.result.categorie,
+      selectedPositions: step3Response.result.postes_selectionnes,
       company: scrapingResult.company,
       position: scrapingResult.position,
       isClientLead: clientMatch.isClientLead,
