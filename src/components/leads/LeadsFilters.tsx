@@ -139,6 +139,7 @@ export default function LeadsFilters({
             options={columnOptions}
             selectedValues={visibleColumns}
             onSelectionChange={setVisibleColumns}
+            singleSelect={false}
           />
 
           <MultiSelectFilter
@@ -146,6 +147,7 @@ export default function LeadsFilters({
             options={dateFilterOptions}
             selectedValues={[selectedDateFilter]}
             onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
+            singleSelect={true}
           />
 
           {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
@@ -154,6 +156,7 @@ export default function LeadsFilters({
               options={contactFilterOptions}
               selectedValues={[selectedContactFilter]}
               onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
+              singleSelect={true}
             />
           )}
         </div>
