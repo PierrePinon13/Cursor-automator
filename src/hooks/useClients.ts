@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -27,6 +26,7 @@ export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collaboratorsLoading, setCollaboratorsLoading] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -179,12 +179,19 @@ export function useClients() {
   };
 
   const updateCollaborators = async (clientId: string, userIds: string[]) => {
+    // Ajouter le client aux opérations en cours
+    setCollaboratorsLoading(prev => new Set(prev).add(clientId));
+    
     try {
+      console.log('Début mise à jour collaborateurs:', { clientId, userIds });
+      
       // Delete existing collaborators
-      await supabase
+      const { error: deleteError } = await supabase
         .from('client_collaborators')
         .delete()
         .eq('client_id', clientId);
+
+      if (deleteError) throw deleteError;
 
       // Add new collaborators
       if (userIds.length > 0) {
@@ -193,20 +200,36 @@ export function useClients() {
           user_id: userId
         }));
 
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from('client_collaborators')
           .insert(collaborators);
 
-        if (error) throw error;
+        if (insertError) throw insertError;
       }
 
+      // Actualiser les données
       await fetchClients();
+      
+      toast({
+        title: "Succès",
+        description: "Collaborateurs mis à jour avec succès.",
+      });
+      
+      console.log('Mise à jour collaborateurs réussie');
     } catch (error: any) {
       console.error('Error updating collaborators:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour les collaborateurs.",
         variant: "destructive",
+      });
+      throw error;
+    } finally {
+      // Retirer le client des opérations en cours
+      setCollaboratorsLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(clientId);
+        return newSet;
       });
     }
   };
@@ -240,6 +263,7 @@ export function useClients() {
     clients,
     users,
     loading,
+    collaboratorsLoading,
     createClient,
     updateClient,
     deleteClient,

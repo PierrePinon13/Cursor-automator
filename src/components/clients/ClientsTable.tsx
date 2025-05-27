@@ -1,4 +1,3 @@
-
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +30,7 @@ interface ClientsTableProps {
 }
 
 export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
-  const { deleteClient, updateCollaborators } = useClients();
+  const { deleteClient, updateCollaborators, collaboratorsLoading } = useClients();
 
   console.log('ClientsTable - Données reçues:', { 
     clientsCount: clients?.length,
@@ -100,6 +99,8 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
             collaboratorIds: collaboratorIds
           });
           
+          const isCollaboratorsLoading = collaboratorsLoading.has(client.id);
+          
           return (
             <TableRow key={client.id}>
               <TableCell className="font-medium">
@@ -137,6 +138,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                   users={validUsers}
                   selectedUsers={collaboratorIds}
                   onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
+                  isLoading={isCollaboratorsLoading}
                 />
               </TableCell>
               <TableCell>

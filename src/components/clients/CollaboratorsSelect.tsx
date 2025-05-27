@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { Check, ChevronsUpDown, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User {
@@ -16,14 +16,17 @@ interface CollaboratorsSelectProps {
   users: User[];
   selectedUsers: string[];
   onSelectionChange: (userIds: string[]) => void;
+  isLoading?: boolean;
 }
 
 export function CollaboratorsSelect({ 
   users = [], 
   selectedUsers = [], 
-  onSelectionChange 
+  onSelectionChange,
+  isLoading = false
 }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
+  const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
 
   console.log('CollaboratorsSelect - Données reçues:', { 
     users, 
@@ -58,26 +61,48 @@ export function CollaboratorsSelect({
     safeSelectedUsers.includes(user.id)
   );
 
-  const toggleUser = (userId: string) => {
+  const toggleUser = async (userId: string) => {
     console.log('Tentative de sélection utilisateur:', userId);
+    
+    // Ajouter l'utilisateur aux actions en cours
+    setPendingActions(prev => new Set(prev).add(userId));
+    
     try {
       const newSelection = safeSelectedUsers.includes(userId)
         ? safeSelectedUsers.filter(id => id !== userId)
         : [...safeSelectedUsers, userId];
       
       console.log('Nouvelle sélection:', newSelection);
-      onSelectionChange(newSelection);
+      await onSelectionChange(newSelection);
+      
+      // Fermer le popover après une sélection réussie
+      setOpen(false);
     } catch (error) {
       console.error('Erreur lors de la sélection:', error);
+    } finally {
+      // Retirer l'utilisateur des actions en cours
+      setPendingActions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
     }
   };
 
-  const removeUser = (userId: string) => {
+  const removeUser = async (userId: string) => {
+    setPendingActions(prev => new Set(prev).add(userId));
+    
     try {
       const newSelection = safeSelectedUsers.filter(id => id !== userId);
-      onSelectionChange(newSelection);
+      await onSelectionChange(newSelection);
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+    } finally {
+      setPendingActions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
     }
   };
 
@@ -97,12 +122,17 @@ export function CollaboratorsSelect({
                 variant="ghost"
                 size="sm"
                 className="h-auto p-0 hover:bg-transparent"
+                disabled={pendingActions.has(user.id) || isLoading}
                 onClick={(e) => {
                   e.stopPropagation();
                   removeUser(user.id);
                 }}
               >
-                <X className="h-3 w-3" />
+                {pendingActions.has(user.id) ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <X className="h-3 w-3" />
+                )}
               </Button>
             </Badge>
           ))}
@@ -117,11 +147,21 @@ export function CollaboratorsSelect({
             role="combobox"
             aria-expanded={open}
             className="justify-between"
+            disabled={isLoading}
           >
-            {safeSelectedUsers.length > 0 
-              ? `${safeSelectedUsers.length} collaborateur(s) sélectionné(s)` 
-              : "Sélectionner des collaborateurs"}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Mise à jour...
+              </div>
+            ) : (
+              <>
+                {safeSelectedUsers.length > 0 
+                  ? `${safeSelectedUsers.length} collaborateur(s) sélectionné(s)` 
+                  : "Sélectionner des collaborateurs"}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0">
@@ -138,23 +178,35 @@ export function CollaboratorsSelect({
               <div className="space-y-1">
                 {safeUsers.map((user) => {
                   const isSelected = safeSelectedUsers.includes(user.id);
+                  const isPending = pendingActions.has(user.id);
+                  
                   return (
                     <button
                       key={user.id}
                       type="button"
-                      className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-100 rounded-md border border-transparent hover:border-gray-200 transition-colors"
+                      className={cn(
+                        "w-full flex items-center space-x-3 p-3 text-left rounded-md border transition-colors",
+                        isPending || isLoading
+                          ? "opacity-50 cursor-not-allowed bg-gray-50"
+                          : "hover:bg-gray-100 border-transparent hover:border-gray-200"
+                      )}
+                      disabled={isPending || isLoading}
                       onClick={() => {
                         console.log('Clic sur utilisateur:', user);
                         toggleUser(user.id);
                       }}
                     >
                       <div className="flex items-center justify-center w-4 h-4">
-                        <Check
-                          className={cn(
-                            "h-4 w-4 text-blue-600",
-                            isSelected ? "opacity-100" : "opacity-0"
-                          )}
-                        />
+                        {isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                        ) : (
+                          <Check
+                            className={cn(
+                              "h-4 w-4 text-blue-600",
+                              isSelected ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">
@@ -178,6 +230,7 @@ export function CollaboratorsSelect({
                 size="sm"
                 className="w-full"
                 onClick={() => setOpen(false)}
+                disabled={isLoading}
               >
                 Fermer
               </Button>
