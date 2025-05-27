@@ -140,6 +140,8 @@ const Clients = () => {
           setVisibleColumns={setVisibleColumns}
           showContactFilter={false}
           showAssignmentColumn={true}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
         />
 
         <div className="mt-6">
