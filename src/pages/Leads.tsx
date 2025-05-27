@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -7,6 +8,7 @@ import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
+import DashboardHeader from '@/components/DashboardHeader';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
 const Leads = () => {
@@ -170,53 +172,56 @@ const Leads = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <SidebarTrigger />
-        <SavedViewsButton
-          selectedCategories={selectedCategories}
-          visibleColumns={visibleColumns}
-          selectedDateFilter={selectedDateFilter}
-          selectedContactFilter={selectedContactFilter}
-          viewMode={viewMode}
-          onApplyView={handleApplyView}
-        />
-      </div>
-      
-      <div className="space-y-6">
-        <LeadsFilters
-          selectedCategories={selectedCategories}
-          setSelectedCategories={setSelectedCategories}
-          visibleColumns={visibleColumns}
-          setVisibleColumns={setVisibleColumns}
-          selectedDateFilter={selectedDateFilter}
-          setSelectedDateFilter={setSelectedDateFilter}
-          selectedContactFilter={selectedContactFilter}
-          setSelectedContactFilter={setSelectedContactFilter}
-          availableCategories={availableCategories}
-          showContactFilter={true}
-          showAssignmentColumn={false}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-        />
+    <div className="min-h-screen bg-gray-50">
+      <DashboardHeader />
+      <div className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <SidebarTrigger />
+          <SavedViewsButton
+            selectedCategories={selectedCategories}
+            visibleColumns={visibleColumns}
+            selectedDateFilter={selectedDateFilter}
+            selectedContactFilter={selectedContactFilter}
+            viewMode={viewMode}
+            onApplyView={handleApplyView}
+          />
+        </div>
         
-        <div className="bg-white rounded-lg shadow">
-          {viewMode === 'table' ? (
-            <DraggableTable 
-              leads={filteredLeads} 
-              visibleColumns={visibleColumns}
-              onActionCompleted={handleActionCompleted}
-              selectedLeadIndex={selectedLeadIndex}
-              onLeadSelect={setSelectedLeadIndex}
-            />
-          ) : (
-            <CardView 
-              leads={filteredLeads}
-              onActionCompleted={handleActionCompleted}
-              selectedLeadIndex={selectedLeadIndex}
-              onLeadSelect={setSelectedLeadIndex}
-            />
-          )}
+        <div className="space-y-6">
+          <LeadsFilters
+            selectedCategories={selectedCategories}
+            setSelectedCategories={setSelectedCategories}
+            visibleColumns={visibleColumns}
+            setVisibleColumns={setVisibleColumns}
+            selectedDateFilter={selectedDateFilter}
+            setSelectedDateFilter={setSelectedDateFilter}
+            selectedContactFilter={selectedContactFilter}
+            setSelectedContactFilter={setSelectedContactFilter}
+            availableCategories={availableCategories}
+            showContactFilter={true}
+            showAssignmentColumn={false}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+          />
+          
+          <div className="bg-white rounded-lg shadow">
+            {viewMode === 'table' ? (
+              <DraggableTable 
+                leads={filteredLeads} 
+                visibleColumns={visibleColumns}
+                onActionCompleted={handleActionCompleted}
+                selectedLeadIndex={selectedLeadIndex}
+                onLeadSelect={setSelectedLeadIndex}
+              />
+            ) : (
+              <CardView 
+                leads={filteredLeads}
+                onActionCompleted={handleActionCompleted}
+                selectedLeadIndex={selectedLeadIndex}
+                onLeadSelect={setSelectedLeadIndex}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
