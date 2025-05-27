@@ -4,6 +4,7 @@ import { useLeads } from '@/hooks/useLeads';
 import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
+import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Leads = () => {
@@ -38,6 +39,20 @@ const Leads = () => {
     refreshLeads();
   };
 
+  const handleApplyView = (view: {
+    selectedCategories: string[];
+    visibleColumns: string[];
+    selectedDateFilter: string;
+    selectedContactFilter: string;
+    viewMode: 'table' | 'card';
+  }) => {
+    setSelectedCategories(view.selectedCategories);
+    setVisibleColumns(view.visibleColumns);
+    setSelectedDateFilter(view.selectedDateFilter);
+    setSelectedContactFilter(view.selectedContactFilter);
+    setViewMode(view.viewMode);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -51,8 +66,16 @@ const Leads = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center mb-6">
+      <div className="flex items-center gap-3 mb-6">
         <SidebarTrigger />
+        <SavedViewsButton
+          selectedCategories={selectedCategories}
+          visibleColumns={visibleColumns}
+          selectedDateFilter={selectedDateFilter}
+          selectedContactFilter={selectedContactFilter}
+          viewMode={viewMode}
+          onApplyView={handleApplyView}
+        />
       </div>
       
       <div className="space-y-6">
