@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { processOpenAIStep1, processOpenAIStep2, processOpenAIStep3 } from './openai-steps.ts'
 import { processUnipileProfile } from './unipile-scraper.ts'
-import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost } from './database-operations.ts'
+import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage, fetchPost, updateRetryCount } from './database-operations.ts'
 import { checkIfLeadIsFromClient } from './client-matching.ts'
 import { generateApproachMessage } from './message-generation.ts'
 import { handleLeadDeduplication } from './lead-deduplication.ts'
@@ -12,6 +12,8 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const MAX_RETRY_ATTEMPTS = 3;
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -29,7 +31,7 @@ serve(async (req) => {
     )
 
     // Parse the incoming request
-    const { postId } = await req.json()
+    const { postId, isRetry = false } = await req.json()
     
     if (!postId) {
       console.error('No post ID provided')
@@ -39,11 +41,32 @@ serve(async (req) => {
       })
     }
 
-    console.log('Processing post:', postId)
+    console.log('Processing post:', postId, isRetry ? '(retry)' : '(first attempt)')
 
     // Fetch the post from database
     const post = await fetchPost(supabaseClient, postId)
     console.log('Post fetched:', post.id)
+
+    // Check retry count for retry attempts
+    if (isRetry) {
+      const retryCount = post.retry_count || 0;
+      if (retryCount >= MAX_RETRY_ATTEMPTS) {
+        console.log(`Post ${postId} has reached max retry attempts (${MAX_RETRY_ATTEMPTS}), marking as failed`);
+        await updateProcessingStatus(supabaseClient, postId, 'failed_max_retries');
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: 'Max retry attempts reached',
+          postId: postId
+        }), { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Increment retry count
+      await updateRetryCount(supabaseClient, postId, retryCount + 1);
+      console.log(`Retry attempt ${retryCount + 1} for post ${postId}`);
+    }
 
     // Mark as processing
     await updateProcessingStatus(supabaseClient, postId, 'processing')
@@ -153,6 +176,51 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Error in process-linkedin-post function:', error)
+    
+    // Parse postId from request if possible for retry scheduling
+    let postId = null;
+    try {
+      const requestBody = await req.clone().json();
+      postId = requestBody.postId;
+    } catch (parseError) {
+      console.error('Could not parse postId from request for retry scheduling');
+    }
+
+    // If we have a postId, schedule a retry
+    if (postId) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        const post = await fetchPost(supabaseClient, postId);
+        const retryCount = post.retry_count || 0;
+        
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+          console.log(`Scheduling retry for post ${postId} (attempt ${retryCount + 1})`);
+          await updateProcessingStatus(supabaseClient, postId, 'retry_scheduled');
+          await updateRetryCount(supabaseClient, postId, retryCount + 1);
+          
+          // Schedule retry after 5 minutes
+          setTimeout(async () => {
+            try {
+              await supabaseClient.functions.invoke('process-linkedin-post', {
+                body: { postId: postId, isRetry: true }
+              });
+            } catch (retryError) {
+              console.error('Error scheduling retry:', retryError);
+            }
+          }, 5 * 60 * 1000); // 5 minutes delay
+        } else {
+          console.log(`Post ${postId} has reached max retry attempts, marking as failed`);
+          await updateProcessingStatus(supabaseClient, postId, 'failed_max_retries');
+        }
+      } catch (retryScheduleError) {
+        console.error('Error scheduling retry:', retryScheduleError);
+      }
+    }
+
     return new Response('Internal server error', { 
       status: 500,
       headers: corsHeaders

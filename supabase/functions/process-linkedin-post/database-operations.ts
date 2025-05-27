@@ -15,6 +15,20 @@ export async function updateProcessingStatus(
     .eq('id', postId);
 }
 
+export async function updateRetryCount(
+  supabaseClient: ReturnType<typeof createClient>,
+  postId: string,
+  retryCount: number
+) {
+  await supabaseClient
+    .from('linkedin_posts')
+    .update({ 
+      retry_count: retryCount,
+      last_retry_at: new Date().toISOString()
+    })
+    .eq('id', postId);
+}
+
 export async function updateStep1Results(
   supabaseClient: ReturnType<typeof createClient>,
   postId: string,
