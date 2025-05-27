@@ -2,7 +2,7 @@
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { X, Table, Grid3X3 } from 'lucide-react';
+import { Table, Grid3X3 } from 'lucide-react';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -57,6 +57,41 @@ const getColumnOptions = (showAssignmentColumn = false) => {
   return baseColumns;
 };
 
+const categoryColors = {
+  'Tech': {
+    active: 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'Business': {
+    active: 'bg-green-100 border-green-300 text-green-800 hover:bg-green-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'Product': {
+    active: 'bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'Executive Search': {
+    active: 'bg-red-100 border-red-300 text-red-800 hover:bg-red-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'Comptelio': {
+    active: 'bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'RH': {
+    active: 'bg-pink-100 border-pink-300 text-pink-800 hover:bg-pink-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'Freelance': {
+    active: 'bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  },
+  'Data': {
+    active: 'bg-teal-100 border-teal-300 text-teal-800 hover:bg-teal-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+  }
+};
+
 export default function LeadsFilters({ 
   selectedCategories, 
   setSelectedCategories,
@@ -74,16 +109,12 @@ export default function LeadsFilters({
 }: LeadsFiltersProps) {
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
-  const removeCategory = (categoryToRemove: string) => {
-    setSelectedCategories(selectedCategories.filter(cat => cat !== categoryToRemove));
-  };
-
-  const clearAllCategories = () => {
-    setSelectedCategories([]);
-  };
-
-  const selectAllCategories = () => {
-    setSelectedCategories(availableCategories);
+  const toggleCategory = (category: string) => {
+    if (selectedCategories.includes(category)) {
+      setSelectedCategories(selectedCategories.filter(cat => cat !== category));
+    } else {
+      setSelectedCategories([...selectedCategories, category]);
+    }
   };
 
   return (
@@ -136,54 +167,27 @@ export default function LeadsFilters({
         </div>
       </div>
       
-      {/* Categories chips row */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            {selectedCategories.length !== availableCategories.length && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto p-0 text-xs text-blue-600 hover:text-blue-800"
-                onClick={selectAllCategories}
-              >
-                Tout sélectionner
-              </Button>
-            )}
-            {selectedCategories.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto p-0 text-xs text-gray-600 hover:text-gray-800"
-                onClick={clearAllCategories}
-              >
-                Tout effacer
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {selectedCategories.map((category) => (
+      {/* Categories badges row */}
+      <div className="flex flex-wrap gap-2">
+        {availableCategories.map((category) => {
+          const isSelected = selectedCategories.includes(category);
+          const colors = categoryColors[category as keyof typeof categoryColors] || {
+            active: 'bg-gray-100 border-gray-300 text-gray-800 hover:bg-gray-150',
+            inactive: 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-150'
+          };
+          const colorClass = isSelected ? colors.active : colors.inactive;
+          
+          return (
             <Badge
               key={category}
-              variant="secondary"
-              className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 cursor-pointer hover:bg-blue-200 transition-colors"
+              variant="outline"
+              className={`text-xs px-2 py-1 cursor-pointer transition-colors border ${colorClass}`}
+              onClick={() => toggleCategory(category)}
             >
               {category}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto w-auto p-0 ml-2 hover:bg-transparent"
-                onClick={() => removeCategory(category)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
             </Badge>
-          ))}
-          {selectedCategories.length === 0 && (
-            <span className="text-sm text-gray-500 italic">Aucune catégorie sélectionnée</span>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
