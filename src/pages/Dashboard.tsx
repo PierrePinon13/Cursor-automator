@@ -5,6 +5,7 @@ import StatsFilters from '@/components/dashboard/StatsFilters';
 import StatsCards from '@/components/dashboard/StatsCards';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
 import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
+import ProcessingBottlenecks from '@/components/dashboard/ProcessingBottlenecks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats, TimeFilter, ViewType } from '@/hooks/useUserStats';
