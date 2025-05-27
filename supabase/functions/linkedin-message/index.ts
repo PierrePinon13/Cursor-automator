@@ -23,7 +23,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Lead ID and message are required' 
+          error: 'Lead ID and message are required',
+          error_type: 'validation',
+          user_message: 'Paramètres manquants pour l\'envoi du message.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -50,7 +52,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Lead not found' 
+          error: 'Lead not found',
+          error_type: 'not_found',
+          user_message: 'Contact non trouvé.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -71,7 +75,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'No active LinkedIn connection. Please connect your LinkedIn account first.' 
+          error: 'No active LinkedIn connection. Please connect your LinkedIn account first.',
+          error_type: 'no_connection',
+          user_message: 'Aucune connexion LinkedIn active. Veuillez connecter votre compte LinkedIn.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -107,7 +113,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Cannot determine LinkedIn profile identifier' 
+          error: 'Cannot determine LinkedIn profile identifier',
+          error_type: 'invalid_profile',
+          user_message: 'Impossible de déterminer l\'identifiant LinkedIn du contact.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -124,7 +132,7 @@ serve(async (req) => {
     let actionTaken = ''
     let responseData = null
 
-    // Use the simplified Unipile rate limiting with priority for LinkedIn messages
+    // Use the enhanced Unipile rate limiting with priority for LinkedIn messages
     const queueResponse = await supabaseClient.functions.invoke('unipile-queue', {
       body: {
         action: 'execute',
@@ -156,7 +164,12 @@ serve(async (req) => {
         console.log('Connection invitation sent successfully')
       }
     } else {
-      throw new Error('Failed to process message through rate limiting');
+      // Handle enhanced error responses from unipile-queue
+      const errorData = queueResponse.data || {};
+      const errorType = errorData.error_type || 'unknown';
+      const userMessage = errorData.user_message || 'Échec de l\'envoi du message LinkedIn.';
+      
+      throw new Error(userMessage);
     }
 
     // Update the lead with LinkedIn message timestamp
@@ -180,7 +193,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: actionTaken === 'direct_message' ? 'Message sent successfully' : 'Connection request sent successfully',
+        message: actionTaken === 'direct_message' ? 'Message envoyé avec succès' : 'Demande de connexion envoyée avec succès',
         timestamp: now,
         action_taken: actionTaken,
         lead_name: lead.author_name || 'Contact',
@@ -195,10 +208,26 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in linkedin-message function:', error)
+    
+    // Extract user-friendly message if available
+    let userMessage = error.message;
+    let errorType = 'unknown';
+    
+    // Check if error message contains our enhanced error info
+    if (error.message.includes('LinkedIn est temporairement indisponible')) {
+      errorType = 'provider_unavailable';
+    } else if (error.message.includes('Erreur d\'authentification')) {
+      errorType = 'authentication';
+    } else if (error.message.includes('Trop de demandes')) {
+      errorType = 'rate_limit';
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message,
+        error_type: errorType,
+        user_message: userMessage
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

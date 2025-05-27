@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -6,6 +5,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import LeadDetailHeader from './LeadDetailHeader';
 import LeadDetailContent from './LeadDetailContent';
+import SystemStatus from '../SystemStatus';
 
 interface Lead {
   id: string;
@@ -182,6 +182,9 @@ const LeadDetailDialog = ({
           onNext={handleNext}
           onClose={onClose}
         />
+        
+        {/* System Status Banner */}
+        <SystemStatus className="mx-6 mt-2" />
         
         <LeadDetailContent
           lead={currentLeads[selectedLeadIndex]}

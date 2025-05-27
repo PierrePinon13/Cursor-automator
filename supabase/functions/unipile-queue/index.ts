@@ -19,6 +19,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Exponential backoff for retries
+function getRetryDelay(attempt: number): number {
+  return Math.min(1000 * Math.pow(2, attempt), 30000); // Max 30 seconds
+}
+
 async function executeWithRateLimit(accountId: string, operation: string, unipileApiKey: string, payload: any, isPriority: boolean = false) {
   console.log(`Executing ${operation} for account ${accountId} (priority: ${isPriority})`);
 
@@ -34,34 +39,72 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
     await sleep(waitTime);
   }
 
-  try {
-    // Execute the API call based on operation type
-    let result;
-    
-    switch (operation) {
-      case 'scrape_profile':
-        result = await scrapeProfile(unipileApiKey, accountId, payload);
+  // Retry logic with exponential backoff
+  let lastError: Error | null = null;
+  const maxRetries = 3;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt + 1}/${maxRetries} for ${operation}`);
+      
+      // Execute the API call based on operation type
+      let result;
+      
+      switch (operation) {
+        case 'scrape_profile':
+          result = await scrapeProfile(unipileApiKey, accountId, payload);
+          break;
+        case 'send_message':
+          result = await sendMessage(unipileApiKey, accountId, payload);
+          break;
+        case 'send_invitation':
+          result = await sendInvitation(unipileApiKey, accountId, payload);
+          break;
+        default:
+          throw new Error(`Unknown operation: ${operation}`);
+      }
+
+      // Update last call time on success
+      lastCallTime.set(accountId, Date.now());
+
+      console.log(`Successfully executed ${operation} for account ${accountId} on attempt ${attempt + 1}`);
+      return result;
+
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Attempt ${attempt + 1} failed for ${operation}:`, error);
+
+      // Check if it's a provider error (Unipile API issues)
+      const isProviderError = error.message.includes('provider_error') || 
+                             error.message.includes('operational problems') ||
+                             error.message.includes('500');
+
+      // Don't retry on authentication or validation errors (4xx except 429)
+      const isClientError = error.message.includes('401') || 
+                            error.message.includes('403') || 
+                            error.message.includes('404') ||
+                            error.message.includes('400');
+
+      if (isClientError && !error.message.includes('429')) {
+        console.log(`Client error detected, not retrying: ${error.message}`);
         break;
-      case 'send_message':
-        result = await sendMessage(unipileApiKey, accountId, payload);
+      }
+
+      // If it's the last attempt, don't wait
+      if (attempt === maxRetries - 1) {
         break;
-      case 'send_invitation':
-        result = await sendInvitation(unipileApiKey, accountId, payload);
-        break;
-      default:
-        throw new Error(`Unknown operation: ${operation}`);
+      }
+
+      // Wait before retry with exponential backoff
+      const retryDelay = getRetryDelay(attempt);
+      console.log(`Waiting ${retryDelay}ms before retry ${attempt + 2}`);
+      await sleep(retryDelay);
     }
-
-    // Update last call time
-    lastCallTime.set(accountId, Date.now());
-
-    console.log(`Successfully executed ${operation} for account ${accountId}`);
-    return result;
-
-  } catch (error) {
-    console.error(`Error executing ${operation}:`, error);
-    throw error;
   }
+
+  // All retries failed
+  console.error(`All ${maxRetries} attempts failed for ${operation}:`, lastError);
+  throw lastError;
 }
 
 async function scrapeProfile(unipileApiKey: string, accountId: string, payload: any) {
@@ -81,7 +124,7 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Scrape profile failed: ${response.status} - ${errorText}`);
-    throw new Error(`Scrape profile failed: ${response.status}`);
+    throw new Error(`Scrape profile failed: ${response.status} - ${errorText}`);
   }
 
   return await response.json();
@@ -109,7 +152,7 @@ async function sendMessage(unipileApiKey: string, accountId: string, payload: an
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Send message failed: ${response.status} - ${errorText}`);
-    throw new Error(`Send message failed: ${response.status}`);
+    throw new Error(`Send message failed: ${response.status} - ${errorText}`);
   }
 
   return await response.json();
@@ -169,7 +212,7 @@ serve(async (req) => {
     }
 
     if (action === 'execute') {
-      // Execute with rate limiting (priority=true for LinkedIn messages)
+      // Execute with rate limiting and retry logic
       const result = await executeWithRateLimit(account_id, operation, unipileApiKey, payload, priority);
       
       return new Response(
@@ -185,8 +228,32 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in unipile-queue function:', error)
+    
+    // Classify error types for better user messaging
+    let errorType = 'unknown';
+    let userMessage = 'Une erreur inattendue s\'est produite.';
+    
+    if (error.message.includes('provider_error') || error.message.includes('operational problems')) {
+      errorType = 'provider_unavailable';
+      userMessage = 'LinkedIn est temporairement indisponible. Veuillez réessayer dans quelques minutes.';
+    } else if (error.message.includes('401') || error.message.includes('403')) {
+      errorType = 'authentication';
+      userMessage = 'Erreur d\'authentification avec LinkedIn. Veuillez reconnecter votre compte.';
+    } else if (error.message.includes('429')) {
+      errorType = 'rate_limit';
+      userMessage = 'Trop de demandes. Veuillez patienter avant de réessayer.';
+    } else if (error.message.includes('404')) {
+      errorType = 'not_found';
+      userMessage = 'Profil LinkedIn non trouvé ou inaccessible.';
+    }
+
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        error_type: errorType,
+        user_message: userMessage
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
