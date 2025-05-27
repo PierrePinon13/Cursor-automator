@@ -10,8 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNotifications } from '@/hooks/useNotifications';
 import NotificationsList from './NotificationsList';
+import RecentActivityPreview from './RecentActivityPreview';
 
 const NotificationButton = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
@@ -31,9 +33,9 @@ const NotificationButton = () => {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between p-3 border-b">
-          <DropdownMenuLabel className="p-0 font-semibold">Notifications</DropdownMenuLabel>
+          <DropdownMenuLabel className="p-0 font-semibold">Centre de notifications</DropdownMenuLabel>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
@@ -45,10 +47,31 @@ const NotificationButton = () => {
             </Button>
           )}
         </div>
-        <NotificationsList 
-          notifications={notifications} 
-          onMarkAsRead={markAsRead}
-        />
+        
+        <Tabs defaultValue="notifications" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mx-3 mt-2">
+            <TabsTrigger value="notifications" className="text-xs">
+              Notifications
+              {unreadCount > 0 && (
+                <Badge variant="secondary" className="ml-2 h-4 w-4 p-0 text-xs">
+                  {unreadCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="text-xs">Activité récente</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="notifications" className="mt-0">
+            <NotificationsList 
+              notifications={notifications} 
+              onMarkAsRead={markAsRead}
+            />
+          </TabsContent>
+          
+          <TabsContent value="activity" className="mt-0">
+            <RecentActivityPreview />
+          </TabsContent>
+        </Tabs>
       </DropdownMenuContent>
     </DropdownMenu>
   );
