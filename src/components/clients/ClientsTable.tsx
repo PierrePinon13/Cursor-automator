@@ -64,21 +64,14 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
     await updateCollaborators(clientId, userIds);
   };
 
-  // Vérifications de sécurité strictes
-  if (!Array.isArray(clients)) {
-    console.error('ClientsTable: clients is not an array:', clients);
-    return <div>Erreur: données clients invalides</div>;
-  }
+  // Vérifications de sécurité strictes avec valeurs par défaut
+  const safeClients = Array.isArray(clients) ? clients : [];
+  const safeUsers = Array.isArray(users) ? users : [];
 
-  if (!Array.isArray(users)) {
-    console.error('ClientsTable: users is not an array:', users);
-    return <div>Erreur: données utilisateurs invalides</div>;
-  }
+  const validClients = safeClients.filter(client => client && typeof client === 'object' && client.id);
+  const validUsers = safeUsers.filter(user => user && typeof user === 'object' && user.id);
 
-  const safeClients = clients.filter(client => client && typeof client === 'object' && client.id);
-  const safeUsers = users.filter(user => user && typeof user === 'object' && user.id);
-
-  console.log('After safety filter:', { safeClients: safeClients.length, safeUsers: safeUsers.length });
+  console.log('After safety filter:', { validClients: validClients.length, validUsers: validUsers.length });
 
   return (
     <Table>
@@ -92,7 +85,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
         </TableRow>
       </TableHeader>
       <TableBody>
-        {safeClients.map((client) => {
+        {validClients.map((client) => {
           // Extraction sécurisée des IDs des collaborateurs avec vérifications strictes
           let collaboratorIds: string[] = [];
           
@@ -146,7 +139,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
               </TableCell>
               <TableCell>
                 <CollaboratorsSelect
-                  users={safeUsers}
+                  users={validUsers}
                   selectedUsers={collaboratorIds}
                   onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
                 />
@@ -172,7 +165,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
             </TableRow>
           );
         })}
-        {safeClients.length === 0 && (
+        {validClients.length === 0 && (
           <TableRow>
             <TableCell colSpan={5} className="text-center py-8 text-gray-500">
               Aucun client trouvé. Ajoutez votre premier client ou importez un fichier CSV.

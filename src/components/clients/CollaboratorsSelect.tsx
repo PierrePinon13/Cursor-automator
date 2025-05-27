@@ -19,7 +19,11 @@ interface CollaboratorsSelectProps {
   onSelectionChange: (userIds: string[]) => void;
 }
 
-export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectionChange }: CollaboratorsSelectProps) {
+export function CollaboratorsSelect({ 
+  users = [], 
+  selectedUsers = [], 
+  onSelectionChange 
+}: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
 
   console.log('CollaboratorsSelect render:', { 
@@ -33,25 +37,11 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
     selectedUsersLength: selectedUsers?.length
   });
 
-  // Vérifications de sécurité très strictes
-  if (!users || !Array.isArray(users)) {
-    console.error('CollaboratorsSelect: users is not a valid array:', users);
-    return (
-      <div className="text-sm text-gray-500">
-        Erreur: données utilisateurs invalides
-      </div>
-    );
-  }
+  // Vérifications de sécurité avec valeurs par défaut
+  const safeUsers = Array.isArray(users) ? users : [];
+  const safeSelectedUsers = Array.isArray(selectedUsers) ? selectedUsers : [];
 
-  if (!selectedUsers || !Array.isArray(selectedUsers)) {
-    console.error('CollaboratorsSelect: selectedUsers is not a valid array:', selectedUsers);
-    return (
-      <div className="text-sm text-gray-500">
-        Erreur: sélection utilisateurs invalide
-      </div>
-    );
-  }
-
+  // Validation des fonctions
   if (!onSelectionChange || typeof onSelectionChange !== 'function') {
     console.error('CollaboratorsSelect: onSelectionChange is not a function:', onSelectionChange);
     return (
@@ -62,7 +52,7 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
   }
 
   // S'assurer que tous les éléments de users sont valides
-  const validUsers = users.filter(user => {
+  const validUsers = safeUsers.filter(user => {
     const isValid = user && typeof user === 'object' && typeof user.id === 'string' && user.id.length > 0;
     if (!isValid) {
       console.warn('CollaboratorsSelect: Invalid user object:', user);
@@ -71,7 +61,7 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
   });
 
   // S'assurer que tous les éléments de selectedUsers sont des strings valides
-  const validSelectedUsers = selectedUsers.filter(userId => {
+  const validSelectedUsers = safeSelectedUsers.filter(userId => {
     const isValid = typeof userId === 'string' && userId.length > 0;
     if (!isValid) {
       console.warn('CollaboratorsSelect: Invalid selected user ID:', userId);
@@ -79,7 +69,7 @@ export function CollaboratorsSelect({ users = [], selectedUsers = [], onSelectio
     return isValid;
   });
 
-  console.log('After validation:', { validUsers, validSelectedUsers });
+  console.log('After validation:', { validUsers: validUsers.length, validSelectedUsers: validSelectedUsers.length });
 
   // Filtrer les utilisateurs sélectionnés avec une vérification supplémentaire
   const selectedUsersData = validUsers.filter(user => {
