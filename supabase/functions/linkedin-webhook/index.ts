@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -32,106 +31,69 @@ serve(async (req) => {
 
     console.log('Processing webhook for account_id:', account_id, 'with status:', status)
 
-    // Trouver la connexion en attente la plus récente
-    const { data: connections, error: searchError } = await supabaseClient
+    // First, try to find a pending connection (most recent webhook scenario)
+    const { data: pendingConnections, error: pendingError } = await supabaseClient
       .from('linkedin_connections')
       .select('*')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
 
-    if (searchError || !connections || connections.length === 0) {
-      console.log('No pending connection found, trying to find existing connection by account_id:', account_id)
+    let connectionData = null;
+    let isNewConnection = false;
+
+    if (pendingError) {
+      console.error('Error searching for pending connections:', pendingError)
+    }
+
+    if (pendingConnections && pendingConnections.length > 0) {
+      connectionData = pendingConnections[0]
+      isNewConnection = true
+      console.log('Found pending connection:', connectionData.id, 'temp_id:', connectionData.unipile_account_id)
+    } else {
+      // No pending connection, look for existing connection with this account_id
+      console.log('No pending connection found, searching for existing connection with account_id:', account_id)
       
-      // Si pas de connexion pending, chercher une connexion existante avec cet account_id
       const { data: existingConnections, error: existingError } = await supabaseClient
         .from('linkedin_connections')
         .select('*')
         .eq('account_id', account_id)
         .limit(1)
 
-      if (existingError || !existingConnections || existingConnections.length === 0) {
-        console.log('No matching connection found for account_id:', account_id)
-        return new Response('No matching connection found', { status: 404 })
-      }
-
-      // Utiliser la connexion existante
-      const connectionData = existingConnections[0]
-      console.log('Found existing connection:', connectionData.id, 'account_id:', connectionData.account_id)
-      
-      let updateData: any = {
-        account_id: account_id, // Mettre à jour avec le nouvel account_id d'Unipile
-        last_update: new Date().toISOString()
-      }
-
-      // Mettre à jour le statut selon le webhook
-      switch (status) {
-        case 'CREATION_SUCCESS':
-        case 'RECONNECTED':
-          updateData.status = 'connected'
-          updateData.connection_status = 'connected'
-          updateData.connected_at = new Date().toISOString()
-          updateData.error_message = null
-          break
-        case 'CREDENTIALS':
-          updateData.status = 'credentials_required'
-          updateData.connection_status = 'credentials_required'
-          updateData.error_message = 'Credentials update required'
-          break
-        case 'ERROR':
-          updateData.status = 'error'
-          updateData.connection_status = 'error'
-          updateData.error_message = unipileError || 'Unknown error occurred'
-          break
-        default:
-          updateData.status = status
-          updateData.connection_status = status
-          if (unipileError) {
-            updateData.error_message = unipileError
-          }
-      }
-
-      // Mettre à jour la connexion existante
-      const { data, error } = await supabaseClient
-        .from('linkedin_connections')
-        .update(updateData)
-        .eq('id', connectionData.id)
-        .select()
-
-      if (error) {
-        console.error('Error updating existing LinkedIn connection:', error)
+      if (existingError) {
+        console.error('Error searching for existing connections:', existingError)
         return new Response('Database error', { status: 500 })
       }
 
-      console.log('Existing LinkedIn connection updated successfully:', data[0])
-      return new Response('OK', { status: 200, headers: corsHeaders })
+      if (existingConnections && existingConnections.length > 0) {
+        connectionData = existingConnections[0]
+        console.log('Found existing connection:', connectionData.id, 'for account_id:', account_id)
+      } else {
+        console.log('No matching connection found for account_id:', account_id)
+        return new Response('No matching connection found', { status: 404 })
+      }
     }
 
-    const connectionData = connections[0]
-    console.log('Found pending connection:', connectionData.id, 'temp_id:', connectionData.unipile_account_id)
-
-    // Update connection status based on webhook
+    // Prepare update data based on webhook status
     let updateData: any = {
-      account_id: account_id, // Le vrai account_id venant d'Unipile
-      // Garder l'unipile_account_id existant (l'UUID temporaire)
       last_update: new Date().toISOString()
     }
 
+    // For new connections, set the real account_id from Unipile
+    if (isNewConnection) {
+      updateData.account_id = account_id
+      console.log('Setting real account_id for new connection:', account_id)
+    }
+
+    // Update status based on webhook
     switch (status) {
       case 'CREATION_SUCCESS':
-        updateData.status = 'connected'
-        updateData.connection_status = 'connected'
-        updateData.connected_at = new Date().toISOString()
-        updateData.error_message = null
-        console.log('LinkedIn connection successful for account:', account_id)
-        break
-
       case 'RECONNECTED':
         updateData.status = 'connected'
         updateData.connection_status = 'connected'
         updateData.connected_at = new Date().toISOString()
         updateData.error_message = null
-        console.log('LinkedIn reconnection successful for account:', account_id)
+        console.log(`LinkedIn connection ${status.toLowerCase()} for account:`, account_id)
         break
 
       case 'CREDENTIALS':
@@ -157,7 +119,7 @@ serve(async (req) => {
         }
     }
 
-    // Update the connection in the database using the ID we found
+    // Update the connection in the database
     const { data, error } = await supabaseClient
       .from('linkedin_connections')
       .update(updateData)
@@ -171,19 +133,19 @@ serve(async (req) => {
 
     console.log('LinkedIn connection updated successfully:', data[0])
 
-    // Si la connexion a réussi, supprimer les anciennes connexions du même utilisateur
-    if (status === 'CREATION_SUCCESS' || status === 'RECONNECTED') {
-      console.log('Removing old connections for user:', connectionData.user_id)
+    // If the connection was successful and it's a new connection, clean up any old connections for this user
+    if ((status === 'CREATION_SUCCESS' || status === 'RECONNECTED') && isNewConnection) {
+      console.log('Cleaning up old connections for user:', connectionData.user_id)
       
       const { error: deleteError } = await supabaseClient
         .from('linkedin_connections')
         .delete()
         .eq('user_id', connectionData.user_id)
-        .neq('id', connectionData.id) // Garder la connexion actuelle
+        .neq('id', connectionData.id) // Keep the current connection
 
       if (deleteError) {
         console.error('Error deleting old connections:', deleteError)
-        // Ne pas faire échouer le webhook pour cette erreur
+        // Don't fail the webhook for this error
       } else {
         console.log('Old connections deleted successfully for user:', connectionData.user_id)
       }

@@ -1,5 +1,4 @@
 
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -103,15 +102,52 @@ serve(async (req) => {
     }
 
     // Get active LinkedIn connection for the authenticated user
+    // IMPORTANT: Only use connections with a valid account_id (not temporary UUID)
     const { data: connections } = await supabaseClient
       .from('linkedin_connections')
-      .select('account_id, unipile_account_id')
+      .select('account_id, unipile_account_id, id')
       .eq('user_id', user.id)
       .eq('status', 'connected')
+      .not('account_id', 'is', null) // Ensure we have a real Unipile account_id
+      .order('connected_at', { ascending: false }) // Get the most recent connection
       .limit(1)
 
     if (!connections || connections.length === 0) {
-      console.error('No active LinkedIn connection found for user:', user.id)
+      console.error('No active LinkedIn connection with valid account_id found for user:', user.id)
+      
+      // Check if user has connections but without valid account_id
+      const { data: invalidConnections } = await supabaseClient
+        .from('linkedin_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'connected')
+        .is('account_id', null)
+
+      if (invalidConnections && invalidConnections.length > 0) {
+        console.log('Found connections without valid account_id, triggering sync...')
+        
+        // Trigger account sync to update account_ids
+        try {
+          await supabaseClient.functions.invoke('linkedin-sync-accounts')
+          console.log('Account sync triggered successfully')
+        } catch (syncError) {
+          console.error('Failed to trigger account sync:', syncError)
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'LinkedIn connection needs to be refreshed. Please try synchronizing your accounts.',
+            error_type: 'connection_refresh_needed',
+            user_message: 'Votre connexion LinkedIn doit être actualisée. Veuillez synchroniser vos comptes et réessayer.'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          }
+        )
+      }
+
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -127,9 +163,14 @@ serve(async (req) => {
     }
 
     const connection = connections[0]
-    const accountId = connection.account_id || connection.unipile_account_id
+    const accountId = connection.account_id // Use only the real Unipile account_id
 
     console.log('Using LinkedIn account for user', user.email, ':', accountId)
+    console.log('Connection details:', {
+      connection_id: connection.id,
+      account_id: connection.account_id,
+      unipile_account_id: connection.unipile_account_id
+    })
 
     // Verify this is the expected account for Pierre Pinon
     if (user.email === 'ppinon@getpro.fr' && accountId !== 'DdxglDwFT-mMZgxHeCGMdA') {
@@ -388,4 +429,3 @@ serve(async (req) => {
     )
   }
 })
-
