@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useTouchGestures } from '@/hooks/useTouchGestures';
 import LeadDetailHeader from './LeadDetailHeader';
 import LeadDetailContent from './LeadDetailContent';
 
@@ -82,6 +84,20 @@ const LeadDetailDialog = ({
       setCustomMessage('');
     }
   };
+
+  // Keyboard shortcuts pour la navigation dans le dialog
+  useKeyboardShortcuts({
+    onNextItem: handleNext,
+    onPreviousItem: handlePrevious,
+    enabled: isOpen
+  });
+
+  // Touch gestures pour la navigation dans le dialog
+  useTouchGestures({
+    onSwipeLeft: handleNext,
+    onSwipeRight: handlePrevious,
+    enabled: isOpen
+  });
 
   const handleAction = (actionName: string) => {
     console.log(`Action ${actionName} executée pour le lead ${lead.author_name}`);
@@ -170,6 +186,12 @@ const LeadDetailDialog = ({
           onPhoneRetrieved={handlePhoneRetrieved}
           onContactUpdate={handleContactUpdate}
         />
+        
+        {/* Keyboard shortcuts hint */}
+        <div className="fixed bottom-4 right-4 bg-black/80 text-white text-sm px-3 py-2 rounded-lg">
+          <kbd className="px-1 py-0.5 bg-white/20 rounded text-xs">←</kbd>
+          <kbd className="px-1 py-0.5 bg-white/20 rounded text-xs ml-1">→</kbd> pour naviguer
+        </div>
       </div>
     </TooltipProvider>
   );

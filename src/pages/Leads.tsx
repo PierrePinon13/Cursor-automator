@@ -2,11 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useTouchGestures } from '@/hooks/useTouchGestures';
 import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
 const Leads = () => {
   const { 
@@ -22,6 +24,7 @@ const Leads = () => {
   } = useLeads();
   
   const { getDefaultView, applyView } = useSavedViews();
+  const { toggleSidebar } = useSidebar();
   
   const [visibleColumns, setVisibleColumns] = useState([
     'posted_date', 
@@ -37,6 +40,7 @@ const Leads = () => {
 
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
+  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
 
   // Load default view whenever we come to this page or when default view changes
   useEffect(() => {
@@ -69,6 +73,37 @@ const Leads = () => {
       window.removeEventListener('defaultViewChanged', handleDefaultViewChange);
     };
   }, [getDefaultView, applyView, setSelectedCategories, setSelectedDateFilter, setSelectedContactFilter]);
+
+  const handleNavigateToNextLead = () => {
+    if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
+      setSelectedLeadIndex(selectedLeadIndex + 1);
+    } else if (filteredLeads.length > 0) {
+      setSelectedLeadIndex(0);
+    }
+  };
+
+  const handleNavigateToPreviousLead = () => {
+    if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
+      setSelectedLeadIndex(selectedLeadIndex - 1);
+    } else if (filteredLeads.length > 0) {
+      setSelectedLeadIndex(filteredLeads.length - 1);
+    }
+  };
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onToggleSidebar: toggleSidebar,
+    onNextItem: handleNavigateToNextLead,
+    onPreviousItem: handleNavigateToPreviousLead,
+    enabled: true
+  });
+
+  // Touch gestures
+  useTouchGestures({
+    onSwipeLeft: handleNavigateToNextLead,
+    onSwipeRight: handleNavigateToPreviousLead,
+    enabled: true
+  });
 
   const handleActionCompleted = () => {
     // Refresh leads data when an action is completed
@@ -112,6 +147,11 @@ const Leads = () => {
           viewMode={viewMode}
           onApplyView={handleApplyView}
         />
+        <div className="text-sm text-muted-foreground ml-auto">
+          <kbd className="px-2 py-1 text-xs bg-white border rounded">Espace</kbd> pour basculer la sidebar • 
+          <kbd className="px-2 py-1 text-xs bg-white border rounded ml-1">←</kbd>
+          <kbd className="px-2 py-1 text-xs bg-white border rounded">→</kbd> pour naviguer
+        </div>
       </div>
       
       <div className="space-y-6">
@@ -134,11 +174,15 @@ const Leads = () => {
               leads={filteredLeads} 
               visibleColumns={visibleColumns}
               onActionCompleted={handleActionCompleted}
+              selectedLeadIndex={selectedLeadIndex}
+              onLeadSelect={setSelectedLeadIndex}
             />
           ) : (
             <CardView 
               leads={filteredLeads}
               onActionCompleted={handleActionCompleted}
+              selectedLeadIndex={selectedLeadIndex}
+              onLeadSelect={setSelectedLeadIndex}
             />
           )}
         </div>
