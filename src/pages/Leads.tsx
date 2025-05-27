@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -7,8 +8,8 @@ import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
-import DashboardHeader from '@/components/DashboardHeader';
 import { useSidebar } from '@/components/ui/sidebar';
+import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
 const Leads = () => {
   const { 
@@ -172,11 +173,10 @@ const Leads = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
-      
-      {/* Section des filtres avec padding */}
+      {/* Header intégré avec les boutons et filtres */}
       <div className="px-6 pt-6 pb-4 bg-gray-50">
         <div className="flex items-center gap-3 mb-6">
+          <CustomSidebarTrigger />
           <SavedViewsButton
             selectedCategories={selectedCategories}
             visibleColumns={visibleColumns}

@@ -46,12 +46,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="h-16 flex items-center px-4 border-b bg-white">
         <div className="flex items-center gap-3 w-full">
-          <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">Automator</h1>
-          <img 
-            src="/lovable-uploads/0e90fa69-04ca-49b9-a111-f75596b70418.png" 
-            alt="Automator Logo" 
-            className="h-12 w-12 ml-auto group-data-[collapsible=icon]:ml-0"
-          />
+          <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">Menu</h1>
         </div>
       </SidebarHeader>
       <SidebarContent className="bg-white">
