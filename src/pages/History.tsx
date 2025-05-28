@@ -350,9 +350,14 @@ const History = () => {
                             </div>
                           )}
                           <Calendar
-                            mode="single"
-                            selected={customDateRange.from}
-                            onSelect={handleDateSelect}
+                            mode="range"
+                            selected={customDateRange}
+                            onSelect={(range) => {
+                              if (range) {
+                                setCustomDateRange(range);
+                                setTimeFilter('custom');
+                              }
+                            }}
                             className="pointer-events-auto"
                           />
                           <p className="text-xs text-gray-500 mt-2 text-center">
