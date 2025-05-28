@@ -100,7 +100,7 @@ export const useNotifications = () => {
         });
       }
 
-      // Récupérer tous les messages LinkedIn récents avec les profils des expéditeurs
+      // Récupérer tous les messages LinkedIn récents
       const { data: recentMessages } = await supabase
         .from('linkedin_messages')
         .select(`
@@ -126,11 +126,6 @@ export const useNotifications = () => {
             posted_at_iso,
             created_at,
             matched_client_name
-          ),
-          profiles!sent_by_user_id (
-            id,
-            full_name,
-            email
           )
         `)
         .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -138,8 +133,17 @@ export const useNotifications = () => {
         .limit(20);
 
       if (recentMessages && recentMessages.length > 0) {
+        // Récupérer les profils des expéditeurs dans une requête séparée
+        const uniqueUserIds = [...new Set(recentMessages.map(msg => msg.sent_by_user_id).filter(Boolean))];
+        
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', uniqueUserIds);
+
         recentMessages.forEach(message => {
-          const senderName = message.profiles?.full_name || message.profiles?.email || 'Utilisateur Inconnu';
+          const senderProfile = profiles?.find(p => p.id === message.sent_by_user_id);
+          const senderName = senderProfile?.full_name || senderProfile?.email || 'Utilisateur Inconnu';
           
           mockNotifications.push({
             id: `linkedin-${message.id}`,
