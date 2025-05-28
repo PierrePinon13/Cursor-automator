@@ -82,6 +82,8 @@ export const useUserStats = () => {
 
     setLoading(true);
     try {
+      console.log('Fetching stats with:', { viewType, timeFilter, userId: user.id });
+      
       let query = supabase
         .from('user_stats')
         .select('*');
@@ -94,14 +96,23 @@ export const useUserStats = () => {
       // Filtre temporel
       const dateRange = getDateRange(timeFilter);
       if (dateRange) {
+        const startDateStr = dateRange.start.toISOString().split('T')[0];
+        const endDateStr = dateRange.end.toISOString().split('T')[0];
+        console.log('Date range:', { start: startDateStr, end: endDateStr });
+        
         query = query
-          .gte('stat_date', dateRange.start.toISOString().split('T')[0])
-          .lte('stat_date', dateRange.end.toISOString().split('T')[0]);
+          .gte('stat_date', startDateStr)
+          .lte('stat_date', endDateStr);
       }
 
       const { data: statsData, error: statsError } = await query.order('stat_date', { ascending: false });
 
-      if (statsError) throw statsError;
+      if (statsError) {
+        console.error('Stats error:', statsError);
+        throw statsError;
+      }
+
+      console.log('Raw stats data:', statsData);
 
       // Récupérer les informations des profils utilisateur séparément
       const userIds = [...new Set(statsData?.map(stat => stat.user_id) || [])];
@@ -122,6 +133,7 @@ export const useUserStats = () => {
         user_email: emailMap.get(stat.user_id) || 'Utilisateur inconnu'
       })) || [];
 
+      console.log('Processed stats:', processedStats);
       setStats(processedStats);
 
       // Calculer les statistiques agrégées
@@ -137,11 +149,14 @@ export const useUserStats = () => {
       const totalCalls = totals.positive_calls + totals.negative_calls;
       const successRate = totalCalls > 0 ? (totals.positive_calls / totalCalls) * 100 : 0;
 
-      setAggregatedStats({
+      const aggregated = {
         ...totals,
         total_calls: totalCalls,
         success_rate: successRate,
-      });
+      };
+
+      console.log('Aggregated stats:', aggregated);
+      setAggregatedStats(aggregated);
 
     } catch (error) {
       console.error('Error fetching stats:', error);

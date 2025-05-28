@@ -14,17 +14,24 @@ const Dashboard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('this-week');
   const { stats, aggregatedStats, loading, fetchStats } = useUserStats();
 
+  console.log('Dashboard - Current state:', { viewType, timeFilter, loading });
+  console.log('Dashboard - Stats:', stats);
+  console.log('Dashboard - Aggregated:', aggregatedStats);
+
   useEffect(() => {
+    console.log('Dashboard - Fetching stats on mount or filter change');
     fetchStats(viewType, timeFilter);
   }, [viewType, timeFilter]);
 
   const handleViewTypeChange = (value: string) => {
     if (value) {
+      console.log('Dashboard - View type changed to:', value);
       setViewType(value as ViewType);
     }
   };
 
   const handleTimeFilterChange = (value: TimeFilter) => {
+    console.log('Dashboard - Time filter changed to:', value);
     setTimeFilter(value);
   };
 
@@ -77,7 +84,7 @@ const Dashboard = () => {
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">Résumé de la période</CardTitle>
                       <CardDescription className="text-sm">
-                        Vue d'ensemble des performances
+                        Vue d'ensemble des performances ({timeFilter})
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -113,7 +120,7 @@ const Dashboard = () => {
                     <CardContent>
                       {stats.length === 0 ? (
                         <div className="text-center py-6 text-muted-foreground">
-                          Aucune activité pour la période sélectionnée
+                          {loading ? 'Chargement...' : 'Aucune activité pour la période sélectionnée'}
                         </div>
                       ) : (
                         <div className="space-y-2">
