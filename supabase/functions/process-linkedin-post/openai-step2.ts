@@ -31,11 +31,12 @@ Analyser le texte du post LinkedIn pour classer le recrutement comme "Oui" ou "N
 2. Répondez **"Oui"** si :
    - Le post mentionne clairement une localisation en **France, Belgique, Suisse, Luxembourg ou Monaco**.
    - Ou si le post est rédigé en **français** et **aucun indice ne suggère que le poste est situé hors de cette zone** (même si aucune localisation explicite n'est donnée).
-3. Répondez **"Non"** si :
+   - **IMPORTANT** : Un post en français SANS mention de localisation doit être considéré comme "Oui" par défaut, sauf si des indices clairs indiquent le contraire.
+3. Répondez **"Non"** UNIQUEMENT si :
    - Une localisation est clairement mentionnée **hors de la zone cible** (ex : Canada, Allemagne, Maroc…).
    - Ou si le post **n'est pas rédigé en français** et **n'indique pas clairement** que le poste se situe dans la zone cible.
 
-En cas de doute sur la localisation ou la langue : **répondez "Non"**.
+**RÈGLE SPÉCIALE** : Si le post est en français et qu'aucune localisation hors zone n'est mentionnée, répondez toujours "Oui".
 
 # FORMAT DE SORTIE
 La réponse doit être fournie dans le format suivant (JSON) :
@@ -44,7 +45,7 @@ La réponse doit être fournie dans le format suivant (JSON) :
 {
   "reponse": "Oui" ou "Non",
   "langue": "français" ou autre (ex : "anglais"),
-  "localisation_detectee": "texte extrait indiquant une localisation, s'il y en a, sinon null",
+  "localisation_detectee": "texte extrait indiquant une localisation, s'il y en a, sinon 'non spécifiée'",
   "raison": "explication courte justifiant la réponse (ex : 'Post en français sans mention hors zone', 'Localisation indiquée : Berlin, hors zone', etc.)"
 }
 \`\`\``
