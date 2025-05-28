@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserPlus, Calendar } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, Calendar, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface Activity {
   id: string;
@@ -19,9 +20,20 @@ interface ActivityListProps {
   activities: Activity[];
   selectedActivity: Activity | null;
   onSelectActivity: (activity: Activity) => void;
+  onLoadMore?: () => void;
+  canLoadMore?: boolean;
 }
 
-const ActivityList = ({ activities, selectedActivity, onSelectActivity }: ActivityListProps) => {
+const ActivityList = ({ 
+  activities, 
+  selectedActivity, 
+  onSelectActivity, 
+  onLoadMore,
+  canLoadMore = false
+}: ActivityListProps) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'linkedin_message':
@@ -52,6 +64,19 @@ const ActivityList = ({ activities, selectedActivity, onSelectActivity }: Activi
     }
   };
 
+  // Détection du scroll pour charger plus d'activités
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
+    
+    if (isNearBottom && canLoadMore && onLoadMore && !isLoadingMore) {
+      setIsLoadingMore(true);
+      onLoadMore();
+      // Reset loading state after a delay
+      setTimeout(() => setIsLoadingMore(false), 500);
+    }
+  };
+
   if (activities.length === 0) {
     return (
       <div className="p-4 text-center text-gray-500">
@@ -61,7 +86,11 @@ const ActivityList = ({ activities, selectedActivity, onSelectActivity }: Activi
   }
 
   return (
-    <div className="divide-y divide-gray-100">
+    <div 
+      ref={scrollRef}
+      className="divide-y divide-gray-100 h-full overflow-y-auto"
+      onScroll={handleScroll}
+    >
       {activities.map((activity) => (
         <div
           key={activity.id}
@@ -100,6 +129,27 @@ const ActivityList = ({ activities, selectedActivity, onSelectActivity }: Activi
           </div>
         </div>
       ))}
+      
+      {/* Indicateur de chargement ou bouton pour charger plus */}
+      {canLoadMore && (
+        <div className="p-4 text-center border-t">
+          {isLoadingMore ? (
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm text-gray-500">Chargement...</span>
+            </div>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onLoadMore}
+              className="text-xs"
+            >
+              Charger plus d'activités
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

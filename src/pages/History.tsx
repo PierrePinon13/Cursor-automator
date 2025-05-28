@@ -13,6 +13,8 @@ const History = () => {
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypeFilter, setActivityTypeFilter] = useState<'all' | 'linkedin_message' | 'phone_call'>('all');
+  const [displayedActivities, setDisplayedActivities] = useState<any[]>([]);
+  const [activitiesLimit, setActivitiesLimit] = useState(15);
 
   useEffect(() => {
     refreshNotifications();
@@ -37,6 +39,20 @@ const History = () => {
     return true;
   });
 
+  // Gérer l'affichage limité des activités
+  useEffect(() => {
+    setDisplayedActivities(filteredNotifications.slice(0, activitiesLimit));
+  }, [filteredNotifications, activitiesLimit]);
+
+  // Fonction pour charger plus d'activités
+  const loadMoreActivities = () => {
+    const newLimit = activitiesLimit + 15;
+    setActivitiesLimit(newLimit);
+  };
+
+  // Vérifier si on peut charger plus d'activités
+  const canLoadMore = activitiesLimit < filteredNotifications.length;
+
   const getActivityTypeCount = (type: string) => {
     if (type === 'all') return notifications.length;
     return notifications.filter(n => n.type === type).length;
@@ -44,18 +60,15 @@ const History = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Header fixe */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b px-6 py-4">
-        <div className="flex items-center gap-3">
-          <CustomSidebarTrigger />
-          <h1 className="text-2xl font-bold text-gray-900">Historique des activités</h1>
-        </div>
-      </div>
-
-      {/* Contenu principal avec marge top pour le header fixe */}
-      <div className="flex w-full pt-20">
-        {/* Sidebar des activités - même largeur que la sidebar principale */}
-        <div className="w-[14.4rem] bg-white border-r border-gray-200 h-[calc(100vh-5rem)] overflow-hidden flex flex-col">
+      {/* Contenu principal sans header fixe */}
+      <div className="flex w-full pt-4">
+        {/* Sidebar des activités - largeur augmentée de 30% */}
+        <div className="w-[18.7rem] bg-white border-r border-gray-200 h-[calc(100vh-1rem)] overflow-hidden flex flex-col">
+          {/* Bouton trigger sidebar en haut */}
+          <div className="p-4 border-b border-gray-200">
+            <CustomSidebarTrigger />
+          </div>
+          
           {/* Filtres */}
           <div className="p-4 border-b border-gray-200 space-y-4">
             <div>
@@ -114,9 +127,11 @@ const History = () => {
           {/* Liste des activités */}
           <div className="flex-1 overflow-y-auto">
             <ActivityList
-              activities={filteredNotifications}
+              activities={displayedActivities}
               selectedActivity={selectedActivity}
               onSelectActivity={setSelectedActivity}
+              onLoadMore={canLoadMore ? loadMoreActivities : undefined}
+              canLoadMore={canLoadMore}
             />
           </div>
         </div>
