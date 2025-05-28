@@ -124,8 +124,8 @@ serve(async (req) => {
 
     console.log('Post meets language/location criteria, continuing processing...')
 
-    // Step 3: OpenAI analysis for category and job selection
-    const step3Response = await executeOpenAIStep3(context)
+    // Step 3: OpenAI analysis for category and job selection - FIX: Pass step1Response.result
+    const step3Response = await executeOpenAIStep3(context, step1Response.result)
 
     // Step 4: Unipile profile scraping
     const scrapingResult = await executeUnipileScraping(context)
