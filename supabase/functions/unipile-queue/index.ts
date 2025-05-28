@@ -192,23 +192,23 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
   console.log(`📝 Invitation message content: "${message}"`);
   console.log(`📊 Message length: ${message.length} characters`);
 
-  const formData = new URLSearchParams({
-    account_id: accountId,
-    provider: 'LINKEDIN',
+  // Structure corrigée selon l'API Unipile officielle
+  const requestBody = {
     provider_id: providerId,
-    text: message
-  });
+    account_id: accountId,
+    message: message  // Utilisation du champ 'message' au lieu de 'text'
+  };
 
-  console.log(`📤 Form data being sent to Unipile:`, formData.toString());
+  console.log(`📤 Request body being sent to Unipile:`, JSON.stringify(requestBody, null, 2));
 
   const response = await fetch(`https://api9.unipile.com:13946/api/v1/users/invite`, {
     method: 'POST',
     headers: {
       'X-API-KEY': unipileApiKey,
       'Accept': 'application/json',
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/json',  // Changé de 'application/x-www-form-urlencoded' à 'application/json'
     },
-    body: formData,
+    body: JSON.stringify(requestBody),  // Envoi en JSON au lieu de URLSearchParams
   });
 
   console.log(`📡 Unipile response status: ${response.status}`);
@@ -220,7 +220,7 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
     console.error(`❌ Failed request details:`, {
       url: 'https://api9.unipile.com:13946/api/v1/users/invite',
       method: 'POST',
-      formData: formData.toString(),
+      body: JSON.stringify(requestBody, null, 2),
       status: response.status,
       error: errorText
     });
