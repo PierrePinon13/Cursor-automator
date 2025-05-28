@@ -2,15 +2,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle, XCircle, Clock, Filter, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, CheckCircle, XCircle, Clock, Filter, Users, Calendar } from 'lucide-react';
 import { useProcessingMetrics } from '@/hooks/useProcessingMetrics';
 
 interface ProcessingMetricsProps {
   timeFilter: string;
+  onTimeFilterChange?: (value: string) => void;
 }
 
-const ProcessingMetrics = ({ timeFilter }: ProcessingMetricsProps) => {
+const ProcessingMetrics = ({ timeFilter, onTimeFilterChange }: ProcessingMetricsProps) => {
   const { metrics, conversionRates, loading } = useProcessingMetrics(timeFilter);
+
+  const timeFilterOptions = [
+    { value: 'today', label: "Aujourd'hui" },
+    { value: 'this-week', label: 'Cette semaine' },
+    { value: 'last-week', label: 'Semaine dernière' },
+    { value: 'this-month', label: 'Ce mois' },
+    { value: 'last-month', label: 'Mois dernier' },
+    { value: 'all-time', label: 'Tout' },
+  ];
 
   if (loading) {
     return (
@@ -51,6 +62,35 @@ const ProcessingMetrics = ({ timeFilter }: ProcessingMetricsProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Filtre de période */}
+      {onTimeFilterChange && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Période d'analyse
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium">Filtrer par période :</label>
+              <Select value={timeFilter} onValueChange={onTimeFilterChange}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeFilterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Vue d'ensemble du pipeline */}
       <Card>
         <CardHeader>
