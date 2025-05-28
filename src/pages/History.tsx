@@ -14,9 +14,11 @@ import { User, Users, Linkedin, Phone, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 const History = () => {
   const { notifications, refreshNotifications } = useNotifications();
+  const { user } = useAuth();
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypeFilter, setActivityTypeFilter] = useState<string[]>(['linkedin_message', 'phone_call']);
@@ -58,6 +60,28 @@ const History = () => {
     }
   };
 
+  // Filtrer les notifications par utilisateur
+  const filterByUser = (notification: any) => {
+    if (filterBy === 'all') return true;
+    
+    // Pour les messages LinkedIn, vérifier si l'utilisateur connecté est l'expéditeur
+    if (notification.type === 'linkedin_message') {
+      return notification.sender_name === user?.user_metadata?.full_name;
+    }
+    
+    // Pour les appels téléphoniques, vérifier si l'utilisateur connecté a fait l'appel
+    if (notification.type === 'phone_call') {
+      return notification.sender_name === user?.user_metadata?.full_name;
+    }
+    
+    // Pour les assignations de leads, considérer comme "mine" si assigné à l'utilisateur
+    if (notification.type === 'lead_assigned') {
+      return true; // Les assignations sont déjà filtrées par utilisateur dans useNotifications
+    }
+    
+    return true;
+  };
+
   // Filtrer les notifications
   const filteredNotifications = notifications.filter(notification => {
     // Filtre par type d'activité
@@ -70,8 +94,11 @@ const History = () => {
       return false;
     }
     
-    // Pour l'instant, on considère toutes les activités comme "miennes"
-    // Dans une vraie application, on filtrerait par utilisateur
+    // Filtre par utilisateur
+    if (!filterByUser(notification)) {
+      return false;
+    }
+    
     return true;
   });
 
@@ -94,28 +121,8 @@ const History = () => {
 
   console.log('🔄 Can load more:', canLoadMore, 'limit vs total:', activitiesLimit, 'vs', filteredNotifications.length);
 
-  const getActivityTypeCount = (type: string) => {
-    if (type === 'all') return notifications.length;
-    return notifications.filter(n => n.type === type).length;
-  };
-
   const handleActivityTypeChange = (values: string[]) => {
     setActivityTypeFilter(values);
-  };
-
-  const getTimeFilterLabel = () => {
-    switch (timeFilter) {
-      case '1h':
-        return 'Dernière heure';
-      case 'today':
-        return "Aujourd'hui";
-      case 'yesterday':
-        return 'Hier';
-      case 'custom':
-        return customDate ? format(customDate, 'dd/MM/yyyy', { locale: fr }) : 'Date personnalisée';
-      default:
-        return 'Période';
-    }
   };
 
   return (
@@ -125,109 +132,115 @@ const History = () => {
         {/* Sidebar des activités */}
         <div className="w-[24.31rem] bg-white border-r border-gray-200 h-[calc(100vh)] overflow-hidden flex flex-col">
           {/* Header avec trigger sidebar et filtres */}
-          <div className="p-4 border-b border-gray-200 space-y-4">
+          <div className="p-4 space-y-4">
             <CustomSidebarTrigger />
             
-            {/* Filtres simplifiés et alignés */}
-            <div className="flex items-center gap-3">
+            {/* Filtres espacés avec encadrés */}
+            <div className="flex items-center gap-4">
               {/* Filtre Utilisateur/Tout le monde */}
-              <ToggleGroup 
-                type="single" 
-                value={filterBy} 
-                onValueChange={(value) => value && setFilterBy(value as 'all' | 'mine')}
-                className="h-8"
-              >
-                <ToggleGroupItem 
-                  value="mine" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
+              <div className="border border-gray-200 rounded-lg p-1 bg-white">
+                <ToggleGroup 
+                  type="single" 
+                  value={filterBy} 
+                  onValueChange={(value) => value && setFilterBy(value as 'all' | 'mine')}
+                  className="h-8"
                 >
-                  <User className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem 
-                  value="all" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                >
-                  <Users className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
+                  <ToggleGroupItem 
+                    value="mine" 
+                    size="sm"
+                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                  >
+                    <User className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem 
+                    value="all" 
+                    size="sm"
+                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                  >
+                    <Users className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
 
               {/* Filtre Type d'activité */}
-              <ToggleGroup 
-                type="multiple" 
-                value={activityTypeFilter} 
-                onValueChange={handleActivityTypeChange}
-                className="h-8"
-              >
-                <ToggleGroupItem 
-                  value="linkedin_message" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
+              <div className="border border-gray-200 rounded-lg p-1 bg-white">
+                <ToggleGroup 
+                  type="multiple" 
+                  value={activityTypeFilter} 
+                  onValueChange={handleActivityTypeChange}
+                  className="h-8"
                 >
-                  <Linkedin className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem 
-                  value="phone_call" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                >
-                  <Phone className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
+                  <ToggleGroupItem 
+                    value="linkedin_message" 
+                    size="sm"
+                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                  >
+                    <Linkedin className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem 
+                    value="phone_call" 
+                    size="sm"
+                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
 
               {/* Filtre Période */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                  >
-                    <Clock className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-2" align="start">
-                  <div className="space-y-2">
-                    <Button
-                      variant={timeFilter === '1h' ? 'default' : 'ghost'}
+              <div className="border border-gray-200 rounded-lg bg-white">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
                       size="sm"
-                      className="w-full justify-start"
-                      onClick={() => setTimeFilter('1h')}
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
                     >
-                      Dernière heure
+                      <Clock className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant={timeFilter === 'today' ? 'default' : 'ghost'}
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => setTimeFilter('today')}
-                    >
-                      Aujourd'hui
-                    </Button>
-                    <Button
-                      variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => setTimeFilter('yesterday')}
-                    >
-                      Hier
-                    </Button>
-                    <div className="border-t pt-2">
-                      <p className="text-xs text-gray-500 mb-2">Date personnalisée</p>
-                      <Calendar
-                        mode="single"
-                        selected={customDate}
-                        onSelect={(date) => {
-                          setCustomDate(date);
-                          setTimeFilter('custom');
-                        }}
-                        className="pointer-events-auto"
-                      />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2" align="start">
+                    <div className="space-y-2">
+                      <Button
+                        variant={timeFilter === '1h' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setTimeFilter('1h')}
+                      >
+                        Dernière heure
+                      </Button>
+                      <Button
+                        variant={timeFilter === 'today' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setTimeFilter('today')}
+                      >
+                        Aujourd'hui
+                      </Button>
+                      <Button
+                        variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setTimeFilter('yesterday')}
+                      >
+                        Hier
+                      </Button>
+                      <div className="border-t pt-2">
+                        <p className="text-xs text-gray-500 mb-2">Date personnalisée</p>
+                        <Calendar
+                          mode="single"
+                          selected={customDate}
+                          onSelect={(date) => {
+                            setCustomDate(date);
+                            setTimeFilter('custom');
+                          }}
+                          className="pointer-events-auto"
+                        />
+                      </div>
                     </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
+              </div>
 
               {/* Badge avec le nombre d'activités filtrées */}
               <Badge variant="secondary" className="text-xs h-6">
