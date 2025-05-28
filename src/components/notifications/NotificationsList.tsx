@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Notification {
   id: string;
-  type: 'lead_assigned' | 'reminder_due';
+  type: 'lead_assigned' | 'reminder_due' | 'linkedin_message' | 'phone_call';
   title: string;
   message: string;
   read: boolean;
