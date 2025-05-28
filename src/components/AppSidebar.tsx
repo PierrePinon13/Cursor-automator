@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -16,7 +15,7 @@ const Admin = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isAuthorized = user?.email === 'pierre.pinon@gmail.com';
+  const isAuthorized = user?.email === 'ppinon@getpro.fr';
 
   const menuItems = [
     {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -17,7 +16,7 @@ const Admin = () => {
   const { toast } = useToast();
   
   // Only allow Pierre Pinon to access this page
-  const isAuthorized = user?.email === 'pierre.pinon@gmail.com';
+  const isAuthorized = user?.email === 'ppinon@getpro.fr';
   
   const [step1Prompt, setStep1Prompt] = useState('');
   const [step2Prompt, setStep2Prompt] = useState('');
