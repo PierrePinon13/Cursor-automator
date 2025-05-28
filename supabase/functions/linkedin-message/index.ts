@@ -16,7 +16,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function validateAndGetActiveConnection(supabaseClient: any, userId: string) {
-  console.log('Validating and getting active LinkedIn connection for user:', userId)
+  console.log('🔍 Validating and getting active LinkedIn connection for user:', userId)
   
   // Get connections from database
   const { data: connections, error: connectionsError } = await supabaseClient
@@ -26,12 +26,12 @@ async function validateAndGetActiveConnection(supabaseClient: any, userId: strin
     .order('connected_at', { ascending: false })
 
   if (connectionsError) {
-    console.error('Database error fetching connections:', connectionsError)
+    console.error('❌ Database error fetching connections:', connectionsError)
     throw new Error('Erreur lors de la récupération des connexions LinkedIn.')
   }
 
   if (!connections || connections.length === 0) {
-    console.error('No LinkedIn connections found for user:', userId)
+    console.error('❌ No LinkedIn connections found for user:', userId)
     throw new Error('Aucune connexion LinkedIn trouvée. Veuillez connecter votre compte LinkedIn.')
   }
 
@@ -43,20 +43,20 @@ async function validateAndGetActiveConnection(supabaseClient: any, userId: strin
   )
 
   if (validConnection) {
-    console.log('Found valid connected account:', validConnection.account_id)
+    console.log('✅ Found valid connected account:', validConnection.account_id)
     return validConnection
   }
 
   // If no valid connection, try to sync accounts automatically
-  console.log('No valid connected account found, attempting auto-sync...')
+  console.log('⚠️ No valid connected account found, attempting auto-sync...')
   
   try {
     const syncResponse = await supabaseClient.functions.invoke('linkedin-sync-accounts')
     
     if (syncResponse.error) {
-      console.error('Auto-sync failed:', syncResponse.error)
+      console.error('❌ Auto-sync failed:', syncResponse.error)
     } else if (syncResponse.data && syncResponse.data.success) {
-      console.log('Auto-sync successful, re-checking for valid connections...')
+      console.log('✅ Auto-sync successful, re-checking for valid connections...')
       
       // Re-fetch connections after sync
       const { data: updatedConnections, error: refetchError } = await supabaseClient
@@ -69,17 +69,17 @@ async function validateAndGetActiveConnection(supabaseClient: any, userId: strin
         .limit(1)
 
       if (!refetchError && updatedConnections && updatedConnections.length > 0) {
-        console.log('Found valid connection after auto-sync:', updatedConnections[0].account_id)
+        console.log('✅ Found valid connection after auto-sync:', updatedConnections[0].account_id)
         return updatedConnections[0]
       }
     }
   } catch (syncError) {
-    console.error('Auto-sync attempt failed:', syncError)
+    console.error('❌ Auto-sync attempt failed:', syncError)
   }
 
   // If still no valid connection, provide helpful error message
   const statusSummary = connections.map(conn => `${conn.account_id || 'no-id'}: ${conn.status}`).join(', ')
-  console.error('No valid LinkedIn connection available. Status summary:', statusSummary)
+  console.error('❌ No valid LinkedIn connection available. Status summary:', statusSummary)
   
   throw new Error('Aucune connexion LinkedIn active avec un identifiant valide. Veuillez reconnecter votre compte LinkedIn dans les paramètres.')
 }
@@ -93,11 +93,13 @@ serve(async (req) => {
     const requestBody = await req.json()
     const { lead_id, message } = requestBody
     
-    console.log('Sending LinkedIn message for lead:', lead_id)
-    console.log('Message length:', message?.length || 0)
+    console.log('🚀 === LINKEDIN MESSAGE FLOW STARTED ===')
+    console.log('📧 Sending LinkedIn message for lead:', lead_id)
+    console.log('📝 Message content:', `"${message}"`)
+    console.log('📏 Message length:', message?.length || 0, 'characters')
 
     if (!lead_id || !message) {
-      console.error('Missing required parameters:', { lead_id: !!lead_id, message: !!message })
+      console.error('❌ Missing required parameters:', { lead_id: !!lead_id, message: !!message })
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -130,7 +132,7 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser()
 
     if (userError || !user) {
-      console.error('User authentication error:', userError)
+      console.error('❌ User authentication error:', userError)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -145,7 +147,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('User authenticated:', user.id, user.email)
+    console.log('👤 User authenticated:', user.id, user.email)
 
     // Get lead data with error handling
     const { data: lead, error: leadError } = await supabaseClient
@@ -155,7 +157,7 @@ serve(async (req) => {
       .maybeSingle()
 
     if (leadError) {
-      console.error('Database error fetching lead:', leadError)
+      console.error('❌ Database error fetching lead:', leadError)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -171,7 +173,7 @@ serve(async (req) => {
     }
 
     if (!lead) {
-      console.error('Lead not found for ID:', lead_id)
+      console.error('❌ Lead not found for ID:', lead_id)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -186,12 +188,18 @@ serve(async (req) => {
       )
     }
 
+    console.log('👤 Lead details:', {
+      name: lead.author_name,
+      profile_url: lead.author_profile_url,
+      profile_id: lead.author_profile_id
+    })
+
     // Get active LinkedIn connection with validation and auto-sync
     let connection
     try {
       connection = await validateAndGetActiveConnection(supabaseClient, user.id)
     } catch (error) {
-      console.error('Connection validation failed:', error.message)
+      console.error('❌ Connection validation failed:', error.message)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -207,10 +215,10 @@ serve(async (req) => {
     }
 
     const accountId = connection.account_id
-    console.log('Using LinkedIn account for user', user.email, ':', accountId)
+    console.log('🔗 Using LinkedIn account for user', user.email, ':', accountId)
 
     if (!lead.author_profile_id) {
-      console.error('No author_profile_id found for lead:', lead.author_name)
+      console.error('❌ No author_profile_id found for lead:', lead.author_name)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -226,7 +234,9 @@ serve(async (req) => {
     }
 
     // STEP 1: Scrape profile via unipile-queue
-    console.log('Starting profile scraping for lead:', lead.author_name)
+    console.log('🔍 === STEP 1: PROFILE SCRAPING ===')
+    console.log('🔍 Starting profile scraping for lead:', lead.author_name)
+    console.log('🔍 Profile ID to scrape:', lead.author_profile_id)
     
     const scrapeResponse = await supabaseClient.functions.invoke('unipile-queue', {
       body: {
@@ -241,7 +251,7 @@ serve(async (req) => {
     });
 
     if (scrapeResponse.error) {
-      console.error('Profile scraping error:', scrapeResponse.error);
+      console.error('❌ Profile scraping error:', scrapeResponse.error);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -257,7 +267,7 @@ serve(async (req) => {
     }
 
     if (!scrapeResponse.data || !scrapeResponse.data.success) {
-      console.error('Profile scraping failed:', scrapeResponse.data);
+      console.error('❌ Profile scraping failed:', scrapeResponse.data);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -273,7 +283,7 @@ serve(async (req) => {
     }
 
     const scrapedData = scrapeResponse.data.result;
-    console.log('Profile scraped successfully:', { 
+    console.log('✅ Profile scraped successfully:', { 
       provider_id: scrapedData.provider_id, 
       network_distance: scrapedData.network_distance 
     });
@@ -290,14 +300,15 @@ serve(async (req) => {
       })
       .eq('id', lead_id)
       .then(({ error }) => {
-        if (error) console.error('Error updating lead with scraped data:', error)
+        if (error) console.error('❌ Error updating lead with scraped data:', error)
+        else console.log('✅ Lead updated with scraped data')
       })
 
     const linkedinProviderId = scrapedData.provider_id;
     const networkDistance = scrapedData.network_distance;
 
     if (!linkedinProviderId) {
-      console.error('No provider_id found in scraped data for lead:', lead.author_name)
+      console.error('❌ No provider_id found in scraped data for lead:', lead.author_name)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -314,7 +325,7 @@ serve(async (req) => {
 
     // STEP 2: Wait random delay (3-8 seconds like in N8N)
     const waitTime = getRandomDelay();
-    console.log(`Waiting ${waitTime}ms before LinkedIn action`);
+    console.log(`⏳ === STEP 2: WAITING ${waitTime}ms BEFORE ACTION ===`);
     await sleep(waitTime);
 
     // STEP 3: Decide action based on network_distance
@@ -323,11 +334,13 @@ serve(async (req) => {
     let actionTaken = ''
     let responseData = null
 
-    console.log('Network distance detected:', networkDistance);
+    console.log('🎯 === STEP 3: DECIDING ACTION ===')
+    console.log('📊 Network distance detected:', networkDistance);
 
     if (networkDistance === 'FIRST_DEGREE') {
       // Send direct message to 1st degree connection
-      console.log('Sending direct message to 1st degree connection');
+      console.log('💬 === SENDING DIRECT MESSAGE (1ST DEGREE) ===');
+      console.log('💬 Message to send:', `"${message}"`);
       
       const messageResponse = await supabaseClient.functions.invoke('unipile-queue', {
         body: {
@@ -343,7 +356,7 @@ serve(async (req) => {
       });
 
       if (messageResponse.error) {
-        console.error('Direct message error:', messageResponse.error);
+        console.error('❌ Direct message error:', messageResponse.error);
         throw new Error(`Direct message failed: ${messageResponse.error.message}`);
       }
 
@@ -352,15 +365,20 @@ serve(async (req) => {
         connectionStatus = 'connected'
         connectionDegree = '1er'
         actionTaken = 'direct_message'
-        console.log('Direct message sent successfully')
+        console.log('✅ Direct message sent successfully')
+        console.log('📋 Message response data:', JSON.stringify(responseData, null, 2))
       } else {
         const errorData = messageResponse.data || {};
         const userMessage = errorData.user_message || 'Échec de l\'envoi du message LinkedIn direct.';
+        console.error('❌ Direct message failed:', errorData);
         throw new Error(userMessage);
       }
     } else {
       // Send connection invitation with message
-      console.log('Sending connection invitation with message');
+      console.log('🤝 === SENDING CONNECTION INVITATION WITH MESSAGE ===');
+      console.log('🤝 Target profile ID:', linkedinProviderId);
+      console.log('📝 Invitation message to send:', `"${message}"`);
+      console.log('📏 Message length for invitation:', message.length, 'characters');
       
       const invitationResponse = await supabaseClient.functions.invoke('unipile-queue', {
         body: {
@@ -375,23 +393,39 @@ serve(async (req) => {
         }
       });
 
+      console.log('📡 Invitation response received:', {
+        error: invitationResponse.error,
+        success: invitationResponse.data?.success
+      });
+
       if (invitationResponse.error) {
-        console.error('Invitation error:', invitationResponse.error);
+        console.error('❌ Invitation error:', invitationResponse.error);
         throw new Error(`Invitation failed: ${invitationResponse.error.message}`);
       }
 
       if (invitationResponse.data && invitationResponse.data.success) {
         responseData = invitationResponse.data.result;
         actionTaken = 'connection_request'
-        console.log('Connection invitation sent successfully')
+        console.log('✅ Connection invitation sent successfully')
+        console.log('📋 Invitation response data:', JSON.stringify(responseData, null, 2))
+        
+        // Log important fields from the response
+        if (responseData?.id) {
+          console.log('🎯 Unipile invitation ID:', responseData.id);
+        }
+        if (responseData?.status) {
+          console.log('📌 Unipile invitation status:', responseData.status);
+        }
       } else {
         const errorData = invitationResponse.data || {};
         const userMessage = errorData.user_message || 'Échec de l\'envoi de la demande de connexion LinkedIn.';
+        console.error('❌ Invitation failed:', errorData);
         throw new Error(userMessage);
       }
     }
 
-    // STEP 4: Insert into linkedin_messages table (NEW)
+    // STEP 4: Insert into linkedin_messages table
+    console.log('💾 === STEP 4: SAVING MESSAGE TO DATABASE ===');
     const now = new Date().toISOString();
     const { error: insertError } = await supabaseClient
       .from('linkedin_messages')
@@ -408,8 +442,10 @@ serve(async (req) => {
       });
 
     if (insertError) {
-      console.error('Error inserting into linkedin_messages:', insertError);
+      console.error('❌ Error inserting into linkedin_messages:', insertError);
       // Continue anyway, as the message was sent successfully
+    } else {
+      console.log('✅ Message saved to linkedin_messages table');
     }
 
     // Update the lead with LinkedIn message timestamp (keep for backward compatibility)
@@ -421,10 +457,14 @@ serve(async (req) => {
       })
       .eq('id', lead_id)
       .then(({ error }) => {
-        if (error) console.error('Error updating lead timestamps:', error)
+        if (error) console.error('❌ Error updating lead timestamps:', error)
+        else console.log('✅ Lead timestamps updated')
       })
 
-    console.log(`LinkedIn ${actionTaken} completed for lead:`, lead_id)
+    console.log(`🎉 === LINKEDIN ${actionTaken.toUpperCase()} COMPLETED ===`)
+    console.log(`📧 Message "${message}" sent to ${lead.author_name}`)
+    console.log(`🎯 Action taken: ${actionTaken}`)
+    console.log(`📊 Network distance: ${networkDistance}`)
 
     return new Response(
       JSON.stringify({ 
@@ -438,7 +478,8 @@ serve(async (req) => {
         network_distance: networkDistance,
         unipile_response: responseData,
         account_used: accountId,
-        user_email: user.email
+        user_email: user.email,
+        message_sent: message
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -446,7 +487,8 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error in linkedin-message function:', error)
+    console.error('💥 Error in linkedin-message function:', error)
+    console.error('🔍 Error stack trace:', error.stack)
     
     // Extract user-friendly message if available
     let userMessage = error.message || 'Une erreur inattendue s\'est produite.';

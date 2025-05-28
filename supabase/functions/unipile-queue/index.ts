@@ -25,7 +25,8 @@ function getRetryDelay(attempt: number): number {
 }
 
 async function executeWithRateLimit(accountId: string, operation: string, unipileApiKey: string, payload: any, isPriority: boolean = false) {
-  console.log(`Executing ${operation} for account ${accountId} (priority: ${isPriority})`);
+  console.log(`🚀 Executing ${operation} for account ${accountId} (priority: ${isPriority})`);
+  console.log(`📄 Payload details:`, JSON.stringify(payload, null, 2));
 
   // Check if we need to wait before making the call
   const lastCall = lastCallTime.get(accountId) || 0;
@@ -35,7 +36,7 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
 
   if (timeSinceLastCall < minDelay) {
     const waitTime = minDelay - timeSinceLastCall;
-    console.log(`Rate limiting: waiting ${waitTime}ms before Unipile call for account ${accountId}`);
+    console.log(`⏳ Rate limiting: waiting ${waitTime}ms before Unipile call for account ${accountId}`);
     await sleep(waitTime);
   }
 
@@ -45,7 +46,7 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      console.log(`Attempt ${attempt + 1}/${maxRetries} for ${operation}`);
+      console.log(`🔄 Attempt ${attempt + 1}/${maxRetries} for ${operation}`);
       
       // Execute the API call based on operation type
       let result;
@@ -67,12 +68,13 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
       // Update last call time on success
       lastCallTime.set(accountId, Date.now());
 
-      console.log(`Successfully executed ${operation} for account ${accountId} on attempt ${attempt + 1}`);
+      console.log(`✅ Successfully executed ${operation} for account ${accountId} on attempt ${attempt + 1}`);
+      console.log(`📋 Operation result:`, JSON.stringify(result, null, 2));
       return result;
 
     } catch (error) {
       lastError = error as Error;
-      console.error(`Attempt ${attempt + 1} failed for ${operation}:`, error);
+      console.error(`❌ Attempt ${attempt + 1} failed for ${operation}:`, error);
 
       // Check if it's a provider error (Unipile API issues)
       const isProviderError = error.message.includes('provider_error') || 
@@ -86,7 +88,7 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
                             error.message.includes('400');
 
       if (isClientError && !error.message.includes('429')) {
-        console.log(`Client error detected, not retrying: ${error.message}`);
+        console.log(`🚫 Client error detected, not retrying: ${error.message}`);
         break;
       }
 
@@ -97,13 +99,13 @@ async function executeWithRateLimit(accountId: string, operation: string, unipil
 
       // Wait before retry with exponential backoff
       const retryDelay = getRetryDelay(attempt);
-      console.log(`Waiting ${retryDelay}ms before retry ${attempt + 2}`);
+      console.log(`⏳ Waiting ${retryDelay}ms before retry ${attempt + 2}`);
       await sleep(retryDelay);
     }
   }
 
   // All retries failed
-  console.error(`All ${maxRetries} attempts failed for ${operation}:`, lastError);
+  console.error(`💥 All ${maxRetries} attempts failed for ${operation}:`, lastError);
   throw lastError;
 }
 
@@ -114,7 +116,7 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
     throw new Error('Missing authorProfileId in payload');
   }
   
-  console.log(`Scraping profile ${authorProfileId} for account ${accountId}`);
+  console.log(`🔍 Scraping profile ${authorProfileId} for account ${accountId}`);
   
   const response = await fetch(
     `https://api9.unipile.com:13946/api/v1/users/${authorProfileId}?account_id=${accountId}&linkedin_sections=experience`,
@@ -129,12 +131,12 @@ async function scrapeProfile(unipileApiKey: string, accountId: string, payload: 
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Scrape profile failed: ${response.status} - ${errorText}`);
+    console.error(`❌ Scrape profile failed: ${response.status} - ${errorText}`);
     throw new Error(`Scrape profile failed: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
-  console.log('Profile scraping result:', { 
+  console.log('✅ Profile scraping result:', { 
     provider_id: result.provider_id, 
     network_distance: result.network_distance,
     headline: result.headline,
@@ -151,7 +153,8 @@ async function sendMessage(unipileApiKey: string, accountId: string, payload: an
     throw new Error('Missing providerId or message in payload');
   }
 
-  console.log(`Sending message to ${providerId} on account ${accountId}`);
+  console.log(`💬 Sending message to ${providerId} on account ${accountId}`);
+  console.log(`📝 Message content: "${message}"`);
 
   const response = await fetch(`https://api9.unipile.com:13946/api/v1/chats`, {
     method: 'POST',
@@ -169,11 +172,13 @@ async function sendMessage(unipileApiKey: string, accountId: string, payload: an
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Send message failed: ${response.status} - ${errorText}`);
+    console.error(`❌ Send message failed: ${response.status} - ${errorText}`);
     throw new Error(`Send message failed: ${response.status} - ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log(`✅ Message sent successfully:`, result);
+  return result;
 }
 
 async function sendInvitation(unipileApiKey: string, accountId: string, payload: any) {
@@ -183,7 +188,9 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
     throw new Error('Missing providerId or message in payload');
   }
 
-  console.log(`Sending invitation to ${providerId} on account ${accountId}`);
+  console.log(`🤝 Sending invitation to ${providerId} on account ${accountId}`);
+  console.log(`📝 Invitation message content: "${message}"`);
+  console.log(`📊 Message length: ${message.length} characters`);
 
   const formData = new URLSearchParams({
     account_id: accountId,
@@ -192,7 +199,7 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
     text: message
   });
 
-  console.log(`Form data being sent:`, formData.toString());
+  console.log(`📤 Form data being sent to Unipile:`, formData.toString());
 
   const response = await fetch(`https://api9.unipile.com:13946/api/v1/users/invite`, {
     method: 'POST',
@@ -204,14 +211,34 @@ async function sendInvitation(unipileApiKey: string, accountId: string, payload:
     body: formData,
   });
 
+  console.log(`📡 Unipile response status: ${response.status}`);
+  console.log(`📡 Unipile response headers:`, Object.fromEntries(response.headers.entries()));
+
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Send invitation failed: ${response.status} - ${errorText}`);
+    console.error(`❌ Send invitation failed: ${response.status} - ${errorText}`);
+    console.error(`❌ Failed request details:`, {
+      url: 'https://api9.unipile.com:13946/api/v1/users/invite',
+      method: 'POST',
+      formData: formData.toString(),
+      status: response.status,
+      error: errorText
+    });
     throw new Error(`Send invitation failed: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
-  console.log(`Invitation sent successfully:`, result);
+  console.log(`✅ Invitation sent successfully to ${providerId}`);
+  console.log(`📋 Full Unipile response:`, JSON.stringify(result, null, 2));
+  
+  // Log specific fields that indicate success
+  if (result.id) {
+    console.log(`🎯 Invitation ID from Unipile: ${result.id}`);
+  }
+  if (result.status) {
+    console.log(`📌 Invitation status from Unipile: ${result.status}`);
+  }
+  
   return result;
 }
 
@@ -224,7 +251,8 @@ serve(async (req) => {
     const requestBody = await req.json()
     const { action, account_id, operation, payload, priority = false } = requestBody
 
-    console.log('Unipile queue request:', { action, account_id, operation, priority })
+    console.log('🔧 Unipile queue request:', { action, account_id, operation, priority })
+    console.log('📥 Full request body:', JSON.stringify(requestBody, null, 2))
 
     if (!account_id) {
       return new Response(
@@ -252,6 +280,8 @@ serve(async (req) => {
       // Execute with rate limiting and retry logic
       const result = await executeWithRateLimit(account_id, operation, unipileApiKey, payload, priority);
       
+      console.log(`🎉 Final result for ${operation}:`, JSON.stringify(result, null, 2));
+      
       return new Response(
         JSON.stringify({ success: true, result }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -264,7 +294,8 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in unipile-queue function:', error)
+    console.error('💥 Error in unipile-queue function:', error)
+    console.error('🔍 Error stack trace:', error.stack)
     
     // Classify error types for better user messaging
     let errorType = 'unknown';
