@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -14,6 +13,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import type { DateRange } from 'react-day-picker';
 
 const History = () => {
   const { notifications, refreshNotifications } = useNotifications();
@@ -22,7 +22,7 @@ const History = () => {
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypeFilter, setActivityTypeFilter] = useState<string[]>(['linkedin_message', 'phone_call']);
   const [timeFilter, setTimeFilter] = useState<'1h' | 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom'>('today');
-  const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [activitiesLimit, setActivitiesLimit] = useState(15);
 
   console.log('🔍 History component - total notifications:', notifications.length);
@@ -74,13 +74,13 @@ const History = () => {
         endOfLastMonth.setHours(23, 59, 59, 999);
         return notifDate >= startOfLastMonth && notifDate <= endOfLastMonth;
       case 'custom':
-        if (customDateRange.from && customDateRange.to) {
+        if (customDateRange?.from && customDateRange?.to) {
           const from = new Date(customDateRange.from);
           from.setHours(0, 0, 0, 0);
           const to = new Date(customDateRange.to);
           to.setHours(23, 59, 59, 999);
           return notifDate >= from && notifDate <= to;
-        } else if (customDateRange.from) {
+        } else if (customDateRange?.from) {
           return notifDate.toDateString() === customDateRange.from.toDateString();
         }
         return true;
@@ -157,7 +157,7 @@ const History = () => {
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
     
-    if (!customDateRange.from || (customDateRange.from && customDateRange.to)) {
+    if (!customDateRange?.from || (customDateRange?.from && customDateRange?.to)) {
       // Première sélection ou reset
       setCustomDateRange({ from: date, to: undefined });
     } else {
@@ -172,14 +172,14 @@ const History = () => {
   };
 
   const resetCustomDate = () => {
-    setCustomDateRange({});
+    setCustomDateRange(undefined);
     setTimeFilter('today');
   };
 
   const getCustomDateText = () => {
-    if (customDateRange.from && customDateRange.to) {
+    if (customDateRange?.from && customDateRange?.to) {
       return `${format(customDateRange.from, 'dd/MM', { locale: fr })} - ${format(customDateRange.to, 'dd/MM', { locale: fr })}`;
-    } else if (customDateRange.from) {
+    } else if (customDateRange?.from) {
       return format(customDateRange.from, 'dd/MM/yyyy', { locale: fr });
     }
     return '';
@@ -333,7 +333,7 @@ const History = () => {
 
                         {/* Date personnalisée */}
                         <div className="border-t pt-3">
-                          {customDateRange.from && (
+                          {customDateRange?.from && (
                             <div className="mb-2 text-center">
                               <span className="text-xs text-gray-600">
                                 {customDateRange.to ? 'Période: ' : 'Date: '}
@@ -353,8 +353,8 @@ const History = () => {
                             mode="range"
                             selected={customDateRange}
                             onSelect={(range) => {
+                              setCustomDateRange(range);
                               if (range) {
-                                setCustomDateRange(range);
                                 setTimeFilter('custom');
                               }
                             }}
