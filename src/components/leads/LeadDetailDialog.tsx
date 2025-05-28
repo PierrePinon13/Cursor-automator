@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -168,11 +169,11 @@ const LeadDetailDialog = ({
 
   return (
     <TooltipProvider>
-      {/* Overlay */}
-      <div className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0 duration-300" onClick={onClose} />
+      {/* Overlay épuré - moins visible */}
+      <div className="fixed inset-0 z-50 bg-black/20 animate-in fade-in-0 duration-300" onClick={onClose} />
       
-      {/* Larger modal dialog with more space */}
-      <div className="fixed inset-4 z-50 bg-white rounded-lg shadow-2xl animate-in slide-in-from-top duration-300 ease-out flex flex-col max-h-[calc(100vh-2rem)]">
+      {/* Fenêtre beaucoup plus grande - 2,5x plus large et 20% plus haute */}
+      <div className="fixed left-[50%] top-[50%] z-50 w-[95vw] h-[85vh] max-w-[1800px] max-h-[900px] translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-2xl animate-in slide-in-from-top duration-300 ease-out flex flex-col">
         <LeadDetailHeader
           lead={currentLeads[selectedLeadIndex]}
           selectedLeadIndex={selectedLeadIndex}
