@@ -202,11 +202,13 @@ const LeadDetailDialog = ({
 
   return (
     <TooltipProvider>
-      {/* Overlay épuré - moins visible */}
-      <div className="fixed inset-0 z-50 bg-black/20 animate-in fade-in-0 duration-300" onClick={onClose} />
+      {/* Overlay noir semi-transparent */}
+      <div className="fixed inset-0 z-50 bg-black/40 animate-in fade-in-0 duration-500" onClick={onClose} />
       
-      {/* Fenêtre beaucoup plus grande - 95% largeur et 90% hauteur */}
-      <div className="fixed left-[50%] top-[50%] z-50 w-[95vw] h-[90vh] max-w-[1600px] max-h-[1000px] translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-2xl animate-in slide-in-from-top duration-300 ease-out flex flex-col">
+      {/* Interface plein écran avec animation depuis le haut */}
+      <div className={`fixed inset-0 z-50 bg-white flex flex-col transition-transform duration-700 ease-out ${
+        isOpen ? 'translate-y-0' : '-translate-y-full'
+      } animate-in slide-in-from-top duration-700`}>
         <LeadDetailHeader
           lead={currentLeads[selectedLeadIndex]}
           selectedLeadIndex={selectedLeadIndex}
