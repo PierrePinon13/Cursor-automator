@@ -222,13 +222,12 @@ const History = () => {
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-2" align="start">
                       <div className="space-y-2">
-                        {/* Filtres rapides */}
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-gray-700 px-2">Période récente</p>
+                        {/* Première ligne : Dernière heure, Aujourd'hui, Hier */}
+                        <div className="flex gap-1">
                           <Button
                             variant={timeFilter === '1h' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('1h')}
                           >
                             Dernière heure
@@ -236,7 +235,7 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'today' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('today')}
                           >
                             Aujourd'hui
@@ -244,20 +243,19 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('yesterday')}
                           >
                             Hier
                           </Button>
                         </div>
 
-                        {/* Filtres hebdomadaires */}
-                        <div className="border-t pt-2 space-y-1">
-                          <p className="text-xs font-medium text-gray-700 px-2">Période hebdomadaire</p>
+                        {/* Deuxième ligne : Cette semaine, Semaine dernière */}
+                        <div className="flex gap-1">
                           <Button
                             variant={timeFilter === 'this_week' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('this_week')}
                           >
                             Cette semaine
@@ -265,20 +263,19 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'last_week' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('last_week')}
                           >
                             Semaine dernière
                           </Button>
                         </div>
 
-                        {/* Filtres mensuels */}
-                        <div className="border-t pt-2 space-y-1">
-                          <p className="text-xs font-medium text-gray-700 px-2">Période mensuelle</p>
+                        {/* Troisième ligne : Ce mois-ci, Mois dernier */}
+                        <div className="flex gap-1">
                           <Button
                             variant={timeFilter === 'this_month' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('this_month')}
                           >
                             Ce mois-ci
@@ -286,7 +283,7 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'last_month' ? 'default' : 'ghost'}
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="text-xs px-2 h-7"
                             onClick={() => setTimeFilter('last_month')}
                           >
                             Mois dernier
@@ -295,7 +292,6 @@ const History = () => {
 
                         {/* Date personnalisée */}
                         <div className="border-t pt-2">
-                          <p className="text-xs font-medium text-gray-700 mb-2 px-2">Date personnalisée</p>
                           <Calendar
                             mode="single"
                             selected={customDate}
