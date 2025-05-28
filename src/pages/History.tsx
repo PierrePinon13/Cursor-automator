@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -135,68 +134,68 @@ const History = () => {
           <div className="p-4 space-y-4">
             <CustomSidebarTrigger />
             
-            {/* Filtres espacés avec encadrés */}
-            <div className="flex items-center gap-4">
-              {/* Filtre Utilisateur/Tout le monde */}
-              <div className="border border-gray-200 rounded-lg p-1 bg-white">
+            {/* Filtres espacés avec encadrés plus petits */}
+            <div className="flex items-center justify-between gap-8">
+              {/* Filtre Utilisateur/Tout le monde - gauche */}
+              <div className="border border-gray-200 rounded-md p-0.5 bg-white">
                 <ToggleGroup 
                   type="single" 
                   value={filterBy} 
                   onValueChange={(value) => value && setFilterBy(value as 'all' | 'mine')}
-                  className="h-8"
+                  className="h-6"
                 >
                   <ToggleGroupItem 
                     value="mine" 
                     size="sm"
-                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
                   >
-                    <User className="h-4 w-4" />
+                    <User className="h-3 w-3" />
                   </ToggleGroupItem>
                   <ToggleGroupItem 
                     value="all" 
                     size="sm"
-                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
                   >
-                    <Users className="h-4 w-4" />
+                    <Users className="h-3 w-3" />
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
 
-              {/* Filtre Type d'activité */}
-              <div className="border border-gray-200 rounded-lg p-1 bg-white">
+              {/* Filtre Type d'activité - centre */}
+              <div className="border border-gray-200 rounded-md p-0.5 bg-white">
                 <ToggleGroup 
                   type="multiple" 
                   value={activityTypeFilter} 
                   onValueChange={handleActivityTypeChange}
-                  className="h-8"
+                  className="h-6"
                 >
                   <ToggleGroupItem 
                     value="linkedin_message" 
                     size="sm"
-                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
                   >
-                    <Linkedin className="h-4 w-4" />
+                    <Linkedin className="h-3 w-3" />
                   </ToggleGroupItem>
                   <ToggleGroupItem 
                     value="phone_call" 
                     size="sm"
-                    className="h-8 w-8 p-0 data-[state=on]:bg-gray-900 data-[state=on]:text-white"
+                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
                   >
-                    <Phone className="h-4 w-4" />
+                    <Phone className="h-3 w-3" />
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
 
-              {/* Filtre Période */}
-              <div className="border border-gray-200 rounded-lg bg-white">
+              {/* Filtre Période - droite */}
+              <div className="border border-gray-200 rounded-md bg-white flex items-center">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                      className="h-6 w-6 p-0 hover:bg-blue-600 hover:text-white"
                     >
-                      <Clock className="h-4 w-4" />
+                      <Clock className="h-3 w-3" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-2" align="start">
@@ -240,12 +239,12 @@ const History = () => {
                     </div>
                   </PopoverContent>
                 </Popover>
+                
+                {/* Badge avec le nombre d'activités filtrées */}
+                <Badge variant="secondary" className="text-xs h-4 ml-2 mr-1">
+                  {filteredNotifications.length}
+                </Badge>
               </div>
-
-              {/* Badge avec le nombre d'activités filtrées */}
-              <Badge variant="secondary" className="text-xs h-6">
-                {filteredNotifications.length}
-              </Badge>
             </div>
           </div>
 
