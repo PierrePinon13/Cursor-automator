@@ -1,9 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import StatsFilters from '@/components/dashboard/StatsFilters';
 import StatsCards from '@/components/dashboard/StatsCards';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
-import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
-import DiagnosticsPanel from '@/components/dashboard/DiagnosticsPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats, TimeFilter, ViewType } from '@/hooks/useUserStats';
@@ -52,9 +51,8 @@ const Dashboard = () => {
         />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full lg:w-[400px] grid-cols-2">
+          <TabsList className="grid w-full lg:w-[400px] grid-cols-1">
             <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-            <TabsTrigger value="processing">Pipeline LinkedIn</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -153,11 +151,6 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="processing" className="space-y-6">
-            <ProcessingMetrics timeFilter={timeFilter} />
-            <DiagnosticsPanel />
           </TabsContent>
         </Tabs>
       </main>

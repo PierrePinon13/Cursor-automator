@@ -1,5 +1,6 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Sidebar, 
   SidebarContent, 
@@ -10,42 +11,50 @@ import {
 } from '@/components/ui/sidebar';
 import { BarChart3, Users, User, Briefcase, Building2, UserCheck, Settings, History } from 'lucide-react';
 
-const menuItems = [
-  {
-    title: "Leads",
-    url: "/leads",
-    icon: Briefcase,
-  },
-  {
-    title: "Clients",
-    url: "/clients",
-    icon: Building2,
-  },
-  {
-    title: "Prestataires RH",
-    url: "/hr-providers",
-    icon: UserCheck,
-  },
-  {
-    title: "Historique",
-    url: "/history",
-    icon: History,
-  },
-  {
-    title: "Tableau de bord",
-    url: "/dashboard", 
-    icon: BarChart3,
-  },
-  {
-    title: "Profil",
-    url: "/profile",
-    icon: User,
-  },
-];
-
-export function AppSidebar() {
+const Admin = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const isAuthorized = user?.email === 'pierre.pinon@gmail.com';
+
+  const menuItems = [
+    {
+      title: "Leads",
+      url: "/leads",
+      icon: Briefcase,
+    },
+    {
+      title: "Clients",
+      url: "/clients",
+      icon: Building2,
+    },
+    {
+      title: "Prestataires RH",
+      url: "/hr-providers",
+      icon: UserCheck,
+    },
+    {
+      title: "Historique",
+      url: "/history",
+      icon: History,
+    },
+    {
+      title: "Tableau de bord",
+      url: "/dashboard", 
+      icon: BarChart3,
+    },
+    ...(isAuthorized ? [{
+      title: "Admin",
+      url: "/admin",
+      icon: Settings,
+    }] : []),
+    {
+      title: "Profil",
+      url: "/profile",
+      icon: User,
+    },
+  ];
 
   return (
     <Sidebar>
@@ -78,4 +87,6 @@ export function AppSidebar() {
       </SidebarContent>
     </Sidebar>
   );
-}
+};
+
+export { Admin as AppSidebar };

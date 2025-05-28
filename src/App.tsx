@@ -13,6 +13,7 @@ import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
 import HrProviders from "./pages/HrProviders";
 import Dashboard from "./pages/Dashboard";
+import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import History from "./pages/History";
 import NotFound from "./pages/NotFound";
@@ -81,6 +82,16 @@ const AppContent = () => {
             <AppSidebar />
             <div className="flex-1">
               <Dashboard />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/admin" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <Admin />
             </div>
           </div>
         </SidebarProvider>
