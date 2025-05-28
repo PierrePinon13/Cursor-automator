@@ -6,9 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Settings, FileText, Save } from 'lucide-react';
+import { AlertTriangle, Settings, FileText, Save, MessageSquare } from 'lucide-react';
 import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
 import DiagnosticsPanel from '@/components/dashboard/DiagnosticsPanel';
 import { useOpenAIPrompts } from '@/hooks/useOpenAIPrompts';
@@ -22,7 +21,7 @@ const Admin = () => {
   
   const [timeFilter, setTimeFilter] = useState('this-week');
   const [editedPrompts, setEditedPrompts] = useState<Record<number, string>>({});
-  const [confirmations, setConfirmations] = useState<Record<number, string>>({});
+  const [pendingConfirmations, setPendingConfirmations] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!promptsLoading && prompts) {
@@ -37,22 +36,29 @@ const Admin = () => {
     }));
   };
 
-  const handleConfirmationChange = (step: number, value: string) => {
-    setConfirmations(prev => ({
+  const handleFirstSave = (step: number) => {
+    setPendingConfirmations(prev => ({
       ...prev,
-      [step]: value
+      [step]: true
     }));
+    
+    // Auto-reset après 5 secondes
+    setTimeout(() => {
+      setPendingConfirmations(prev => ({
+        ...prev,
+        [step]: false
+      }));
+    }, 5000);
   };
 
-  const handleSavePrompt = async (step: number) => {
-    const confirmation = confirmations[step] || '';
+  const handleConfirmSave = async (step: number) => {
     const prompt = editedPrompts[step] || '';
     
-    const success = await savePrompt(step, prompt, confirmation);
+    const success = await savePrompt(step, prompt);
     if (success) {
-      setConfirmations(prev => ({
+      setPendingConfirmations(prev => ({
         ...prev,
-        [step]: ''
+        [step]: false
       }));
     }
   };
@@ -65,17 +71,26 @@ const Admin = () => {
     {
       step: 1,
       title: 'Step 1 - Détection des offres d\'emploi',
-      description: 'Prompt utilisé pour détecter si un post LinkedIn est une offre d\'emploi'
+      description: 'Prompt utilisé pour détecter si un post LinkedIn est une offre d\'emploi',
+      icon: FileText
     },
     {
       step: 2,
       title: 'Step 2 - Vérification localisation France',
-      description: 'Prompt utilisé pour vérifier si l\'offre est en France'
+      description: 'Prompt utilisé pour vérifier si l\'offre est en France',
+      icon: FileText
     },
     {
       step: 3,
       title: 'Step 3 - Catégorisation des postes',
-      description: 'Prompt utilisé pour catégoriser les offres d\'emploi'
+      description: 'Prompt utilisé pour catégoriser les offres d\'emploi',
+      icon: FileText
+    },
+    {
+      step: 4,
+      title: 'Step 4 - Génération du message d\'approche',
+      description: 'Prompt utilisé pour générer les messages personnalisés LinkedIn',
+      icon: MessageSquare
     }
   ];
 
@@ -120,11 +135,11 @@ const Admin = () => {
                   </CardContent>
                 </Card>
               ) : (
-                promptSteps.map(({ step, title, description }) => (
-                  <Card key={step}>
+                promptSteps.map(({ step, title, description, icon: Icon }) => (
+                  <Card key={step} className={step === 4 ? 'border-blue-200 bg-blue-50' : ''}>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
+                        <Icon className="h-5 w-5" />
                         {title}
                       </CardTitle>
                       <CardDescription>{description}</CardDescription>
@@ -137,27 +152,43 @@ const Admin = () => {
                         placeholder={`Prompt Step ${step}...`}
                       />
                       
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-red-600">
-                          Confirmation requise pour modification en production :
-                        </label>
-                        <Input
-                          value={confirmations[step] || ''}
-                          onChange={(e) => handleConfirmationChange(step, e.target.value)}
-                          placeholder='Écrivez: "je confirme vouloir changer le prompt utilisé en production"'
-                          className="border-red-200 focus:border-red-400"
-                        />
+                      <div className="flex gap-2">
+                        {!pendingConfirmations[step] ? (
+                          <Button 
+                            onClick={() => handleFirstSave(step)}
+                            disabled={saving}
+                            className="flex-1"
+                            variant="outline"
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            Sauvegarder Step {step}
+                          </Button>
+                        ) : (
+                          <>
+                            <Button 
+                              onClick={() => handleConfirmSave(step)}
+                              disabled={saving}
+                              className="flex-1"
+                              variant="destructive"
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              {saving ? 'Sauvegarde...' : 'Confirmer la sauvegarde'}
+                            </Button>
+                            <Button 
+                              onClick={() => setPendingConfirmations(prev => ({ ...prev, [step]: false }))}
+                              variant="outline"
+                            >
+                              Annuler
+                            </Button>
+                          </>
+                        )}
                       </div>
                       
-                      <Button 
-                        onClick={() => handleSavePrompt(step)}
-                        disabled={saving || !confirmations[step]}
-                        className="w-full"
-                        variant={confirmations[step] === 'je confirme vouloir changer le prompt utilisé en production' ? 'default' : 'secondary'}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saving ? 'Sauvegarde...' : `Sauvegarder Step ${step}`}
-                      </Button>
+                      {pendingConfirmations[step] && (
+                        <p className="text-sm text-orange-600 bg-orange-100 p-2 rounded">
+                          ⚠️ Cliquez sur "Confirmer la sauvegarde" pour valider la modification en production
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 ))
@@ -176,10 +207,7 @@ const Admin = () => {
                       La modification des prompts OpenAI peut affecter significativement la qualité et la précision du pipeline de traitement des leads.
                     </p>
                     <p className="font-medium">
-                      Pour valider une modification, vous devez écrire exactement : 
-                      <span className="bg-orange-100 px-2 py-1 rounded font-mono ml-1">
-                        "je confirme vouloir changer le prompt utilisé en production"
-                      </span>
+                      Pour valider une modification, cliquez deux fois : d'abord sur "Sauvegarder", puis sur "Confirmer la sauvegarde".
                     </p>
                     <p>
                       Testez soigneusement toute modification avant de la déployer en production.

@@ -13,7 +13,8 @@ export const useOpenAIPrompts = () => {
   const [prompts, setPrompts] = useState<Record<number, string>>({
     1: '',
     2: '',
-    3: ''
+    3: '',
+    4: '' // Ajout du prompt de génération de message
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,7 +28,7 @@ export const useOpenAIPrompts = () => {
       const { data, error } = await supabase
         .from('openai_prompts')
         .select('*')
-        .in('step', [1, 2, 3])
+        .in('step', [1, 2, 3, 4])
         .order('step');
 
       if (error) {
@@ -46,9 +47,13 @@ export const useOpenAIPrompts = () => {
       });
       
       // Compléter avec des prompts par défaut si certains steps sont manquants
-      [1, 2, 3].forEach(step => {
+      [1, 2, 3, 4].forEach(step => {
         if (!promptsMap[step]) {
-          promptsMap[step] = `// Prompt Step ${step} par défaut\n// Ce prompt nécessite une configuration`;
+          if (step === 4) {
+            promptsMap[step] = `// Prompt Step 4 - Génération du message d'approche\n// Ce prompt génère un message personnalisé pour contacter les prospects`;
+          } else {
+            promptsMap[step] = `// Prompt Step ${step} par défaut\n// Ce prompt nécessite une configuration`;
+          }
         }
       });
       
@@ -66,16 +71,7 @@ export const useOpenAIPrompts = () => {
     }
   };
 
-  const savePrompt = async (step: number, prompt: string, confirmation: string) => {
-    if (confirmation !== 'je confirme vouloir changer le prompt utilisé en production') {
-      toast({
-        title: "Confirmation requise",
-        description: 'Vous devez écrire exactement "je confirme vouloir changer le prompt utilisé en production" pour valider.',
-        variant: "destructive",
-      });
-      return false;
-    }
-
+  const savePrompt = async (step: number, prompt: string) => {
     setSaving(true);
     try {
       console.log(`💾 Saving prompt for step ${step}...`);
