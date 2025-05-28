@@ -34,10 +34,7 @@ export const useLinkedInMessageHistory = (leadId: string) => {
           sent_at,
           network_distance,
           unipile_response,
-          profiles!inner (
-            full_name,
-            email
-          )
+          sent_by_user_id
         `)
         .eq('lead_id', leadId)
         .order('sent_at', { ascending: true });
@@ -47,13 +44,22 @@ export const useLinkedInMessageHistory = (leadId: string) => {
         return;
       }
 
+      // Récupérer les profils des expéditeurs
+      const userIds = [...new Set(data.map(msg => msg.sent_by_user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
       const formattedMessages = data.map(msg => ({
         id: msg.id,
         message_content: msg.message_content,
-        message_type: msg.message_type,
+        message_type: msg.message_type as 'direct_message' | 'connection_request',
         sent_at: msg.sent_at,
-        sender_name: msg.profiles.full_name || msg.profiles.email,
-        sender_email: msg.profiles.email,
+        sender_name: profiles?.find(p => p.id === msg.sent_by_user_id)?.full_name || 
+                    profiles?.find(p => p.id === msg.sent_by_user_id)?.email || 
+                    'Utilisateur Inconnu',
+        sender_email: profiles?.find(p => p.id === msg.sent_by_user_id)?.email || '',
         network_distance: msg.network_distance,
         unipile_response: msg.unipile_response
       }));

@@ -103,7 +103,7 @@ export const useNotifications = () => {
         });
       }
 
-      // Récupérer les messages LinkedIn récents avec le nom de l'expéditeur
+      // Récupérer les messages LinkedIn récents
       const { data: recentMessages } = await supabase
         .from('linkedin_messages')
         .select(`
@@ -124,10 +124,6 @@ export const useNotifications = () => {
             posted_at_iso,
             created_at,
             matched_client_name
-          ),
-          profiles!inner (
-            full_name,
-            email
           )
         `)
         .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -135,7 +131,15 @@ export const useNotifications = () => {
         .limit(10);
 
       if (recentMessages) {
+        // Récupérer les profils des expéditeurs
+        const userIds = [...new Set(recentMessages.map(msg => msg.sent_by_user_id))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
+
         recentMessages.forEach(message => {
+          const senderProfile = profiles?.find(p => p.id === message.sent_by_user_id);
           mockNotifications.push({
             id: `linkedin-${message.id}`,
             type: 'linkedin_message',
@@ -148,7 +152,7 @@ export const useNotifications = () => {
               ...message.linkedin_posts,
               approach_message: message.message_content
             },
-            sender_name: message.profiles.full_name || message.profiles.email
+            sender_name: senderProfile?.full_name || senderProfile?.email || 'Utilisateur Inconnu'
           });
         });
       }
