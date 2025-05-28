@@ -25,7 +25,7 @@ export const useLinkedInMessageHistory = (leadId: string) => {
   const fetchMessageHistory = async () => {
     setLoading(true);
     try {
-      console.log('Fetching message history for lead:', leadId);
+      console.log('🔍 Fetching message history for lead:', leadId);
       
       const { data, error } = await supabase
         .from('linkedin_messages')
@@ -42,24 +42,36 @@ export const useLinkedInMessageHistory = (leadId: string) => {
         .order('sent_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching message history:', error);
+        console.error('❌ Error fetching message history:', error);
         return;
       }
 
-      console.log('Raw messages data:', data);
+      console.log('📋 Raw messages data:', data);
+      console.log('📊 Number of messages found:', data?.length || 0);
 
       if (!data || data.length === 0) {
-        console.log('No messages found for lead:', leadId);
+        console.log('⚠️ No messages found for lead:', leadId);
         setMessages([]);
         return;
       }
 
+      // Analyser chaque message individuellement
+      data.forEach((msg, index) => {
+        console.log(`📝 Message ${index + 1}:`, {
+          id: msg.id,
+          sent_by_user_id: msg.sent_by_user_id,
+          message_preview: msg.message_content.substring(0, 50) + '...',
+          sent_at: msg.sent_at
+        });
+      });
+
       // Récupérer les profils des expéditeurs
       const userIds = [...new Set(data.map(msg => msg.sent_by_user_id).filter(Boolean))];
-      console.log('User IDs to fetch profiles for:', userIds);
+      console.log('👥 Unique user IDs to fetch profiles for:', userIds);
+      console.log('🔢 Total unique user IDs:', userIds.length);
 
       if (userIds.length === 0) {
-        console.log('No user IDs found, setting messages without sender names');
+        console.log('⚠️ No user IDs found, setting messages without sender names');
         const formattedMessages = data.map(msg => ({
           id: msg.id,
           message_content: msg.message_content,
@@ -74,20 +86,61 @@ export const useLinkedInMessageHistory = (leadId: string) => {
         return;
       }
 
+      console.log('🔍 Querying profiles table with user IDs:', userIds);
+      
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .in('id', userIds);
 
       if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
+        console.error('❌ Error fetching profiles:', profilesError);
       }
 
-      console.log('Profiles data:', profiles);
+      console.log('👤 Profiles data retrieved:', profiles);
+      console.log('📊 Number of profiles found:', profiles?.length || 0);
+      
+      // Analyser chaque profil trouvé
+      if (profiles && profiles.length > 0) {
+        profiles.forEach((profile, index) => {
+          console.log(`👤 Profile ${index + 1}:`, {
+            id: profile.id,
+            full_name: profile.full_name,
+            email: profile.email
+          });
+        });
+      } else {
+        console.log('⚠️ No profiles found in database for the given user IDs');
+      }
 
-      const formattedMessages = data.map(msg => {
+      // Vérifier manuellement l'ID spécifique mentionné par l'utilisateur
+      const specificUserId = '00422c98-cb42-40d9-ab55-54f60a6a728c';
+      if (userIds.includes(specificUserId)) {
+        console.log(`🎯 ANALYSE SPÉCIFIQUE pour l'ID utilisateur ${specificUserId}:`);
+        const specificProfile = profiles?.find(p => p.id === specificUserId);
+        console.log('- Profil trouvé dans la requête:', specificProfile);
+        
+        // Requête directe pour cet ID spécifique
+        const { data: directProfile, error: directError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('id', specificUserId)
+          .single();
+          
+        console.log('- Requête directe pour cet ID:', directProfile);
+        console.log('- Erreur requête directe:', directError);
+      }
+
+      const formattedMessages = data.map((msg, index) => {
         const profile = profiles?.find(p => p.id === msg.sent_by_user_id);
-        console.log(`Message ${msg.id}: sent_by_user_id=${msg.sent_by_user_id}, found profile:`, profile);
+        
+        console.log(`🔗 Message ${index + 1} mapping:`, {
+          message_id: msg.id,
+          sent_by_user_id: msg.sent_by_user_id,
+          found_profile: profile,
+          resulting_sender_name: profile?.full_name || profile?.email || 'Utilisateur Inconnu',
+          message_time: new Date(msg.sent_at).toLocaleString('fr-FR')
+        });
         
         return {
           id: msg.id,
@@ -101,10 +154,10 @@ export const useLinkedInMessageHistory = (leadId: string) => {
         };
       });
 
-      console.log('Formatted messages:', formattedMessages);
+      console.log('✅ Final formatted messages:', formattedMessages);
       setMessages(formattedMessages);
     } catch (error) {
-      console.error('Error fetching message history:', error);
+      console.error('💥 Unexpected error fetching message history:', error);
     } finally {
       setLoading(false);
     }
