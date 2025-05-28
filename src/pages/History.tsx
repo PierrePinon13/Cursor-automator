@@ -13,8 +13,9 @@ const History = () => {
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypeFilter, setActivityTypeFilter] = useState<'all' | 'linkedin_message' | 'phone_call'>('all');
-  const [displayedActivities, setDisplayedActivities] = useState<any[]>([]);
   const [activitiesLimit, setActivitiesLimit] = useState(15);
+
+  console.log('🔍 History component - total notifications:', notifications.length);
 
   useEffect(() => {
     refreshNotifications();
@@ -39,19 +40,24 @@ const History = () => {
     return true;
   });
 
-  // Gérer l'affichage limité des activités
-  useEffect(() => {
-    setDisplayedActivities(filteredNotifications.slice(0, activitiesLimit));
-  }, [filteredNotifications, activitiesLimit]);
+  console.log('📋 Filtered notifications:', filteredNotifications.length);
+
+  // Limiter les activités affichées
+  const displayedActivities = filteredNotifications.slice(0, activitiesLimit);
+  
+  console.log('👁️ Displayed activities:', displayedActivities.length, 'limit:', activitiesLimit);
 
   // Fonction pour charger plus d'activités
   const loadMoreActivities = () => {
+    console.log('📄 Loading more activities, current limit:', activitiesLimit);
     const newLimit = activitiesLimit + 15;
     setActivitiesLimit(newLimit);
   };
 
   // Vérifier si on peut charger plus d'activités
   const canLoadMore = activitiesLimit < filteredNotifications.length;
+
+  console.log('🔄 Can load more:', canLoadMore, 'limit vs total:', activitiesLimit, 'vs', filteredNotifications.length);
 
   const getActivityTypeCount = (type: string) => {
     if (type === 'all') return notifications.length;
@@ -63,7 +69,7 @@ const History = () => {
       {/* Contenu principal sans header fixe */}
       <div className="flex w-full pt-4">
         {/* Sidebar des activités - largeur augmentée de 30% */}
-        <div className="w-[18.7rem] bg-white border-r border-gray-200 h-[calc(100vh-1rem)] overflow-hidden flex flex-col">
+        <div className="w-[24.31rem] bg-white border-r border-gray-200 h-[calc(100vh-1rem)] overflow-hidden flex flex-col">
           {/* Bouton trigger sidebar en haut */}
           <div className="p-4 border-b border-gray-200">
             <CustomSidebarTrigger />
