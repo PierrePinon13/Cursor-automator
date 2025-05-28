@@ -1,8 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useNavigate } from 'react-router-dom';
+import LeadDetailDialog from '@/components/leads/LeadDetailDialog';
 
 interface Notification {
   id: string;
@@ -13,6 +15,7 @@ interface Notification {
   created_at: string;
   lead_id?: string;
   client_name?: string;
+  lead_data?: any;
 }
 
 interface NotificationsListProps {
@@ -21,16 +24,44 @@ interface NotificationsListProps {
 }
 
 const NotificationsList = ({ notifications, onMarkAsRead }: NotificationsListProps) => {
+  const navigate = useNavigate();
+  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogLeads, setDialogLeads] = useState<any[]>([]);
+
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) {
       onMarkAsRead(notification.id);
     }
     
-    // Navigate to the relevant page if needed
-    if (notification.lead_id) {
-      // TODO: Navigate to lead detail or clients page
-      console.log('Navigate to lead:', notification.lead_id);
+    // Si la notification a des données de lead, ouvrir la dialog de détail
+    if (notification.lead_data && (notification.type === 'linkedin_message' || notification.type === 'phone_call' || notification.type === 'lead_assigned')) {
+      setDialogLeads([notification.lead_data]);
+      setSelectedLeadIndex(0);
+      setIsDialogOpen(true);
+    } else if (notification.lead_id) {
+      // Sinon, naviguer vers la page des leads ou clients selon le type
+      if (notification.type === 'lead_assigned' && notification.client_name) {
+        navigate('/clients');
+      } else {
+        navigate('/leads');
+      }
     }
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedLeadIndex(null);
+    setDialogLeads([]);
+  };
+
+  const handleNavigateToLead = (index: number) => {
+    setSelectedLeadIndex(index);
+  };
+
+  const handleActionCompleted = () => {
+    // Fermer la dialog après une action
+    handleCloseDialog();
   };
 
   if (notifications.length === 0) {
@@ -42,44 +73,61 @@ const NotificationsList = ({ notifications, onMarkAsRead }: NotificationsListPro
   }
 
   return (
-    <ScrollArea className="max-h-96">
-      <div className="divide-y">
-        {notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-              !notification.read ? 'bg-blue-50 border-l-2 border-blue-500' : ''
-            }`}
-            onClick={() => handleNotificationClick(notification)}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${!notification.read ? 'text-blue-900' : 'text-gray-900'}`}>
-                  {notification.title}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {notification.message}
-                </p>
-                {notification.client_name && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Client: {notification.client_name}
+    <>
+      <ScrollArea className="max-h-96">
+        <div className="divide-y">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                !notification.read ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+              }`}
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${!notification.read ? 'text-blue-900' : 'text-gray-900'}`}>
+                    {notification.title}
                   </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {notification.message}
+                  </p>
+                  {notification.client_name && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Client: {notification.client_name}
+                    </p>
+                  )}
+                  {notification.lead_data?.approach_message && notification.type === 'linkedin_message' && (
+                    <p className="text-xs text-green-600 mt-1 italic">
+                      "Cliquez pour voir le message envoyé"
+                    </p>
+                  )}
+                </div>
+                {!notification.read && (
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
                 )}
               </div>
-              {!notification.read && (
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {formatDistanceToNow(new Date(notification.created_at), { 
+                  addSuffix: true, 
+                  locale: fr 
+                })}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {formatDistanceToNow(new Date(notification.created_at), { 
-                addSuffix: true, 
-                locale: fr 
-              })}
-            </p>
-          </div>
-        ))}
-      </div>
-    </ScrollArea>
+          ))}
+        </div>
+      </ScrollArea>
+
+      {/* Dialog pour afficher les détails du lead */}
+      <LeadDetailDialog 
+        leads={dialogLeads}
+        selectedLeadIndex={selectedLeadIndex}
+        isOpen={isDialogOpen}
+        onClose={handleCloseDialog}
+        onNavigateToLead={handleNavigateToLead}
+        onActionCompleted={handleActionCompleted}
+      />
+    </>
   );
 };
 

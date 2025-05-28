@@ -12,6 +12,7 @@ interface Notification {
   created_at: string;
   lead_id?: string;
   client_name?: string;
+  lead_data?: any; // Données complètes du lead pour la navigation
 }
 
 export const useNotifications = () => {
@@ -64,8 +65,21 @@ export const useNotifications = () => {
           lead_id,
           assigned_at,
           linkedin_posts!inner (
+            id,
             author_name,
-            matched_client_name
+            matched_client_name,
+            text,
+            title,
+            url,
+            author_profile_url,
+            author_headline,
+            unipile_company,
+            unipile_position,
+            openai_step3_categorie,
+            openai_step2_localisation,
+            approach_message,
+            posted_at_iso,
+            created_at
           )
         `)
         .eq('user_id', user.id)
@@ -82,15 +96,16 @@ export const useNotifications = () => {
             read: false,
             created_at: assignment.assigned_at,
             lead_id: assignment.lead_id,
-            client_name: assignment.linkedin_posts.matched_client_name
+            client_name: assignment.linkedin_posts.matched_client_name,
+            lead_data: assignment.linkedin_posts
           });
         });
       }
 
-      // Récupérer les activités récentes (messages LinkedIn envoyés)
+      // Récupérer les activités récentes (messages LinkedIn envoyés) avec toutes les données du lead
       const { data: recentMessages } = await supabase
         .from('linkedin_posts')
-        .select('id, author_name, linkedin_message_sent_at, unipile_position')
+        .select('*')
         .not('linkedin_message_sent_at', 'is', null)
         .gte('linkedin_message_sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('linkedin_message_sent_at', { ascending: false })
@@ -105,15 +120,16 @@ export const useNotifications = () => {
             message: `Message envoyé à ${message.author_name}${message.unipile_position ? ` - ${message.unipile_position}` : ''}`,
             read: true, // Messages already sent, marked as read
             created_at: message.linkedin_message_sent_at,
-            lead_id: message.id
+            lead_id: message.id,
+            lead_data: message
           });
         });
       }
 
-      // Récupérer les appels récents
+      // Récupérer les appels récents avec toutes les données du lead
       const { data: recentCalls } = await supabase
         .from('linkedin_posts')
-        .select('id, author_name, phone_contact_at, phone_contact_status, unipile_position')
+        .select('*')
         .not('phone_contact_at', 'is', null)
         .gte('phone_contact_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('phone_contact_at', { ascending: false })
@@ -128,7 +144,8 @@ export const useNotifications = () => {
             message: `Appel avec ${call.author_name}${call.unipile_position ? ` - ${call.unipile_position}` : ''}`,
             read: true,
             created_at: call.phone_contact_at,
-            lead_id: call.id
+            lead_id: call.id,
+            lead_data: call
           });
         });
       }
