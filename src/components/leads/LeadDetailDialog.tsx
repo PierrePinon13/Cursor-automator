@@ -169,10 +169,10 @@ const LeadDetailDialog = ({
   return (
     <TooltipProvider>
       {/* Overlay */}
-      <div className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0 duration-500" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0 duration-300" onClick={onClose} />
       
-      {/* Fullscreen sliding view with slower animation */}
-      <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-top duration-500 ease-out">
+      {/* Larger modal dialog with more space */}
+      <div className="fixed inset-4 z-50 bg-white rounded-lg shadow-2xl animate-in slide-in-from-top duration-300 ease-out flex flex-col max-h-[calc(100vh-2rem)]">
         <LeadDetailHeader
           lead={currentLeads[selectedLeadIndex]}
           selectedLeadIndex={selectedLeadIndex}
@@ -185,18 +185,20 @@ const LeadDetailDialog = ({
         />
         
         {/* System Status Banner */}
-        <SystemStatus className="mx-6 mt-2" />
+        <SystemStatus className="mx-6 mt-2 flex-shrink-0" />
         
-        <LeadDetailContent
-          lead={currentLeads[selectedLeadIndex]}
-          customMessage={customMessage}
-          onMessageChange={setCustomMessage}
-          onSendLinkedInMessage={handleSendLinkedInMessage}
-          onAction={handleAction}
-          messageSending={messageSending}
-          onPhoneRetrieved={handlePhoneRetrieved}
-          onContactUpdate={handleContactUpdate}
-        />
+        <div className="flex-1 overflow-hidden">
+          <LeadDetailContent
+            lead={currentLeads[selectedLeadIndex]}
+            customMessage={customMessage}
+            onMessageChange={setCustomMessage}
+            onSendLinkedInMessage={handleSendLinkedInMessage}
+            onAction={handleAction}
+            messageSending={messageSending}
+            onPhoneRetrieved={handlePhoneRetrieved}
+            onContactUpdate={handleContactUpdate}
+          />
+        </div>
       </div>
     </TooltipProvider>
   );
