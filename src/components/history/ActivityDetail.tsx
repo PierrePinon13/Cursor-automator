@@ -162,9 +162,9 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
             <CardContent>
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Envoyé par :</span>
+                  <span className="text-gray-600">Contacté par :</span>
                   <span className="font-medium text-gray-800">
-                    {activity.sender_name || 'Utilisateur Connecté'}
+                    {activity.sender_name || 'Utilisateur Inconnu'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">
@@ -205,6 +205,12 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                   <Badge variant={activity.lead_data?.phone_contact_status === 'positive' ? 'default' : 'secondary'}>
                     {activity.lead_data?.phone_contact_status === 'positive' ? 'Positif' : 'Négatif'}
                   </Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-600">Contacté par :</span>
+                  <span className="font-medium text-gray-800">
+                    {activity.sender_name || 'Utilisateur Inconnu'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-600">Date de l'appel :</span>

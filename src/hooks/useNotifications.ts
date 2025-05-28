@@ -100,11 +100,16 @@ export const useNotifications = () => {
         });
       }
 
-      // Récupérer tous les messages LinkedIn récents (pas seulement ceux de l'utilisateur connecté)
+      // Récupérer tous les messages LinkedIn récents avec les profils des expéditeurs
       const { data: recentMessages } = await supabase
         .from('linkedin_messages')
         .select(`
-          *,
+          id,
+          message_content,
+          message_type,
+          sent_at,
+          lead_id,
+          sent_by_user_id,
           linkedin_posts!inner (
             id,
             author_name,
@@ -121,6 +126,11 @@ export const useNotifications = () => {
             posted_at_iso,
             created_at,
             matched_client_name
+          ),
+          profiles!sent_by_user_id (
+            id,
+            full_name,
+            email
           )
         `)
         .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -128,21 +138,8 @@ export const useNotifications = () => {
         .limit(20);
 
       if (recentMessages && recentMessages.length > 0) {
-        // Récupérer tous les profils des expéditeurs uniques
-        const uniqueUserIds = [...new Set(recentMessages.map(msg => msg.sent_by_user_id).filter(Boolean))];
-        
-        console.log('🔍 Unique sender IDs found:', uniqueUserIds);
-        
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', uniqueUserIds);
-
-        console.log('👤 Profiles found:', profiles);
-
         recentMessages.forEach(message => {
-          const senderProfile = profiles?.find(p => p.id === message.sent_by_user_id);
-          console.log(`📧 Message ${message.id} - Sender ID: ${message.sent_by_user_id} - Profile found:`, senderProfile);
+          const senderName = message.profiles?.full_name || message.profiles?.email || 'Utilisateur Inconnu';
           
           mockNotifications.push({
             id: `linkedin-${message.id}`,
@@ -156,7 +153,7 @@ export const useNotifications = () => {
               ...message.linkedin_posts,
               approach_message: message.message_content
             },
-            sender_name: senderProfile?.full_name || senderProfile?.email || 'Utilisateur Inconnu'
+            sender_name: senderName
           });
         });
       }
@@ -188,7 +185,6 @@ export const useNotifications = () => {
       // Trier par date décroissante
       mockNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      console.log('✅ Final notifications with sender names:', mockNotifications);
       setNotifications(mockNotifications);
       setUnreadCount(mockNotifications.filter(n => !n.read).length);
     } catch (error) {
