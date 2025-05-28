@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -21,7 +22,7 @@ const History = () => {
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypeFilter, setActivityTypeFilter] = useState<string[]>(['linkedin_message', 'phone_call']);
   const [timeFilter, setTimeFilter] = useState<'1h' | 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState<Date>();
+  const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [activitiesLimit, setActivitiesLimit] = useState(15);
 
   console.log('🔍 History component - total notifications:', notifications.length);
@@ -73,7 +74,16 @@ const History = () => {
         endOfLastMonth.setHours(23, 59, 59, 999);
         return notifDate >= startOfLastMonth && notifDate <= endOfLastMonth;
       case 'custom':
-        return customDate ? notifDate.toDateString() === customDate.toDateString() : true;
+        if (customDateRange.from && customDateRange.to) {
+          const from = new Date(customDateRange.from);
+          from.setHours(0, 0, 0, 0);
+          const to = new Date(customDateRange.to);
+          to.setHours(23, 59, 59, 999);
+          return notifDate >= from && notifDate <= to;
+        } else if (customDateRange.from) {
+          return notifDate.toDateString() === customDateRange.from.toDateString();
+        }
+        return true;
       default:
         return true;
     }
@@ -142,6 +152,37 @@ const History = () => {
 
   const handleActivityTypeChange = (values: string[]) => {
     setActivityTypeFilter(values);
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    
+    if (!customDateRange.from || (customDateRange.from && customDateRange.to)) {
+      // Première sélection ou reset
+      setCustomDateRange({ from: date, to: undefined });
+    } else {
+      // Deuxième sélection pour créer une période
+      if (date < customDateRange.from) {
+        setCustomDateRange({ from: date, to: customDateRange.from });
+      } else {
+        setCustomDateRange({ from: customDateRange.from, to: date });
+      }
+    }
+    setTimeFilter('custom');
+  };
+
+  const resetCustomDate = () => {
+    setCustomDateRange({});
+    setTimeFilter('today');
+  };
+
+  const getCustomDateText = () => {
+    if (customDateRange.from && customDateRange.to) {
+      return `${format(customDateRange.from, 'dd/MM', { locale: fr })} - ${format(customDateRange.to, 'dd/MM', { locale: fr })}`;
+    } else if (customDateRange.from) {
+      return format(customDateRange.from, 'dd/MM/yyyy', { locale: fr });
+    }
+    return '';
   };
 
   return (
@@ -220,22 +261,22 @@ const History = () => {
                         <Clock className="h-3 w-3" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2" align="start">
-                      <div className="space-y-2">
+                    <PopoverContent className="w-auto p-3" align="start">
+                      <div className="space-y-3">
                         {/* Première ligne : Dernière heure, Aujourd'hui, Hier */}
-                        <div className="flex gap-1">
+                        <div className="flex justify-center gap-1">
                           <Button
                             variant={timeFilter === '1h' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('1h')}
                           >
-                            Dernière heure
+                            1h
                           </Button>
                           <Button
                             variant={timeFilter === 'today' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('today')}
                           >
                             Aujourd'hui
@@ -243,7 +284,7 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('yesterday')}
                           >
                             Hier
@@ -251,11 +292,11 @@ const History = () => {
                         </div>
 
                         {/* Deuxième ligne : Cette semaine, Semaine dernière */}
-                        <div className="flex gap-1">
+                        <div className="flex justify-center gap-1">
                           <Button
                             variant={timeFilter === 'this_week' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('this_week')}
                           >
                             Cette semaine
@@ -263,7 +304,7 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'last_week' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('last_week')}
                           >
                             Semaine dernière
@@ -271,11 +312,11 @@ const History = () => {
                         </div>
 
                         {/* Troisième ligne : Ce mois-ci, Mois dernier */}
-                        <div className="flex gap-1">
+                        <div className="flex justify-center gap-1">
                           <Button
                             variant={timeFilter === 'this_month' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('this_month')}
                           >
                             Ce mois-ci
@@ -283,7 +324,7 @@ const History = () => {
                           <Button
                             variant={timeFilter === 'last_month' ? 'default' : 'ghost'}
                             size="sm"
-                            className="text-xs px-2 h-7"
+                            className="text-xs px-3 h-7 flex-1"
                             onClick={() => setTimeFilter('last_month')}
                           >
                             Mois dernier
@@ -291,16 +332,32 @@ const History = () => {
                         </div>
 
                         {/* Date personnalisée */}
-                        <div className="border-t pt-2">
+                        <div className="border-t pt-3">
+                          {customDateRange.from && (
+                            <div className="mb-2 text-center">
+                              <span className="text-xs text-gray-600">
+                                {customDateRange.to ? 'Période: ' : 'Date: '}
+                                {getCustomDateText()}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-2 h-5 text-xs"
+                                onClick={resetCustomDate}
+                              >
+                                Reset
+                              </Button>
+                            </div>
+                          )}
                           <Calendar
                             mode="single"
-                            selected={customDate}
-                            onSelect={(date) => {
-                              setCustomDate(date);
-                              setTimeFilter('custom');
-                            }}
+                            selected={customDateRange.from}
+                            onSelect={handleDateSelect}
                             className="pointer-events-auto"
                           />
+                          <p className="text-xs text-gray-500 mt-2 text-center">
+                            Cliquez une fois pour une date, deux fois pour une période
+                          </p>
                         </div>
                       </div>
                     </PopoverContent>
