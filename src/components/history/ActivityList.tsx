@@ -2,7 +2,7 @@
 import React, { useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserPlus, Calendar, Loader2 } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, Calendar, Loader2, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +14,7 @@ interface Activity {
   read: boolean;
   created_at: string;
   lead_data?: any;
+  sender_name?: string;
 }
 
 interface ActivityListProps {
@@ -37,9 +38,14 @@ const ActivityList = ({
   console.log('📋 ActivityList - received activities:', activities.length);
   console.log('🔄 Can load more:', canLoadMore);
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
+  const getActivityIcon = (activity: Activity) => {
+    switch (activity.type) {
       case 'linkedin_message':
+        // Différencier les types de messages LinkedIn
+        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
+            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+          return <UserCheck className="h-4 w-4 text-blue-600" />;
+        }
         return <MessageSquare className="h-4 w-4 text-blue-600" />;
       case 'phone_call':
         return <Phone className="h-4 w-4 text-green-600" />;
@@ -52,9 +58,14 @@ const ActivityList = ({
     }
   };
 
-  const getActivityTypeLabel = (type: string) => {
-    switch (type) {
+  const getActivityTypeLabel = (activity: Activity) => {
+    switch (activity.type) {
       case 'linkedin_message':
+        // Différencier les types de messages LinkedIn
+        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
+            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+          return 'Demande de connexion';
+        }
         return 'Message LinkedIn';
       case 'phone_call':
         return 'Appel téléphonique';
@@ -117,12 +128,12 @@ const ActivityList = ({
           >
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-1">
-                {getActivityIcon(activity.type)}
+                {getActivityIcon(activity)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium text-gray-500">
-                    {getActivityTypeLabel(activity.type)}
+                    {getActivityTypeLabel(activity)}
                   </span>
                   {!activity.read && (
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -134,6 +145,12 @@ const ActivityList = ({
                 <p className="text-xs text-gray-600 truncate">
                   {activity.message}
                 </p>
+                {/* Affichage du nom de l'utilisateur qui a fait l'action */}
+                {activity.sender_name && (
+                  <p className="text-xs text-blue-600 mt-1 font-medium">
+                    Par {activity.sender_name}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 mt-1">
                   {formatDistanceToNow(new Date(activity.created_at), { 
                     addSuffix: true, 

@@ -2,7 +2,7 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserPlus, Calendar, ExternalLink, Linkedin, User, Target } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, Calendar, ExternalLink, Linkedin, User, Target, UserCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -31,9 +31,14 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     );
   }
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
+  const getActivityIcon = (activity: Activity) => {
+    switch (activity.type) {
       case 'linkedin_message':
+        // Différencier les types de messages LinkedIn
+        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
+            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+          return <UserCheck className="h-5 w-5 text-blue-600" />;
+        }
         return <MessageSquare className="h-5 w-5 text-blue-600" />;
       case 'phone_call':
         return <Phone className="h-5 w-5 text-green-600" />;
@@ -46,9 +51,14 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     }
   };
 
-  const getActivityTypeLabel = (type: string) => {
-    switch (type) {
+  const getActivityTypeLabel = (activity: Activity) => {
+    switch (activity.type) {
       case 'linkedin_message':
+        // Différencier les types de messages LinkedIn
+        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
+            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+          return 'Demande de connexion LinkedIn';
+        }
         return 'Message LinkedIn envoyé';
       case 'phone_call':
         return 'Appel téléphonique';
@@ -61,15 +71,19 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     }
   };
 
+  const isConnectionRequest = activity.type === 'linkedin_message' && 
+    (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
+     activity.lead_data?.approach_message?.toLowerCase().includes('connect'));
+
   return (
     <div className="p-8 h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* En-tête de l'activité */}
         <div className="flex items-center gap-3 mb-6">
-          {getActivityIcon(activity.type)}
+          {getActivityIcon(activity)}
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {getActivityTypeLabel(activity.type)}
+              {getActivityTypeLabel(activity)}
             </h1>
             <p className="text-gray-600">
               {formatDistanceToNow(new Date(activity.created_at), { 
@@ -155,8 +169,17 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-blue-600" />
-                Message LinkedIn
+                {isConnectionRequest ? (
+                  <>
+                    <UserCheck className="h-5 w-5 text-blue-600" />
+                    Demande de connexion LinkedIn
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-5 w-5 text-blue-600" />
+                    Message LinkedIn
+                  </>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -179,9 +202,17 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                     })}
                   </span>
                 </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-600">Type :</span>
+                  <Badge variant={isConnectionRequest ? "secondary" : "default"}>
+                    {isConnectionRequest ? "Demande de connexion" : "Message direct"}
+                  </Badge>
+                </div>
               </div>
               <div className="bg-white rounded-lg p-4 border border-gray-200">
-                <h4 className="font-medium text-gray-700 mb-2">Contenu du message :</h4>
+                <h4 className="font-medium text-gray-700 mb-2">
+                  {isConnectionRequest ? "Message de connexion :" : "Contenu du message :"}
+                </h4>
                 <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
                   {activity.lead_data.approach_message}
                 </div>
