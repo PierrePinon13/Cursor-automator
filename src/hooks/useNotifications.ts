@@ -24,7 +24,6 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log('useNotifications - fetching for user:', user.id);
     fetchNotifications();
     
     // Set up real-time subscription for new notifications
@@ -54,8 +53,6 @@ export const useNotifications = () => {
     if (!user) return;
 
     try {
-      console.log('Fetching notifications for user:', user.id);
-      
       const mockNotifications: Notification[] = [];
 
       // Récupérer les assignations récentes
@@ -103,7 +100,7 @@ export const useNotifications = () => {
         });
       }
 
-      // Récupérer les messages LinkedIn récents
+      // Récupérer tous les messages LinkedIn récents (pas seulement ceux de l'utilisateur connecté)
       const { data: recentMessages } = await supabase
         .from('linkedin_messages')
         .select(`
@@ -128,18 +125,25 @@ export const useNotifications = () => {
         `)
         .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('sent_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
-      if (recentMessages) {
-        // Récupérer les profils des expéditeurs
-        const userIds = [...new Set(recentMessages.map(msg => msg.sent_by_user_id))];
+      if (recentMessages && recentMessages.length > 0) {
+        // Récupérer tous les profils des expéditeurs uniques
+        const uniqueUserIds = [...new Set(recentMessages.map(msg => msg.sent_by_user_id).filter(Boolean))];
+        
+        console.log('🔍 Unique sender IDs found:', uniqueUserIds);
+        
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name, email')
-          .in('id', userIds);
+          .in('id', uniqueUserIds);
+
+        console.log('👤 Profiles found:', profiles);
 
         recentMessages.forEach(message => {
           const senderProfile = profiles?.find(p => p.id === message.sent_by_user_id);
+          console.log(`📧 Message ${message.id} - Sender ID: ${message.sent_by_user_id} - Profile found:`, senderProfile);
+          
           mockNotifications.push({
             id: `linkedin-${message.id}`,
             type: 'linkedin_message',
@@ -184,7 +188,7 @@ export const useNotifications = () => {
       // Trier par date décroissante
       mockNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      console.log('Notifications fetched:', mockNotifications.length);
+      console.log('✅ Final notifications with sender names:', mockNotifications);
       setNotifications(mockNotifications);
       setUnreadCount(mockNotifications.filter(n => !n.read).length);
     } catch (error) {
