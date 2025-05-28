@@ -1,13 +1,63 @@
 
 import React from 'react';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { Column } from './columnDefinitions';
 
 interface DraggableTableHeaderProps {
   displayedColumns: Column[];
+  sortConfig?: {
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null;
+  onSort?: (columnId: string) => void;
 }
 
-const DraggableTableHeader = ({ displayedColumns }: DraggableTableHeaderProps) => {
+const DraggableTableHeader = ({ displayedColumns, sortConfig, onSort }: DraggableTableHeaderProps) => {
+  const getSortableColumns = () => [
+    'posted_date',
+    'last_updated',
+    'author_name',
+    'company',
+    'last_contact',
+    'category',
+    'location'
+  ];
+
+  const renderSortButton = (columnId: string) => {
+    const sortableColumns = getSortableColumns();
+    if (!sortableColumns.includes(columnId) || !onSort) return null;
+
+    const isActive = sortConfig?.key === columnId;
+    const direction = isActive ? sortConfig.direction : null;
+
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onSort(columnId);
+        }}
+        className="ml-1 inline-flex flex-col hover:bg-gray-200 rounded p-0.5 transition-colors"
+        data-clickable="true"
+      >
+        <ChevronUp 
+          className={`h-2.5 w-2.5 ${
+            isActive && direction === 'asc' 
+              ? 'text-blue-600' 
+              : 'text-gray-400 hover:text-gray-600'
+          }`} 
+        />
+        <ChevronDown 
+          className={`h-2.5 w-2.5 -mt-0.5 ${
+            isActive && direction === 'desc' 
+              ? 'text-blue-600' 
+              : 'text-gray-400 hover:text-gray-600'
+          }`} 
+        />
+      </button>
+    );
+  };
+
   return (
     <Droppable droppableId="columns" direction="horizontal">
       {(provided) => (
@@ -32,7 +82,10 @@ const DraggableTableHeader = ({ displayedColumns }: DraggableTableHeaderProps) =
                       maxWidth: column.width,
                     }}
                   >
-                    {column.label}
+                    <div className="flex items-center justify-between">
+                      <span>{column.label}</span>
+                      {renderSortButton(column.id)}
+                    </div>
                   </th>
                 )}
               </Draggable>
