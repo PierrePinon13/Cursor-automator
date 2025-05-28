@@ -5,7 +5,7 @@ import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import LeadDetailHeader from './LeadDetailHeader';
-import LeadDetailContent from './LeadDetailContent';
+import SimplifiedLeadView from './SimplifiedLeadView';
 import SystemStatus from '../SystemStatus';
 
 interface Lead {
@@ -59,9 +59,7 @@ const LeadDetailDialog = ({
   onNavigateToLead, 
   onActionCompleted 
 }: LeadDetailDialogProps) => {
-  const [customMessage, setCustomMessage] = useState('');
   const [currentLeads, setCurrentLeads] = useState(leads);
-  const { sendMessage, loading: messageSending } = useLinkedInMessage();
 
   // Synchroniser les leads avec les props
   React.useEffect(() => {
@@ -72,19 +70,16 @@ const LeadDetailDialog = ({
   const handlePrevious = () => {
     if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
       onNavigateToLead(selectedLeadIndex - 1);
-      setCustomMessage('');
     }
   };
 
   const handleNext = () => {
     if (selectedLeadIndex !== null && selectedLeadIndex < currentLeads.length - 1) {
       onNavigateToLead(selectedLeadIndex + 1);
-      setCustomMessage('');
     }
   };
 
   // Keyboard shortcuts pour la navigation dans le dialog
-  // IMPORTANT: Les hooks doivent TOUJOURS être appelés, même si isOpen est false
   useKeyboardShortcuts({
     onNextItem: handleNext,
     onPreviousItem: handlePrevious,
@@ -93,7 +88,6 @@ const LeadDetailDialog = ({
   });
 
   // Touch gestures pour la navigation dans le dialog
-  // IMPORTANT: Les hooks doivent TOUJOURS être appelés, même si isOpen est false
   useTouchGestures({
     onSwipeLeft: handleNext,
     onSwipeRight: handlePrevious,
@@ -108,63 +102,6 @@ const LeadDetailDialog = ({
   const canGoPrevious = selectedLeadIndex > 0;
   const canGoNext = selectedLeadIndex < currentLeads.length - 1;
 
-  const handleAction = (actionName: string) => {
-    console.log(`Action ${actionName} executée pour le lead ${lead.author_name}`);
-    onActionCompleted();
-  };
-
-  const handleSendLinkedInMessage = async () => {
-    const messageToSend = customMessage.trim();
-    
-    if (!messageToSend) {
-      console.error('No message to send');
-      return;
-    }
-    
-    if (messageToSend.length > 300) {
-      console.error('Message too long');
-      return;
-    }
-    
-    const success = await sendMessage(lead.id, messageToSend);
-    if (success) {
-      // Update local lead with LinkedIn message timestamp
-      const updatedLeads = [...currentLeads];
-      updatedLeads[selectedLeadIndex] = {
-        ...updatedLeads[selectedLeadIndex],
-        linkedin_message_sent_at: new Date().toISOString(),
-        last_contact_at: new Date().toISOString()
-      };
-      setCurrentLeads(updatedLeads);
-      
-      onActionCompleted();
-      setCustomMessage('');
-    }
-  };
-
-  const handlePhoneRetrieved = (phoneNumber: string | null) => {
-    // Mettre à jour le lead local avec le nouveau numéro de téléphone
-    const updatedLeads = [...currentLeads];
-    updatedLeads[selectedLeadIndex] = {
-      ...updatedLeads[selectedLeadIndex],
-      phone_number: phoneNumber,
-      phone_retrieved_at: new Date().toISOString()
-    };
-    setCurrentLeads(updatedLeads);
-  };
-
-  const handleContactUpdate = () => {
-    // Callback pour mettre à jour les données du lead après un contact téléphonique
-    const updatedLeads = [...currentLeads];
-    updatedLeads[selectedLeadIndex] = {
-      ...updatedLeads[selectedLeadIndex],
-      phone_contact_at: new Date().toISOString(),
-      last_contact_at: new Date().toISOString()
-    };
-    setCurrentLeads(updatedLeads);
-    onActionCompleted();
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -172,8 +109,8 @@ const LeadDetailDialog = ({
       {/* Overlay épuré - moins visible */}
       <div className="fixed inset-0 z-50 bg-black/20 animate-in fade-in-0 duration-300" onClick={onClose} />
       
-      {/* Fenêtre beaucoup plus grande - 2,5x plus large et 20% plus haute */}
-      <div className="fixed left-[50%] top-[50%] z-50 w-[95vw] h-[85vh] max-w-[1800px] max-h-[900px] translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-2xl animate-in slide-in-from-top duration-300 ease-out flex flex-col">
+      {/* Fenêtre beaucoup plus grande - 95% largeur et 90% hauteur */}
+      <div className="fixed left-[50%] top-[50%] z-50 w-[95vw] h-[90vh] max-w-[1600px] max-h-[1000px] translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-2xl animate-in slide-in-from-top duration-300 ease-out flex flex-col">
         <LeadDetailHeader
           lead={currentLeads[selectedLeadIndex]}
           selectedLeadIndex={selectedLeadIndex}
@@ -188,17 +125,8 @@ const LeadDetailDialog = ({
         {/* System Status Banner */}
         <SystemStatus className="mx-6 mt-2 flex-shrink-0" />
         
-        <div className="flex-1 overflow-hidden">
-          <LeadDetailContent
-            lead={currentLeads[selectedLeadIndex]}
-            customMessage={customMessage}
-            onMessageChange={setCustomMessage}
-            onSendLinkedInMessage={handleSendLinkedInMessage}
-            onAction={handleAction}
-            messageSending={messageSending}
-            onPhoneRetrieved={handlePhoneRetrieved}
-            onContactUpdate={handleContactUpdate}
-          />
+        <div className="flex-1 overflow-hidden p-6">
+          <SimplifiedLeadView lead={currentLeads[selectedLeadIndex]} />
         </div>
       </div>
     </TooltipProvider>
