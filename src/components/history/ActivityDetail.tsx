@@ -16,6 +16,7 @@ interface Activity {
   lead_data?: any;
   client_name?: string;
   sender_name?: string;
+  message_type?: 'connection_request' | 'direct_message';
 }
 
 interface ActivityDetailProps {
@@ -25,7 +26,7 @@ interface ActivityDetailProps {
 const ActivityDetail = ({ activity }: ActivityDetailProps) => {
   if (!activity) {
     return (
-      <div className="p-8 text-center text-gray-500">
+      <div className="flex items-center justify-center h-full text-gray-500">
         <p>Sélectionnez une activité pour voir les détails</p>
       </div>
     );
@@ -34,9 +35,8 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
   const getActivityIcon = (activity: Activity) => {
     switch (activity.type) {
       case 'linkedin_message':
-        // Différencier les types de messages LinkedIn
-        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
-            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+        // Utiliser message_type pour différencier
+        if (activity.message_type === 'connection_request') {
           return <UserCheck className="h-5 w-5 text-blue-600" />;
         }
         return <MessageSquare className="h-5 w-5 text-blue-600" />;
@@ -54,9 +54,8 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
   const getActivityTypeLabel = (activity: Activity) => {
     switch (activity.type) {
       case 'linkedin_message':
-        // Différencier les types de messages LinkedIn
-        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
-            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+        // Utiliser message_type pour différencier
+        if (activity.message_type === 'connection_request') {
           return 'Demande de connexion LinkedIn';
         }
         return 'Message LinkedIn envoyé';
@@ -71,13 +70,11 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     }
   };
 
-  const isConnectionRequest = activity.type === 'linkedin_message' && 
-    (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
-     activity.lead_data?.approach_message?.toLowerCase().includes('connect'));
+  const isConnectionRequest = activity.type === 'linkedin_message' && activity.message_type === 'connection_request';
 
   return (
-    <div className="p-8 h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="h-full overflow-y-auto">
+      <div className="p-8 max-w-4xl mx-auto space-y-6">
         {/* En-tête de l'activité */}
         <div className="flex items-center gap-3 mb-6">
           {getActivityIcon(activity)}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -125,36 +126,36 @@ const History = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Contenu principal */}
-      <div className="flex w-full">
+      <div className="flex w-full h-full">
         {/* Sidebar des activités */}
-        <div className="w-[24.31rem] bg-white border-r border-gray-200 h-[calc(100vh)] overflow-hidden flex flex-col">
+        <div className="w-[24.31rem] bg-white border-r border-gray-200 h-full overflow-hidden flex flex-col">
           {/* Header avec trigger sidebar et filtres */}
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 flex-shrink-0">
             <CustomSidebarTrigger />
             
             {/* Filtres espacés avec encadrés plus petits */}
-            <div className="flex items-center justify-between gap-8">
+            <div className="flex items-center justify-between gap-6">
               {/* Filtre Utilisateur/Tout le monde - gauche */}
               <div className="border border-gray-200 rounded-md p-0.5 bg-white">
                 <ToggleGroup 
                   type="single" 
                   value={filterBy} 
                   onValueChange={(value) => value && setFilterBy(value as 'all' | 'mine')}
-                  className="h-6"
+                  className="h-5"
                 >
                   <ToggleGroupItem 
                     value="mine" 
                     size="sm"
-                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
+                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
                   >
                     <User className="h-3 w-3" />
                   </ToggleGroupItem>
                   <ToggleGroupItem 
                     value="all" 
                     size="sm"
-                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
+                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
                   >
                     <Users className="h-3 w-3" />
                   </ToggleGroupItem>
@@ -167,19 +168,19 @@ const History = () => {
                   type="multiple" 
                   value={activityTypeFilter} 
                   onValueChange={handleActivityTypeChange}
-                  className="h-6"
+                  className="h-5"
                 >
                   <ToggleGroupItem 
                     value="linkedin_message" 
                     size="sm"
-                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
+                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
                   >
                     <Linkedin className="h-3 w-3" />
                   </ToggleGroupItem>
                   <ToggleGroupItem 
                     value="phone_call" 
                     size="sm"
-                    className="h-6 w-6 p-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white border-0"
+                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
                   >
                     <Phone className="h-3 w-3" />
                   </ToggleGroupItem>
@@ -193,7 +194,7 @@ const History = () => {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="h-6 w-6 p-0 hover:bg-blue-600 hover:text-white"
+                      className="h-5 w-5 p-0 hover:bg-blue-500 hover:text-white"
                     >
                       <Clock className="h-3 w-3" />
                     </Button>
@@ -249,7 +250,7 @@ const History = () => {
           </div>
 
           {/* Liste des activités */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-hidden">
             <ActivityList
               activities={displayedActivities}
               selectedActivity={selectedActivity}
@@ -261,7 +262,7 @@ const History = () => {
         </div>
 
         {/* Détail de l'activité */}
-        <div className="flex-1 bg-white">
+        <div className="flex-1 bg-white overflow-hidden">
           <ActivityDetail activity={selectedActivity} />
         </div>
       </div>

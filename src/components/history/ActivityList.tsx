@@ -15,6 +15,7 @@ interface Activity {
   created_at: string;
   lead_data?: any;
   sender_name?: string;
+  message_type?: 'connection_request' | 'direct_message';
 }
 
 interface ActivityListProps {
@@ -41,9 +42,8 @@ const ActivityList = ({
   const getActivityIcon = (activity: Activity) => {
     switch (activity.type) {
       case 'linkedin_message':
-        // Différencier les types de messages LinkedIn
-        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
-            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+        // Utiliser message_type pour différencier
+        if (activity.message_type === 'connection_request') {
           return <UserCheck className="h-4 w-4 text-blue-600" />;
         }
         return <MessageSquare className="h-4 w-4 text-blue-600" />;
@@ -61,9 +61,8 @@ const ActivityList = ({
   const getActivityTypeLabel = (activity: Activity) => {
     switch (activity.type) {
       case 'linkedin_message':
-        // Différencier les types de messages LinkedIn
-        if (activity.lead_data?.approach_message?.toLowerCase().includes('connexion') || 
-            activity.lead_data?.approach_message?.toLowerCase().includes('connect')) {
+        // Utiliser message_type pour différencier
+        if (activity.message_type === 'connection_request') {
           return 'Demande de connexion';
         }
         return 'Message LinkedIn';
@@ -116,7 +115,7 @@ const ActivityList = ({
       onScroll={handleScroll}
     >
       {activities.map((activity, index) => {
-        console.log(`📝 Rendering activity ${index + 1}:`, activity.id, activity.type);
+        console.log(`📝 Rendering activity ${index + 1}:`, activity.id, activity.type, 'message_type:', activity.message_type);
         return (
           <div
             key={activity.id}
