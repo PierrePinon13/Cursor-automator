@@ -35,30 +35,88 @@ const AppContent = () => {
     return (
       <Routes>
         <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Navigate to="/auth" replace />} />
+        <Route path="/" element={<Index />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <div className="flex-1">
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/leads" element={<Leads />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/hr-providers" element={<HrProviders />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/debug/:leadId" element={<DebugLead />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
-      </div>
-    </SidebarProvider>
+    <Routes>
+      <Route path="/auth" element={<Navigate to="/leads" replace />} />
+      <Route path="/" element={<Navigate to="/leads" replace />} />
+      <Route path="/leads" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <Leads />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/clients" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <Clients />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/hr-providers" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <HrProviders />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/dashboard" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <Dashboard />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/profile" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <Profile />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/history" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <History />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="/debug/:leadId" element={
+        <SidebarProvider>
+          <div className="min-h-screen flex w-full">
+            <AppSidebar />
+            <div className="flex-1">
+              <DebugLead />
+            </div>
+          </div>
+        </SidebarProvider>
+      } />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 
