@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import DashboardHeader from '@/components/DashboardHeader';
 import StatsFilters from '@/components/dashboard/StatsFilters';
 import StatsCards from '@/components/dashboard/StatsCards';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
@@ -37,8 +36,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
-      
       <main className="p-6 max-w-7xl mx-auto space-y-6">
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">Tableau de bord</h2>
@@ -79,7 +76,6 @@ const Dashboard = () => {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Résumé de la période - Plus compact */}
                   <Card className="lg:col-span-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">Résumé de la période</CardTitle>
@@ -109,7 +105,6 @@ const Dashboard = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Activité récente - Plus large */}
                   <Card className="lg:col-span-2">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">Activité récente</CardTitle>

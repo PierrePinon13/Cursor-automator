@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import GlobalHeader from "@/components/GlobalHeader";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -41,8 +42,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <div className="flex-1">
-          {children}
+        <div className="flex-1 flex flex-col">
+          <GlobalHeader />
+          <div className="flex-1">
+            {children}
+          </div>
         </div>
       </div>
     </SidebarProvider>
