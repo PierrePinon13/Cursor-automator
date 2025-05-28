@@ -2,7 +2,7 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserPlus, Calendar, ExternalLink, Linkedin, User } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, Calendar, ExternalLink, Linkedin, User, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -15,6 +15,7 @@ interface Activity {
   created_at: string;
   lead_data?: any;
   client_name?: string;
+  sender_name?: string;
 }
 
 interface ActivityDetailProps {
@@ -109,6 +110,35 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                   <p className="text-gray-600 mb-1">{activity.lead_data.unipile_position}</p>
                   <p className="text-gray-600">{activity.lead_data.unipile_company}</p>
                 </div>
+                
+                {/* Poste recherché dans l'encart des informations du lead */}
+                {activity.lead_data?.openai_step3_postes_selectionnes && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      <Target className="h-4 w-4 text-green-600" />
+                      Poste recherché
+                    </h4>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {activity.lead_data.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
+                        <Badge key={index} className="bg-green-100 text-green-800 border-green-300 text-xs">
+                          {poste}
+                        </Badge>
+                      ))}
+                    </div>
+                    {activity.lead_data.url && (
+                      <a
+                        href={activity.lead_data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
+                      >
+                        Voir la publication LinkedIn
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                )}
+                
                 {activity.client_name && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Client associé :</p>
@@ -133,7 +163,9 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Envoyé par :</span>
-                  <span className="font-medium text-gray-800">Utilisateur Connecté</span>
+                  <span className="font-medium text-gray-800">
+                    {activity.sender_name || 'Utilisateur Connecté'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-600">Date d'envoi :</span>
@@ -187,38 +219,6 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                   </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Poste recherché si disponible */}
-        {activity.lead_data?.openai_step3_postes_selectionnes && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                Poste recherché
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {activity.lead_data.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
-                  <Badge key={index} className="bg-green-100 text-green-800 border-green-300">
-                    {poste}
-                  </Badge>
-                ))}
-              </div>
-              {activity.lead_data.url && (
-                <a
-                  href={activity.lead_data.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
-                >
-                  Voir la publication LinkedIn
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              )}
             </CardContent>
           </Card>
         )}

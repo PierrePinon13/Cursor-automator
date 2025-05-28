@@ -246,6 +246,59 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_messages: {
+        Row: {
+          account_used: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          message_content: string
+          message_type: string
+          network_distance: string | null
+          provider_id: string | null
+          sent_at: string
+          sent_by_user_id: string
+          unipile_response: Json | null
+          updated_at: string
+        }
+        Insert: {
+          account_used?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          message_content: string
+          message_type: string
+          network_distance?: string | null
+          provider_id?: string | null
+          sent_at?: string
+          sent_by_user_id: string
+          unipile_response?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          account_used?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          message_content?: string
+          message_type?: string
+          network_distance?: string | null
+          provider_id?: string | null
+          sent_at?: string
+          sent_by_user_id?: string
+          unipile_response?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_posts: {
         Row: {
           apify_dataset_id: string

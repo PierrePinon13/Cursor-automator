@@ -12,7 +12,8 @@ interface Notification {
   created_at: string;
   lead_id?: string;
   client_name?: string;
-  lead_data?: any; // Données complètes du lead pour la navigation
+  lead_data?: any;
+  sender_name?: string;
 }
 
 export const useNotifications = () => {
@@ -77,7 +78,7 @@ export const useNotifications = () => {
             unipile_position,
             openai_step3_categorie,
             openai_step2_localisation,
-            approach_message,
+            openai_step3_postes_selectionnes,
             posted_at_iso,
             created_at
           )
@@ -102,13 +103,35 @@ export const useNotifications = () => {
         });
       }
 
-      // Récupérer les activités récentes (messages LinkedIn envoyés) avec toutes les données du lead
+      // Récupérer les messages LinkedIn récents avec le nom de l'expéditeur
       const { data: recentMessages } = await supabase
-        .from('linkedin_posts')
-        .select('*')
-        .not('linkedin_message_sent_at', 'is', null)
-        .gte('linkedin_message_sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order('linkedin_message_sent_at', { ascending: false })
+        .from('linkedin_messages')
+        .select(`
+          *,
+          linkedin_posts!inner (
+            id,
+            author_name,
+            author_headline,
+            author_profile_url,
+            unipile_company,
+            unipile_position,
+            openai_step3_categorie,
+            openai_step2_localisation,
+            openai_step3_postes_selectionnes,
+            text,
+            title,
+            url,
+            posted_at_iso,
+            created_at,
+            matched_client_name
+          ),
+          profiles!inner (
+            full_name,
+            email
+          )
+        `)
+        .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('sent_at', { ascending: false })
         .limit(10);
 
       if (recentMessages) {
@@ -117,11 +140,15 @@ export const useNotifications = () => {
             id: `linkedin-${message.id}`,
             type: 'linkedin_message',
             title: 'Message LinkedIn envoyé',
-            message: `Message envoyé à ${message.author_name}${message.unipile_position ? ` - ${message.unipile_position}` : ''}`,
-            read: true, // Messages already sent, marked as read
-            created_at: message.linkedin_message_sent_at,
-            lead_id: message.id,
-            lead_data: message
+            message: `Message envoyé à ${message.linkedin_posts.author_name}${message.linkedin_posts.unipile_position ? ` - ${message.linkedin_posts.unipile_position}` : ''}`,
+            read: true,
+            created_at: message.sent_at,
+            lead_id: message.lead_id,
+            lead_data: {
+              ...message.linkedin_posts,
+              approach_message: message.message_content
+            },
+            sender_name: message.profiles.full_name || message.profiles.email
           });
         });
       }

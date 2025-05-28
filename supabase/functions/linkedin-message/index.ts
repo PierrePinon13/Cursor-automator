@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -392,9 +391,28 @@ serve(async (req) => {
       }
     }
 
-    // Update the lead with LinkedIn message timestamp (no await to avoid blocking)
-    const now = new Date().toISOString()
-    
+    // STEP 4: Insert into linkedin_messages table (NEW)
+    const now = new Date().toISOString();
+    const { error: insertError } = await supabaseClient
+      .from('linkedin_messages')
+      .insert({
+        lead_id: lead_id,
+        sent_by_user_id: user.id,
+        message_content: message,
+        message_type: actionTaken,
+        sent_at: now,
+        unipile_response: responseData,
+        network_distance: networkDistance,
+        provider_id: linkedinProviderId,
+        account_used: accountId
+      });
+
+    if (insertError) {
+      console.error('Error inserting into linkedin_messages:', insertError);
+      // Continue anyway, as the message was sent successfully
+    }
+
+    // Update the lead with LinkedIn message timestamp (keep for backward compatibility)
     supabaseClient
       .from('linkedin_posts')
       .update({
