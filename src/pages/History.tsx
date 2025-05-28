@@ -20,7 +20,7 @@ const History = () => {
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypeFilter, setActivityTypeFilter] = useState<string[]>(['linkedin_message', 'phone_call']);
-  const [timeFilter, setTimeFilter] = useState<'1h' | 'today' | 'yesterday' | 'custom'>('today');
+  const [timeFilter, setTimeFilter] = useState<'1h' | 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<Date>();
   const [activitiesLimit, setActivitiesLimit] = useState(15);
 
@@ -51,6 +51,27 @@ const History = () => {
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
         return notifDate.toDateString() === yesterday.toDateString();
+      case 'this_week':
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Lundi de cette semaine
+        startOfWeek.setHours(0, 0, 0, 0);
+        return notifDate >= startOfWeek;
+      case 'last_week':
+        const startOfLastWeek = new Date(now);
+        startOfLastWeek.setDate(now.getDate() - now.getDay() - 6); // Lundi de la semaine dernière
+        startOfLastWeek.setHours(0, 0, 0, 0);
+        const endOfLastWeek = new Date(startOfLastWeek);
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6); // Dimanche de la semaine dernière
+        endOfLastWeek.setHours(23, 59, 59, 999);
+        return notifDate >= startOfLastWeek && notifDate <= endOfLastWeek;
+      case 'this_month':
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return notifDate >= startOfMonth;
+      case 'last_month':
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        endOfLastMonth.setHours(23, 59, 59, 999);
+        return notifDate >= startOfLastMonth && notifDate <= endOfLastMonth;
       case 'custom':
         return customDate ? notifDate.toDateString() === customDate.toDateString() : true;
       default:
@@ -201,32 +222,80 @@ const History = () => {
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-2" align="start">
                       <div className="space-y-2">
-                        <Button
-                          variant={timeFilter === '1h' ? 'default' : 'ghost'}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => setTimeFilter('1h')}
-                        >
-                          Dernière heure
-                        </Button>
-                        <Button
-                          variant={timeFilter === 'today' ? 'default' : 'ghost'}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => setTimeFilter('today')}
-                        >
-                          Aujourd'hui
-                        </Button>
-                        <Button
-                          variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => setTimeFilter('yesterday')}
-                        >
-                          Hier
-                        </Button>
+                        {/* Filtres rapides */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-gray-700 px-2">Période récente</p>
+                          <Button
+                            variant={timeFilter === '1h' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('1h')}
+                          >
+                            Dernière heure
+                          </Button>
+                          <Button
+                            variant={timeFilter === 'today' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('today')}
+                          >
+                            Aujourd'hui
+                          </Button>
+                          <Button
+                            variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('yesterday')}
+                          >
+                            Hier
+                          </Button>
+                        </div>
+
+                        {/* Filtres hebdomadaires */}
+                        <div className="border-t pt-2 space-y-1">
+                          <p className="text-xs font-medium text-gray-700 px-2">Période hebdomadaire</p>
+                          <Button
+                            variant={timeFilter === 'this_week' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('this_week')}
+                          >
+                            Cette semaine
+                          </Button>
+                          <Button
+                            variant={timeFilter === 'last_week' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('last_week')}
+                          >
+                            Semaine dernière
+                          </Button>
+                        </div>
+
+                        {/* Filtres mensuels */}
+                        <div className="border-t pt-2 space-y-1">
+                          <p className="text-xs font-medium text-gray-700 px-2">Période mensuelle</p>
+                          <Button
+                            variant={timeFilter === 'this_month' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('this_month')}
+                          >
+                            Ce mois-ci
+                          </Button>
+                          <Button
+                            variant={timeFilter === 'last_month' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setTimeFilter('last_month')}
+                          >
+                            Mois dernier
+                          </Button>
+                        </div>
+
+                        {/* Date personnalisée */}
                         <div className="border-t pt-2">
-                          <p className="text-xs text-gray-500 mb-2">Date personnalisée</p>
+                          <p className="text-xs font-medium text-gray-700 mb-2 px-2">Date personnalisée</p>
                           <Calendar
                             mode="single"
                             selected={customDate}
