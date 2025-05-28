@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -6,7 +5,6 @@ import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 import ActivityList from '@/components/history/ActivityList';
 import ActivityDetail from '@/components/history/ActivityDetail';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -135,116 +133,119 @@ const History = () => {
           <div className="p-4 space-y-4 flex-shrink-0">
             <CustomSidebarTrigger />
             
-            {/* Filtres espacés avec encadrés plus petits */}
-            <div className="flex items-center justify-between gap-6">
-              {/* Filtre Utilisateur/Tout le monde - gauche */}
-              <div className="border border-gray-200 rounded-md p-0.5 bg-white">
-                <ToggleGroup 
-                  type="single" 
-                  value={filterBy} 
-                  onValueChange={(value) => value && setFilterBy(value as 'all' | 'mine')}
-                  className="h-5"
-                >
-                  <ToggleGroupItem 
-                    value="mine" 
-                    size="sm"
-                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
+            {/* Filtres rapprochés avec compteur séparé */}
+            <div className="flex items-center justify-between">
+              {/* Groupe de filtres rapprochés */}
+              <div className="flex items-center gap-2">
+                {/* Filtre Utilisateur/Tout le monde */}
+                <div className="border border-gray-200 rounded-md p-0.5 bg-white">
+                  <ToggleGroup 
+                    type="single" 
+                    value={filterBy} 
+                    onValueChange={(value) => value && setFilterBy(value as 'all' | 'mine')}
+                    className="h-5"
                   >
-                    <User className="h-3 w-3" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem 
-                    value="all" 
-                    size="sm"
-                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
-                  >
-                    <Users className="h-3 w-3" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-
-              {/* Filtre Type d'activité - centre */}
-              <div className="border border-gray-200 rounded-md p-0.5 bg-white">
-                <ToggleGroup 
-                  type="multiple" 
-                  value={activityTypeFilter} 
-                  onValueChange={handleActivityTypeChange}
-                  className="h-5"
-                >
-                  <ToggleGroupItem 
-                    value="linkedin_message" 
-                    size="sm"
-                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
-                  >
-                    <Linkedin className="h-3 w-3" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem 
-                    value="phone_call" 
-                    size="sm"
-                    className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
-                  >
-                    <Phone className="h-3 w-3" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-
-              {/* Filtre Période - droite */}
-              <div className="border border-gray-200 rounded-md bg-white flex items-center">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="ghost" 
+                    <ToggleGroupItem 
+                      value="mine" 
                       size="sm"
-                      className="h-5 w-5 p-0 hover:bg-blue-500 hover:text-white"
+                      className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
                     >
-                      <Clock className="h-3 w-3" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-2" align="start">
-                    <div className="space-y-2">
-                      <Button
-                        variant={timeFilter === '1h' ? 'default' : 'ghost'}
+                      <User className="h-3 w-3" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem 
+                      value="all" 
+                      size="sm"
+                      className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
+                    >
+                      <Users className="h-3 w-3" />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                {/* Filtre Type d'activité */}
+                <div className="border border-gray-200 rounded-md p-0.5 bg-white">
+                  <ToggleGroup 
+                    type="multiple" 
+                    value={activityTypeFilter} 
+                    onValueChange={handleActivityTypeChange}
+                    className="h-5"
+                  >
+                    <ToggleGroupItem 
+                      value="linkedin_message" 
+                      size="sm"
+                      className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
+                    >
+                      <Linkedin className="h-3 w-3" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem 
+                      value="phone_call" 
+                      size="sm"
+                      className="h-5 w-5 p-0 data-[state=on]:bg-blue-500 data-[state=on]:text-white border-0"
+                    >
+                      <Phone className="h-3 w-3" />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                {/* Filtre Période */}
+                <div className="border border-gray-200 rounded-md bg-white">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
                         size="sm"
-                        className="w-full justify-start"
-                        onClick={() => setTimeFilter('1h')}
+                        className="h-5 w-5 p-0 hover:bg-blue-500 hover:text-white"
                       >
-                        Dernière heure
+                        <Clock className="h-3 w-3" />
                       </Button>
-                      <Button
-                        variant={timeFilter === 'today' ? 'default' : 'ghost'}
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => setTimeFilter('today')}
-                      >
-                        Aujourd'hui
-                      </Button>
-                      <Button
-                        variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => setTimeFilter('yesterday')}
-                      >
-                        Hier
-                      </Button>
-                      <div className="border-t pt-2">
-                        <p className="text-xs text-gray-500 mb-2">Date personnalisée</p>
-                        <Calendar
-                          mode="single"
-                          selected={customDate}
-                          onSelect={(date) => {
-                            setCustomDate(date);
-                            setTimeFilter('custom');
-                          }}
-                          className="pointer-events-auto"
-                        />
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="start">
+                      <div className="space-y-2">
+                        <Button
+                          variant={timeFilter === '1h' ? 'default' : 'ghost'}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setTimeFilter('1h')}
+                        >
+                          Dernière heure
+                        </Button>
+                        <Button
+                          variant={timeFilter === 'today' ? 'default' : 'ghost'}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setTimeFilter('today')}
+                        >
+                          Aujourd'hui
+                        </Button>
+                        <Button
+                          variant={timeFilter === 'yesterday' ? 'default' : 'ghost'}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setTimeFilter('yesterday')}
+                        >
+                          Hier
+                        </Button>
+                        <div className="border-t pt-2">
+                          <p className="text-xs text-gray-500 mb-2">Date personnalisée</p>
+                          <Calendar
+                            mode="single"
+                            selected={customDate}
+                            onSelect={(date) => {
+                              setCustomDate(date);
+                              setTimeFilter('custom');
+                            }}
+                            className="pointer-events-auto"
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                
-                {/* Badge avec le nombre d'activités filtrées */}
-                <Badge variant="secondary" className="text-xs h-4 ml-2 mr-1">
-                  {filteredNotifications.length}
-                </Badge>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* Compteur d'activités séparé */}
+              <div className="text-xs text-gray-500 italic">
+                {filteredNotifications.length} activités sur la période
               </div>
             </div>
           </div>
