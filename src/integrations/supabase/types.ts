@@ -488,6 +488,30 @@ export type Database = {
           },
         ]
       }
+      openai_prompts: {
+        Row: {
+          created_at: string
+          id: string
+          prompt: string
+          step: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prompt: string
+          step: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prompt?: string
+          step?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       processing_metrics_hourly: {
         Row: {
           avg_processing_time_minutes: number | null
