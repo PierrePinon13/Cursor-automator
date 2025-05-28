@@ -1,3 +1,4 @@
+
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Sidebar, 
@@ -7,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { BarChart3, Users, User, Briefcase, Building2, UserCheck, Settings } from 'lucide-react';
+import { BarChart3, Users, User, Briefcase, Building2, UserCheck, Settings, History } from 'lucide-react';
 
 const menuItems = [
   {
@@ -24,6 +25,11 @@ const menuItems = [
     title: "Prestataires RH",
     url: "/hr-providers",
     icon: UserCheck,
+  },
+  {
+    title: "Historique",
+    url: "/history",
+    icon: History,
   },
   {
     title: "Tableau de bord",

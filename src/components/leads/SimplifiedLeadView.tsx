@@ -23,12 +23,6 @@ interface SimplifiedLeadViewProps {
 }
 
 const SimplifiedLeadView = ({ lead }: SimplifiedLeadViewProps) => {
-  // Mock user data - dans une vraie application, cela viendrait de l'utilisateur connecté
-  const currentUser = {
-    firstName: "Utilisateur",
-    lastName: "Connecté"
-  };
-
   return (
     <div className="h-full flex flex-col space-y-8">
       {/* Informations du Lead */}
@@ -94,17 +88,18 @@ const SimplifiedLeadView = ({ lead }: SimplifiedLeadViewProps) => {
           <div className="mb-4 p-3 bg-orange-100 rounded-lg">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Envoyé par :</span>
-              <span className="font-medium text-gray-800">
-                {currentUser.firstName} {currentUser.lastName}
-              </span>
+              <span className="font-medium text-gray-800">Utilisateur Connecté</span>
             </div>
             {lead.linkedin_message_sent_at && (
               <div className="flex items-center justify-between text-sm mt-1">
                 <span className="text-gray-600">Date d'envoi :</span>
                 <span className="font-medium text-gray-800">
-                  {formatDistanceToNow(new Date(lead.linkedin_message_sent_at), { 
-                    addSuffix: true, 
-                    locale: fr 
+                  {new Date(lead.linkedin_message_sent_at).toLocaleDateString('fr-FR', {
+                    day: '2-digit',
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
                   })}
                 </span>
               </div>
