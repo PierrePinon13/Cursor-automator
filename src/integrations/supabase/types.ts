@@ -256,6 +256,8 @@ export type Database = {
           message_type: string
           network_distance: string | null
           provider_id: string | null
+          sender_full_name: string | null
+          sender_id: string | null
           sent_at: string
           sent_by_user_id: string
           unipile_response: Json | null
@@ -270,6 +272,8 @@ export type Database = {
           message_type: string
           network_distance?: string | null
           provider_id?: string | null
+          sender_full_name?: string | null
+          sender_id?: string | null
           sent_at?: string
           sent_by_user_id: string
           unipile_response?: Json | null
@@ -284,12 +288,21 @@ export type Database = {
           message_type?: string
           network_distance?: string | null
           provider_id?: string | null
+          sender_full_name?: string | null
+          sender_id?: string | null
           sent_at?: string
           sent_by_user_id?: string
           unipile_response?: Json | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_linkedin_messages_sent_by_user_id"
+            columns: ["sent_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "linkedin_messages_lead_id_fkey"
             columns: ["lead_id"]
@@ -333,6 +346,8 @@ export type Database = {
           openai_step3_postes_selectionnes: string[] | null
           openai_step3_response: Json | null
           phone_contact_at: string | null
+          phone_contact_by_user_id: string | null
+          phone_contact_by_user_name: string | null
           phone_contact_status: string | null
           phone_number: string | null
           phone_retrieved_at: string | null
@@ -386,6 +401,8 @@ export type Database = {
           openai_step3_postes_selectionnes?: string[] | null
           openai_step3_response?: Json | null
           phone_contact_at?: string | null
+          phone_contact_by_user_id?: string | null
+          phone_contact_by_user_name?: string | null
           phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
@@ -439,6 +456,8 @@ export type Database = {
           openai_step3_postes_selectionnes?: string[] | null
           openai_step3_response?: Json | null
           phone_contact_at?: string | null
+          phone_contact_by_user_id?: string | null
+          phone_contact_by_user_name?: string | null
           phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
@@ -459,7 +478,15 @@ export type Database = {
           url?: string
           urn?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_posts_phone_contact_by_user_id_fkey"
+            columns: ["phone_contact_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processing_metrics_hourly: {
         Row: {

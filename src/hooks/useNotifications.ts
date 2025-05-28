@@ -100,7 +100,7 @@ export const useNotifications = () => {
         });
       }
 
-      // Récupérer tous les messages LinkedIn récents
+      // Récupérer tous les messages LinkedIn récents avec sender_full_name
       const { data: recentMessages } = await supabase
         .from('linkedin_messages')
         .select(`
@@ -110,6 +110,7 @@ export const useNotifications = () => {
           sent_at,
           lead_id,
           sent_by_user_id,
+          sender_full_name,
           linkedin_posts!inner (
             id,
             author_name,
@@ -133,18 +134,7 @@ export const useNotifications = () => {
         .limit(20);
 
       if (recentMessages && recentMessages.length > 0) {
-        // Récupérer les profils des expéditeurs dans une requête séparée
-        const uniqueUserIds = [...new Set(recentMessages.map(msg => msg.sent_by_user_id).filter(Boolean))];
-        
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', uniqueUserIds);
-
         recentMessages.forEach(message => {
-          const senderProfile = profiles?.find(p => p.id === message.sent_by_user_id);
-          const senderName = senderProfile?.full_name || senderProfile?.email || 'Utilisateur Inconnu';
-          
           mockNotifications.push({
             id: `linkedin-${message.id}`,
             type: 'linkedin_message',
@@ -157,7 +147,7 @@ export const useNotifications = () => {
               ...message.linkedin_posts,
               approach_message: message.message_content
             },
-            sender_name: senderName
+            sender_name: message.sender_full_name || 'Utilisateur Inconnu'
           });
         });
       }
@@ -181,7 +171,8 @@ export const useNotifications = () => {
             read: true,
             created_at: call.phone_contact_at,
             lead_id: call.id,
-            lead_data: call
+            lead_data: call,
+            sender_name: call.phone_contact_by_user_name || 'Utilisateur Inconnu'
           });
         });
       }
