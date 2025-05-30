@@ -6,10 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import FunnelChart from '@/components/admin/FunnelChart';
+import FunnelFilters from '@/components/admin/FunnelFilters';
+import { useState } from 'react';
 
 const Admin = () => {
   console.log('Admin component rendered');
   const navigate = useNavigate();
+  const [timeFilter, setTimeFilter] = useState('today');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -21,6 +25,15 @@ const Admin = () => {
           </div>
           
           <UserActionsDropdown />
+        </div>
+
+        <FunnelFilters 
+          timeFilter={timeFilter}
+          onTimeFilterChange={setTimeFilter}
+        />
+
+        <div className="mb-6">
+          <FunnelChart timeFilter={timeFilter} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
