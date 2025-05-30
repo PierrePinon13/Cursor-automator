@@ -13,6 +13,11 @@ interface LeadInfoProps {
 }
 
 const LeadInfo = ({ lead }: LeadInfoProps) => {
+  console.log('LeadInfo - lead data:', lead);
+  console.log('LeadInfo - postes sélectionnés:', lead.openai_step3_postes_selectionnes);
+  console.log('LeadInfo - text:', lead.text);
+  console.log('LeadInfo - url:', lead.url);
+
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Poste recherché */}
@@ -22,11 +27,15 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
           Poste recherché
         </h4>
         <div className="flex flex-wrap gap-2">
-          {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-            <Badge key={index} className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition-colors">
-              {poste}
-            </Badge>
-          ))}
+          {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
+            lead.openai_step3_postes_selectionnes.map((poste, index) => (
+              <Badge key={index} className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition-colors">
+                {poste}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-gray-500 text-sm">Aucun poste sélectionné</span>
+          )}
         </div>
       </div>
 
@@ -40,19 +49,21 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 flex-1 min-h-0">
             <ScrollArea className="h-full w-full">
               <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed pr-4">
-                {lead.text}
+                {lead.text || 'Aucun texte disponible'}
               </div>
             </ScrollArea>
           </div>
-          <a
-            href={lead.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors flex-shrink-0"
-          >
-            Voir la publication
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          {lead.url && (
+            <a
+              href={lead.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors flex-shrink-0"
+            >
+              Voir la publication
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
       </div>
     </div>
