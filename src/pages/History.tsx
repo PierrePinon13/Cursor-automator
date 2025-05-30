@@ -39,18 +39,7 @@ const History = () => {
   // Transformer les données d'activités pour correspondre au format HistoryActivity une seule fois
   const transformedActivities: HistoryActivity[] = useMemo(() => {
     return activities.map((activity) => {
-      // Typer correctement le lead avec une interface par défaut
-      const lead = activity.lead || {
-        author_name: '',
-        author_headline: '',
-        author_profile_url: '',
-        company_name: '',
-        company_position: '',
-        matched_client_name: '',
-        latest_post_urn: '',
-        latest_post_url: ''
-      };
-      
+      const lead = activity.lead || {};
       const activityData = activity.activity_data || {};
       
       let title = '';

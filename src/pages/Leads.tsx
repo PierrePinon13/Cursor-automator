@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -43,7 +42,6 @@ const Leads = () => {
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Load default view only on initial mount, not on every change
   useEffect(() => {
@@ -139,16 +137,6 @@ const Leads = () => {
     setViewMode(view.viewMode);
   };
 
-  // Filter leads based on search query
-  const searchFilteredLeads = searchQuery 
-    ? filteredLeads.filter(lead => 
-        lead.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.author_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.unipile_company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.openai_step2_localisation?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : filteredLeads;
-
   if (loading || !hasLoadedDefaultView) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -193,8 +181,6 @@ const Leads = () => {
           showAssignmentColumn={false}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
         />
       </div>
       
@@ -202,7 +188,7 @@ const Leads = () => {
       <div className="bg-white">
         {viewMode === 'table' ? (
           <DraggableTable 
-            leads={searchFilteredLeads} 
+            leads={filteredLeads} 
             visibleColumns={visibleColumns}
             onActionCompleted={handleActionCompleted}
             selectedLeadIndex={selectedLeadIndex}
@@ -211,7 +197,7 @@ const Leads = () => {
         ) : (
           <div className="px-6 pb-6">
             <CardView 
-              leads={searchFilteredLeads}
+              leads={filteredLeads}
               onActionCompleted={handleActionCompleted}
               selectedLeadIndex={selectedLeadIndex}
               onLeadSelect={setSelectedLeadIndex}

@@ -1,9 +1,7 @@
-
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Table, Grid3X3, Search } from 'lucide-react';
+import { Table, Grid3X3 } from 'lucide-react';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -19,8 +17,6 @@ interface LeadsFiltersProps {
   showAssignmentColumn?: boolean;
   viewMode: 'table' | 'card';
   setViewMode: (mode: 'table' | 'card') => void;
-  searchQuery?: string;
-  onSearchQueryChange?: (query: string) => void;
 }
 
 const dateFilterOptions = [
@@ -116,9 +112,7 @@ export default function LeadsFilters({
   showContactFilter = true,
   showAssignmentColumn = false,
   viewMode,
-  setViewMode,
-  searchQuery = '',
-  onSearchQueryChange
+  setViewMode
 }: LeadsFiltersProps) {
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
@@ -159,22 +153,6 @@ export default function LeadsFilters({
               onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
               singleSelect={true}
             />
-          )}
-
-          {/* Barre de recherche */}
-          {onSearchQueryChange && (
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
-              <Input
-                type="text"
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                className="pl-10 h-8 text-sm w-64"
-              />
-            </div>
           )}
         </div>
 
