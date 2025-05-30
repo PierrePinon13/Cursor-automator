@@ -1,8 +1,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ThumbsUp, ThumbsDown, Phone } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { ThumbsUp, ThumbsDown, Phone, Minus } from 'lucide-react';
+import { useActivities } from '@/hooks/useActivities';
 
 interface PhoneContactStatusProps {
   leadId: string;
@@ -18,34 +18,55 @@ const PhoneContactStatus = ({
   onStatusUpdate 
 }: PhoneContactStatusProps) => {
   const [updating, setUpdating] = useState(false);
+  const { createActivity } = useActivities();
 
-  const updateContactStatus = async (status: 'positive' | 'negative') => {
+  const updateContactStatus = async (status: 'positive' | 'negative' | 'neutral') => {
     setUpdating(true);
     try {
-      const now = new Date().toISOString();
-      
-      const { error } = await supabase
-        .from('linkedin_posts')
-        .update({
-          phone_contact_status: status,
-          phone_contact_at: now,
-          last_contact_at: now
-        })
-        .eq('id', leadId);
+      await createActivity({
+        lead_id: leadId,
+        activity_type: 'phone_call',
+        activity_data: {
+          phone_number: phoneNumber
+        },
+        outcome: status
+      });
 
-      if (error) {
-        console.error('Error updating contact status:', error);
-        return;
-      }
-
-      console.log(`Contact status updated to ${status} for lead ${leadId}`);
+      console.log(`Phone call status ${status} recorded for lead ${leadId}`);
       onStatusUpdate();
     } catch (error) {
-      console.error('Error updating contact status:', error);
+      console.error('Error recording phone call activity:', error);
     } finally {
       setUpdating(false);
     }
   };
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'positive':
+        return {
+          icon: <ThumbsUp className="h-4 w-4" />,
+          text: 'Contact positif',
+          color: 'text-green-600'
+        };
+      case 'negative':
+        return {
+          icon: <ThumbsDown className="h-4 w-4" />,
+          text: 'Contact négatif',
+          color: 'text-red-600'
+        };
+      case 'neutral':
+        return {
+          icon: <Minus className="h-4 w-4" />,
+          text: 'Contact neutre',
+          color: 'text-gray-600'
+        };
+      default:
+        return null;
+    }
+  };
+
+  const statusDisplay = currentStatus ? getStatusDisplay(currentStatus) : null;
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
@@ -54,19 +75,12 @@ const PhoneContactStatus = ({
         <span className="font-medium">Téléphone : {phoneNumber}</span>
       </div>
       
-      {currentStatus ? (
+      {statusDisplay ? (
         <div className="flex items-center gap-2">
-          {currentStatus === 'positive' ? (
-            <div className="flex items-center gap-2 text-green-600">
-              <ThumbsUp className="h-4 w-4" />
-              <span className="text-sm">Contact positif</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-red-600">
-              <ThumbsDown className="h-4 w-4" />
-              <span className="text-sm">Contact négatif</span>
-            </div>
-          )}
+          <div className={`flex items-center gap-2 ${statusDisplay.color}`}>
+            {statusDisplay.icon}
+            <span className="text-sm">{statusDisplay.text}</span>
+          </div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -81,6 +95,16 @@ const PhoneContactStatus = ({
             >
               <ThumbsUp className="h-4 w-4" />
               Positif
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateContactStatus('neutral')}
+              disabled={updating}
+              className="flex items-center gap-2 text-gray-600 border-gray-300 hover:bg-gray-50"
+            >
+              <Minus className="h-4 w-4" />
+              Neutre
             </Button>
             <Button
               variant="outline"

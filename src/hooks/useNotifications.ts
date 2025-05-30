@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -34,11 +33,10 @@ export const useNotifications = () => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
+          table: 'activities'
         },
         (payload) => {
-          console.log('New notification received:', payload);
+          console.log('New activity received:', payload);
           fetchNotifications();
         }
       )
@@ -62,22 +60,14 @@ export const useNotifications = () => {
           id,
           lead_id,
           assigned_at,
-          linkedin_posts!inner (
+          leads!inner (
             id,
             author_name,
             matched_client_name,
-            text,
-            title,
-            url,
             author_profile_url,
             author_headline,
-            unipile_company,
-            unipile_position,
-            openai_step3_categorie,
-            openai_step2_localisation,
-            openai_step3_postes_selectionnes,
-            posted_at_iso,
-            created_at
+            company_name,
+            company_position
           )
         `)
         .eq('user_id', user.id)
@@ -90,89 +80,71 @@ export const useNotifications = () => {
             id: `assignment-${assignment.id}`,
             type: 'lead_assigned',
             title: 'Nouveau lead assigné',
-            message: `Un lead de ${assignment.linkedin_posts.author_name} vous a été assigné`,
+            message: `Un lead de ${assignment.leads.author_name} vous a été assigné`,
             read: false,
             created_at: assignment.assigned_at,
             lead_id: assignment.lead_id,
-            client_name: assignment.linkedin_posts.matched_client_name,
-            lead_data: assignment.linkedin_posts
+            client_name: assignment.leads.matched_client_name,
+            lead_data: assignment.leads
           });
         });
       }
 
-      // Récupérer tous les messages LinkedIn récents avec sender_full_name
-      const { data: recentMessages } = await supabase
-        .from('linkedin_messages')
+      // Récupérer les activités récentes depuis la nouvelle table activities
+      const { data: recentActivities } = await supabase
+        .from('activities')
         .select(`
-          id,
-          message_content,
-          message_type,
-          sent_at,
-          lead_id,
-          sent_by_user_id,
-          sender_full_name,
-          linkedin_posts!inner (
+          *,
+          lead:leads (
             id,
             author_name,
             author_headline,
             author_profile_url,
-            unipile_company,
-            unipile_position,
-            openai_step3_categorie,
-            openai_step2_localisation,
-            openai_step3_postes_selectionnes,
-            text,
-            title,
-            url,
-            posted_at_iso,
-            created_at,
+            company_name,
+            company_position,
             matched_client_name
           )
         `)
-        .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order('sent_at', { ascending: false })
-        .limit(20);
+        .gte('performed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('performed_at', { ascending: false })
+        .limit(30);
 
-      if (recentMessages && recentMessages.length > 0) {
-        recentMessages.forEach(message => {
+      if (recentActivities && recentActivities.length > 0) {
+        recentActivities.forEach(activity => {
+          let title = '';
+          let message = '';
+
+          switch (activity.activity_type) {
+            case 'linkedin_message':
+              title = 'Message LinkedIn envoyé';
+              message = `Message envoyé à ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
+              break;
+            case 'phone_call':
+              const statusText = activity.outcome === 'positive' ? 'positif' : 
+                                activity.outcome === 'negative' ? 'négatif' : 'neutre';
+              title = `Appel ${statusText}`;
+              message = `Appel ${statusText} avec ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
+              break;
+            case 'linkedin_connection':
+              title = 'Demande de connexion LinkedIn';
+              message = `Connexion envoyée à ${activity.lead.author_name}`;
+              break;
+          }
+
           mockNotifications.push({
-            id: `linkedin-${message.id}`,
-            type: 'linkedin_message',
-            title: 'Message LinkedIn envoyé',
-            message: `Message envoyé à ${message.linkedin_posts.author_name}${message.linkedin_posts.unipile_position ? ` - ${message.linkedin_posts.unipile_position}` : ''}`,
+            id: `activity-${activity.id}`,
+            type: activity.activity_type as 'linkedin_message' | 'phone_call',
+            title,
+            message,
             read: true,
-            created_at: message.sent_at,
-            lead_id: message.lead_id,
+            created_at: activity.performed_at,
+            lead_id: activity.lead_id,
             lead_data: {
-              ...message.linkedin_posts,
-              approach_message: message.message_content
+              ...activity.lead,
+              approach_message: activity.activity_type === 'linkedin_message' ? 
+                activity.activity_data?.message_content : undefined
             },
-            sender_name: message.sender_full_name || 'Utilisateur Inconnu'
-          });
-        });
-      }
-
-      // Récupérer les appels récents avec toutes les données du lead
-      const { data: recentCalls } = await supabase
-        .from('linkedin_posts')
-        .select('*')
-        .not('phone_contact_at', 'is', null)
-        .gte('phone_contact_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order('phone_contact_at', { ascending: false })
-        .limit(10);
-
-      if (recentCalls) {
-        recentCalls.forEach(call => {
-          mockNotifications.push({
-            id: `call-${call.id}`,
-            type: 'phone_call',
-            title: `Appel ${call.phone_contact_status === 'positive' ? 'positif' : 'négatif'}`,
-            message: `Appel avec ${call.author_name}${call.unipile_position ? ` - ${call.unipile_position}` : ''}`,
-            read: true,
-            created_at: call.phone_contact_at,
-            lead_id: call.id,
-            lead_data: call,
-            sender_name: call.phone_contact_by_user_name || 'Utilisateur Inconnu'
+            sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu'
           });
         });
       }
