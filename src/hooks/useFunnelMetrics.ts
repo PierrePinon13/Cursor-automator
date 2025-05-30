@@ -69,7 +69,6 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       const dateRange = getDateRange(timeFilter);
       console.log('Date range:', dateRange);
       
-      // Simplify the query first
       const { data: allPosts, error: allPostsError } = await supabase
         .from('linkedin_posts')
         .select('id, author_type, openai_step1_recrute_poste, openai_step2_reponse, openai_step3_categorie, unipile_profile_scraped, lead_id, created_at')
@@ -83,7 +82,6 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       const totalPosts = allPosts?.length || 0;
       console.log('Total posts:', totalPosts);
       
-      // Simplify the filtering logic
       const personPosts = allPosts?.filter(post => post.author_type === 'Person') || [];
       console.log('Person posts:', personPosts.length);
       
