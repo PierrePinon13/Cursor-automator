@@ -27,12 +27,12 @@ const Admin = () => {
           <UserActionsDropdown />
         </div>
 
-        <FunnelFilters 
-          timeFilter={timeFilter}
-          onTimeFilterChange={setTimeFilter}
-        />
-
-        <div className="mb-6">
+        <div className="mb-8">
+          <FunnelFilters 
+            timeFilter={timeFilter}
+            onTimeFilterChange={setTimeFilter}
+          />
+          
           <FunnelChart timeFilter={timeFilter} />
         </div>
 
