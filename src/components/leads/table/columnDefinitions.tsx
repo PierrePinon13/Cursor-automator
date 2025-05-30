@@ -1,43 +1,13 @@
+
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTimeAgo } from '@/utils/timeUtils';
 import { LeadAssignmentSelect } from '@/components/clients/LeadAssignmentSelect';
 import { extractWorkExperiences } from '@/utils/unipileDataExtractor';
+import { Tables } from '@/integrations/supabase/types';
 
-interface Lead {
-  id: string;
-  created_at: string;
-  author_name: string;
-  author_headline: string;
-  author_profile_url: string;
-  text: string;
-  title: string;
-  url: string;
-  posted_at_iso: string;
-  posted_at_timestamp: number;
-  openai_step2_localisation: string;
-  openai_step3_categorie: string;
-  openai_step3_postes_selectionnes: string[];
-  openai_step3_justification: string;
-  unipile_company: string;
-  unipile_position: string;
-  unipile_profile_scraped: boolean;
-  unipile_profile_scraped_at: string;
-  phone_number?: string | null;
-  phone_retrieved_at?: string | null;
-  approach_message?: string | null;
-  approach_message_generated?: boolean | null;
-  is_client_lead?: boolean | null;
-  matched_client_name?: string | null;
-  matched_client_id?: string | null;
-  last_contact_at?: string | null;
-  linkedin_message_sent_at?: string | null;
-  phone_contact_status?: string | null;
-  phone_contact_at?: string | null;
-  unipile_response?: any;
-  last_updated_at?: string | null;
-}
+type Lead = Tables<'leads'>;
 
 export interface Column {
   id: string;
@@ -97,12 +67,12 @@ export const allColumns: Column[] = [
                   data-clickable="true"
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(lead.url, '_blank');
+                    if (lead.url) window.open(lead.url, '_blank');
                   }}
                 >
                   {poste}
                 </span>
-                {index < lead.openai_step3_postes_selectionnes.length - 1 && <br />}
+                {index < (lead.openai_step3_postes_selectionnes?.length || 0) - 1 && <br />}
               </div>
             ))}
           </div>
@@ -122,7 +92,7 @@ export const allColumns: Column[] = [
             data-clickable="true"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(lead.author_profile_url, '_blank');
+              if (lead.author_profile_url) window.open(lead.author_profile_url, '_blank');
             }}
           >
             {lead.author_name || 'N/A'}
@@ -136,45 +106,13 @@ export const allColumns: Column[] = [
     label: 'Entreprise',
     width: '200px',
     render: (lead) => {
-      console.log('Rendering company for lead:', {
-        id: lead.id,
-        author_name: lead.author_name,
-        unipile_company: lead.unipile_company,
-        unipile_position: lead.unipile_position,
-        author_headline: lead.author_headline,
-        has_unipile_response: !!lead.unipile_response
-      });
-      
-      // Try to extract company and position from unipile_response
-      let company = lead.unipile_company;
-      let position = lead.unipile_position;
-      
-      if (!company && lead.unipile_response) {
-        try {
-          const workExperiences = extractWorkExperiences(lead.unipile_response);
-          if (workExperiences && workExperiences.length > 0) {
-            const currentExperience = workExperiences[0]; // First experience (most recent)
-            company = currentExperience.company;
-            position = currentExperience.position;
-            
-            console.log('Extracted from unipile_response:', {
-              company,
-              position,
-              totalExperiences: workExperiences.length
-            });
-          }
-        } catch (error) {
-          console.error('Error extracting work experience:', error);
-        }
-      }
-      
       return (
         <div className="space-y-1">
-          {company ? (
+          {lead.unipile_company || lead.company_name ? (
             <div>
-              <div className="font-medium text-xs">{company}</div>
-              {position && (
-                <div className="text-xs text-gray-600">{position}</div>
+              <div className="font-medium text-xs">{lead.unipile_company || lead.company_name}</div>
+              {(lead.unipile_position || lead.company_position) && (
+                <div className="text-xs text-gray-600">{lead.unipile_position || lead.company_position}</div>
               )}
             </div>
           ) : (

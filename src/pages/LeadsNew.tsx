@@ -10,6 +10,23 @@ import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
+import { Tables } from '@/integrations/supabase/types';
+
+type Lead = Tables<'leads'>;
+
+interface LinkedInPost {
+  id: string;
+  text: string;
+  title?: string;
+  url: string;
+  posted_at_iso?: string;
+  posted_at_timestamp?: number;
+  openai_step2_localisation?: string;
+  openai_step3_categorie?: string;
+  openai_step3_postes_selectionnes?: string[];
+  openai_step3_justification?: string;
+  created_at: string;
+}
 
 const LeadsNew = () => {
   const { 
@@ -87,12 +104,17 @@ const LeadsNew = () => {
   }, [getDefaultView, applyView, setSelectedCategories, setSelectedDateFilter, setSelectedContactFilter]);
 
   // Convert leads to the format expected by existing components
-  const convertedLeads = filteredLeads.map(lead => ({
+  const convertedLeads: Lead[] = filteredLeads.map(lead => ({
     id: lead.id,
     created_at: lead.created_at,
+    updated_at: lead.updated_at,
+    author_profile_id: lead.author_profile_id,
     author_name: lead.author_name || '',
     author_headline: lead.author_headline || '',
     author_profile_url: lead.author_profile_url || '',
+    company_name: lead.company_name || '',
+    company_position: lead.company_position || '',
+    company_linkedin_id: lead.company_linkedin_id || '',
     text: lead.latest_post?.text || '',
     title: lead.latest_post?.title || '',
     url: lead.latest_post?.url || '',
@@ -104,8 +126,7 @@ const LeadsNew = () => {
     openai_step3_justification: lead.latest_post?.openai_step3_justification || '',
     unipile_company: lead.company_name || '',
     unipile_position: lead.company_position || '',
-    unipile_profile_scraped: true,
-    unipile_profile_scraped_at: lead.created_at,
+    unipile_company_linkedin_id: lead.company_linkedin_id || '',
     phone_number: lead.phone_number,
     phone_retrieved_at: lead.phone_retrieved_at,
     approach_message: lead.approach_message,
@@ -118,9 +139,13 @@ const LeadsNew = () => {
     linkedin_message_sent_at: lead.linkedin_message_sent_at,
     phone_contact_status: lead.phone_contact_status,
     phone_contact_at: lead.phone_contact_at,
+    phone_contact_by_user_id: lead.phone_contact_by_user_id,
+    phone_contact_by_user_name: lead.phone_contact_by_user_name,
     last_updated_at: lead.last_updated_at,
-    // Ajouter les posts associés pour accès dans les détails
-    associated_posts: lead.posts || []
+    latest_post_date: lead.latest_post_date,
+    latest_post_url: lead.latest_post_url,
+    latest_post_urn: lead.latest_post_urn,
+    processing_status: lead.processing_status
   }));
 
   // Keyboard shortcuts
