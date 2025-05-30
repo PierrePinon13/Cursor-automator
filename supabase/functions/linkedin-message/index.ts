@@ -43,19 +43,37 @@ serve(async (req) => {
       throw new Error('Message content is required')
     }
 
-    // Step 1: Get lead from leads table
+    // Step 1: Get lead data - first try leads table, then linkedin_posts table
     console.log('📋 Step 1: Fetching lead data...')
-    const { data: lead, error: leadError } = await supabaseClient
+    let lead = null;
+    
+    // Try leads table first
+    const { data: leadFromLeads, error: leadError } = await supabaseClient
       .from('leads')
       .select('*')
       .eq('id', finalLeadId)
       .maybeSingle()
 
-    if (!lead) {
-      throw new Error(`Lead not found with ID: ${finalLeadId}`)
-    }
+    if (leadFromLeads) {
+      lead = leadFromLeads;
+      console.log('✅ Lead found in leads table:', lead.author_name)
+    } else {
+      // If not found in leads, try linkedin_posts table
+      console.log('🔍 Lead not found in leads table, checking linkedin_posts...')
+      const { data: leadFromPosts, error: postError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('*')
+        .eq('id', finalLeadId)
+        .maybeSingle()
 
-    console.log('✅ Lead found:', lead.author_name)
+      if (leadFromPosts) {
+        lead = leadFromPosts;
+        console.log('✅ Lead found in linkedin_posts table:', lead.author_name)
+      } else {
+        console.error('❌ Lead not found in either table:', { finalLeadId, leadError, postError })
+        throw new Error(`Lead not found with ID: ${finalLeadId}`)
+      }
+    }
 
     // Step 2: Get user's Unipile account_id from linkedin_connections
     console.log('🔗 Step 2: Getting user LinkedIn connection...')
@@ -177,10 +195,24 @@ serve(async (req) => {
       throw new Error(`Failed to create activity: ${activityError.message}`)
     }
 
-    // Step 8: Update the leads table with the last contact info
+    // Step 8: Update the appropriate table with the last contact info
     console.log('🔄 Step 8: Updating lead contact info...')
+    
+    // Update both tables if they exist
+    if (leadFromLeads) {
+      await supabaseClient
+        .from('leads')
+        .update({
+          last_contact_at: new Date().toISOString(),
+          linkedin_message_sent_at: new Date().toISOString(),
+          last_updated_at: new Date().toISOString()
+        })
+        .eq('id', finalLeadId)
+    }
+    
+    // Always try to update linkedin_posts as well since that's where the UI data comes from
     await supabaseClient
-      .from('leads')
+      .from('linkedin_posts')
       .update({
         last_contact_at: new Date().toISOString(),
         linkedin_message_sent_at: new Date().toISOString(),
