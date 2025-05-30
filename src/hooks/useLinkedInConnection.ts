@@ -16,6 +16,8 @@ interface LinkedInConnection {
   error_message: string | null;
   last_update: string | null;
   connected_at: string | null;
+  first_name: string | null;
+  last_name: string | null;
   updated_at: string;
   created_at: string;
 }

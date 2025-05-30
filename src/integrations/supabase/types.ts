@@ -390,7 +390,9 @@ export type Database = {
           connection_status: string
           created_at: string
           error_message: string | null
+          first_name: string | null
           id: string
+          last_name: string | null
           last_update: string | null
           linkedin_profile_url: string | null
           status: string | null
@@ -405,7 +407,9 @@ export type Database = {
           connection_status?: string
           created_at?: string
           error_message?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           last_update?: string | null
           linkedin_profile_url?: string | null
           status?: string | null
@@ -420,7 +424,9 @@ export type Database = {
           connection_status?: string
           created_at?: string
           error_message?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           last_update?: string | null
           linkedin_profile_url?: string | null
           status?: string | null

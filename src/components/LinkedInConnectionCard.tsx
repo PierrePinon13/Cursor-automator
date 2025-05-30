@@ -96,6 +96,13 @@ const LinkedInConnectionCard = () => {
 
   const hasActiveConnection = connections.some(conn => conn.status === 'connected');
 
+  const getDisplayName = (connection: any) => {
+    if (connection.first_name || connection.last_name) {
+      return `${connection.first_name || ''} ${connection.last_name || ''}`.trim();
+    }
+    return 'Compte LinkedIn';
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -153,7 +160,7 @@ const LinkedInConnectionCard = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         {getStatusIcon(connection.status)}
-                        <p className="font-medium">Compte LinkedIn</p>
+                        <p className="font-medium">{getDisplayName(connection)}</p>
                       </div>
                       <p className="text-xs text-muted-foreground">
                         ID: {connection.account_id || connection.unipile_account_id}
