@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -52,33 +53,61 @@ serve(async (req) => {
       })
     }
 
-    // Fetch the dataset items from Apify
-    console.log('Fetching dataset items from Apify...')
-    const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apifyApiKey}`,
-        'Accept': 'application/json',
-      },
-    })
+    // Fetch ALL dataset items from Apify with pagination
+    console.log('Fetching dataset items from Apify with pagination...')
+    let allDatasetItems: any[] = []
+    let offset = 0
+    const limit = 1000 // Apify's max per request
+    let hasMoreData = true
 
-    if (!apifyResponse.ok) {
-      const errorText = await apifyResponse.text()
-      console.error('Apify API error:', apifyResponse.status, errorText)
-      return new Response(`Apify API error: ${apifyResponse.status}`, { 
-        status: 500,
-        headers: corsHeaders 
+    while (hasMoreData) {
+      console.log(`Fetching items: offset=${offset}, limit=${limit}`)
+      
+      const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json&offset=${offset}&limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apifyApiKey}`,
+          'Accept': 'application/json',
+        },
       })
+
+      if (!apifyResponse.ok) {
+        const errorText = await apifyResponse.text()
+        console.error('Apify API error:', apifyResponse.status, errorText)
+        return new Response(`Apify API error: ${apifyResponse.status}`, { 
+          status: 500,
+          headers: corsHeaders 
+        })
+      }
+
+      const batchItems = await apifyResponse.json()
+      console.log(`Retrieved ${batchItems.length} items in this batch`)
+      
+      // If we got fewer items than the limit, we've reached the end
+      if (batchItems.length < limit) {
+        hasMoreData = false
+      }
+      
+      // Add items to our collection
+      allDatasetItems = allDatasetItems.concat(batchItems)
+      
+      // Update offset for next iteration
+      offset += limit
+      
+      // Safety check to prevent infinite loops
+      if (offset > 50000) { // Maximum 50k items as safety
+        console.warn('Reached safety limit of 50k items, stopping pagination')
+        hasMoreData = false
+      }
     }
 
-    const datasetItems = await apifyResponse.json()
-    console.log('Dataset items retrieved successfully:', datasetItems.length, 'items')
+    console.log(`Total dataset items retrieved: ${allDatasetItems.length}`)
 
     // Filter and process the data
     let processedCount = 0
     let filteredOutCount = 0
 
-    for (const item of datasetItems) {
+    for (const item of allDatasetItems) {
       try {
         // Filter 1: Only keep authorType = "Person"
         if (item.authorType !== 'Person') {
@@ -93,7 +122,7 @@ serve(async (req) => {
           continue
         }
 
-        // Check if this post already exists (deduplication by authorProfileUrl)
+        // Check if this post already exists (deduplication by urn)
         const { data: existingPost } = await supabaseClient
           .from('linkedin_posts')
           .select('id')
@@ -153,11 +182,11 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Processing complete: ${processedCount} inserted, ${filteredOutCount} filtered out`)
+    console.log(`Processing complete: ${processedCount} inserted, ${filteredOutCount} filtered out from ${allDatasetItems.length} total items`)
 
     return new Response(JSON.stringify({ 
       success: true, 
-      totalItems: datasetItems.length,
+      totalItems: allDatasetItems.length,
       processedCount,
       filteredOutCount,
       datasetId: datasetId
