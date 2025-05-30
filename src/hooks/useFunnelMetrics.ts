@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -72,7 +73,7 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         end: dateRange.end.toISOString()
       });
       
-      // NOUVEAU : Compter le total absolu de posts dans la base
+      // DIAGNOSTIC : Compter le total absolu de posts dans la base
       const { count: absoluteTotalCount, error: countError } = await supabase
         .from('linkedin_posts')
         .select('*', { count: 'exact', head: true });
@@ -83,133 +84,72 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         console.log('🔍 TOTAL ABSOLU DE POSTS DANS LA BASE:', absoluteTotalCount);
       }
       
-      // NOUVEAU : Posts créés dans les dernières 24h (reçus par le webhook)
-      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const { count: last24hCount, error: last24hCountError } = await supabase
+      // DIAGNOSTIC : Tester la requête avec et sans limite
+      console.log('=== TEST REQUÊTE AVEC/SANS LIMITE ===');
+      
+      // Test 1: Requête avec limite par défaut
+      const { data: limitedPosts, error: limitedError, count: limitedCount } = await supabase
+        .from('linkedin_posts')
+        .select('id', { count: 'exact' })
+        .gte('created_at', dateRange.start.toISOString())
+        .lte('created_at', dateRange.end.toISOString());
+        
+      console.log('Requête avec limite par défaut:', {
+        count: limitedCount,
+        returned: limitedPosts?.length,
+        error: limitedError
+      });
+      
+      // Test 2: Requête avec limite explicite élevée
+      const { data: unlimitedPosts, error: unlimitedError, count: unlimitedCount } = await supabase
+        .from('linkedin_posts')
+        .select('id', { count: 'exact' })
+        .gte('created_at', dateRange.start.toISOString())
+        .lte('created_at', dateRange.end.toISOString())
+        .limit(10000); // Limite explicite élevée
+        
+      console.log('Requête avec limite 10000:', {
+        count: unlimitedCount,
+        returned: unlimitedPosts?.length,
+        error: unlimitedError
+      });
+      
+      // Test 3: Requête juste count
+      const { count: justCount, error: justCountError } = await supabase
         .from('linkedin_posts')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', last24h.toISOString());
+        .gte('created_at', dateRange.start.toISOString())
+        .lte('created_at', dateRange.end.toISOString());
         
-      if (!last24hCountError) {
-        console.log('📊 POSTS REÇUS DANS LES 24 DERNIÈRES HEURES:', last24hCount);
-      }
+      console.log('Requête count seulement:', {
+        count: justCount,
+        error: justCountError
+      });
       
-      // NOUVEAU : Posts créés ce matin entre 5h et 8h
-      const today5am = new Date();
-      today5am.setHours(5, 0, 0, 0);
-      const today8am = new Date();
-      today8am.setHours(8, 0, 0, 0);
+      console.log('=====================================');
       
-      const { count: morningCount, error: morningCountError } = await supabase
-        .from('linkedin_posts')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', today5am.toISOString())
-        .lte('created_at', today8am.toISOString());
-        
-      if (!morningCountError) {
-        console.log('🌅 POSTS REÇUS CE MATIN (5h-8h):', morningCount);
-      }
-      
-      // D'abord, regardons combien de posts existent au total dans la base
-      const { data: totalPostsInDb, error: totalError } = await supabase
-        .from('linkedin_posts')
-        .select('id, created_at, author_type')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (totalError) {
-        console.error('Error fetching total posts:', totalError);
-      } else {
-        console.log('=== DIAGNOSTIC TOTAL POSTS ===');
-        console.log('Total posts in DB (sample):', totalPostsInDb?.length);
-        console.log('Latest posts:', totalPostsInDb?.map(p => ({
-          id: p.id.substring(0, 8),
-          created_at: p.created_at,
-          author_type: p.author_type
-        })));
-        console.log('===============================');
-      }
-      
+      // Utiliser la requête avec limite élevée pour les métriques
       const { data: allPosts, error: allPostsError } = await supabase
         .from('linkedin_posts')
         .select('id, author_type, openai_step1_recrute_poste, openai_step2_reponse, openai_step3_categorie, unipile_profile_scraped, lead_id, created_at')
         .gte('created_at', dateRange.start.toISOString())
-        .lte('created_at', dateRange.end.toISOString());
+        .lte('created_at', dateRange.end.toISOString())
+        .limit(10000); // Limite explicite élevée
 
       console.log('All posts query result:', { data: allPosts, error: allPostsError });
 
       if (allPostsError) throw allPostsError;
 
       const totalPosts = allPosts?.length || 0;
-      console.log('Total posts:', totalPosts);
+      console.log('Total posts récupérés pour les métriques:', totalPosts);
       
-      // Investigation approfondie des données
-      console.log('=== INVESTIGATION APPROFONDIE ===');
-      
-      // Vérifier les posts des dernières 24h sans filtre de période
-      const { data: last24hPosts, error: last24hError } = await supabase
-        .from('linkedin_posts')
-        .select('id, author_type, created_at')
-        .gte('created_at', last24h.toISOString());
-        
-      if (!last24hError && last24hPosts) {
-        console.log('Posts des dernières 24h:', last24hPosts.length);
-        
-        // Grouper par heure pour voir la distribution
-        const postsByHour = last24hPosts.reduce((acc, post) => {
-          const hour = new Date(post.created_at).getHours();
-          const date = new Date(post.created_at).toDateString();
-          const key = `${date} ${hour}h`;
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        console.log('Distribution par heure:', postsByHour);
-        
-        // Vérifier spécifiquement autour de 6h du matin
-        const morningPosts = last24hPosts.filter(post => {
-          const postDate = new Date(post.created_at);
-          const hour = postDate.getHours();
-          return hour >= 5 && hour <= 8; // Entre 5h et 8h
-        });
-        
-        console.log('Posts entre 5h et 8h:', morningPosts.length);
-        console.log('Échantillon posts du matin:', morningPosts.slice(0, 5).map(p => ({
-          created_at: p.created_at,
-          author_type: p.author_type
-        })));
-        
-        // NOUVEAU : Vérifier s'il y a des posts avec d'autres author_type
-        const nonPersonPosts = last24hPosts.filter(post => post.author_type !== 'Person');
-        console.log('📋 Posts NON-Person dans les 24h:', nonPersonPosts.length);
-        if (nonPersonPosts.length > 0) {
-          console.log('Types d\'auteurs non-Person:', nonPersonPosts.map(p => p.author_type));
-        }
+      // Si on a encore une limite, alerter l'utilisateur
+      if (totalPosts === 10000) {
+        console.warn('⚠️ ATTENTION: Limite de 10000 posts atteinte, il pourrait y en avoir plus !');
       }
-      
-      // Debug: Check all author types with detailed logging
-      const authorTypes = allPosts?.reduce((acc, post) => {
-        acc[post.author_type] = (acc[post.author_type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {};
-      
-      console.log('=== AUTHOR TYPES BREAKDOWN ===');
-      Object.entries(authorTypes).forEach(([type, count]) => {
-        console.log(`${type}: ${count} posts (${((count / totalPosts) * 100).toFixed(1)}%)`);
-      });
-      console.log('==============================');
 
-      const personPosts = allPosts?.filter(post => {
-        const isPerson = post.author_type === 'Person';
-        if (!isPerson) {
-          console.log('Non-person post found:', { id: post.id, author_type: post.author_type });
-        }
-        return isPerson;
-      }) || [];
+      const personPosts = allPosts?.filter(post => post.author_type === 'Person') || [];
       console.log('Person posts filtered:', personPosts.length);
-      
-      // Vérifier s'il y a uniquement des posts "Person"
-      const hasOnlyPersonPosts = Object.keys(authorTypes).length === 1 && authorTypes['Person'] === totalPosts;
       
       const step1Passed = personPosts?.filter(post => {
         const value = post.openai_step1_recrute_poste?.toLowerCase();
@@ -244,13 +184,13 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
           step: 'apify-received',
           count: totalPosts,
           percentage: 100,
-          description: 'Posts reçus d\'Apify'
+          description: `Posts reçus d'Apify (${totalPosts}/${justCount || 'unknown'} total sur la période)`
         },
         {
           step: 'person-filter',
           count: personPosts.length,
           percentage: totalPosts > 0 ? (personPosts.length / totalPosts) * 100 : 0,
-          description: hasOnlyPersonPosts ? 'Filtre Person (tous sont déjà Person)' : 'Filtre Person'
+          description: 'Filtre Person'
         },
         {
           step: 'openai-step1',
@@ -284,16 +224,7 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         }
       ];
 
-      console.log('Final steps with detailed breakdown:', steps);
-      console.log('=== DIAGNOSTIC SUMMARY ===');
-      console.log(`Total posts: ${totalPosts}`);
-      console.log(`Person posts: ${personPosts.length} (${((personPosts.length / totalPosts) * 100).toFixed(1)}%)`);
-      console.log(`Step 1 passed: ${step1Passed.length}`);
-      console.log(`Step 2 passed: ${step2Passed.length}`);
-      console.log(`Step 3 passed: ${step3Passed.length}`);
-      console.log(`Unipile scraped: ${unipileScraped.length}`);
-      console.log(`Added to leads: ${addedToLeads.length}`);
-      console.log('===========================');
+      console.log('Final steps:', steps);
       
       setMetrics({ steps, timeFilter });
 
