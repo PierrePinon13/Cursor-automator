@@ -20,19 +20,27 @@ serve(async (req) => {
 
     const { 
       leadId, 
+      lead_id,  // Support both parameter names
       message, 
       messageType = 'direct_message',
       userId,
       userFullName
     } = await req.json()
 
-    console.log('Processing LinkedIn message for lead:', leadId)
+    // Use leadId if provided, otherwise use lead_id
+    const finalLeadId = leadId || lead_id;
+
+    console.log('Processing LinkedIn message for lead:', finalLeadId)
+
+    if (!finalLeadId) {
+      throw new Error('Lead ID is required')
+    }
 
     // Récupérer les informations du lead
     const { data: lead, error: leadError } = await supabaseClient
       .from('leads')
       .select('*')
-      .eq('id', leadId)
+      .eq('id', finalLeadId)
       .single()
 
     if (leadError || !lead) {
@@ -43,7 +51,7 @@ serve(async (req) => {
     const { data: activity, error: activityError } = await supabaseClient
       .from('activities')
       .insert({
-        lead_id: leadId,
+        lead_id: finalLeadId,
         activity_type: 'linkedin_message',
         activity_data: {
           message_content: message,
@@ -77,7 +85,7 @@ serve(async (req) => {
         linkedin_message_sent_at: new Date().toISOString(),
         last_updated_at: new Date().toISOString()
       })
-      .eq('id', leadId)
+      .eq('id', finalLeadId)
 
     console.log('LinkedIn message activity created successfully:', activity.id)
 
