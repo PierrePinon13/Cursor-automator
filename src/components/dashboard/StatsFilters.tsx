@@ -28,9 +28,9 @@ const StatsFilters = ({
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
 
   const viewTypeOptions = [
-    { value: 'personal', label: 'Mes stats', icon: Users },
-    { value: 'global', label: 'Global', icon: Users },
-    { value: 'comparison', label: 'Par collaborateur', icon: Users },
+    { value: 'personal' as ViewType, label: 'Mes stats', icon: Users },
+    { value: 'global' as ViewType, label: 'Global', icon: Users },
+    { value: 'comparison' as ViewType, label: 'Par collaborateur', icon: Users },
   ];
 
   const timeFilterOptions = [
