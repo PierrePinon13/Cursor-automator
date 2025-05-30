@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeadsNew } from '@/hooks/useLeadsNew';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -13,7 +12,7 @@ import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
 const LeadsNew = () => {
   const { 
-    filteredLeads, 
+    filteredLeads: baseFilteredLeads, 
     loading, 
     selectedCategories, 
     setSelectedCategories,
@@ -42,6 +41,20 @@ const LeadsNew = () => {
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter leads based on search query
+  const filteredLeads = baseFilteredLeads.filter(lead => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    
+    return (
+      (lead.title && lead.title.toLowerCase().includes(query)) ||
+      (lead.author_name && lead.author_name.toLowerCase().includes(query)) ||
+      (lead.unipile_company && lead.unipile_company.toLowerCase().includes(query)) ||
+      (lead.openai_step2_localisation && lead.openai_step2_localisation.toLowerCase().includes(query))
+    );
+  });
 
   // Load default view only on initial mount
   useEffect(() => {
@@ -184,6 +197,8 @@ const LeadsNew = () => {
           showAssignmentColumn={false}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
         />
       </div>
       
