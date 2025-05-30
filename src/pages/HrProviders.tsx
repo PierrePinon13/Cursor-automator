@@ -8,6 +8,7 @@ import { HrProvidersTable } from '@/components/hr-providers/HrProvidersTable';
 import { HrProviderDialog } from '@/components/hr-providers/HrProviderDialog';
 import { ImportHrProvidersDialog } from '@/components/hr-providers/ImportHrProvidersDialog';
 import { IncompleteHrProvidersDialog } from '@/components/hr-providers/IncompleteHrProvidersDialog';
+import UserActionsDropdown from '@/components/UserActionsDropdown';
 
 const HrProviders = () => {
   const { hrProviders, loading } = useHrProviders();
@@ -40,6 +41,10 @@ const HrProviders = () => {
           <h1 className="text-2xl font-bold text-gray-900">Prestataires RH</h1>
         </div>
         
+        <UserActionsDropdown />
+      </div>
+
+      <div className="flex items-center justify-between mb-6">
         <div className="flex gap-3">
           {incompleteCount > 0 && (
             <Button
