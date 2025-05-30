@@ -25,6 +25,7 @@ const History = () => {
   const [activityTypes, setActivityTypes] = useState<string[]>(['linkedin_message', 'phone_call']);
   const [timeFilter, setTimeFilter] = useState('all');
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { activities, loading, fetchActivities } = useActivities();
 
@@ -89,6 +90,20 @@ const History = () => {
     };
   });
 
+  // Filtrer les activités selon la recherche
+  const filteredActivities = transformedActivities.filter(activity => {
+    if (!searchQuery) return true;
+    
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      activity.title.toLowerCase().includes(searchLower) ||
+      activity.message.toLowerCase().includes(searchLower) ||
+      activity.lead_data.author_name?.toLowerCase().includes(searchLower) ||
+      activity.lead_data.company_name?.toLowerCase().includes(searchLower) ||
+      activity.sender_name.toLowerCase().includes(searchLower)
+    );
+  });
+
   const handleSelectActivity = (activity: HistoryActivity) => {
     setSelectedActivity(activity);
   };
@@ -118,7 +133,9 @@ const History = () => {
                 onTimeFilterChange={setTimeFilter}
                 customDateRange={customDateRange}
                 onCustomDateRangeChange={setCustomDateRange}
-                activitiesCount={transformedActivities.length}
+                activitiesCount={filteredActivities.length}
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
               />
             </div>
             
@@ -127,7 +144,7 @@ const History = () => {
                 <div className="flex items-center justify-center p-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              ) : transformedActivities.length === 0 ? (
+              ) : filteredActivities.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <div className="text-center">
                     <p className="text-lg">Aucune activité trouvée</p>
@@ -135,7 +152,7 @@ const History = () => {
                 </div>
               ) : (
                 <ActivityList 
-                  activities={transformedActivities}
+                  activities={filteredActivities}
                   selectedActivity={selectedActivity}
                   onSelectActivity={handleSelectActivity}
                 />

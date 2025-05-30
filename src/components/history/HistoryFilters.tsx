@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { User, Users, Linkedin, Phone, Clock } from 'lucide-react';
+import { User, Users, Linkedin, Phone, Clock, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -19,6 +19,8 @@ interface HistoryFiltersProps {
   customDateRange?: { from?: Date; to?: Date };
   onCustomDateRangeChange: (range: { from?: Date; to?: Date }) => void;
   activitiesCount?: number;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }
 
 const HistoryFilters = ({
@@ -30,7 +32,9 @@ const HistoryFilters = ({
   onTimeFilterChange,
   customDateRange,
   onCustomDateRangeChange,
-  activitiesCount = 0
+  activitiesCount = 0,
+  searchQuery = '',
+  onSearchQueryChange
 }: HistoryFiltersProps) => {
   const [showUserSelect, setShowUserSelect] = useState(false);
   const [timeMenuOpen, setTimeMenuOpen] = useState(false);
@@ -103,7 +107,7 @@ const HistoryFilters = ({
   return (
     <div className="space-y-3 mb-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
           {/* Bouton utilisateur avec User/Users */}
           <div className="relative">
             <Button
@@ -140,40 +144,42 @@ const HistoryFilters = ({
             )}
           </div>
 
-          {/* Boutons types d'activité avec LinkedIn/Phone */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleActivityTypeToggle('linkedin_message')}
-            className={cn(
-              'h-6 px-2 rounded-md border text-xs scale-75 origin-left',
-              activityTypes.includes('linkedin_message')
-                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                : 'bg-white border-gray-300 text-gray-600'
-            )}
-          >
-            <Linkedin className={cn(
-              'h-3 w-3',
-              activityTypes.includes('linkedin_message') ? 'text-blue-700' : 'text-gray-400'
-            )} />
-          </Button>
+          {/* Bouton combiné LinkedIn/Phone */}
+          <div className="flex scale-75 origin-left">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleActivityTypeToggle('linkedin_message')}
+              className={cn(
+                'h-6 px-2 border text-xs rounded-r-none border-r-0',
+                activityTypes.includes('linkedin_message')
+                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                  : 'bg-white border-gray-300 text-gray-600'
+              )}
+            >
+              <Linkedin className={cn(
+                'h-3 w-3',
+                activityTypes.includes('linkedin_message') ? 'text-blue-700' : 'text-gray-400'
+              )} />
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleActivityTypeToggle('phone_call')}
-            className={cn(
-              'h-6 px-2 rounded-md border text-xs scale-75 origin-left',
-              activityTypes.includes('phone_call')
-                ? 'bg-green-100 border-green-300 text-green-700'
-                : 'bg-white border-gray-300 text-gray-600'
-            )}
-          >
-            <Phone className={cn(
-              'h-3 w-3',
-              activityTypes.includes('phone_call') ? 'text-green-700' : 'text-gray-400'
-            )} />
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleActivityTypeToggle('phone_call')}
+              className={cn(
+                'h-6 px-2 border text-xs rounded-l-none',
+                activityTypes.includes('phone_call')
+                  ? 'bg-green-100 border-green-300 text-green-700'
+                  : 'bg-white border-gray-300 text-gray-600'
+              )}
+            >
+              <Phone className={cn(
+                'h-3 w-3',
+                activityTypes.includes('phone_call') ? 'text-green-700' : 'text-gray-400'
+              )} />
+            </Button>
+          </div>
 
           {/* Bouton période avec horloge et menu déroulant */}
           <Popover open={timeMenuOpen} onOpenChange={setTimeMenuOpen}>
@@ -278,6 +284,20 @@ const HistoryFilters = ({
         <span className="text-xs text-gray-500 italic">
           {activitiesCount} activités sur la période
         </span>
+      </div>
+
+      {/* Barre de recherche */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-4 w-4 text-gray-400" />
+        </div>
+        <Input
+          type="text"
+          placeholder="Rechercher une activité..."
+          value={searchQuery}
+          onChange={(e) => onSearchQueryChange?.(e.target.value)}
+          className="pl-10 h-8 text-sm"
+        />
       </div>
     </div>
   );
