@@ -1,6 +1,6 @@
 
 import { Suspense, lazy } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
@@ -20,64 +20,70 @@ const Auth = lazy(() => import('@/pages/Auth'));
 
 const queryClient = new QueryClient();
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <Suspense fallback={<div>Loading...</div>}><Leads /></Suspense>,
-  },
-  {
-    path: "/login",
-    element: <Suspense fallback={<div>Loading...</div>}><Auth /></Suspense>,
-  },
-  {
-    path: "/leads",
-    element: <Suspense fallback={<div>Loading...</div>}><Leads /></Suspense>,
-  },
-  {
-    path: "/clients",
-    element: <Suspense fallback={<div>Loading...</div>}><Clients /></Suspense>,
-  },
-  {
-    path: "/hr-providers",
-    element: <Suspense fallback={<div>Loading...</div>}><HRProviders /></Suspense>,
-  },
-  {
-    path: "/dashboard",
-    element: <Suspense fallback={<div>Loading...</div>}><Dashboard /></Suspense>,
-  },
-  {
-    path: "/admin",
-    element: <Suspense fallback={<div>Loading...</div>}><Admin /></Suspense>,
-  },
-  {
-    path: "/profile",
-    element: <Suspense fallback={<div>Loading...</div>}><Profile /></Suspense>,
-  },
-  {
-    path: "/history",
-    element: <Suspense fallback={<div>Loading...</div>}><HistoryPage /></Suspense>,
-  },
-]);
-
-const AppContent = () => {
+const Layout = () => {
   useSidebarAutoShow();
   
   return (
     <div className="min-h-screen flex w-full">
       <AppSidebar />
       <div className="flex-1">
-        <RouterProvider router={router} />
+        <Outlet />
       </div>
     </div>
   );
 };
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      {
+        index: true,
+        element: <Suspense fallback={<div>Loading...</div>}><Leads /></Suspense>,
+      },
+      {
+        path: "leads",
+        element: <Suspense fallback={<div>Loading...</div>}><Leads /></Suspense>,
+      },
+      {
+        path: "clients",
+        element: <Suspense fallback={<div>Loading...</div>}><Clients /></Suspense>,
+      },
+      {
+        path: "hr-providers",
+        element: <Suspense fallback={<div>Loading...</div>}><HRProviders /></Suspense>,
+      },
+      {
+        path: "dashboard",
+        element: <Suspense fallback={<div>Loading...</div>}><Dashboard /></Suspense>,
+      },
+      {
+        path: "admin",
+        element: <Suspense fallback={<div>Loading...</div>}><Admin /></Suspense>,
+      },
+      {
+        path: "profile",
+        element: <Suspense fallback={<div>Loading...</div>}><Profile /></Suspense>,
+      },
+      {
+        path: "history",
+        element: <Suspense fallback={<div>Loading...</div>}><HistoryPage /></Suspense>,
+      },
+    ]
+  },
+  {
+    path: "/login",
+    element: <Suspense fallback={<div>Loading...</div>}><Auth /></Suspense>,
+  },
+]);
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SidebarProvider>
-          <AppContent />
+          <RouterProvider router={router} />
           <Toaster />
         </SidebarProvider>
       </AuthProvider>
