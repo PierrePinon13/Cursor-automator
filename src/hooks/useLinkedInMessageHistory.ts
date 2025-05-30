@@ -27,56 +27,89 @@ export const useLinkedInMessageHistory = (leadId: string) => {
     try {
       console.log('🔍 Fetching message history for lead:', leadId);
       
-      const { data, error } = await supabase
-        .from('linkedin_messages')
-        .select(`
-          id,
-          message_content,
-          message_type,
-          sent_at,
-          network_distance,
-          unipile_response,
-          sender_id,
-          sender_full_name
-        `)
+      // Récupérer les messages depuis la nouvelle table activities
+      const { data: activitiesData, error: activitiesError } = await supabase
+        .from('activities')
+        .select('*')
         .eq('lead_id', leadId)
-        .order('sent_at', { ascending: true });
+        .eq('activity_type', 'linkedin_message')
+        .order('performed_at', { ascending: true });
 
-      if (error) {
-        console.error('❌ Error fetching message history:', error);
+      if (activitiesError) {
+        console.error('❌ Error fetching activities:', activitiesError);
         return;
       }
 
-      console.log('📋 Raw messages data:', data);
-      console.log('📊 Number of messages found:', data?.length || 0);
+      console.log('📋 Activities data:', activitiesData);
+      console.log('📊 Number of activities found:', activitiesData?.length || 0);
 
-      if (!data || data.length === 0) {
-        console.log('⚠️ No messages found for lead:', leadId);
+      if (!activitiesData || activitiesData.length === 0) {
+        console.log('⚠️ No activities found for lead:', leadId);
+        
+        // Fallback : essayer de récupérer depuis l'ancienne table linkedin_messages
+        const { data: linkedinMessagesData, error: linkedinError } = await supabase
+          .from('linkedin_messages')
+          .select('*')
+          .eq('lead_id', leadId)
+          .order('sent_at', { ascending: true });
+
+        if (linkedinError) {
+          console.error('❌ Error fetching linkedin_messages:', linkedinError);
+          setMessages([]);
+          return;
+        }
+
+        if (linkedinMessagesData && linkedinMessagesData.length > 0) {
+          const formattedMessages = linkedinMessagesData.map((msg, index) => {
+            console.log(`📝 LinkedIn Message ${index + 1}:`, {
+              id: msg.id,
+              sender_full_name: msg.sender_full_name,
+              message_preview: msg.message_content.substring(0, 50) + '...',
+              sent_at: msg.sent_at
+            });
+            
+            return {
+              id: msg.id,
+              message_content: msg.message_content,
+              message_type: msg.message_type as 'direct_message' | 'connection_request',
+              sent_at: msg.sent_at,
+              sender_name: msg.sender_full_name || 'Utilisateur Inconnu',
+              sender_email: '',
+              network_distance: msg.network_distance,
+              unipile_response: msg.unipile_response
+            };
+          });
+
+          console.log('✅ Final formatted linkedin messages:', formattedMessages);
+          setMessages(formattedMessages);
+          return;
+        }
+
         setMessages([]);
         return;
       }
 
-      const formattedMessages = data.map((msg, index) => {
-        console.log(`📝 Message ${index + 1}:`, {
-          id: msg.id,
-          sender_full_name: msg.sender_full_name,
-          message_preview: msg.message_content.substring(0, 50) + '...',
-          sent_at: msg.sent_at
+      const formattedMessages = activitiesData.map((activity, index) => {
+        console.log(`📝 Activity ${index + 1}:`, {
+          id: activity.id,
+          performed_by_user_name: activity.performed_by_user_name,
+          message_preview: activity.activity_data?.message_content?.substring(0, 50) + '...',
+          performed_at: activity.performed_at
         });
         
         return {
-          id: msg.id,
-          message_content: msg.message_content,
-          message_type: msg.message_type as 'direct_message' | 'connection_request',
-          sent_at: msg.sent_at,
-          sender_name: msg.sender_full_name || 'Utilisateur Inconnu',
-          sender_email: '', // Plus besoin de l'email maintenant
-          network_distance: msg.network_distance,
-          unipile_response: msg.unipile_response
+          id: activity.id,
+          message_content: activity.activity_data?.message_content || '',
+          message_type: activity.activity_data?.message_type as 'direct_message' | 'connection_request' || 'direct_message',
+          sent_at: activity.performed_at,
+          sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu',
+          sender_email: '',
+          network_distance: activity.activity_data?.network_distance,
+          unipile_response: activity.activity_data?.unipile_response
         };
       });
 
-      console.log('✅ Final formatted messages:', formattedMessages);
+      console.log('✅ Final formatted activities:', formattedMessages);
       setMessages(formattedMessages);
     } catch (error) {
       console.error('💥 Unexpected error fetching message history:', error);

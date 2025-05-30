@@ -46,17 +46,17 @@ export const useUserStats = () => {
       
       case 'this-week': {
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Lundi
+        startOfWeek.setDate(today.getDate() - today.getDay() + 1);
         const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6); // Dimanche
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
         return { start: startOfWeek, end: endOfWeek };
       }
       
       case 'last-week': {
         const startOfLastWeek = new Date(today);
-        startOfLastWeek.setDate(today.getDate() - today.getDay() - 6); // Lundi dernière semaine
+        startOfLastWeek.setDate(today.getDate() - today.getDay() - 6);
         const endOfLastWeek = new Date(startOfLastWeek);
-        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6); // Dimanche dernière semaine
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
         return { start: startOfLastWeek, end: endOfLastWeek };
       }
       
@@ -89,7 +89,6 @@ export const useUserStats = () => {
         .from('user_stats')
         .select('*');
 
-      // Filtre par utilisateur pour la vue personnelle
       if (viewType === 'personal') {
         query = query.eq('user_id', user.id);
       }
@@ -115,7 +114,7 @@ export const useUserStats = () => {
 
       console.log('Raw stats data:', statsData);
 
-      // Récupérer les informations des profils utilisateur séparément
+      // Récupérer les informations des profils utilisateur
       const userIds = [...new Set(statsData?.map(stat => stat.user_id) || [])];
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
@@ -126,7 +125,6 @@ export const useUserStats = () => {
         console.warn('Error fetching profiles:', profilesError);
       }
 
-      // Créer un map des emails par user_id
       const emailMap = new Map(profilesData?.map(profile => [profile.id, profile.email]) || []);
 
       const processedStats = statsData?.map(stat => ({
@@ -177,11 +175,10 @@ export const useUserStats = () => {
   };
 
   const generateStatsFromActivities = async (viewType: ViewType, timeFilter: TimeFilter) => {
-    // Fallback: générer des stats depuis la table activities si elle est accessible
     const dateRange = getDateRange(timeFilter);
     
     let activitiesQuery = supabase
-      .from('activities' as any)
+      .from('activities')
       .select('*');
 
     if (viewType === 'personal') {
@@ -206,7 +203,6 @@ export const useUserStats = () => {
 
     console.log('Activities data for stats:', activitiesData);
 
-    // Vérifier que les données sont valides
     const validActivities = Array.isArray(activitiesData) ? 
       activitiesData.filter((activity: any) => 
         activity && 

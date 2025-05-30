@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activities: {
+        Row: {
+          activity_data: Json | null
+          activity_type: string
+          created_at: string
+          id: string
+          lead_id: string
+          outcome: string | null
+          performed_at: string
+          performed_by_user_id: string
+          performed_by_user_name: string | null
+        }
+        Insert: {
+          activity_data?: Json | null
+          activity_type: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          outcome?: string | null
+          performed_at?: string
+          performed_by_user_id: string
+          performed_by_user_name?: string | null
+        }
+        Update: {
+          activity_data?: Json | null
+          activity_type?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          outcome?: string | null
+          performed_at?: string
+          performed_by_user_id?: string
+          performed_by_user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_actions_log: {
         Row: {
           action_details: Json | null
@@ -215,6 +259,9 @@ export type Database = {
           is_client_lead: boolean | null
           last_contact_at: string | null
           last_updated_at: string | null
+          latest_post_date: string | null
+          latest_post_url: string | null
+          latest_post_urn: string | null
           linkedin_message_sent_at: string | null
           matched_client_id: string | null
           matched_client_name: string | null
@@ -242,6 +289,9 @@ export type Database = {
           is_client_lead?: boolean | null
           last_contact_at?: string | null
           last_updated_at?: string | null
+          latest_post_date?: string | null
+          latest_post_url?: string | null
+          latest_post_urn?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
@@ -269,6 +319,9 @@ export type Database = {
           is_client_lead?: boolean | null
           last_contact_at?: string | null
           last_updated_at?: string | null
+          latest_post_date?: string | null
+          latest_post_url?: string | null
+          latest_post_urn?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null

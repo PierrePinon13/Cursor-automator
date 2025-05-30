@@ -17,9 +17,11 @@ interface Activity {
     author_name: string;
     author_headline: string;
     author_profile_url: string;
-    unipile_company: string;
-    unipile_position: string;
+    company_name: string;
+    company_position: string;
     matched_client_name: string;
+    latest_post_urn: string;
+    latest_post_url: string;
   };
 }
 
@@ -41,10 +43,21 @@ export const useActivities = () => {
     try {
       console.log('🔍 Fetching activities from activities table...');
       
-      // Construire la requête de base avec une gestion d'erreur robuste
       let query = supabase
-        .from('activities' as any)
-        .select('*')
+        .from('activities')
+        .select(`
+          *,
+          lead:leads(
+            author_name,
+            author_headline,
+            author_profile_url,
+            company_name,
+            company_position,
+            matched_client_name,
+            latest_post_urn,
+            latest_post_url
+          )
+        `)
         .order('performed_at', { ascending: false })
         .limit(limit);
 
@@ -137,50 +150,8 @@ export const useActivities = () => {
         return;
       }
 
-      // Vérifier que les données sont valides avant de continuer
-      const validActivities = (activitiesData as any[]).filter(activity => 
-        activity && 
-        typeof activity === 'object' && 
-        activity.lead_id && 
-        activity.activity_type
-      );
-
-      if (validActivities.length === 0) {
-        console.log('⚠️ No valid activities found');
-        setActivities([]);
-        return;
-      }
-
-      // Récupérer les informations des leads séparément
-      const leadIds = [...new Set(validActivities.map((activity: any) => activity.lead_id).filter(Boolean))];
-      
-      let leadsData: any[] = [];
-      if (leadIds.length > 0) {
-        const { data: leads, error: leadsError } = await supabase
-          .from('leads')
-          .select(`
-            id,
-            author_name,
-            author_headline,
-            author_profile_url,
-            unipile_company,
-            unipile_position,
-            matched_client_name
-          `)
-          .in('id', leadIds);
-
-        if (leadsError) {
-          console.warn('⚠️ Error fetching leads:', leadsError);
-        } else {
-          leadsData = leads || [];
-        }
-      }
-
-      // Créer un map des leads par ID
-      const leadsMap = new Map(leadsData.map(lead => [lead.id, lead]));
-
-      // Transformer les données
-      const transformedActivities = validActivities.map((activity: any) => ({
+      // Transformer les données pour correspondre à l'interface attendue
+      const transformedActivities = activitiesData.map((activity: any) => ({
         id: activity.id,
         lead_id: activity.lead_id,
         activity_type: activity.activity_type,
@@ -190,13 +161,15 @@ export const useActivities = () => {
         performed_by_user_name: activity.performed_by_user_name,
         performed_at: activity.performed_at,
         created_at: activity.created_at,
-        lead: leadsMap.get(activity.lead_id) || {
+        lead: activity.lead || {
           author_name: 'Utilisateur inconnu',
           author_headline: '',
           author_profile_url: '',
-          unipile_company: '',
-          unipile_position: '',
-          matched_client_name: ''
+          company_name: '',
+          company_position: '',
+          matched_client_name: '',
+          latest_post_urn: '',
+          latest_post_url: ''
         }
       }));
 
@@ -222,7 +195,7 @@ export const useActivities = () => {
 
     try {
       const { data, error } = await supabase
-        .from('activities' as any)
+        .from('activities')
         .insert({
           lead_id: activityData.lead_id,
           activity_type: activityData.activity_type,
@@ -237,7 +210,7 @@ export const useActivities = () => {
 
       if (error) throw error;
 
-      // Mettre à jour les stats utilisateur avec les anciennes fonctions
+      // Mettre à jour les stats utilisateur
       if (activityData.activity_type === 'linkedin_message') {
         await supabase.rpc('increment_linkedin_messages', {
           user_uuid: user.id
