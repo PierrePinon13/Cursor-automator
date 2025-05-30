@@ -88,7 +88,7 @@ serve(async (req) => {
       totalLength: unipileData?.items?.length || unipileData?.length || 0
     })
 
-    // FIX: Handle both array and object responses from Unipile API
+    // Handle both array and object responses from Unipile API
     let accountsArray = []
     if (Array.isArray(unipileData)) {
       accountsArray = unipileData
@@ -115,145 +115,46 @@ serve(async (req) => {
 
     console.log('Found LinkedIn accounts:', linkedinAccounts.length)
 
-    const syncResults = []
+    // Get the user's current profile
+    const { data: userProfile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('unipile_account_id')
+      .eq('id', user.id)
+      .single()
 
-    // Get existing connections for this user
-    const { data: existingConnections, error: fetchError } = await supabaseClient
-      .from('linkedin_connections')
-      .select('*')
-      .eq('user_id', user.id)
-
-    if (fetchError) {
-      console.error('Error fetching existing connections:', fetchError)
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError)
       return new Response(
         JSON.stringify({ error: 'Database error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Existing connections found:', existingConnections?.length || 0)
+    // Find the most recent connected LinkedIn account for this user
+    // This could be improved by checking metadata if Unipile provides user association
+    let latestAccount = null
+    if (linkedinAccounts.length > 0) {
+      // For now, take the most recent account or the currently stored one
+      latestAccount = linkedinAccounts.find(acc => acc.id === userProfile?.unipile_account_id) || linkedinAccounts[0]
+    }
 
-    // Process each LinkedIn account
-    for (const account of linkedinAccounts) {
-      console.log('Processing account:', account.id, 'status:', account.status)
+    let updateResult = null
+    if (latestAccount && latestAccount.status === 'OK') {
+      // Update the user's profile with the latest account ID
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .update({ 
+          unipile_account_id: latestAccount.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
 
-      // Map Unipile status to our database status with better validation
-      let mappedStatus = 'unknown'
-      let connectionStatus = 'unknown'
-      let errorMessage = null
-
-      const unipileStatus = (account.status || 'UNKNOWN').toString().toUpperCase()
-      console.log('Processing Unipile status:', unipileStatus)
-
-      switch (unipileStatus) {
-        case 'OK':
-        case 'CONNECTED':
-        case 'ACTIVE':
-          mappedStatus = 'connected'
-          connectionStatus = 'connected'
-          errorMessage = null
-          break
-        case 'CREDENTIALS':
-        case 'INVALID_CREDENTIALS':
-          mappedStatus = 'credentials_required'
-          connectionStatus = 'credentials_required'
-          errorMessage = 'Identifiants LinkedIn invalides ou expirés'
-          break
-        case 'IN_APP_VALIDATION':
-        case 'VALIDATION_REQUIRED':
-          mappedStatus = 'validation_required'
-          connectionStatus = 'validation_required'
-          errorMessage = 'Validation dans l\'application LinkedIn requise'
-          break
-        case 'CHECKPOINT':
-          mappedStatus = 'checkpoint_required'
-          connectionStatus = 'checkpoint_required'
-          errorMessage = 'Action utilisateur requise (code 2FA, vérification)'
-          break
-        case 'CAPTCHA':
-          mappedStatus = 'captcha_required'
-          connectionStatus = 'captcha_required'
-          errorMessage = 'Résolution de captcha nécessaire'
-          break
-        case 'DISCONNECTED':
-        case 'DISABLED':
-          mappedStatus = 'disconnected'
-          connectionStatus = 'disconnected'
-          errorMessage = 'Compte déconnecté'
-          break
-        case 'UNKNOWN':
-        case 'UNDEFINED':
-        case '':
-        case 'NULL':
-          // Si on a les infos du compte, on suppose qu'il est connecté
-          if (account.id && account.provider) {
-            mappedStatus = 'connected'
-            connectionStatus = 'connected'
-            errorMessage = null
-            console.log('Status was undefined/unknown, defaulting to: connected')
-          } else {
-            mappedStatus = 'unknown'
-            connectionStatus = 'unknown'
-            errorMessage = `Statut Unipile non reconnu: ${unipileStatus}`
-          }
-          break
-        default:
-          mappedStatus = 'unknown'
-          connectionStatus = 'unknown'
-          errorMessage = `Statut Unipile non reconnu: ${unipileStatus}`
-      }
-
-      // Check if we already have this account in our database
-      const existingConnection = existingConnections?.find(conn => 
-        conn.account_id === account.id || conn.unipile_account_id === account.id
-      )
-
-      const updateData = {
-        user_id: user.id,
-        account_id: account.id,
-        unipile_account_id: account.id,
-        status: mappedStatus,
-        connection_status: connectionStatus,
-        error_message: errorMessage,
-        account_type: 'LINKEDIN',
-        linkedin_profile_url: account.username ? `https://linkedin.com/in/${account.username}` : null,
-        last_update: new Date().toISOString(),
-        connected_at: mappedStatus === 'connected' ? (existingConnection?.connected_at || new Date().toISOString()) : null,
-      }
-
-      if (existingConnection) {
-        // Update existing connection
-        console.log('Updating existing connection:', existingConnection.id)
-        
-        const { data, error } = await supabaseClient
-          .from('linkedin_connections')
-          .update(updateData)
-          .eq('id', existingConnection.id)
-          .select()
-
-        if (error) {
-          console.error('Error updating connection:', error)
-          syncResults.push({ account_id: account.id, status: 'error', error: error.message })
-        } else {
-          console.log('Connection updated successfully:', data[0])
-          syncResults.push({ account_id: account.id, status: 'updated', data: data[0] })
-        }
+      if (error) {
+        console.error('Error updating profile:', error)
       } else {
-        // Create new connection
-        console.log('Creating new connection for account:', account.id)
-        
-        const { data, error } = await supabaseClient
-          .from('linkedin_connections')
-          .insert(updateData)
-          .select()
-
-        if (error) {
-          console.error('Error creating connection:', error)
-          syncResults.push({ account_id: account.id, status: 'error', error: error.message })
-        } else {
-          console.log('Connection created successfully:', data[0])
-          syncResults.push({ account_id: account.id, status: 'created', data: data[0] })
-        }
+        console.log('Profile updated with account ID:', latestAccount.id)
+        updateResult = data[0]
       }
     }
 
@@ -262,9 +163,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Comptes LinkedIn synchronisés avec succès',
-        accounts_processed: linkedinAccounts.length,
-        results: syncResults
+        message: 'Compte LinkedIn synchronisé avec succès',
+        accounts_found: linkedinAccounts.length,
+        current_account: latestAccount?.id || null,
+        updated_profile: updateResult
       }),
       { 
         status: 200, 

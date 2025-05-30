@@ -58,25 +58,20 @@ serve(async (req) => {
 
     console.log('✅ Lead found:', lead.author_name)
 
-    // Step 2: Get user's Unipile account_id from linkedin_connections
-    console.log('🔗 Step 2: Getting user LinkedIn connection...')
-    const { data: userConnection, error: connectionError } = await supabaseClient
-      .from('linkedin_connections')
-      .select('unipile_account_id, account_id, status')
-      .eq('user_id', userId)
-      .eq('status', 'connected')
+    // Step 2: Get user's Unipile account_id from profiles table
+    console.log('🔗 Step 2: Getting user Unipile account from profile...')
+    const { data: userProfile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('unipile_account_id')
+      .eq('id', userId)
       .maybeSingle()
 
-    if (!userConnection) {
-      throw new Error('No active LinkedIn connection found for user. Please connect your LinkedIn account first.')
+    if (!userProfile || !userProfile.unipile_account_id) {
+      throw new Error('No Unipile account found for user. Please connect your LinkedIn account first.')
     }
 
-    const accountId = userConnection.unipile_account_id || userConnection.account_id;
-    if (!accountId) {
-      throw new Error('No valid Unipile account ID found')
-    }
-
-    console.log('✅ Using Unipile account ID:', accountId)
+    const accountId = userProfile.unipile_account_id;
+    console.log('✅ Using Unipile account ID from profile:', accountId)
 
     // Step 3: Extract LinkedIn profile ID from lead
     console.log('🔍 Step 3: Extracting LinkedIn profile ID...')

@@ -4,107 +4,51 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 
-interface LinkedInConnection {
-  id: string;
-  user_id: string;
-  unipile_account_id: string;
-  account_id: string | null;
-  status: string;
-  account_type: string | null;
-  linkedin_profile_url: string | null;
-  connection_status: string;
-  error_message: string | null;
-  last_update: string | null;
-  connected_at: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  updated_at: string;
-  created_at: string;
-}
-
 export function useLinkedInConnection() {
-  const [connections, setConnections] = useState<LinkedInConnection[]>([]);
+  const [unipileAccountId, setUnipileAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
-      console.log('User authenticated, fetching LinkedIn connections...');
-      fetchConnections();
+      console.log('User authenticated, fetching Unipile account ID...');
+      fetchUnipileAccountId();
     } else {
-      console.log('No user authenticated, clearing connections');
-      setConnections([]);
+      console.log('No user authenticated, clearing account ID');
+      setUnipileAccountId(null);
     }
   }, [user]);
 
-  const fetchConnections = async () => {
+  const fetchUnipileAccountId = async () => {
     if (!user) {
-      console.log('No user for fetchConnections');
+      console.log('No user for fetchUnipileAccountId');
       return;
     }
 
     try {
-      console.log('Fetching LinkedIn connections for user:', user.id);
+      console.log('Fetching Unipile account ID for user:', user.id);
       const { data, error } = await supabase
-        .from('linkedin_connections')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .from('profiles')
+        .select('unipile_account_id')
+        .eq('id', user.id)
+        .single();
 
       if (error) {
-        console.error('Error fetching LinkedIn connections:', error);
+        console.error('Error fetching Unipile account ID:', error);
         throw error;
       }
       
-      console.log('LinkedIn connections fetched:', data?.length || 0);
-      setConnections(data || []);
+      console.log('Unipile account ID fetched:', data?.unipile_account_id);
+      setUnipileAccountId(data?.unipile_account_id || null);
     } catch (error: any) {
-      console.error('Error fetching LinkedIn connections:', error);
+      console.error('Error fetching Unipile account ID:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de récupérer les connexions LinkedIn.",
+        description: "Impossible de récupérer l'ID du compte Unipile.",
         variant: "destructive",
       });
-    }
-  };
-
-  const syncAccounts = async () => {
-    if (!user) return;
-
-    setSyncing(true);
-    try {
-      console.log('Calling linkedin-sync-accounts function...');
-      
-      const { data, error } = await supabase.functions.invoke('linkedin-sync-accounts');
-
-      console.log('Sync response:', { data, error });
-
-      if (error) {
-        console.error('Sync error:', error);
-        throw error;
-      }
-
-      if (data && data.success) {
-        await fetchConnections();
-        toast({
-          title: "Synchronisation réussie",
-          description: `${data.accounts_processed} compte(s) LinkedIn synchronisé(s)`,
-        });
-      } else {
-        throw new Error(data?.error || 'Réponse invalide du serveur');
-      }
-    } catch (error: any) {
-      console.error('Sync failed:', error);
-      toast({
-        title: "Erreur de synchronisation",
-        description: error.message || "Impossible de synchroniser les comptes LinkedIn.",
-        variant: "destructive",
-      });
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -156,12 +100,12 @@ export function useLinkedInConnection() {
           const checkInterval = setInterval(async () => {
             if (popup.closed) {
               clearInterval(checkInterval);
-              await fetchConnections();
+              await fetchUnipileAccountId();
               return;
             }
 
             // Check if connection is now successful
-            await fetchConnections();
+            await fetchUnipileAccountId();
           }, 2000);
 
           // Stop polling after 5 minutes
@@ -186,16 +130,18 @@ export function useLinkedInConnection() {
     }
   };
 
-  const disconnectLinkedIn = async (connectionId: string) => {
+  const disconnectLinkedIn = async () => {
+    if (!user) return;
+    
     try {
       const { error } = await supabase
-        .from('linkedin_connections')
-        .delete()
-        .eq('id', connectionId);
+        .from('profiles')
+        .update({ unipile_account_id: null })
+        .eq('id', user.id);
 
       if (error) throw error;
 
-      await fetchConnections();
+      setUnipileAccountId(null);
       toast({
         title: "Déconnexion réussie",
         description: "Votre compte LinkedIn a été déconnecté.",
@@ -209,90 +155,51 @@ export function useLinkedInConnection() {
     }
   };
 
-  const checkStatus = async (accountId: string) => {
-    if (!accountId) {
-      toast({
-        title: "Erreur",
-        description: "ID de compte manquant pour vérifier le statut.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const syncAccounts = async () => {
+    if (!user) return;
 
-    setCheckingStatus(true);
+    setSyncing(true);
     try {
-      console.log('Checking LinkedIn status using sync accounts for account:', accountId);
+      console.log('Calling linkedin-sync-accounts function...');
       
-      // Utilise la fonction de synchronisation complète au lieu de l'endpoint individuel
       const { data, error } = await supabase.functions.invoke('linkedin-sync-accounts');
 
+      console.log('Sync response:', { data, error });
+
       if (error) {
-        console.error('Sync error during status check:', error);
+        console.error('Sync error:', error);
         throw error;
       }
 
-      console.log('Sync response during status check:', data);
-
       if (data && data.success) {
-        await fetchConnections();
-        
-        // Chercher les informations spécifiques du compte demandé dans les résultats
-        const accountResult = data.results?.find((result: any) => 
-          result.account_id === accountId && result.status !== 'error'
-        );
-
-        if (accountResult) {
-          const statusMessages = {
-            'connected': 'Compte LinkedIn connecté et fonctionnel',
-            'pending': 'Connexion en cours, veuillez patienter...',
-            'credentials_required': 'Identifiants LinkedIn à renouveler',
-            'validation_required': 'Validation requise dans l\'application LinkedIn',
-            'checkpoint_required': 'Action requise (vérification 2FA)',
-            'captcha_required': 'Résolution de captcha nécessaire',
-            'disconnected': 'Compte LinkedIn déconnecté',
-            'unknown': 'Statut inconnu'
-          };
-
-          const accountData = accountResult.data;
-          const status = accountData?.status || 'unknown';
-          const message = statusMessages[status as keyof typeof statusMessages] || 'Statut vérifié via synchronisation complète';
-          
-          toast({
-            title: "Statut vérifié",
-            description: `${message} (Account ID: ${accountId})`,
-            variant: status === 'connected' ? 'default' : (status === 'pending' ? 'default' : 'destructive'),
-          });
-        } else {
-          toast({
-            title: "Compte introuvable",
-            description: `Le compte ${accountId} n'a pas été trouvé dans la synchronisation Unipile`,
-            variant: "destructive",
-          });
-        }
+        await fetchUnipileAccountId();
+        toast({
+          title: "Synchronisation réussie",
+          description: "Compte LinkedIn synchronisé avec succès",
+        });
       } else {
         throw new Error(data?.error || 'Réponse invalide du serveur');
       }
     } catch (error: any) {
-      console.error('Status check via sync failed:', error);
+      console.error('Sync failed:', error);
       toast({
-        title: "Erreur",
-        description: error.message || "Impossible de vérifier le statut du compte via la synchronisation.",
+        title: "Erreur de synchronisation",
+        description: error.message || "Impossible de synchroniser le compte LinkedIn.",
         variant: "destructive",
       });
     } finally {
-      setCheckingStatus(false);
+      setSyncing(false);
     }
   };
 
   return {
-    connections,
+    unipileAccountId,
+    isConnected: !!unipileAccountId,
     loading,
-    checkingStatus,
     syncing,
     connectLinkedIn,
     disconnectLinkedIn,
-    checkStatus,
     syncAccounts,
-    refreshConnections: fetchConnections,
+    refreshConnection: fetchUnipileAccountId,
   };
 }

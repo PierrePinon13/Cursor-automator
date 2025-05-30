@@ -57,20 +57,6 @@ serve(async (req) => {
 
     console.log('Initiating LinkedIn connection for user:', user_id, 'with email:', user.email)
 
-    // Clean up ALL existing connections for this user (pending, connected, error)
-    // This ensures a clean slate when reconnecting
-    const { error: deleteError } = await supabaseClient
-      .from('linkedin_connections')
-      .delete()
-      .eq('user_id', user_id)
-
-    if (deleteError) {
-      console.error('Error cleaning up existing connections:', deleteError)
-      // Continue anyway, don't block the new connection
-    } else {
-      console.log('Cleaned up all existing LinkedIn connections for user:', user_id)
-    }
-
     // Construct webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/linkedin-webhook`
     
@@ -122,30 +108,9 @@ serve(async (req) => {
       )
     }
 
-    // Create a new connection with a temporary ID that we can match in the webhook
-    const tempConnectionId = crypto.randomUUID()
-    
-    // Store the pending connection with the temporary ID
-    const { error: insertError } = await supabaseClient
-      .from('linkedin_connections')
-      .insert({
-        user_id: user_id,
-        unipile_account_id: tempConnectionId, // Temporary UUID for matching
-        account_id: null, // Will be updated by the webhook with real Unipile account_id
-        status: 'pending',
-        account_type: 'LINKEDIN'
-      })
-
-    if (insertError) {
-      console.error('Error storing pending connection:', insertError)
-    } else {
-      console.log('Created new pending connection with temp ID:', tempConnectionId)
-    }
-
     return new Response(
       JSON.stringify({ 
-        link: hostedLink,
-        temp_connection_id: tempConnectionId
+        link: hostedLink
       }),
       { 
         status: 200, 
