@@ -48,7 +48,7 @@ export function useClientJobOffers() {
       console.log('📋 Fetching client job offers...');
       
       const { data, error } = await supabase
-        .from('client_job_offers')
+        .from('client_job_offers' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -58,7 +58,7 @@ export function useClientJobOffers() {
       }
 
       console.log(`✅ Fetched ${data?.length || 0} job offers`);
-      setJobOffers(data || []);
+      setJobOffers((data as ClientJobOffer[]) || []);
     } catch (error) {
       console.error('❌ Error in fetchJobOffers:', error);
       setJobOffers([]);
@@ -89,7 +89,7 @@ export function useClientJobOffers() {
   const assignJobOffer = async (jobOfferId: string, userId: string | null) => {
     try {
       const { error } = await supabase
-        .from('client_job_offers')
+        .from('client_job_offers' as any)
         .update({
           assigned_to_user_id: userId,
           assigned_at: userId ? new Date().toISOString() : null,

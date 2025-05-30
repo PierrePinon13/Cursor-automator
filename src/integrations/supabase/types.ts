@@ -139,6 +139,81 @@ export type Database = {
           },
         ]
       }
+      client_job_offers: {
+        Row: {
+          apify_dataset_id: string
+          assigned_at: string | null
+          assigned_to_user_id: string | null
+          company_name: string | null
+          created_at: string
+          description: string | null
+          id: string
+          job_type: string | null
+          location: string | null
+          matched_client_id: string | null
+          matched_client_name: string | null
+          posted_at: string | null
+          raw_data: Json
+          salary: string | null
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          apify_dataset_id: string
+          assigned_at?: string | null
+          assigned_to_user_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_type?: string | null
+          location?: string | null
+          matched_client_id?: string | null
+          matched_client_name?: string | null
+          posted_at?: string | null
+          raw_data: Json
+          salary?: string | null
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          apify_dataset_id?: string
+          assigned_at?: string | null
+          assigned_to_user_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_type?: string | null
+          location?: string | null
+          matched_client_id?: string | null
+          matched_client_name?: string | null
+          posted_at?: string | null
+          raw_data?: Json
+          salary?: string | null
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_job_offers_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_job_offers_matched_client_id_fkey"
+            columns: ["matched_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           company_linkedin_id: string | null
