@@ -4,17 +4,9 @@ import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tables } from '@/integrations/supabase/types';
 
-interface Lead {
-  author_name: string;
-  author_profile_url: string;
-  author_headline: string;
-  unipile_company: string;
-  unipile_position: string;
-  openai_step3_postes_selectionnes: string[];
-  text: string;
-  url: string;
-}
+type Lead = Tables<'leads'>;
 
 interface LeadInfoProps {
   lead: Lead;
