@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { User, Linkedin, Phone, Clock } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Users, Linkedin, Phone, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HistoryFiltersProps {
@@ -25,8 +26,16 @@ const HistoryFilters = ({
   onTimeFilterChange,
   activitiesCount = 0
 }: HistoryFiltersProps) => {
-  const handleUserFilterToggle = () => {
+  const [showUserSelect, setShowUserSelect] = useState(false);
+
+  const handleUserFilterClick = () => {
     onFilterByChange(filterBy === 'all' ? 'mine' : 'all');
+  };
+
+  const handleUserFilterDoubleClick = () => {
+    if (filterBy === 'mine') {
+      setShowUserSelect(true);
+    }
   };
 
   const handleActivityTypeToggle = (type: string) => {
@@ -37,79 +46,110 @@ const HistoryFilters = ({
     }
   };
 
-  const handleTimeFilterCycle = () => {
-    const timeOptions = ['all', 'today', 'this_week', 'this_month'];
-    const currentIndex = timeOptions.indexOf(timeFilter);
-    const nextIndex = (currentIndex + 1) % timeOptions.length;
-    onTimeFilterChange(timeOptions[nextIndex]);
+  const getTimeFilterLabel = () => {
+    switch (timeFilter) {
+      case 'today': return 'Aujourd\'hui';
+      case 'this_week': return 'Cette semaine';
+      case 'this_month': return 'Ce mois';
+      default: return 'Toute période';
+    }
   };
 
   return (
-    <div className="flex items-center gap-1 mb-4">
-      {/* Bouton utilisateur */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleUserFilterToggle}
-        className={cn(
-          'h-8 px-2 rounded-md border',
-          filterBy === 'mine' 
-            ? 'bg-blue-100 border-blue-300 text-blue-700' 
-            : 'bg-white border-gray-300 text-gray-600'
-        )}
-      >
-        <User className="h-4 w-4" />
-      </Button>
+    <div className="space-y-3 mb-4">
+      <div className="flex items-center gap-2">
+        {/* Bouton utilisateur avec User/Users */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUserFilterClick}
+            onDoubleClick={handleUserFilterDoubleClick}
+            className={cn(
+              'h-6 px-2 rounded-md border text-xs scale-75 origin-left',
+              filterBy === 'mine' 
+                ? 'bg-blue-100 border-blue-300 text-blue-700' 
+                : 'bg-white border-gray-300 text-gray-600'
+            )}
+          >
+            <User className={cn('h-3 w-3', filterBy === 'mine' ? 'text-blue-700' : 'text-gray-400')} />
+            <Users className={cn('h-3 w-3', filterBy === 'all' ? 'text-blue-700' : 'text-gray-400')} />
+          </Button>
+          
+          {showUserSelect && (
+            <div className="absolute top-full mt-1 z-50">
+              <Select onValueChange={() => setShowUserSelect(false)}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue placeholder="Choisir un utilisateur" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border shadow-lg">
+                  <SelectItem value="current">Moi</SelectItem>
+                  <SelectItem value="user1">Utilisateur 1</SelectItem>
+                  <SelectItem value="user2">Utilisateur 2</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
 
-      {/* Bouton LinkedIn */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => handleActivityTypeToggle('linkedin_message')}
-        className={cn(
-          'h-8 px-2 rounded-md border',
-          activityTypes.includes('linkedin_message')
-            ? 'bg-blue-100 border-blue-300 text-blue-700'
-            : 'bg-white border-gray-300 text-gray-600'
-        )}
-      >
-        <Linkedin className="h-4 w-4" />
-      </Button>
+        {/* Bouton types d'activité avec LinkedIn/Phone */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 px-2 rounded-md border text-xs scale-75 origin-left bg-white border-gray-300"
+        >
+          <Linkedin 
+            className={cn(
+              'h-3 w-3 cursor-pointer',
+              activityTypes.includes('linkedin_message') ? 'text-blue-700' : 'text-gray-400'
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleActivityTypeToggle('linkedin_message');
+            }}
+          />
+          <Phone 
+            className={cn(
+              'h-3 w-3 cursor-pointer',
+              activityTypes.includes('phone_call') ? 'text-green-700' : 'text-gray-400'
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleActivityTypeToggle('phone_call');
+            }}
+          />
+        </Button>
 
-      {/* Bouton téléphone */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => handleActivityTypeToggle('phone_call')}
-        className={cn(
-          'h-8 px-2 rounded-md border',
-          activityTypes.includes('phone_call')
-            ? 'bg-blue-100 border-blue-300 text-blue-700'
-            : 'bg-white border-gray-300 text-gray-600'
-        )}
-      >
-        <Phone className="h-4 w-4" />
-      </Button>
+        {/* Bouton période */}
+        <Select value={timeFilter} onValueChange={onTimeFilterChange}>
+          <SelectTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-6 px-2 rounded-md border text-xs scale-75 origin-left w-auto',
+                timeFilter !== 'all'
+                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                  : 'bg-white border-gray-300 text-gray-600'
+              )}
+            >
+              <Clock className="h-3 w-3 mr-1" />
+              <span>{getTimeFilterLabel()}</span>
+            </Button>
+          </SelectTrigger>
+          <SelectContent className="bg-white border shadow-lg">
+            <SelectItem value="all">Toute période</SelectItem>
+            <SelectItem value="today">Aujourd'hui</SelectItem>
+            <SelectItem value="this_week">Cette semaine</SelectItem>
+            <SelectItem value="this_month">Ce mois</SelectItem>
+          </SelectContent>
+        </Select>
 
-      {/* Bouton période */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleTimeFilterCycle}
-        className={cn(
-          'h-8 px-2 rounded-md border',
-          timeFilter !== 'all'
-            ? 'bg-blue-100 border-blue-300 text-blue-700'
-            : 'bg-white border-gray-300 text-gray-600'
-        )}
-      >
-        <Clock className="h-4 w-4" />
-      </Button>
-
-      {/* Compteur d'activités */}
-      <span className="text-sm text-gray-500 ml-4">
-        {activitiesCount} activités sur la période
-      </span>
+        {/* Compteur d'activités */}
+        <span className="text-xs text-gray-500 italic ml-4">
+          {activitiesCount} activités sur la période
+        </span>
+      </div>
     </div>
   );
 };
