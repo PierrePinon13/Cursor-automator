@@ -68,6 +68,30 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
     try {
       const dateRange = getDateRange(timeFilter);
       console.log('Date range:', dateRange);
+      console.log('Date range ISO strings:', {
+        start: dateRange.start.toISOString(),
+        end: dateRange.end.toISOString()
+      });
+      
+      // D'abord, regardons combien de posts existent au total dans la base
+      const { data: totalPostsInDb, error: totalError } = await supabase
+        .from('linkedin_posts')
+        .select('id, created_at, author_type')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (totalError) {
+        console.error('Error fetching total posts:', totalError);
+      } else {
+        console.log('=== DIAGNOSTIC TOTAL POSTS ===');
+        console.log('Total posts in DB (sample):', totalPostsInDb?.length);
+        console.log('Latest posts:', totalPostsInDb?.map(p => ({
+          id: p.id.substring(0, 8),
+          created_at: p.created_at,
+          author_type: p.author_type
+        })));
+        console.log('===============================');
+      }
       
       const { data: allPosts, error: allPostsError } = await supabase
         .from('linkedin_posts')
@@ -81,6 +105,44 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
 
       const totalPosts = allPosts?.length || 0;
       console.log('Total posts:', totalPosts);
+      
+      // Investigation approfondie des données
+      console.log('=== INVESTIGATION APPROFONDIE ===');
+      
+      // Vérifier les posts des dernières 24h sans filtre de période
+      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const { data: last24hPosts, error: last24hError } = await supabase
+        .from('linkedin_posts')
+        .select('id, author_type, created_at')
+        .gte('created_at', last24h.toISOString());
+        
+      if (!last24hError && last24hPosts) {
+        console.log('Posts des dernières 24h:', last24hPosts.length);
+        
+        // Grouper par heure pour voir la distribution
+        const postsByHour = last24hPosts.reduce((acc, post) => {
+          const hour = new Date(post.created_at).getHours();
+          const date = new Date(post.created_at).toDateString();
+          const key = `${date} ${hour}h`;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        console.log('Distribution par heure:', postsByHour);
+        
+        // Vérifier spécifiquement autour de 6h du matin
+        const morningPosts = last24hPosts.filter(post => {
+          const postDate = new Date(post.created_at);
+          const hour = postDate.getHours();
+          return hour >= 5 && hour <= 8; // Entre 5h et 8h
+        });
+        
+        console.log('Posts entre 5h et 8h:', morningPosts.length);
+        console.log('Échantillon posts du matin:', morningPosts.slice(0, 5).map(p => ({
+          created_at: p.created_at,
+          author_type: p.author_type
+        })));
+      }
       
       // Debug: Check all author types with detailed logging
       const authorTypes = allPosts?.reduce((acc, post) => {
