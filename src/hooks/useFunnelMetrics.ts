@@ -103,6 +103,9 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       }) || [];
       console.log('Person posts filtered:', personPosts.length);
       
+      // Vérifier s'il y a uniquement des posts "Person"
+      const hasOnlyPersonPosts = Object.keys(authorTypes).length === 1 && authorTypes['Person'] === totalPosts;
+      
       const step1Passed = personPosts?.filter(post => {
         const value = post.openai_step1_recrute_poste?.toLowerCase();
         return value === 'oui' || value === 'yes';
@@ -142,7 +145,7 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
           step: 'person-filter',
           count: personPosts.length,
           percentage: totalPosts > 0 ? (personPosts.length / totalPosts) * 100 : 0,
-          description: 'Filtre Person'
+          description: hasOnlyPersonPosts ? 'Filtre Person (tous sont déjà Person)' : 'Filtre Person'
         },
         {
           step: 'openai-step1',
