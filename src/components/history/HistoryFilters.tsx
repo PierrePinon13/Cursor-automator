@@ -1,3 +1,4 @@
+
 import React from 'react';
 import UserFilter from './filters/UserFilter';
 import ActivityTypeFilter from './filters/ActivityTypeFilter';
@@ -35,10 +36,12 @@ const HistoryFilters = ({
     <div className="space-y-3 mb-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-0.5">
-          <UserFilter 
-            filterBy={filterBy}
-            onFilterByChange={onFilterByChange}
-          />
+          <div className="flex items-center">
+            <UserFilter 
+              filterBy={filterBy}
+              onFilterByChange={onFilterByChange}
+            />
+          </div>
 
           <ActivityTypeFilter 
             activityTypes={activityTypes}
