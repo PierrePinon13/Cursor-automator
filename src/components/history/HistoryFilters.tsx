@@ -72,8 +72,10 @@ const HistoryFilters = ({
                 : 'bg-white border-gray-300 text-gray-600'
             )}
           >
-            <User className={cn('h-3 w-3', filterBy === 'mine' ? 'text-blue-700' : 'text-gray-400')} />
-            <Users className={cn('h-3 w-3', filterBy === 'all' ? 'text-blue-700' : 'text-gray-400')} />
+            <div className="flex items-center gap-1">
+              <User className={cn('h-3 w-3', filterBy === 'mine' ? 'text-blue-700' : 'text-gray-400')} />
+              <Users className={cn('h-3 w-3', filterBy === 'all' ? 'text-blue-700' : 'text-gray-400')} />
+            </div>
           </Button>
           
           {showUserSelect && (
@@ -98,26 +100,28 @@ const HistoryFilters = ({
           size="sm"
           className="h-6 px-2 rounded-md border text-xs scale-75 origin-left bg-white border-gray-300"
         >
-          <Linkedin 
-            className={cn(
-              'h-3 w-3 cursor-pointer',
-              activityTypes.includes('linkedin_message') ? 'text-blue-700' : 'text-gray-400'
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleActivityTypeToggle('linkedin_message');
-            }}
-          />
-          <Phone 
-            className={cn(
-              'h-3 w-3 cursor-pointer',
-              activityTypes.includes('phone_call') ? 'text-green-700' : 'text-gray-400'
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleActivityTypeToggle('phone_call');
-            }}
-          />
+          <div className="flex items-center gap-1">
+            <Linkedin 
+              className={cn(
+                'h-3 w-3 cursor-pointer',
+                activityTypes.includes('linkedin_message') ? 'text-blue-700' : 'text-gray-400'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleActivityTypeToggle('linkedin_message');
+              }}
+            />
+            <Phone 
+              className={cn(
+                'h-3 w-3 cursor-pointer',
+                activityTypes.includes('phone_call') ? 'text-green-700' : 'text-gray-400'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleActivityTypeToggle('phone_call');
+              }}
+            />
+          </div>
         </Button>
 
         {/* Bouton période */}
@@ -133,8 +137,10 @@ const HistoryFilters = ({
                   : 'bg-white border-gray-300 text-gray-600'
               )}
             >
-              <Clock className="h-3 w-3 mr-1" />
-              <span>{getTimeFilterLabel()}</span>
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{getTimeFilterLabel()}</span>
+              </div>
             </Button>
           </SelectTrigger>
           <SelectContent className="bg-white border shadow-lg">
