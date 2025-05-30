@@ -3,40 +3,9 @@ import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTimeAgo } from '@/utils/timeUtils';
 import LeadDetailDialog from './LeadDetailDialog';
+import { Tables } from '@/integrations/supabase/types';
 
-interface Lead {
-  id: string;
-  created_at: string;
-  author_name: string;
-  author_headline: string;
-  author_profile_url: string;
-  text: string;
-  title: string;
-  url: string;
-  posted_at_iso: string;
-  posted_at_timestamp: number;
-  openai_step2_localisation: string;
-  openai_step3_categorie: string;
-  openai_step3_postes_selectionnes: string[];
-  openai_step3_justification: string;
-  unipile_company: string;
-  unipile_position: string;
-  unipile_profile_scraped: boolean;
-  unipile_profile_scraped_at: string;
-  phone_number?: string | null;
-  phone_retrieved_at?: string | null;
-  approach_message?: string | null;
-  approach_message_generated?: boolean | null;
-  approach_message_generated_at?: string | null;
-  is_client_lead?: boolean | null;
-  matched_client_name?: string | null;
-  matched_client_id?: string | null;
-  last_contact_at?: string | null;
-  linkedin_message_sent_at?: string | null;
-  phone_contact_status?: string | null;
-  phone_contact_at?: string | null;
-  last_updated_at?: string | null;
-}
+type Lead = Tables<'leads'>;
 
 interface CardViewProps {
   leads: Lead[];
@@ -118,7 +87,7 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                         data-clickable="true"
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.open(lead.url, '_blank');
+                          if (lead.url) window.open(lead.url, '_blank');
                         }}
                       >
                         {poste}
@@ -135,7 +104,7 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                   data-clickable="true"
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(lead.author_profile_url, '_blank');
+                    if (lead.author_profile_url) window.open(lead.author_profile_url, '_blank');
                   }}
                 >
                   {lead.author_name || 'N/A'}
