@@ -55,58 +55,49 @@ export const useNotifications = () => {
       const mockNotifications: Notification[] = [];
 
       // Récupérer les assignations récentes
-      const { data: assignments } = await supabase
+      const { data: assignments, error: assignmentsError } = await supabase
         .from('lead_assignments')
-        .select(`
-          id,
-          lead_id,
-          assigned_at,
-          leads!inner (
-            id,
-            author_name,
-            matched_client_name,
-            author_profile_url,
-            author_headline,
-            company_name,
-            company_position
-          )
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('assigned_at', { ascending: false })
         .limit(5);
 
-      if (assignments) {
-        assignments.forEach(assignment => {
-          mockNotifications.push({
-            id: `assignment-${assignment.id}`,
-            type: 'lead_assigned',
-            title: 'Nouveau lead assigné',
-            message: `Un lead de ${assignment.leads.author_name} vous a été assigné`,
-            read: false,
-            created_at: assignment.assigned_at,
-            lead_id: assignment.lead_id,
-            client_name: assignment.leads.matched_client_name,
-            lead_data: assignment.leads
+      if (assignments && !assignmentsError) {
+        // Récupérer les informations des leads pour les assignations
+        const leadIds = assignments.map(a => a.lead_id);
+        
+        if (leadIds.length > 0) {
+          const { data: leadsForAssignments } = await supabase
+            .from('leads')
+            .select('id, author_name, matched_client_name')
+            .in('id', leadIds);
+
+          const leadsMap = new Map((leadsForAssignments || []).map(lead => [lead.id, lead]));
+
+          assignments.forEach(assignment => {
+            const lead = leadsMap.get(assignment.lead_id);
+            if (lead) {
+              mockNotifications.push({
+                id: `assignment-${assignment.id}`,
+                type: 'lead_assigned',
+                title: 'Nouveau lead assigné',
+                message: `Un lead de ${lead.author_name} vous a été assigné`,
+                read: false,
+                created_at: assignment.assigned_at,
+                lead_id: assignment.lead_id,
+                client_name: lead.matched_client_name,
+                lead_data: lead
+              });
+            }
           });
-        });
+        }
       }
 
       // Récupérer les activités récentes depuis la nouvelle table activities
       try {
         const { data: recentActivities, error: activitiesError } = await supabase
           .from('activities' as any)
-          .select(`
-            *,
-            lead:leads (
-              id,
-              author_name,
-              author_headline,
-              author_profile_url,
-              company_name,
-              company_position,
-              matched_client_name
-            )
-          `)
+          .select('*')
           .gte('performed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .order('performed_at', { ascending: false })
           .limit(30);
@@ -114,7 +105,33 @@ export const useNotifications = () => {
         console.log('Recent activities:', recentActivities, 'Error:', activitiesError);
 
         if (recentActivities && recentActivities.length > 0) {
+          // Récupérer les informations des leads pour les activités
+          const leadIds = [...new Set(recentActivities.map(a => a.lead_id).filter(Boolean))];
+          
+          let leadsData: any[] = [];
+          if (leadIds.length > 0) {
+            const { data: leads } = await supabase
+              .from('leads')
+              .select(`
+                id,
+                author_name,
+                author_headline,
+                author_profile_url,
+                company_name,
+                company_position,
+                matched_client_name
+              `)
+              .in('id', leadIds);
+
+            leadsData = leads || [];
+          }
+
+          const leadsMap = new Map(leadsData.map(lead => [lead.id, lead]));
+
           recentActivities.forEach(activity => {
+            const lead = leadsMap.get(activity.lead_id);
+            if (!lead) return;
+
             let title = '';
             let message = '';
 
@@ -123,21 +140,21 @@ export const useNotifications = () => {
                 // Utiliser message_type pour différencier
                 if (activity.activity_data?.message_type === 'connection_request') {
                   title = 'Demande de connexion LinkedIn';
-                  message = `Connexion envoyée à ${activity.lead.author_name}`;
+                  message = `Connexion envoyée à ${lead.author_name}`;
                 } else {
                   title = 'Message LinkedIn envoyé';
-                  message = `Message envoyé à ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
+                  message = `Message envoyé à ${lead.author_name}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
                 }
                 break;
               case 'phone_call':
                 const statusText = activity.outcome === 'positive' ? 'positif' : 
                                   activity.outcome === 'negative' ? 'négatif' : 'neutre';
                 title = `Appel ${statusText}`;
-                message = `Appel ${statusText} avec ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
+                message = `Appel ${statusText} avec ${lead.author_name}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
                 break;
               case 'linkedin_connection':
                 title = 'Demande de connexion LinkedIn';
-                message = `Connexion envoyée à ${activity.lead.author_name}`;
+                message = `Connexion envoyée à ${lead.author_name}`;
                 break;
             }
 
@@ -150,7 +167,7 @@ export const useNotifications = () => {
               created_at: activity.performed_at,
               lead_id: activity.lead_id,
               lead_data: {
-                ...activity.lead,
+                ...lead,
                 approach_message: activity.activity_type === 'linkedin_message' ? 
                   activity.activity_data?.message_content : undefined
               },
