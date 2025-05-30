@@ -185,7 +185,7 @@ export const useUserStats = () => {
       .select('*');
 
     if (viewType === 'personal') {
-      activitiesQuery = activitiesQuery.eq('performed_by_user_id', user.id);
+      activitiesQuery = activitiesQuery.eq('performed_by_user_id', user!.id);
     }
 
     if (dateRange) {
@@ -206,8 +206,16 @@ export const useUserStats = () => {
 
     console.log('Activities data for stats:', activitiesData);
 
+    // Vérifier que les données sont valides
+    const validActivities = Array.isArray(activitiesData) ? 
+      activitiesData.filter((activity: any) => 
+        activity && 
+        typeof activity === 'object' && 
+        activity.activity_type
+      ) : [];
+
     // Calculer les stats à partir des activités
-    const totals = (activitiesData || []).reduce(
+    const totals = validActivities.reduce(
       (acc: any, activity: any) => {
         if (activity.activity_type === 'linkedin_message') {
           acc.linkedin_messages_sent += 1;

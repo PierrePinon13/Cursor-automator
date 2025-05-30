@@ -41,7 +41,7 @@ export const useActivities = () => {
     try {
       console.log('🔍 Fetching activities from activities table...');
       
-      // Construire la requête de base
+      // Construire la requête de base avec une gestion d'erreur robuste
       let query = supabase
         .from('activities' as any)
         .select('*')
@@ -137,8 +137,22 @@ export const useActivities = () => {
         return;
       }
 
+      // Vérifier que les données sont valides avant de continuer
+      const validActivities = (activitiesData as any[]).filter(activity => 
+        activity && 
+        typeof activity === 'object' && 
+        activity.lead_id && 
+        activity.activity_type
+      );
+
+      if (validActivities.length === 0) {
+        console.log('⚠️ No valid activities found');
+        setActivities([]);
+        return;
+      }
+
       // Récupérer les informations des leads séparément
-      const leadIds = [...new Set(activitiesData.map(activity => activity.lead_id).filter(Boolean))];
+      const leadIds = [...new Set(validActivities.map((activity: any) => activity.lead_id).filter(Boolean))];
       
       let leadsData: any[] = [];
       if (leadIds.length > 0) {
@@ -166,8 +180,16 @@ export const useActivities = () => {
       const leadsMap = new Map(leadsData.map(lead => [lead.id, lead]));
 
       // Transformer les données
-      const transformedActivities = activitiesData.map(activity => ({
-        ...activity,
+      const transformedActivities = validActivities.map((activity: any) => ({
+        id: activity.id,
+        lead_id: activity.lead_id,
+        activity_type: activity.activity_type,
+        activity_data: activity.activity_data,
+        outcome: activity.outcome,
+        performed_by_user_id: activity.performed_by_user_id,
+        performed_by_user_name: activity.performed_by_user_name,
+        performed_at: activity.performed_at,
+        created_at: activity.created_at,
         lead: leadsMap.get(activity.lead_id) || {
           author_name: 'Utilisateur inconnu',
           author_headline: '',
@@ -202,7 +224,10 @@ export const useActivities = () => {
       const { data, error } = await supabase
         .from('activities' as any)
         .insert({
-          ...activityData,
+          lead_id: activityData.lead_id,
+          activity_type: activityData.activity_type,
+          activity_data: activityData.activity_data,
+          outcome: activityData.outcome,
           performed_by_user_id: user.id,
           performed_by_user_name: user.user_metadata?.full_name || 'Utilisateur',
           performed_at: activityData.performed_at || new Date().toISOString()
