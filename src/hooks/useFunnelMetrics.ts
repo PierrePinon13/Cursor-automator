@@ -82,8 +82,21 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       const totalPosts = allPosts?.length || 0;
       console.log('Total posts:', totalPosts);
       
-      const personPosts = allPosts?.filter(post => post.author_type === 'Person') || [];
-      console.log('Person posts:', personPosts.length);
+      // Debug: Check all author types
+      const authorTypes = allPosts?.reduce((acc, post) => {
+        acc[post.author_type] = (acc[post.author_type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+      console.log('Author types breakdown:', authorTypes);
+      
+      const personPosts = allPosts?.filter(post => {
+        const isPerson = post.author_type === 'Person';
+        if (!isPerson) {
+          console.log('Non-person post found:', { id: post.id, author_type: post.author_type });
+        }
+        return isPerson;
+      }) || [];
+      console.log('Person posts filtered:', personPosts.length);
       
       const step1Passed = personPosts?.filter(post => {
         const value = post.openai_step1_recrute_poste?.toLowerCase();
@@ -158,7 +171,18 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         }
       ];
 
-      console.log('Final steps:', steps);
+      console.log('Final steps with detailed breakdown:', steps);
+      console.log('Debug summary:', {
+        totalPosts,
+        personPosts: personPosts.length,
+        authorTypesFound: Object.keys(authorTypes),
+        step1Passed: step1Passed.length,
+        step2Passed: step2Passed.length,
+        step3Passed: step3Passed.length,
+        unipileScraped: unipileScraped.length,
+        addedToLeads: addedToLeads.length
+      });
+      
       setMetrics({ steps, timeFilter });
 
     } catch (err: any) {
