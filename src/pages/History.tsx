@@ -8,6 +8,17 @@ import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useActivities } from '@/hooks/useActivities';
 import { HistoryActivity } from '@/hooks/useHistory';
 
+interface LeadData {
+  author_name?: string;
+  author_headline?: string;
+  author_profile_url?: string;
+  company_name?: string;
+  company_position?: string;
+  matched_client_name?: string;
+  latest_post_urn?: string;
+  latest_post_url?: string;
+}
+
 const History = () => {
   const [selectedActivity, setSelectedActivity] = useState<HistoryActivity | null>(null);
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
@@ -25,7 +36,16 @@ const History = () => {
 
   // Transformer les données d'activités pour correspondre au format HistoryActivity
   const transformedActivities: HistoryActivity[] = activities.map((activity) => {
-    const lead = activity.lead || {};
+    const lead: LeadData = activity.lead || {
+      author_name: '',
+      author_headline: '',
+      author_profile_url: '',
+      company_name: '',
+      company_position: '',
+      matched_client_name: '',
+      latest_post_urn: '',
+      latest_post_url: ''
+    };
     const activityData = activity.activity_data || {};
     
     let title = '';
