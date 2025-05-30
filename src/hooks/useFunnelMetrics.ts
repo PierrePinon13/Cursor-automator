@@ -82,12 +82,17 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       const totalPosts = allPosts?.length || 0;
       console.log('Total posts:', totalPosts);
       
-      // Debug: Check all author types
+      // Debug: Check all author types with detailed logging
       const authorTypes = allPosts?.reduce((acc, post) => {
         acc[post.author_type] = (acc[post.author_type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>) || {};
-      console.log('Author types breakdown:', authorTypes);
+      
+      console.log('=== AUTHOR TYPES BREAKDOWN ===');
+      Object.entries(authorTypes).forEach(([type, count]) => {
+        console.log(`${type}: ${count} posts (${((count / totalPosts) * 100).toFixed(1)}%)`);
+      });
+      console.log('==============================');
       
       const personPosts = allPosts?.filter(post => {
         const isPerson = post.author_type === 'Person';
@@ -172,16 +177,15 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       ];
 
       console.log('Final steps with detailed breakdown:', steps);
-      console.log('Debug summary:', {
-        totalPosts,
-        personPosts: personPosts.length,
-        authorTypesFound: Object.keys(authorTypes),
-        step1Passed: step1Passed.length,
-        step2Passed: step2Passed.length,
-        step3Passed: step3Passed.length,
-        unipileScraped: unipileScraped.length,
-        addedToLeads: addedToLeads.length
-      });
+      console.log('=== DIAGNOSTIC SUMMARY ===');
+      console.log(`Total posts: ${totalPosts}`);
+      console.log(`Person posts: ${personPosts.length} (${((personPosts.length / totalPosts) * 100).toFixed(1)}%)`);
+      console.log(`Step 1 passed: ${step1Passed.length}`);
+      console.log(`Step 2 passed: ${step2Passed.length}`);
+      console.log(`Step 3 passed: ${step3Passed.length}`);
+      console.log(`Unipile scraped: ${unipileScraped.length}`);
+      console.log(`Added to leads: ${addedToLeads.length}`);
+      console.log('===========================');
       
       setMetrics({ steps, timeFilter });
 
