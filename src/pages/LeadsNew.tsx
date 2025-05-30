@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeadsNew } from '@/hooks/useLeadsNew';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -9,23 +10,6 @@ import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
-import { Tables } from '@/integrations/supabase/types';
-
-type Lead = Tables<'leads'>;
-
-interface LinkedInPost {
-  id: string;
-  text: string;
-  title?: string;
-  url: string;
-  posted_at_iso?: string;
-  posted_at_timestamp?: number;
-  openai_step2_localisation?: string;
-  openai_step3_categorie?: string;
-  openai_step3_postes_selectionnes?: string[];
-  openai_step3_justification?: string;
-  created_at: string;
-}
 
 const LeadsNew = () => {
   const { 
@@ -102,68 +86,21 @@ const LeadsNew = () => {
     };
   }, [getDefaultView, applyView, setSelectedCategories, setSelectedDateFilter, setSelectedContactFilter]);
 
-  // Convert leads to the format expected by existing components
-  const convertedLeads: Lead[] = filteredLeads.map(lead => ({
-    id: lead.id,
-    created_at: lead.created_at,
-    updated_at: lead.updated_at,
-    author_profile_id: lead.author_profile_id,
-    author_name: lead.author_name || '',
-    author_headline: lead.author_headline || '',
-    author_profile_url: lead.author_profile_url || '',
-    company_name: lead.company_name || '',
-    company_position: lead.company_position || '',
-    company_linkedin_id: lead.company_linkedin_id || '',
-    text: lead.latest_post?.text || '',
-    title: lead.latest_post?.title || '',
-    url: lead.latest_post?.url || '',
-    posted_at_iso: lead.latest_post?.posted_at_iso || lead.created_at,
-    posted_at_timestamp: lead.latest_post?.posted_at_timestamp || new Date(lead.created_at).getTime(),
-    openai_step2_localisation: lead.latest_post?.openai_step2_localisation || '',
-    openai_step3_categorie: lead.latest_post?.openai_step3_categorie || '',
-    openai_step3_postes_selectionnes: lead.latest_post?.openai_step3_postes_selectionnes || [],
-    openai_step3_justification: lead.latest_post?.openai_step3_justification || '',
-    unipile_company: lead.company_name || '',
-    unipile_position: lead.company_position || '',
-    unipile_company_linkedin_id: lead.company_linkedin_id || '',
-    phone_number: lead.phone_number,
-    phone_retrieved_at: lead.phone_retrieved_at,
-    approach_message: lead.approach_message,
-    approach_message_generated: lead.approach_message_generated,
-    approach_message_generated_at: lead.approach_message_generated_at,
-    is_client_lead: lead.is_client_lead,
-    matched_client_name: lead.matched_client_name,
-    matched_client_id: lead.matched_client_id,
-    last_contact_at: lead.last_contact_at,
-    linkedin_message_sent_at: lead.linkedin_message_sent_at,
-    phone_contact_status: lead.phone_contact_status,
-    phone_contact_at: lead.phone_contact_at,
-    phone_contact_by_user_id: lead.phone_contact_by_user_id,
-    phone_contact_by_user_name: lead.phone_contact_by_user_name,
-    last_updated_at: lead.last_updated_at,
-    latest_post_date: lead.latest_post?.posted_at_iso || null,
-    latest_post_url: lead.latest_post?.url || null,
-    latest_post_urn: null, // This field doesn't exist in the new structure
-    processing_status: lead.processing_status || 'completed',
-    unipile_profile_scraped: null, // Add missing fields with default values
-    unipile_profile_scraped_at: null
-  }));
-
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onToggleSidebar: toggleSidebar,
     onNextItem: () => {
-      if (selectedLeadIndex !== null && selectedLeadIndex < convertedLeads.length - 1) {
+      if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
         setSelectedLeadIndex(selectedLeadIndex + 1);
-      } else if (convertedLeads.length > 0) {
+      } else if (filteredLeads.length > 0) {
         setSelectedLeadIndex(0);
       }
     },
     onPreviousItem: () => {
       if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
         setSelectedLeadIndex(selectedLeadIndex - 1);
-      } else if (convertedLeads.length > 0) {
-        setSelectedLeadIndex(convertedLeads.length - 1);
+      } else if (filteredLeads.length > 0) {
+        setSelectedLeadIndex(filteredLeads.length - 1);
       }
     },
     enabled: true
@@ -172,17 +109,17 @@ const LeadsNew = () => {
   // Touch gestures
   useTouchGestures({
     onSwipeLeft: () => {
-      if (selectedLeadIndex !== null && selectedLeadIndex < convertedLeads.length - 1) {
+      if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
         setSelectedLeadIndex(selectedLeadIndex + 1);
-      } else if (convertedLeads.length > 0) {
+      } else if (filteredLeads.length > 0) {
         setSelectedLeadIndex(0);
       }
     },
     onSwipeRight: () => {
       if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
         setSelectedLeadIndex(selectedLeadIndex - 1);
-      } else if (convertedLeads.length > 0) {
-        setSelectedLeadIndex(convertedLeads.length - 1);
+      } else if (filteredLeads.length > 0) {
+        setSelectedLeadIndex(filteredLeads.length - 1);
       }
     },
     enabled: true
@@ -254,7 +191,7 @@ const LeadsNew = () => {
       <div className="bg-white">
         {viewMode === 'table' ? (
           <DraggableTable 
-            leads={convertedLeads} 
+            leads={filteredLeads} 
             visibleColumns={visibleColumns}
             onActionCompleted={handleActionCompleted}
             selectedLeadIndex={selectedLeadIndex}
@@ -263,7 +200,7 @@ const LeadsNew = () => {
         ) : (
           <div className="px-6 pb-6">
             <CardView 
-              leads={convertedLeads}
+              leads={filteredLeads}
               onActionCompleted={handleActionCompleted}
               selectedLeadIndex={selectedLeadIndex}
               onLeadSelect={setSelectedLeadIndex}

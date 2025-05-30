@@ -1,38 +1,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 
-interface Lead {
-  id: string;
-  author_profile_id: string;
-  author_name: string;
-  author_headline: string;
-  author_profile_url: string;
-  company_name: string;
-  company_position: string;
-  company_linkedin_id: string;
-  phone_number?: string | null;
-  phone_retrieved_at?: string | null;
-  approach_message?: string | null;
-  approach_message_generated?: boolean | null;
-  approach_message_generated_at?: string | null;
-  is_client_lead?: boolean | null;
-  matched_client_name?: string | null;
-  matched_client_id?: string | null;
-  last_contact_at?: string | null;
-  linkedin_message_sent_at?: string | null;
-  phone_contact_status?: string | null;
-  phone_contact_at?: string | null;
-  phone_contact_by_user_id?: string | null;
-  phone_contact_by_user_name?: string | null;
-  created_at: string;
-  updated_at: string;
-  last_updated_at?: string | null;
-  // Informations des posts associés
-  posts?: LinkedInPost[];
-  // Post le plus récent pour l'affichage
-  latest_post?: LinkedInPost;
-}
+type Lead = Tables<'leads'>;
 
 interface LinkedInPost {
   id: string;
@@ -68,9 +39,7 @@ export const useLeadsNew = () => {
   useEffect(() => {
     // Extract unique categories from leads
     const categories = [...new Set(
-      leads.flatMap(lead => 
-        lead.posts?.map(post => post.openai_step3_categorie).filter(Boolean) || []
-      ).filter(category => category && category !== 'Autre')
+      leads.map(lead => lead.openai_step3_categorie).filter(Boolean).filter(category => category && category !== 'Autre')
     )];
     setAvailableCategories(categories);
     
@@ -82,27 +51,11 @@ export const useLeadsNew = () => {
 
   const fetchLeads = async () => {
     try {
-      console.log('🔍 Fetching leads with associated posts...');
+      console.log('🔍 Fetching leads...');
       
-      // Fetch leads avec leurs posts associés
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
-        .select(`
-          *,
-          posts:linkedin_posts!lead_id(
-            id,
-            text,
-            title,
-            url,
-            posted_at_iso,
-            posted_at_timestamp,
-            openai_step2_localisation,
-            openai_step3_categorie,
-            openai_step3_postes_selectionnes,
-            openai_step3_justification,
-            created_at
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (leadsError) {
@@ -111,20 +64,7 @@ export const useLeadsNew = () => {
       }
       
       console.log(`📋 Fetched ${leadsData?.length || 0} leads`);
-      
-      // Enrichir chaque lead avec le post le plus récent pour l'affichage
-      const enrichedLeads = leadsData?.map(lead => ({
-        ...lead,
-        latest_post: lead.posts?.length > 0 
-          ? lead.posts.sort((a: LinkedInPost, b: LinkedInPost) => {
-              const dateA = a.posted_at_timestamp || new Date(a.posted_at_iso || a.created_at).getTime();
-              const dateB = b.posted_at_timestamp || new Date(b.posted_at_iso || b.created_at).getTime();
-              return dateB - dateA;
-            })[0]
-          : null
-      })) || [];
-      
-      setLeads(enrichedLeads);
+      setLeads(leadsData || []);
     } catch (error) {
       console.error('💥 Error fetching leads:', error);
     } finally {
@@ -174,27 +114,23 @@ export const useLeadsNew = () => {
     if (selectedCategories.length > 0) {
       const beforeCategoryFilter = filtered.length;
       filtered = filtered.filter(lead => 
-        lead.posts?.some(post => 
-          selectedCategories.includes(post.openai_step3_categorie || '')
-        )
+        selectedCategories.includes(lead.openai_step3_categorie || '')
       );
       console.log(`🏷️ Category filter: ${beforeCategoryFilter} → ${filtered.length} leads`);
     }
 
-    // Filter by date (using latest post date)
+    // Filter by date
     const dateCutoff = getDateFilterCutoff(selectedDateFilter);
     if (dateCutoff) {
       const beforeDateFilter = filtered.length;
       filtered = filtered.filter(lead => {
-        if (!lead.latest_post) return false;
-        
         let leadDate: Date;
-        if (lead.latest_post.posted_at_timestamp) {
-          leadDate = new Date(lead.latest_post.posted_at_timestamp);
-        } else if (lead.latest_post.posted_at_iso) {
-          leadDate = new Date(lead.latest_post.posted_at_iso);
+        if (lead.posted_at_timestamp) {
+          leadDate = new Date(lead.posted_at_timestamp);
+        } else if (lead.posted_at_iso) {
+          leadDate = new Date(lead.posted_at_iso);
         } else {
-          leadDate = new Date(lead.latest_post.created_at);
+          leadDate = new Date(lead.created_at);
         }
         return leadDate >= dateCutoff;
       });
@@ -217,13 +153,13 @@ export const useLeadsNew = () => {
       console.log(`📞 Contact filter (${selectedContactFilter}): ${beforeContactFilter} → ${filtered.length} leads`);
     }
 
-    // Sort filtered leads by latest post date
+    // Sort filtered leads by date
     filtered.sort((a, b) => {
-      const dateA = a.latest_post?.posted_at_timestamp || 
-                   (a.latest_post?.posted_at_iso ? new Date(a.latest_post.posted_at_iso).getTime() : 0) ||
+      const dateA = a.posted_at_timestamp || 
+                   (a.posted_at_iso ? new Date(a.posted_at_iso).getTime() : 0) ||
                    new Date(a.created_at).getTime();
-      const dateB = b.latest_post?.posted_at_timestamp || 
-                   (b.latest_post?.posted_at_iso ? new Date(b.latest_post.posted_at_iso).getTime() : 0) ||
+      const dateB = b.posted_at_timestamp || 
+                   (b.posted_at_iso ? new Date(b.posted_at_iso).getTime() : 0) ||
                    new Date(b.created_at).getTime();
       return dateB - dateA;
     });
