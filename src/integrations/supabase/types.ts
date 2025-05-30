@@ -265,13 +265,26 @@ export type Database = {
           linkedin_message_sent_at: string | null
           matched_client_id: string | null
           matched_client_name: string | null
+          openai_step2_localisation: string | null
+          openai_step3_categorie: string | null
+          openai_step3_justification: string | null
+          openai_step3_postes_selectionnes: string[] | null
           phone_contact_at: string | null
           phone_contact_by_user_id: string | null
           phone_contact_by_user_name: string | null
           phone_contact_status: string | null
           phone_number: string | null
           phone_retrieved_at: string | null
+          posted_at_iso: string | null
+          posted_at_timestamp: number | null
+          processing_status: string | null
+          text: string | null
+          title: string | null
+          unipile_company: string | null
+          unipile_company_linkedin_id: string | null
+          unipile_position: string | null
           updated_at: string
+          url: string | null
         }
         Insert: {
           approach_message?: string | null
@@ -295,13 +308,26 @@ export type Database = {
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
+          openai_step2_localisation?: string | null
+          openai_step3_categorie?: string | null
+          openai_step3_justification?: string | null
+          openai_step3_postes_selectionnes?: string[] | null
           phone_contact_at?: string | null
           phone_contact_by_user_id?: string | null
           phone_contact_by_user_name?: string | null
           phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
+          posted_at_iso?: string | null
+          posted_at_timestamp?: number | null
+          processing_status?: string | null
+          text?: string | null
+          title?: string | null
+          unipile_company?: string | null
+          unipile_company_linkedin_id?: string | null
+          unipile_position?: string | null
           updated_at?: string
+          url?: string | null
         }
         Update: {
           approach_message?: string | null
@@ -325,13 +351,26 @@ export type Database = {
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
+          openai_step2_localisation?: string | null
+          openai_step3_categorie?: string | null
+          openai_step3_justification?: string | null
+          openai_step3_postes_selectionnes?: string[] | null
           phone_contact_at?: string | null
           phone_contact_by_user_id?: string | null
           phone_contact_by_user_name?: string | null
           phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
+          posted_at_iso?: string | null
+          posted_at_timestamp?: number | null
+          processing_status?: string | null
+          text?: string | null
+          title?: string | null
+          unipile_company?: string | null
+          unipile_company_linkedin_id?: string | null
+          unipile_position?: string | null
           updated_at?: string
+          url?: string | null
         }
         Relationships: [
           {

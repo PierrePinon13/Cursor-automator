@@ -106,39 +106,15 @@ const Leads = () => {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onToggleSidebar: toggleSidebar,
-    onNextItem: () => {
-      if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
-        setSelectedLeadIndex(selectedLeadIndex + 1);
-      } else if (filteredLeads.length > 0) {
-        setSelectedLeadIndex(0);
-      }
-    },
-    onPreviousItem: () => {
-      if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
-        setSelectedLeadIndex(selectedLeadIndex - 1);
-      } else if (filteredLeads.length > 0) {
-        setSelectedLeadIndex(filteredLeads.length - 1);
-      }
-    },
+    onNextItem: handleNavigateToNextLead,
+    onPreviousItem: handleNavigateToPreviousLead,
     enabled: true
   });
 
   // Touch gestures
   useTouchGestures({
-    onSwipeLeft: () => {
-      if (selectedLeadIndex !== null && selectedLeadIndex < filteredLeads.length - 1) {
-        setSelectedLeadIndex(selectedLeadIndex + 1);
-      } else if (filteredLeads.length > 0) {
-        setSelectedLeadIndex(0);
-      }
-    },
-    onSwipeRight: () => {
-      if (selectedLeadIndex !== null && selectedLeadIndex > 0) {
-        setSelectedLeadIndex(selectedLeadIndex - 1);
-      } else if (filteredLeads.length > 0) {
-        setSelectedLeadIndex(filteredLeads.length - 1);
-      }
-    },
+    onSwipeLeft: handleNavigateToNextLead,
+    onSwipeRight: handleNavigateToPreviousLead,
     enabled: true
   });
 

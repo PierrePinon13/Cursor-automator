@@ -46,19 +46,50 @@ export async function createOrUpdateLead(
     }
 
     const leadData = {
+      // Informations du profil LinkedIn
       author_profile_id: post.author_profile_id,
       author_name: post.author_name,
       author_headline: post.author_headline,
       author_profile_url: post.author_profile_url,
+      
+      // Informations de la publication
+      text: post.text,
+      title: post.title,
+      url: post.url,
+      posted_at_iso: post.posted_at_iso,
+      posted_at_timestamp: post.posted_at_timestamp,
+      
+      // Informations OpenAI
+      openai_step2_localisation: post.openai_step2_localisation,
+      openai_step3_categorie: post.openai_step3_categorie,
+      openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes,
+      openai_step3_justification: post.openai_step3_justification,
+      
+      // Informations Unipile (entreprise)
       company_name: scrapingResult.company,
       company_position: scrapingResult.position,
       company_linkedin_id: scrapingResult.company_id,
+      unipile_company: scrapingResult.company,
+      unipile_position: scrapingResult.position,
+      unipile_company_linkedin_id: scrapingResult.company_id,
+      
+      // Message d'approche
       approach_message: approachMessage,
       approach_message_generated: !!approachMessage,
       approach_message_generated_at: approachMessage ? new Date().toISOString() : null,
+      
+      // Correspondance client
       is_client_lead: clientMatch.isClientLead,
       matched_client_id: clientMatch.clientId,
       matched_client_name: clientMatch.clientName,
+      
+      // Informations de post récent
+      latest_post_date: post.posted_at_iso,
+      latest_post_url: post.url,
+      latest_post_urn: post.urn,
+      
+      // Métadonnées
+      processing_status: 'completed',
       last_updated_at: new Date().toISOString()
     };
 
