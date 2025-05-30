@@ -1,3 +1,4 @@
+
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -10,7 +11,7 @@ import {
 } from '@/components/ui/sidebar';
 import { BarChart3, Users, User, Briefcase, Building2, UserCheck, Settings, History } from 'lucide-react';
 
-const Admin = () => {
+const AppSidebar = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,4 +89,4 @@ const Admin = () => {
   );
 };
 
-export { Admin as AppSidebar };
+export { AppSidebar };
