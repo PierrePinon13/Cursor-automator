@@ -142,9 +142,9 @@ const LeadsNew = () => {
     phone_contact_by_user_id: lead.phone_contact_by_user_id,
     phone_contact_by_user_name: lead.phone_contact_by_user_name,
     last_updated_at: lead.last_updated_at,
-    latest_post_date: lead.latest_post_date,
-    latest_post_url: lead.latest_post_url,
-    latest_post_urn: lead.latest_post_urn,
+    latest_post_date: lead.latest_post?.posted_at_iso || null,
+    latest_post_url: lead.latest_post?.url || null,
+    latest_post_urn: null, // This field doesn't exist in the new structure
     processing_status: lead.processing_status
   }));
 
