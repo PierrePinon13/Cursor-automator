@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeadsNew } from '@/hooks/useLeadsNew';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -145,7 +144,7 @@ const LeadsNew = () => {
     latest_post_date: lead.latest_post?.posted_at_iso || null,
     latest_post_url: lead.latest_post?.url || null,
     latest_post_urn: null, // This field doesn't exist in the new structure
-    processing_status: lead.processing_status
+    processing_status: lead.processing_status || 'completed'
   }));
 
   // Keyboard shortcuts
