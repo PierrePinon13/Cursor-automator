@@ -147,10 +147,10 @@ const LeadsNew = () => {
   // Filter leads based on search query
   const searchFilteredLeads = searchQuery 
     ? filteredLeads.filter(lead => 
-        lead.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.author_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.location?.toLowerCase().includes(searchQuery.toLowerCase())
+        lead.unipile_company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.openai_step2_localisation?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : filteredLeads;
 
