@@ -13,6 +13,13 @@ interface LinkedInMessage {
   unipile_response?: any;
 }
 
+interface ActivityData {
+  message_content?: string;
+  message_type?: 'direct_message' | 'connection_request';
+  network_distance?: string;
+  unipile_response?: any;
+}
+
 export const useLinkedInMessageHistory = (leadId: string) => {
   const [messages, setMessages] = useState<LinkedInMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,19 +100,23 @@ export const useLinkedInMessageHistory = (leadId: string) => {
         console.log(`📝 Activity ${index + 1}:`, {
           id: activity.id,
           performed_by_user_name: activity.performed_by_user_name,
-          message_preview: activity.activity_data?.message_content?.substring(0, 50) + '...',
+          message_preview: activity.activity_data && typeof activity.activity_data === 'object' && activity.activity_data !== null ? 
+            (activity.activity_data as ActivityData).message_content?.substring(0, 50) + '...' : 'No message content',
           performed_at: activity.performed_at
         });
         
+        const activityData = activity.activity_data && typeof activity.activity_data === 'object' && activity.activity_data !== null ? 
+          activity.activity_data as ActivityData : {};
+        
         return {
           id: activity.id,
-          message_content: activity.activity_data?.message_content || '',
-          message_type: activity.activity_data?.message_type as 'direct_message' | 'connection_request' || 'direct_message',
+          message_content: activityData.message_content || '',
+          message_type: activityData.message_type as 'direct_message' | 'connection_request' || 'direct_message',
           sent_at: activity.performed_at,
           sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu',
           sender_email: '',
-          network_distance: activity.activity_data?.network_distance,
-          unipile_response: activity.activity_data?.unipile_response
+          network_distance: activityData.network_distance,
+          unipile_response: activityData.unipile_response
         };
       });
 
