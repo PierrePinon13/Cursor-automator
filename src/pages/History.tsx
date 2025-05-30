@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
+import ActivityDetail from '@/components/history/ActivityDetail';
 import HistoryFilters from '@/components/history/HistoryFilters';
-import HistoryStats from '@/components/history/HistoryStats';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useActivities } from '@/hooks/useActivities';
@@ -105,27 +105,24 @@ const History = () => {
           <UserActionsDropdown />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Colonne de gauche : Filtres et Stats */}
-          <div className="lg:col-span-1 space-y-4">
-            <HistoryFilters
-              filterBy={filterBy}
-              onFilterByChange={setFilterBy}
-              activityTypes={activityTypes}
-              onActivityTypesChange={setActivityTypes}
-              timeFilter={timeFilter}
-              onTimeFilterChange={setTimeFilter}
-              customDateRange={customDateRange}
-              onCustomDateRangeChange={setCustomDateRange}
-              activitiesCount={transformedActivities.length}
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-180px)]">
+          {/* Colonne de gauche : Filtres et Liste des activités */}
+          <div className="flex flex-col bg-white rounded-lg border">
+            <div className="p-4 border-b">
+              <HistoryFilters
+                filterBy={filterBy}
+                onFilterByChange={setFilterBy}
+                activityTypes={activityTypes}
+                onActivityTypesChange={setActivityTypes}
+                timeFilter={timeFilter}
+                onTimeFilterChange={setTimeFilter}
+                customDateRange={customDateRange}
+                onCustomDateRangeChange={setCustomDateRange}
+                activitiesCount={transformedActivities.length}
+              />
+            </div>
             
-            <HistoryStats activities={transformedActivities} />
-          </div>
-
-          {/* Colonne de droite : Liste des activités */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg border">
+            <div className="flex-1 overflow-hidden">
               {loading ? (
                 <div className="flex items-center justify-center p-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -138,6 +135,11 @@ const History = () => {
                 />
               )}
             </div>
+          </div>
+
+          {/* Colonne de droite : Détail de l'activité */}
+          <div className="bg-white rounded-lg border">
+            <ActivityDetail activity={selectedActivity} />
           </div>
         </div>
       </div>

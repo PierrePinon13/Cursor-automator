@@ -1,7 +1,8 @@
 
-import React from 'react';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { User, Linkedin, Phone, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { User, Linkedin, Phone, Clock, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HistoryFiltersProps {
@@ -25,6 +26,31 @@ const HistoryFilters = ({
   onTimeFilterChange,
   activitiesCount = 0
 }: HistoryFiltersProps) => {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [activityMenuOpen, setActivityMenuOpen] = useState(false);
+  const [timeMenuOpen, setTimeMenuOpen] = useState(false);
+
+  const timeFilterOptions = [
+    { value: '1h', label: '1h' },
+    { value: 'today', label: "Aujourd'hui" },
+    { value: 'yesterday', label: 'Hier' },
+    { value: 'this_week', label: 'Cette semaine' },
+    { value: 'last_week', label: 'Semaine dernière' },
+    { value: 'this_month', label: 'Ce mois-ci' },
+    { value: 'last_month', label: 'Mois dernier' },
+    { value: 'all', label: 'Toutes' }
+  ];
+
+  const getCurrentTimeLabel = () => {
+    const option = timeFilterOptions.find(opt => opt.value === timeFilter);
+    return option ? option.label : 'Toutes';
+  };
+
+  const handleUserFilterClick = () => {
+    onFilterByChange(filterBy === 'all' ? 'mine' : 'all');
+    setUserMenuOpen(false);
+  };
+
   const handleActivityTypeToggle = (type: string) => {
     if (activityTypes.includes(type)) {
       onActivityTypesChange(activityTypes.filter(t => t !== type));
@@ -33,89 +59,150 @@ const HistoryFilters = ({
     }
   };
 
-  const handleTimeFilterClick = () => {
-    // Cycle through time filters
-    const timeFilters = ['all', 'today', 'this_week', 'this_month'];
-    const currentIndex = timeFilters.indexOf(timeFilter);
-    const nextIndex = (currentIndex + 1) % timeFilters.length;
-    onTimeFilterChange(timeFilters[nextIndex]);
-  };
-
   return (
-    <div className="bg-white p-4 rounded-lg border space-y-4">
-      {/* Compteur d'activités */}
-      <div className="text-center text-sm text-gray-600 mb-4">
-        {activitiesCount} activités sur la période
-      </div>
-
-      {/* Filtres avec boutons à icônes */}
-      <div className="flex flex-col gap-3">
-        {/* Filtre utilisateur */}
-        <div className="flex justify-center">
-          <button
-            onClick={() => onFilterByChange(filterBy === 'all' ? 'mine' : 'all')}
+    <div className="flex items-center gap-2 mb-4">
+      {/* Bouton utilisateur */}
+      <Popover open={userMenuOpen} onOpenChange={setUserMenuOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
             className={cn(
-              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
+              'h-10 px-3 border-2 flex items-center gap-2',
               filterBy === 'mine' 
                 ? 'bg-blue-50 border-blue-500 text-blue-700' 
-                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+                : 'bg-white border-gray-300 text-gray-700'
             )}
-            title={filterBy === 'mine' ? 'Mes activités uniquement' : 'Toutes les activités'}
           >
-            <User className="h-5 w-5" />
-          </button>
-        </div>
+            <User className="h-4 w-4" />
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full justify-start text-sm',
+              filterBy === 'all' && 'bg-gray-100'
+            )}
+            onClick={() => {
+              onFilterByChange('all');
+              setUserMenuOpen(false);
+            }}
+          >
+            Toutes les activités
+          </Button>
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full justify-start text-sm',
+              filterBy === 'mine' && 'bg-gray-100'
+            )}
+            onClick={() => {
+              onFilterByChange('mine');
+              setUserMenuOpen(false);
+            }}
+          >
+            Mes activités
+          </Button>
+        </PopoverContent>
+      </Popover>
 
-        {/* Filtres types d'activité */}
-        <div className="flex gap-2 justify-center">
-          <button
+      {/* Bouton types d'activité */}
+      <Popover open={activityMenuOpen} onOpenChange={setActivityMenuOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              'h-10 px-3 border-2 flex items-center gap-2',
+              (activityTypes.includes('linkedin_message') || activityTypes.includes('phone_call'))
+                ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                : 'bg-white border-gray-300 text-gray-700'
+            )}
+          >
+            <div className="flex items-center gap-1">
+              {activityTypes.includes('linkedin_message') && (
+                <Linkedin className="h-4 w-4" />
+              )}
+              {activityTypes.includes('phone_call') && (
+                <Phone className="h-4 w-4" />
+              )}
+              {!activityTypes.includes('linkedin_message') && !activityTypes.includes('phone_call') && (
+                <>
+                  <Linkedin className="h-4 w-4" />
+                  <Phone className="h-4 w-4" />
+                </>
+              )}
+            </div>
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full justify-start text-sm flex items-center gap-2',
+              activityTypes.includes('linkedin_message') && 'bg-blue-50'
+            )}
             onClick={() => handleActivityTypeToggle('linkedin_message')}
-            className={cn(
-              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
-              activityTypes.includes('linkedin_message')
-                ? 'bg-blue-50 border-blue-500 text-blue-700'
-                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
-            )}
-            title="Messages LinkedIn"
           >
-            <Linkedin className="h-5 w-5" />
-          </button>
-
-          <button
+            <Linkedin className="h-4 w-4" />
+            Messages LinkedIn
+          </Button>
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full justify-start text-sm flex items-center gap-2',
+              activityTypes.includes('phone_call') && 'bg-blue-50'
+            )}
             onClick={() => handleActivityTypeToggle('phone_call')}
-            className={cn(
-              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
-              activityTypes.includes('phone_call')
-                ? 'bg-green-50 border-green-500 text-green-700'
-                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
-            )}
-            title="Appels téléphoniques"
           >
-            <Phone className="h-5 w-5" />
-          </button>
-        </div>
+            <Phone className="h-4 w-4" />
+            Appels téléphone
+          </Button>
+        </PopoverContent>
+      </Popover>
 
-        {/* Filtre temporel */}
-        <div className="flex justify-center">
-          <button
-            onClick={handleTimeFilterClick}
+      {/* Bouton période */}
+      <Popover open={timeMenuOpen} onOpenChange={setTimeMenuOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
             className={cn(
-              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
+              'h-10 px-3 border-2 flex items-center gap-2',
               timeFilter !== 'all'
                 ? 'bg-orange-50 border-orange-500 text-orange-700'
-                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+                : 'bg-white border-gray-300 text-gray-700'
             )}
-            title={`Période: ${
-              timeFilter === 'all' ? 'Toutes' :
-              timeFilter === 'today' ? 'Aujourd\'hui' :
-              timeFilter === 'this_week' ? 'Cette semaine' :
-              timeFilter === 'this_month' ? 'Ce mois' : timeFilter
-            }`}
           >
-            <Clock className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+            <Clock className="h-4 w-4" />
+            <span className="text-sm">{getCurrentTimeLabel()}</span>
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
+          {timeFilterOptions.map((option) => (
+            <Button
+              key={option.value}
+              variant="ghost"
+              className={cn(
+                'w-full justify-start text-sm',
+                timeFilter === option.value && 'bg-gray-100'
+              )}
+              onClick={() => {
+                onTimeFilterChange(option.value);
+                setTimeMenuOpen(false);
+              }}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </PopoverContent>
+      </Popover>
+
+      {/* Compteur d'activités */}
+      <span className="text-sm text-gray-600 ml-4">
+        {activitiesCount} activités sur la période
+      </span>
     </div>
   );
 };
