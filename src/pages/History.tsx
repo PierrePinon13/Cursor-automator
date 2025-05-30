@@ -39,7 +39,7 @@ const History = () => {
   // Transformer les données d'activités pour correspondre au format HistoryActivity une seule fois
   const transformedActivities: HistoryActivity[] = useMemo(() => {
     return activities.map((activity) => {
-      const lead = activity.lead || {};
+      const lead = activity.lead;
       const activityData = activity.activity_data || {};
       
       let title = '';
@@ -52,10 +52,10 @@ const History = () => {
           
           if (messageType === 'connection_request') {
             title = 'Demande de connexion LinkedIn';
-            message = `Demande de connexion envoyée à ${lead.author_name || 'Lead inconnu'}${networkDistance}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
+            message = `Demande de connexion envoyée à ${lead?.author_name || 'Lead inconnu'}${networkDistance}${lead?.company_position ? ` - ${lead.company_position}` : ''}`;
           } else {
             title = 'Message LinkedIn';
-            message = `Message direct envoyé à ${lead.author_name || 'Lead inconnu'}${networkDistance}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
+            message = `Message direct envoyé à ${lead?.author_name || 'Lead inconnu'}${networkDistance}${lead?.company_position ? ` - ${lead.company_position}` : ''}`;
           }
           break;
           
@@ -63,7 +63,7 @@ const History = () => {
           const statusText = activity.outcome === 'positive' ? 'positif' : 
                             activity.outcome === 'negative' ? 'négatif' : 'neutre';
           title = `Appel ${statusText}`;
-          message = `Appel ${statusText} avec ${lead.author_name || 'Lead inconnu'}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
+          message = `Appel ${statusText} avec ${lead?.author_name || 'Lead inconnu'}${lead?.company_position ? ` - ${lead.company_position}` : ''}`;
           break;
           
         default:
@@ -77,7 +77,7 @@ const History = () => {
         title,
         message,
         created_at: activity.performed_at,
-        lead_data: lead,
+        lead_data: lead || {},
         sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu',
         message_type: activityData.message_type as 'connection_request' | 'direct_message'
       };
