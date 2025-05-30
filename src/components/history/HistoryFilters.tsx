@@ -126,22 +126,14 @@ const HistoryFilters = ({
 
         {/* Bouton période */}
         <Select value={timeFilter} onValueChange={onTimeFilterChange}>
-          <SelectTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                'h-6 px-2 rounded-md border text-xs scale-75 origin-left w-auto',
-                timeFilter !== 'all'
-                  ? 'bg-blue-100 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-300 text-gray-600'
-              )}
-            >
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                <span>{getTimeFilterLabel()}</span>
-              </div>
-            </Button>
+          <SelectTrigger className={cn(
+            'h-6 px-2 rounded-md border text-xs scale-75 origin-left w-auto flex items-center gap-1',
+            timeFilter !== 'all'
+              ? 'bg-blue-100 border-blue-300 text-blue-700'
+              : 'bg-white border-gray-300 text-gray-600'
+          )}>
+            <Clock className="h-3 w-3" />
+            <span>{getTimeFilterLabel()}</span>
           </SelectTrigger>
           <SelectContent className="bg-white border shadow-lg">
             <SelectItem value="all">Toute période</SelectItem>
