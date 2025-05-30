@@ -1,4 +1,3 @@
-
 import { ProcessingResult } from './types.ts'
 
 export function buildSuccessResponse(
@@ -9,23 +8,43 @@ export function buildSuccessResponse(
   scrapingResult: any,
   clientMatch: any,
   deduplicationResult: any,
-  finalStatus: string
+  finalStatus: string,
+  leadResult?: any // Add lead creation result
 ): ProcessingResult {
   return {
     success: true,
-    message: 'Post processed successfully',
-    postId: postId,
-    isJobPosting: step1Result.recrute_poste === 'oui',
-    meetsLocationCriteria: step2Result.reponse === 'oui',
-    category: step3Result.categorie,
-    selectedPositions: step3Result.postes_selectionnes,
-    company: scrapingResult.company,
-    position: scrapingResult.position,
-    isClientLead: clientMatch.isClientLead,
-    clientName: clientMatch.clientName,
-    deduplication: deduplicationResult,
-    finalStatus: finalStatus
-  }
+    postId,
+    finalStatus,
+    processing: {
+      step1: {
+        recrute_poste: step1Result.recrute_poste,
+        postes: step1Result.postes
+      },
+      step2: {
+        reponse: step2Result.reponse,
+        langue: step2Result.langue,
+        localisation: step2Result.localisation_detectee,
+        raison: step2Result.raison
+      },
+      step3: {
+        categorie: step3Result.categorie,
+        postes_selectionnes: step3Result.postes_selectionnes,
+        justification: step3Result.justification
+      },
+      unipile: {
+        success: scrapingResult.success,
+        company: scrapingResult.company,
+        position: scrapingResult.position,
+        company_id: scrapingResult.company_id
+      },
+      clientMatch: {
+        isClientLead: clientMatch.isClientLead,
+        clientName: clientMatch.clientName
+      },
+      deduplication: deduplicationResult,
+      leadCreation: leadResult // Add lead creation result
+    }
+  };
 }
 
 export function buildNotJobPostingResponse(postId: string): ProcessingResult {

@@ -198,6 +198,98 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          approach_message: string | null
+          approach_message_generated: boolean | null
+          approach_message_generated_at: string | null
+          author_headline: string | null
+          author_name: string | null
+          author_profile_id: string
+          author_profile_url: string | null
+          company_linkedin_id: string | null
+          company_name: string | null
+          company_position: string | null
+          created_at: string
+          id: string
+          is_client_lead: boolean | null
+          last_contact_at: string | null
+          last_updated_at: string | null
+          linkedin_message_sent_at: string | null
+          matched_client_id: string | null
+          matched_client_name: string | null
+          phone_contact_at: string | null
+          phone_contact_by_user_id: string | null
+          phone_contact_by_user_name: string | null
+          phone_contact_status: string | null
+          phone_number: string | null
+          phone_retrieved_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          approach_message?: string | null
+          approach_message_generated?: boolean | null
+          approach_message_generated_at?: string | null
+          author_headline?: string | null
+          author_name?: string | null
+          author_profile_id: string
+          author_profile_url?: string | null
+          company_linkedin_id?: string | null
+          company_name?: string | null
+          company_position?: string | null
+          created_at?: string
+          id?: string
+          is_client_lead?: boolean | null
+          last_contact_at?: string | null
+          last_updated_at?: string | null
+          linkedin_message_sent_at?: string | null
+          matched_client_id?: string | null
+          matched_client_name?: string | null
+          phone_contact_at?: string | null
+          phone_contact_by_user_id?: string | null
+          phone_contact_by_user_name?: string | null
+          phone_contact_status?: string | null
+          phone_number?: string | null
+          phone_retrieved_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approach_message?: string | null
+          approach_message_generated?: boolean | null
+          approach_message_generated_at?: string | null
+          author_headline?: string | null
+          author_name?: string | null
+          author_profile_id?: string
+          author_profile_url?: string | null
+          company_linkedin_id?: string | null
+          company_name?: string | null
+          company_position?: string | null
+          created_at?: string
+          id?: string
+          is_client_lead?: boolean | null
+          last_contact_at?: string | null
+          last_updated_at?: string | null
+          linkedin_message_sent_at?: string | null
+          matched_client_id?: string | null
+          matched_client_name?: string | null
+          phone_contact_at?: string | null
+          phone_contact_by_user_id?: string | null
+          phone_contact_by_user_name?: string | null
+          phone_contact_status?: string | null
+          phone_number?: string | null
+          phone_retrieved_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_matched_client_id_fkey"
+            columns: ["matched_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_connections: {
         Row: {
           account_id: string | null
@@ -330,6 +422,7 @@ export type Database = {
           last_contact_at: string | null
           last_retry_at: string | null
           last_updated_at: string | null
+          lead_id: string | null
           linkedin_message_sent_at: string | null
           matched_client_id: string | null
           matched_client_name: string | null
@@ -385,6 +478,7 @@ export type Database = {
           last_contact_at?: string | null
           last_retry_at?: string | null
           last_updated_at?: string | null
+          lead_id?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
@@ -440,6 +534,7 @@ export type Database = {
           last_contact_at?: string | null
           last_retry_at?: string | null
           last_updated_at?: string | null
+          lead_id?: string | null
           linkedin_message_sent_at?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
@@ -479,6 +574,13 @@ export type Database = {
           urn?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "linkedin_posts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "linkedin_posts_phone_contact_by_user_id_fkey"
             columns: ["phone_contact_by_user_id"]

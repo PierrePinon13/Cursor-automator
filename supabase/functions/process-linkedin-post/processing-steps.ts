@@ -1,4 +1,3 @@
-
 import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts'
 import { scrapLinkedInProfile } from './unipile-scraper.ts'
 import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage } from './database-operations.ts'
@@ -6,6 +5,7 @@ import { checkIfLeadIsFromClient } from './client-matching.ts'
 import { generateApproachMessageWithRetry } from './message-generation.ts'
 import { handleLeadDeduplication } from './lead-deduplication.ts'
 import { ProcessingContext } from './types.ts'
+import { createOrUpdateLead } from './lead-creation.ts'
 
 export async function executeOpenAIStep1(context: ProcessingContext) {
   console.log('Executing OpenAI Step 1: Recruitment detection analysis')
@@ -93,4 +93,37 @@ export async function executeLeadDeduplication(context: ProcessingContext) {
   const deduplicationResult = await handleLeadDeduplication(context.supabaseClient, updatedPost)
   console.log('Deduplication result:', deduplicationResult)
   return deduplicationResult
+}
+
+export async function executeLeadCreation(
+  context: ProcessingContext,
+  step3Result: OpenAIStep3Result,
+  scrapingResult: UnipileScrapingResult,
+  clientMatch: ClientMatchResult,
+  approachMessage?: string
+): Promise<any> {
+  console.log('Executing Lead Creation');
+  
+  try {
+    const { createOrUpdateLead } = await import('./lead-creation.ts');
+    
+    const leadResult = await createOrUpdateLead(
+      context.supabaseClient,
+      context.post,
+      scrapingResult,
+      clientMatch,
+      approachMessage
+    );
+
+    console.log('Lead creation result:', leadResult);
+    return leadResult;
+
+  } catch (error: any) {
+    console.error('Error in lead creation step:', error);
+    return {
+      success: false,
+      action: 'error',
+      error: error.message || 'Failed to create/update lead'
+    };
+  }
 }

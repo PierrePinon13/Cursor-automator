@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { updateProcessingStatus, fetchPost } from './database-operations.ts'
@@ -10,7 +9,8 @@ import {
   executeUnipileScraping,
   executeClientMatching,
   executeMessageGeneration,
-  executeLeadDeduplication
+  executeLeadDeduplication,
+  executeLeadCreation
 } from './processing-steps.ts'
 import { buildSuccessResponse, buildNotJobPostingResponse, buildFilteredOutResponse } from './response-builder.ts'
 import { ProcessingContext } from './types.ts'
@@ -136,12 +136,24 @@ serve(async (req) => {
     // Step 6: Generate approach message for non-client leads
     await executeMessageGeneration(context, step3Response.result, step2Response.result, clientMatch)
 
-    // Step 7: Handle lead deduplication
+    // Step 7: Create or update lead
+    const leadResult = await executeLeadCreation(
+      context, 
+      step3Response.result, 
+      scrapingResult, 
+      clientMatch,
+      // Pass approach message only if it was generated successfully
+      context.post.approach_message
+    );
+
+    // Step 8: Handle lead deduplication
     const deduplicationResult = await executeLeadDeduplication(context)
 
-    // Determine final status based on deduplication
+    // Determine final status based on both lead creation and deduplication
     let finalStatus = 'completed'
-    if (deduplicationResult.action === 'error') {
+    if (leadResult.action === 'error') {
+      finalStatus = 'lead_creation_error'
+    } else if (deduplicationResult.action === 'error') {
       finalStatus = 'deduplication_error'
     } else if (deduplicationResult.isExisting) {
       finalStatus = 'duplicate'
@@ -165,7 +177,8 @@ serve(async (req) => {
       scrapingResult,
       clientMatch,
       deduplicationResult,
-      finalStatus
+      finalStatus,
+      leadResult // Add lead creation result
     )
 
     return new Response(JSON.stringify(successResponse), { 
