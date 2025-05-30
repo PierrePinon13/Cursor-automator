@@ -120,9 +120,9 @@ const History = () => {
           <UserActionsDropdown />
         </div>
 
-        <div className="flex gap-4 h-[calc(100vh-180px)]">
+        <div className="flex h-[calc(100vh-180px)]">
           {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
-          <div className="w-1/4 bg-white rounded-lg border flex flex-col">
+          <div className="w-1/4 bg-white border-r flex flex-col">
             <div className="p-4 border-b">
               <HistoryFilters
                 filterBy={filterBy}
@@ -161,7 +161,7 @@ const History = () => {
           </div>
 
           {/* Colonne de droite : Détail de l'activité - 75% de largeur */}
-          <div className="w-3/4 bg-white rounded-lg border">
+          <div className="w-3/4 bg-white">
             {selectedActivity ? (
               <ActivityDetail activity={selectedActivity} />
             ) : (

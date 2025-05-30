@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -116,7 +117,7 @@ const HistoryFilters = ({
               onClick={handleUserFilterClick}
               onDoubleClick={handleUserFilterDoubleClick}
               className={cn(
-                'h-6 px-2 rounded-md border text-xs scale-75 origin-left',
+                'h-6 px-2 rounded-md border text-xs',
                 filterBy === 'mine' 
                   ? 'bg-blue-100 border-blue-300 text-blue-700' 
                   : 'bg-white border-gray-300 text-gray-600'
@@ -145,7 +146,7 @@ const HistoryFilters = ({
           </div>
 
           {/* Bouton combiné LinkedIn/Phone */}
-          <div className="flex scale-75 origin-left">
+          <div className="flex">
             <Button
               variant="outline"
               size="sm"
@@ -188,7 +189,7 @@ const HistoryFilters = ({
                 variant="outline"
                 size="sm"
                 className={cn(
-                  'h-6 px-2 rounded-md border text-xs scale-75 origin-left',
+                  'h-6 px-2 rounded-md border text-xs',
                   timeFilter !== 'all'
                     ? 'bg-blue-100 border-blue-300 text-blue-700'
                     : 'bg-white border-gray-300 text-gray-600'
