@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -41,6 +41,24 @@ const HistoryFilters = ({
   const [timeMenuOpen, setTimeMenuOpen] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectingDateRange, setSelectingDateRange] = useState(false);
+  const userSelectRef = useRef<HTMLDivElement>(null);
+
+  // Fermer le menu utilisateur quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userSelectRef.current && !userSelectRef.current.contains(event.target as Node)) {
+        setShowUserSelect(false);
+      }
+    };
+
+    if (showUserSelect) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserSelect]);
 
   const handleUserFilterClick = () => {
     onFilterByChange(filterBy === 'all' ? 'mine' : 'all');
@@ -108,9 +126,9 @@ const HistoryFilters = ({
   return (
     <div className="space-y-3 mb-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {/* Bouton utilisateur avec User/Users */}
-          <div className="relative">
+          <div className="relative" ref={userSelectRef}>
             <Button
               variant="outline"
               size="sm"
@@ -130,12 +148,12 @@ const HistoryFilters = ({
             </Button>
             
             {showUserSelect && (
-              <div className="absolute top-full mt-1 z-50">
+              <div className="absolute top-full mt-1 z-50 bg-white border rounded-lg shadow-lg">
                 <Select onValueChange={() => setShowUserSelect(false)}>
                   <SelectTrigger className="w-40 h-8 text-xs">
                     <SelectValue placeholder="Choisir un utilisateur" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg">
+                  <SelectContent className="bg-white border shadow-lg z-50">
                     <SelectItem value="current">Moi</SelectItem>
                     <SelectItem value="user1">Utilisateur 1</SelectItem>
                     <SelectItem value="user2">Utilisateur 2</SelectItem>
@@ -201,7 +219,7 @@ const HistoryFilters = ({
                 )} />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 z-50" align="start">
               <div className="bg-white border rounded-lg shadow-lg">
                 {!showCalendar ? (
                   <div className="p-2">

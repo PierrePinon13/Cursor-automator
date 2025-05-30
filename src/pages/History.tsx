@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import ActivityDetail from '@/components/history/ActivityDetail';
@@ -30,6 +31,13 @@ const History = () => {
 
   // Effectuer la recherche avec les filtres
   React.useEffect(() => {
+    console.log('🔍 History - Fetching activities with filters:', {
+      filterBy,
+      activityTypes,
+      timeFilter,
+      customDateRange
+    });
+    
     const customRange = timeFilter === 'custom' ? customDateRange : undefined;
     fetchActivities(filterBy, activityTypes, timeFilter, customRange);
   }, [filterBy, activityTypes, timeFilter, customDateRange, fetchActivities]);
@@ -89,6 +97,8 @@ const History = () => {
     };
   });
 
+  console.log('📊 History - Transformed activities:', transformedActivities.length, transformedActivities);
+
   // Filtrer les activités selon la recherche
   const filteredActivities = transformedActivities.filter(activity => {
     if (!searchQuery) return true;
@@ -101,6 +111,13 @@ const History = () => {
       activity.lead_data.company_name?.toLowerCase().includes(searchLower) ||
       activity.sender_name.toLowerCase().includes(searchLower)
     );
+  });
+
+  console.log('🔍 History - Final filtered activities:', {
+    searchQuery,
+    filteredCount: filteredActivities.length,
+    totalCount: transformedActivities.length,
+    activities: filteredActivities
   });
 
   const handleSelectActivity = (activity: HistoryActivity) => {
@@ -118,7 +135,7 @@ const History = () => {
       <div className="flex h-[calc(100vh-60px)]">
         {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
         <div className="w-1/4 bg-white border-r flex flex-col">
-          <div className="p-4 border-b">
+          <div className="p-2 border-b">
             <HistoryFilters
               filterBy={filterBy}
               onFilterByChange={setFilterBy}
@@ -143,6 +160,9 @@ const History = () => {
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
                   <p className="text-lg">Aucune activité trouvée</p>
+                  <p className="text-sm mt-2">
+                    Filtres actifs: {filterBy}, {activityTypes.join('+')}, {timeFilter}
+                  </p>
                 </div>
               </div>
             ) : (
