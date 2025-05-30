@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import HistoryFilters from '@/components/history/HistoryFilters';
