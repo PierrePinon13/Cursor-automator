@@ -38,6 +38,10 @@ const Dashboard = () => {
     setTimeFilter(newTimeFilter);
   };
 
+  const handleProcessingTimeFilterChange = (value: string) => {
+    setTimeFilter(value as TimeFilter);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-6">
@@ -76,7 +80,7 @@ const Dashboard = () => {
           <TabsContent value="processing" className="space-y-6">
             <ProcessingMetrics 
               timeFilter={timeFilter}
-              onTimeFilterChange={setTimeFilter}
+              onTimeFilterChange={handleProcessingTimeFilterChange}
             />
           </TabsContent>
           
