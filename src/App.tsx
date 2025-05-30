@@ -6,7 +6,6 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/hooks/useAuth';
-import { useSidebarAutoShow } from '@/hooks/useSidebarAutoShow';
 import './App.css';
 
 const Admin = lazy(() => import('@/pages/Admin'));
@@ -21,8 +20,6 @@ const Auth = lazy(() => import('@/pages/Auth'));
 const queryClient = new QueryClient();
 
 const Layout = () => {
-  useSidebarAutoShow();
-  
   return (
     <div className="min-h-screen flex w-full">
       <AppSidebar />

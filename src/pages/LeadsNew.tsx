@@ -42,6 +42,7 @@ const LeadsNew = () => {
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load default view only on initial mount
   useEffect(() => {
@@ -143,6 +144,16 @@ const LeadsNew = () => {
     setViewMode(view.viewMode);
   };
 
+  // Filter leads based on search query
+  const searchFilteredLeads = searchQuery 
+    ? filteredLeads.filter(lead => 
+        lead.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.author_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.location?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : filteredLeads;
+
   if (loading || !hasLoadedDefaultView) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -184,6 +195,8 @@ const LeadsNew = () => {
           showAssignmentColumn={false}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
         />
       </div>
       
@@ -191,7 +204,7 @@ const LeadsNew = () => {
       <div className="bg-white">
         {viewMode === 'table' ? (
           <DraggableTable 
-            leads={filteredLeads} 
+            leads={searchFilteredLeads} 
             visibleColumns={visibleColumns}
             onActionCompleted={handleActionCompleted}
             selectedLeadIndex={selectedLeadIndex}
@@ -200,7 +213,7 @@ const LeadsNew = () => {
         ) : (
           <div className="px-6 pb-6">
             <CardView 
-              leads={filteredLeads}
+              leads={searchFilteredLeads}
               onActionCompleted={handleActionCompleted}
               selectedLeadIndex={selectedLeadIndex}
               onLeadSelect={setSelectedLeadIndex}
