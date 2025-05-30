@@ -126,12 +126,16 @@ export const useNotifications = () => {
 
             switch (activity.activity_type) {
               case 'linkedin_message':
-                if (activity.activity_data?.message_type === 'connection_request') {
-                  title = 'Demande de connexion LinkedIn';
-                  message = `Connexion envoyée à ${lead.author_name}`;
+                const messageData = activity.activity_data || {};
+                const messageType = messageData.message_type || 'direct_message';
+                const networkDistance = messageData.network_distance ? ` (${messageData.network_distance})` : '';
+                
+                if (messageType === 'connection_request') {
+                  title = 'Demande de connexion LinkedIn envoyée';
+                  message = `Demande de connexion envoyée à ${lead.author_name}${networkDistance}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
                 } else {
                   title = 'Message LinkedIn envoyé';
-                  message = `Message envoyé à ${lead.author_name}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
+                  message = `Message direct envoyé à ${lead.author_name}${networkDistance}${lead.company_position ? ` - ${lead.company_position}` : ''}`;
                 }
                 break;
               case 'phone_call':

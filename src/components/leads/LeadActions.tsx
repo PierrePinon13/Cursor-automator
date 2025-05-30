@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert } from 'lucide-react';
+import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert, MessageSquare, UserPlus } from 'lucide-react';
 import { HrProviderSelector } from './HrProviderSelector';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
@@ -109,26 +109,41 @@ const LeadActions = ({
             </div>
             
             {lead.linkedin_message_sent_at && (
-              <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-                ✓ Message envoyé le {formatContactDate(lead.linkedin_message_sent_at)}
+              <div className="text-xs text-green-600 bg-green-50 p-2 rounded flex items-center gap-2">
+                <MessageSquare className="h-3 w-3" />
+                Message envoyé le {formatContactDate(lead.linkedin_message_sent_at)}
               </div>
             )}
             
             {messageIsTooLong && (
-              <div className="flex items-start gap-2 text-red-600 text-sm">
+              <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 p-2 rounded">
                 <span className="text-red-600 font-bold">✕</span>
                 <span>Le message dépasse la limite de 300 caractères. Veuillez le raccourcir.</span>
               </div>
             )}
             
+            <div className="text-xs text-gray-600 bg-white p-2 rounded border">
+              <strong>Note :</strong> Le système déterminera automatiquement s'il faut envoyer un message direct 
+              ou une demande de connexion selon votre degré de connexion avec ce profil.
+            </div>
+            
             <Button
               onClick={onSendLinkedInMessage}
               disabled={!canSendMessage || messageSending}
-              className="w-full bg-gray-500 hover:bg-gray-600 text-white flex items-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
               size="lg"
             >
-              <Send className="h-4 w-4" />
-              {messageSending ? 'Envoi...' : 'Envoyer le message LinkedIn'}
+              {messageSending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Envoi en cours...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Envoyer sur LinkedIn
+                </>
+              )}
             </Button>
           </div>
         )}
