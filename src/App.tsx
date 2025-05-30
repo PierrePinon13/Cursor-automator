@@ -1,3 +1,4 @@
+
 import { Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,11 +11,11 @@ import './App.css';
 const Admin = lazy(() => import('@/pages/Admin'));
 const Clients = lazy(() => import('@/pages/Clients'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
-const HRProviders = lazy(() => import('@/pages/HRProviders'));
+const HRProviders = lazy(() => import('@/pages/HrProviders'));
 const Leads = lazy(() => import('@/pages/Leads'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const HistoryPage = lazy(() => import('@/pages/History'));
-const Login = lazy(() => import('@/pages/Login'));
+const Auth = lazy(() => import('@/pages/Auth'));
 
 const queryClient = new QueryClient();
 
@@ -25,7 +26,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: <Suspense fallback={<div>Loading...</div>}><Login /></Suspense>,
+    element: <Suspense fallback={<div>Loading...</div>}><Auth /></Suspense>,
   },
   {
     path: "/leads",
