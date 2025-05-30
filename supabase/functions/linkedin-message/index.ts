@@ -36,42 +36,24 @@ serve(async (req) => {
       throw new Error('Lead ID is required')
     }
 
-    // Check if this is a linkedin_posts ID or a leads ID by trying both tables
-    let lead = null;
-    let isLinkedInPost = false;
-
-    // First try to get from leads table
-    const { data: leadData, error: leadError } = await supabaseClient
+    // Get lead from leads table only
+    const { data: lead, error: leadError } = await supabaseClient
       .from('leads')
       .select('*')
       .eq('id', finalLeadId)
       .maybeSingle()
 
-    if (leadData) {
-      lead = leadData;
-    } else {
-      // Try to get from linkedin_posts table if not found in leads
-      const { data: postData, error: postError } = await supabaseClient
-        .from('linkedin_posts')
-        .select('*')
-        .eq('id', finalLeadId)
-        .maybeSingle()
-
-      if (postData) {
-        lead = postData;
-        isLinkedInPost = true;
-      }
-    }
-
     if (!lead) {
       throw new Error(`Lead not found with ID: ${finalLeadId}`)
     }
+
+    console.log('Lead found:', lead.author_name)
 
     // Create the activity in the activities table
     const { data: activity, error: activityError } = await supabaseClient
       .from('activities')
       .insert({
-        lead_id: isLinkedInPost ? lead.lead_id || finalLeadId : finalLeadId,
+        lead_id: finalLeadId,
         activity_type: 'linkedin_message',
         activity_data: {
           message_content: message,
@@ -91,32 +73,20 @@ serve(async (req) => {
       throw new Error(`Failed to create activity: ${activityError.message}`)
     }
 
-    // Update the appropriate table with the last contact info
-    const updateData = {
-      last_contact_at: new Date().toISOString(),
-      linkedin_message_sent_at: new Date().toISOString(),
-      last_updated_at: new Date().toISOString()
-    };
-
-    if (isLinkedInPost) {
-      // Update linkedin_posts table
-      await supabaseClient
-        .from('linkedin_posts')
-        .update(updateData)
-        .eq('id', finalLeadId)
-    } else {
-      // Update leads table
-      await supabaseClient
-        .from('leads')
-        .update(updateData)
-        .eq('id', finalLeadId)
-    }
+    // Update the leads table with the last contact info
+    await supabaseClient
+      .from('leads')
+      .update({
+        last_contact_at: new Date().toISOString(),
+        linkedin_message_sent_at: new Date().toISOString(),
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', finalLeadId)
 
     // Increment user stats if we have a valid user
     if (userId) {
-      await supabaseClient.rpc('increment_user_activity_stats', {
-        user_uuid: userId,
-        activity_type_param: 'linkedin_message'
+      await supabaseClient.rpc('increment_linkedin_messages', {
+        user_uuid: userId
       })
     }
 
