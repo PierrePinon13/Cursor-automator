@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -73,6 +72,44 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         end: dateRange.end.toISOString()
       });
       
+      // NOUVEAU : Compter le total absolu de posts dans la base
+      const { count: absoluteTotalCount, error: countError } = await supabase
+        .from('linkedin_posts')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) {
+        console.error('Error counting total posts:', countError);
+      } else {
+        console.log('🔍 TOTAL ABSOLU DE POSTS DANS LA BASE:', absoluteTotalCount);
+      }
+      
+      // NOUVEAU : Posts créés dans les dernières 24h (reçus par le webhook)
+      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const { count: last24hCount, error: last24hCountError } = await supabase
+        .from('linkedin_posts')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', last24h.toISOString());
+        
+      if (!last24hCountError) {
+        console.log('📊 POSTS REÇUS DANS LES 24 DERNIÈRES HEURES:', last24hCount);
+      }
+      
+      // NOUVEAU : Posts créés ce matin entre 5h et 8h
+      const today5am = new Date();
+      today5am.setHours(5, 0, 0, 0);
+      const today8am = new Date();
+      today8am.setHours(8, 0, 0, 0);
+      
+      const { count: morningCount, error: morningCountError } = await supabase
+        .from('linkedin_posts')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', today5am.toISOString())
+        .lte('created_at', today8am.toISOString());
+        
+      if (!morningCountError) {
+        console.log('🌅 POSTS REÇUS CE MATIN (5h-8h):', morningCount);
+      }
+      
       // D'abord, regardons combien de posts existent au total dans la base
       const { data: totalPostsInDb, error: totalError } = await supabase
         .from('linkedin_posts')
@@ -110,7 +147,6 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       console.log('=== INVESTIGATION APPROFONDIE ===');
       
       // Vérifier les posts des dernières 24h sans filtre de période
-      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const { data: last24hPosts, error: last24hError } = await supabase
         .from('linkedin_posts')
         .select('id, author_type, created_at')
@@ -142,6 +178,13 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
           created_at: p.created_at,
           author_type: p.author_type
         })));
+        
+        // NOUVEAU : Vérifier s'il y a des posts avec d'autres author_type
+        const nonPersonPosts = last24hPosts.filter(post => post.author_type !== 'Person');
+        console.log('📋 Posts NON-Person dans les 24h:', nonPersonPosts.length);
+        if (nonPersonPosts.length > 0) {
+          console.log('Types d\'auteurs non-Person:', nonPersonPosts.map(p => p.author_type));
+        }
       }
       
       // Debug: Check all author types with detailed logging
@@ -155,7 +198,7 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         console.log(`${type}: ${count} posts (${((count / totalPosts) * 100).toFixed(1)}%)`);
       });
       console.log('==============================');
-      
+
       const personPosts = allPosts?.filter(post => {
         const isPerson = post.author_type === 'Person';
         if (!isPerson) {
