@@ -1,5 +1,5 @@
 
-import { ActivityList } from '@/components/history/ActivityList';
+import ActivityList from '@/components/history/ActivityList';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 

@@ -1,28 +1,42 @@
 
 import DashboardHeader from '@/components/DashboardHeader';
-import { StatsCards } from '@/components/dashboard/StatsCards';
-import { StatsFilters } from '@/components/dashboard/StatsFilters';
-import { UserStatsTable } from '@/components/dashboard/UserStatsTable';
-import { ProcessingMetrics } from '@/components/dashboard/ProcessingMetrics';
-import { DiagnosticsPanel } from '@/components/dashboard/DiagnosticsPanel';
-import { useUserStats } from '@/hooks/useUserStats';
+import StatsCards from '@/components/dashboard/StatsCards';
+import StatsFilters from '@/components/dashboard/StatsFilters';
+import UserStatsTable from '@/components/dashboard/UserStatsTable';
+import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
+import DiagnosticsPanel from '@/components/dashboard/DiagnosticsPanel';
+import { useUserStats, ViewType, TimeFilter } from '@/hooks/useUserStats';
 import { useProcessingMetrics } from '@/hooks/useProcessingMetrics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
+import { useState, useEffect } from 'react';
 
 const Dashboard = () => {
+  const [viewType, setViewType] = useState<ViewType>('personal');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('this-week');
+  
   const { 
     stats, 
+    aggregatedStats,
     loading: statsLoading, 
-    filters, 
-    setFilters 
+    fetchStats 
   } = useUserStats();
   
   const { 
     metrics, 
     loading: metricsLoading 
   } = useProcessingMetrics();
+
+  // Fetch stats when filters change
+  useEffect(() => {
+    fetchStats(viewType, timeFilter);
+  }, [viewType, timeFilter, fetchStats]);
+
+  const handleFiltersChange = (newViewType: ViewType, newTimeFilter: TimeFilter) => {
+    setViewType(newViewType);
+    setTimeFilter(newTimeFilter);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -44,13 +58,26 @@ const Dashboard = () => {
           </TabsList>
           
           <TabsContent value="stats" className="space-y-6">
-            <StatsFilters filters={filters} onFiltersChange={setFilters} />
-            <StatsCards stats={stats} loading={statsLoading} />
-            <UserStatsTable stats={stats} loading={statsLoading} />
+            <StatsFilters 
+              viewType={viewType}
+              timeFilter={timeFilter}
+              onViewTypeChange={setViewType}
+              onTimeFilterChange={setTimeFilter}
+            />
+            <StatsCards 
+              linkedinMessages={aggregatedStats.linkedin_messages_sent}
+              positiveCalls={aggregatedStats.positive_calls}
+              negativeCalls={aggregatedStats.negative_calls}
+              successRate={aggregatedStats.success_rate}
+            />
+            <UserStatsTable stats={stats} />
           </TabsContent>
           
           <TabsContent value="processing" className="space-y-6">
-            <ProcessingMetrics metrics={metrics} loading={metricsLoading} />
+            <ProcessingMetrics 
+              timeFilter={timeFilter}
+              onTimeFilterChange={setTimeFilter}
+            />
           </TabsContent>
           
           <TabsContent value="diagnostics" className="space-y-6">
