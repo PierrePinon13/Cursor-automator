@@ -1,13 +1,7 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Filter } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { User, Linkedin, Phone, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HistoryFiltersProps {
@@ -19,6 +13,7 @@ interface HistoryFiltersProps {
   onTimeFilterChange: (value: string) => void;
   customDateRange?: { from?: Date; to?: Date };
   onCustomDateRangeChange: (range: { from?: Date; to?: Date }) => void;
+  activitiesCount?: number;
 }
 
 const HistoryFilters = ({
@@ -28,133 +23,99 @@ const HistoryFilters = ({
   onActivityTypesChange,
   timeFilter,
   onTimeFilterChange,
-  customDateRange,
-  onCustomDateRangeChange
+  activitiesCount = 0
 }: HistoryFiltersProps) => {
-  const handleActivityTypeChange = (type: string, checked: boolean) => {
-    if (checked) {
-      onActivityTypesChange([...activityTypes, type]);
-    } else {
+  const handleActivityTypeToggle = (type: string) => {
+    if (activityTypes.includes(type)) {
       onActivityTypesChange(activityTypes.filter(t => t !== type));
+    } else {
+      onActivityTypesChange([...activityTypes, type]);
     }
   };
 
+  const handleTimeFilterClick = () => {
+    // Cycle through time filters
+    const timeFilters = ['all', 'today', 'this_week', 'this_month'];
+    const currentIndex = timeFilters.indexOf(timeFilter);
+    const nextIndex = (currentIndex + 1) % timeFilters.length;
+    onTimeFilterChange(timeFilters[nextIndex]);
+  };
+
   return (
-    <div className="bg-white p-4 rounded-lg border mb-4 space-y-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Filter className="h-4 w-4" />
-        <h3 className="font-medium">Filtres</h3>
+    <div className="bg-white p-4 rounded-lg border space-y-4">
+      {/* Compteur d'activités */}
+      <div className="text-center text-sm text-gray-600 mb-4">
+        {activitiesCount} activités sur la période
       </div>
 
-      {/* Filtre par utilisateur */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Affichage</label>
-        <Select value={filterBy} onValueChange={onFilterByChange}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toutes les activités</SelectItem>
-            <SelectItem value="mine">Mes activités uniquement</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Filtres avec boutons à icônes */}
+      <div className="flex flex-col gap-3">
+        {/* Filtre utilisateur */}
+        <div className="flex justify-center">
+          <button
+            onClick={() => onFilterByChange(filterBy === 'all' ? 'mine' : 'all')}
+            className={cn(
+              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
+              filterBy === 'mine' 
+                ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+            )}
+            title={filterBy === 'mine' ? 'Mes activités uniquement' : 'Toutes les activités'}
+          >
+            <User className="h-5 w-5" />
+          </button>
+        </div>
 
-      {/* Filtre par type d'activité */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Types d'activité</label>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="linkedin_message"
-              checked={activityTypes.includes('linkedin_message')}
-              onCheckedChange={(checked) => handleActivityTypeChange('linkedin_message', checked as boolean)}
-            />
-            <label htmlFor="linkedin_message" className="text-sm">Messages LinkedIn</label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="phone_call"
-              checked={activityTypes.includes('phone_call')}
-              onCheckedChange={(checked) => handleActivityTypeChange('phone_call', checked as boolean)}
-            />
-            <label htmlFor="phone_call" className="text-sm">Appels téléphoniques</label>
-          </div>
+        {/* Filtres types d'activité */}
+        <div className="flex gap-2 justify-center">
+          <button
+            onClick={() => handleActivityTypeToggle('linkedin_message')}
+            className={cn(
+              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
+              activityTypes.includes('linkedin_message')
+                ? 'bg-blue-50 border-blue-500 text-blue-700'
+                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+            )}
+            title="Messages LinkedIn"
+          >
+            <Linkedin className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={() => handleActivityTypeToggle('phone_call')}
+            className={cn(
+              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
+              activityTypes.includes('phone_call')
+                ? 'bg-green-50 border-green-500 text-green-700'
+                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+            )}
+            title="Appels téléphoniques"
+          >
+            <Phone className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Filtre temporel */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleTimeFilterClick}
+            className={cn(
+              'p-3 rounded-lg border-2 transition-colors flex items-center justify-center',
+              timeFilter !== 'all'
+                ? 'bg-orange-50 border-orange-500 text-orange-700'
+                : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+            )}
+            title={`Période: ${
+              timeFilter === 'all' ? 'Toutes' :
+              timeFilter === 'today' ? 'Aujourd\'hui' :
+              timeFilter === 'this_week' ? 'Cette semaine' :
+              timeFilter === 'this_month' ? 'Ce mois' : timeFilter
+            }`}
+          >
+            <Clock className="h-5 w-5" />
+          </button>
         </div>
       </div>
-
-      {/* Filtre temporel */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Période</label>
-        <Select value={timeFilter} onValueChange={onTimeFilterChange}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toutes les périodes</SelectItem>
-            <SelectItem value="1h">Dernière heure</SelectItem>
-            <SelectItem value="today">Aujourd'hui</SelectItem>
-            <SelectItem value="yesterday">Hier</SelectItem>
-            <SelectItem value="this_week">Cette semaine</SelectItem>
-            <SelectItem value="last_week">Semaine dernière</SelectItem>
-            <SelectItem value="this_month">Ce mois</SelectItem>
-            <SelectItem value="last_month">Mois dernier</SelectItem>
-            <SelectItem value="custom">Période personnalisée</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Sélecteur de dates personnalisé */}
-      {timeFilter === 'custom' && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Dates personnalisées</label>
-          <div className="flex flex-col gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateRange?.from ? (
-                    format(customDateRange.from, "PPP", { locale: fr })
-                  ) : (
-                    "Date de début"
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={customDateRange?.from}
-                  onSelect={(date) => onCustomDateRangeChange({ ...customDateRange, from: date })}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateRange?.to ? (
-                    format(customDateRange.to, "PPP", { locale: fr })
-                  ) : (
-                    "Date de fin"
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={customDateRange?.to}
-                  onSelect={(date) => onCustomDateRangeChange({ ...customDateRange, to: date })}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

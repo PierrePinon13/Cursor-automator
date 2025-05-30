@@ -107,7 +107,7 @@ const History = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Colonne de gauche : Filtres et Stats */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-4">
             <HistoryFilters
               filterBy={filterBy}
               onFilterByChange={setFilterBy}
@@ -117,6 +117,7 @@ const History = () => {
               onTimeFilterChange={setTimeFilter}
               customDateRange={customDateRange}
               onCustomDateRangeChange={setCustomDateRange}
+              activitiesCount={transformedActivities.length}
             />
             
             <HistoryStats activities={transformedActivities} />
