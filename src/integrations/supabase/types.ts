@@ -826,6 +826,48 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          created_at: string
+          creator_user_id: string
+          due_date: string | null
+          id: string
+          lead_id: string
+          message: string
+          read: boolean
+          target_user_id: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_user_id: string
+          due_date?: string | null
+          id?: string
+          lead_id: string
+          message: string
+          read?: boolean
+          target_user_id: string
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_user_id?: string
+          due_date?: string | null
+          id?: string
+          lead_id?: string
+          message?: string
+          read?: boolean
+          target_user_id?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_stats: {
         Row: {
           created_at: string

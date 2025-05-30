@@ -1,22 +1,27 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useNotifications } from '@/hooks/useNotifications';
-import NotificationsList from './NotificationsList';
+import { useReminders } from '@/hooks/useReminders';
+import { useNavigate } from 'react-router-dom';
+import RemindersList from './RemindersList';
 import RecentActivityPreview from './RecentActivityPreview';
 
 const NotificationButton = () => {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { reminders, unreadCount, markAsRead, markAllAsRead } = useReminders();
+  const navigate = useNavigate();
+
+  const handleViewFullHistory = () => {
+    navigate('/history');
+  };
 
   return (
     <DropdownMenu>
@@ -62,14 +67,14 @@ const NotificationButton = () => {
           </TabsList>
           
           <TabsContent value="notifications" className="mt-0">
-            <NotificationsList 
-              notifications={notifications} 
+            <RemindersList 
+              reminders={reminders} 
               onMarkAsRead={markAsRead}
             />
           </TabsContent>
           
           <TabsContent value="activity" className="mt-0">
-            <RecentActivityPreview />
+            <RecentActivityPreview onViewFullHistory={handleViewFullHistory} />
           </TabsContent>
         </Tabs>
       </DropdownMenuContent>

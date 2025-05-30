@@ -2,108 +2,44 @@
 import React, { useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserPlus, Calendar, Loader2, UserCheck } from 'lucide-react';
+import { MessageSquare, Phone, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-
-interface Activity {
-  id: string;
-  type: 'lead_assigned' | 'reminder_due' | 'linkedin_message' | 'phone_call';
-  title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-  lead_data?: any;
-  sender_name?: string;
-  message_type?: 'connection_request' | 'direct_message';
-}
+import { HistoryActivity } from '@/hooks/useHistory';
 
 interface ActivityListProps {
-  activities: Activity[];
-  selectedActivity: Activity | null;
-  onSelectActivity: (activity: Activity) => void;
-  onLoadMore?: () => void;
-  canLoadMore?: boolean;
+  activities: HistoryActivity[];
+  selectedActivity: HistoryActivity | null;
+  onSelectActivity: (activity: HistoryActivity) => void;
 }
 
 const ActivityList = ({ 
   activities, 
   selectedActivity, 
-  onSelectActivity, 
-  onLoadMore,
-  canLoadMore = false
+  onSelectActivity
 }: ActivityListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
   console.log('📋 ActivityList - received activities:', activities.length);
-  console.log('🔄 Can load more:', canLoadMore);
 
-  const getActivityIcon = (activity: Activity) => {
+  const getActivityIcon = (activity: HistoryActivity) => {
     switch (activity.type) {
       case 'linkedin_message':
-        // Utiliser message_type pour différencier
+        // Différencier demande de connexion vs message direct
         if (activity.message_type === 'connection_request') {
           return <UserCheck className="h-4 w-4 text-blue-600" />;
         }
         return <MessageSquare className="h-4 w-4 text-blue-600" />;
       case 'phone_call':
         return <Phone className="h-4 w-4 text-green-600" />;
-      case 'lead_assigned':
-        return <UserPlus className="h-4 w-4 text-purple-600" />;
-      case 'reminder_due':
-        return <Calendar className="h-4 w-4 text-orange-600" />;
       default:
         return <MessageSquare className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  const getActivityTypeLabel = (activity: Activity) => {
-    switch (activity.type) {
-      case 'linkedin_message':
-        // Utiliser message_type pour différencier
-        if (activity.message_type === 'connection_request') {
-          return 'Demande de connexion';
-        }
-        return 'Message LinkedIn';
-      case 'phone_call':
-        return 'Appel téléphonique';
-      case 'lead_assigned':
-        return 'Lead assigné';
-      case 'reminder_due':
-        return 'Rappel';
-      default:
-        return 'Activité';
-    }
-  };
-
-  // Détection du scroll pour charger plus d'activités
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
-    
-    if (isNearBottom && canLoadMore && onLoadMore && !isLoadingMore) {
-      console.log('📄 Scroll near bottom, loading more activities');
-      setIsLoadingMore(true);
-      onLoadMore();
-      // Reset loading state after a delay
-      setTimeout(() => setIsLoadingMore(false), 500);
-    }
-  };
-
-  const handleLoadMore = () => {
-    if (onLoadMore && !isLoadingMore) {
-      console.log('📄 Manual load more triggered');
-      setIsLoadingMore(true);
-      onLoadMore();
-      setTimeout(() => setIsLoadingMore(false), 500);
     }
   };
 
   if (activities.length === 0) {
     return (
       <div className="p-4 text-center text-gray-500">
-        <p>Aucune activité trouvée</p>
+        <p>Aucune activité trouvée dans l'historique</p>
       </div>
     );
   }
@@ -111,8 +47,7 @@ const ActivityList = ({
   return (
     <div 
       ref={scrollRef}
-      className="divide-y divide-gray-100 h-full overflow-y-auto"
-      onScroll={handleScroll}
+      className="divide-y divide-gray-100 h-full overflow-y-auto max-h-[calc(100vh-200px)]"
     >
       {activities.map((activity, index) => {
         console.log(`📝 Rendering activity ${index + 1}:`, activity.id, activity.type, 'message_type:', activity.message_type);
@@ -132,11 +67,8 @@ const ActivityList = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium text-gray-500">
-                    {getActivityTypeLabel(activity)}
+                    {activity.title}
                   </span>
-                  {!activity.read && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  )}
                 </div>
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {activity.lead_data?.author_name || 'Lead inconnu'}
@@ -161,27 +93,6 @@ const ActivityList = ({
           </div>
         );
       })}
-      
-      {/* Indicateur de chargement ou bouton pour charger plus */}
-      {canLoadMore && (
-        <div className="p-4 text-center border-t">
-          {isLoadingMore ? (
-            <div className="flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm text-gray-500">Chargement...</span>
-            </div>
-          ) : (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleLoadMore}
-              className="text-xs"
-            >
-              Charger plus d'activités
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 };

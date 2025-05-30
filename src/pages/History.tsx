@@ -3,25 +3,13 @@ import { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
-import { useActivities } from '@/hooks/useActivities';
-
-interface Activity {
-  id: string;
-  type: 'lead_assigned' | 'reminder_due' | 'linkedin_message' | 'phone_call';
-  title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-  lead_data?: any;
-  sender_name?: string;
-  message_type?: 'connection_request' | 'direct_message';
-}
+import { useHistory, HistoryActivity } from '@/hooks/useHistory';
 
 const History = () => {
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const { activities, loading } = useActivities();
+  const [selectedActivity, setSelectedActivity] = useState<HistoryActivity | null>(null);
+  const { activities, loading } = useHistory();
 
-  const handleSelectActivity = (activity: Activity) => {
+  const handleSelectActivity = (activity: HistoryActivity) => {
     setSelectedActivity(activity);
   };
 
