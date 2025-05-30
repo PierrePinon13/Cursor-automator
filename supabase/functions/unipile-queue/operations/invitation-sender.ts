@@ -10,11 +10,11 @@ export async function sendInvitation(unipileApiKey: string, accountId: string, p
   console.log(`📝 Invitation message content: "${message}"`);
   console.log(`📊 Message length: ${message.length} characters`);
 
-  // Structure corrigée selon l'API Unipile officielle
+  // Structure selon l'API Unipile officielle - utilisation de JSON
   const requestBody = {
     provider_id: providerId,
     account_id: accountId,
-    message: message  // Utilisation du champ 'message' au lieu de 'text'
+    message: message
   };
 
   console.log(`📤 Request body being sent to Unipile:`, JSON.stringify(requestBody, null, 2));
@@ -24,9 +24,9 @@ export async function sendInvitation(unipileApiKey: string, accountId: string, p
     headers: {
       'X-API-KEY': unipileApiKey,
       'Accept': 'application/json',
-      'Content-Type': 'application/json',  // Changé de 'application/x-www-form-urlencoded' à 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),  // Envoi en JSON au lieu de URLSearchParams
+    body: JSON.stringify(requestBody),
   });
 
   console.log(`📡 Unipile response status: ${response.status}`);
