@@ -105,9 +105,9 @@ const History = () => {
           <UserActionsDropdown />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-180px)]">
-          {/* Colonne de gauche : Filtres et Liste des activités */}
-          <div className="flex flex-col bg-white rounded-lg border">
+        <div className="flex gap-4 h-[calc(100vh-180px)]">
+          {/* Colonne de gauche : Fil d'actualité avec filtres */}
+          <div className="w-1/2 bg-white rounded-lg border flex flex-col">
             <div className="p-4 border-b">
               <HistoryFilters
                 filterBy={filterBy}
@@ -127,6 +127,12 @@ const History = () => {
                 <div className="flex items-center justify-center p-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
+              ) : transformedActivities.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <p className="text-lg">Aucune activité trouvée</p>
+                  </div>
+                </div>
               ) : (
                 <ActivityList 
                   activities={transformedActivities}
@@ -138,8 +144,16 @@ const History = () => {
           </div>
 
           {/* Colonne de droite : Détail de l'activité */}
-          <div className="bg-white rounded-lg border">
-            <ActivityDetail activity={selectedActivity} />
+          <div className="w-1/2 bg-white rounded-lg border">
+            {selectedActivity ? (
+              <ActivityDetail activity={selectedActivity} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <p className="text-lg">Sélectionnez une activité pour voir les détails</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
