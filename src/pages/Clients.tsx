@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle, Settings } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Upload, AlertCircle, Settings, Briefcase } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ClientsTable } from '@/components/clients/ClientsTable';
 import { ClientDialog } from '@/components/clients/ClientDialog';
 import { ImportClientsDialog } from '@/components/clients/ImportClientsDialog';
 import { IncompleteClientsDialog } from '@/components/clients/IncompleteClientsDialog';
+import { JobOffersSection } from '@/components/clients/JobOffersSection';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 
 const Clients = () => {
@@ -46,43 +48,64 @@ const Clients = () => {
         <UserActionsDropdown />
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-3">
-          {incompleteCount > 0 && (
-            <Button
-              onClick={() => setIsIncompleteDialogOpen(true)}
-              variant="outline"
-              className="flex items-center gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
-            >
-              <AlertCircle className="h-4 w-4" />
-              Comptes incomplets ({incompleteCount})
-            </Button>
-          )}
-          <Button
-            onClick={() => setIsImportDialogOpen(true)}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Importer CSV
-          </Button>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Nouveau client
-          </Button>
-        </div>
-      </div>
+      <Tabs defaultValue="clients" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="clients" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Gestion des clients
+          </TabsTrigger>
+          <TabsTrigger value="job-offers" className="flex items-center gap-2">
+            <Briefcase className="h-4 w-4" />
+            Offres d'emploi
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="bg-white rounded-lg shadow">
-        <ClientsTable 
-          clients={clients}
-          users={users}
-          onEdit={setEditingClient}
-        />
-      </div>
+        <TabsContent value="clients" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-3">
+              {incompleteCount > 0 && (
+                <Button
+                  onClick={() => setIsIncompleteDialogOpen(true)}
+                  variant="outline"
+                  className="flex items-center gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  Comptes incomplets ({incompleteCount})
+                </Button>
+              )}
+              <Button
+                onClick={() => setIsImportDialogOpen(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Importer CSV
+              </Button>
+              <Button
+                onClick={() => setIsCreateDialogOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Nouveau client
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow">
+            <ClientsTable 
+              clients={clients}
+              users={users}
+              onEdit={setEditingClient}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="job-offers">
+          <div className="bg-white rounded-lg shadow p-6">
+            <JobOffersSection />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <ClientDialog
         open={isCreateDialogOpen || !!editingClient}
