@@ -23,6 +23,8 @@ export const useFunnelStepData = (step: string, timeFilter: string, isOpen: bool
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  console.log('useFunnelStepData called:', { step, timeFilter, isOpen });
+
   const getDateRange = (filter: string) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -62,13 +64,18 @@ export const useFunnelStepData = (step: string, timeFilter: string, isOpen: bool
   };
 
   const fetchStepData = async () => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      console.log('Not fetching - step not open');
+      return;
+    }
     
+    console.log('fetchStepData starting for step:', step);
     setLoading(true);
     setError(null);
     
     try {
       const dateRange = getDateRange(timeFilter);
+      console.log('Date range for step data:', dateRange);
       
       let query = supabase
         .from('linkedin_posts')
@@ -91,59 +98,62 @@ export const useFunnelStepData = (step: string, timeFilter: string, isOpen: bool
         .lte('created_at', dateRange.end.toISOString())
         .order('created_at', { ascending: false });
 
-      // Appliquer les filtres selon l'étape
+      // Apply filters based on step - simplified logic
+      console.log('Applying filters for step:', step);
       switch (step) {
         case 'apify-received':
-          // Tous les posts reçus
+          // All posts received
           break;
           
         case 'person-filter':
-          // Posts filtrés par le filtre Person (ceux qui n'ont PAS passé)
+          // Posts filtered by Person filter (those that did NOT pass)
           query = query.neq('author_type', 'Person');
           break;
           
         case 'openai-step1':
-          // Posts qui ont passé le filtre Person mais pas l'étape 1
+          // Posts that passed Person filter but not step 1
           query = query
             .eq('author_type', 'Person')
-            .not('openai_step1_recrute_poste', 'in', '("Oui","oui","Yes","yes")');
+            .not('openai_step1_recrute_poste', 'ilike', '%oui%')
+            .not('openai_step1_recrute_poste', 'ilike', '%yes%');
           break;
           
         case 'openai-step2':
-          // Posts qui ont passé l'étape 1 mais pas l'étape 2
+          // Posts that passed step 1 but not step 2
           query = query
             .eq('author_type', 'Person')
-            .in('openai_step1_recrute_poste', ['Oui', 'oui', 'Yes', 'yes'])
-            .not('openai_step2_reponse', 'in', '("Oui","oui","Yes","yes")');
+            .or('openai_step1_recrute_poste.ilike.%oui%,openai_step1_recrute_poste.ilike.%yes%')
+            .not('openai_step2_reponse', 'ilike', '%oui%')
+            .not('openai_step2_reponse', 'ilike', '%yes%');
           break;
           
         case 'openai-step3':
-          // Posts qui ont passé l'étape 2 mais pas l'étape 3
+          // Posts that passed step 2 but not step 3
           query = query
             .eq('author_type', 'Person')
-            .in('openai_step1_recrute_poste', ['Oui', 'oui', 'Yes', 'yes'])
-            .in('openai_step2_reponse', ['Oui', 'oui', 'Yes', 'yes'])
+            .or('openai_step1_recrute_poste.ilike.%oui%,openai_step1_recrute_poste.ilike.%yes%')
+            .or('openai_step2_reponse.ilike.%oui%,openai_step2_reponse.ilike.%yes%')
             .or('openai_step3_categorie.is.null,openai_step3_categorie.eq.Autre');
           break;
           
         case 'unipile-scraped':
-          // Posts qui ont passé l'étape 3 mais pas le scraping Unipile
+          // Posts that passed step 3 but not Unipile scraping
           query = query
             .eq('author_type', 'Person')
-            .in('openai_step1_recrute_poste', ['Oui', 'oui', 'Yes', 'yes'])
-            .in('openai_step2_reponse', ['Oui', 'oui', 'Yes', 'yes'])
-            .not('openai_step3_categorie', 'in', '("Autre")')
+            .or('openai_step1_recrute_poste.ilike.%oui%,openai_step1_recrute_poste.ilike.%yes%')
+            .or('openai_step2_reponse.ilike.%oui%,openai_step2_reponse.ilike.%yes%')
+            .not('openai_step3_categorie', 'eq', 'Autre')
             .not('openai_step3_categorie', 'is', null)
             .neq('unipile_profile_scraped', true);
           break;
           
         case 'added-to-leads':
-          // Posts qui ont été scrapés mais pas ajoutés aux leads
+          // Posts that were scraped but not added to leads
           query = query
             .eq('author_type', 'Person')
-            .in('openai_step1_recrute_poste', ['Oui', 'oui', 'Yes', 'yes'])
-            .in('openai_step2_reponse', ['Oui', 'oui', 'Yes', 'yes'])
-            .not('openai_step3_categorie', 'in', '("Autre")')
+            .or('openai_step1_recrute_poste.ilike.%oui%,openai_step1_recrute_poste.ilike.%yes%')
+            .or('openai_step2_reponse.ilike.%oui%,openai_step2_reponse.ilike.%yes%')
+            .not('openai_step3_categorie', 'eq', 'Autre')
             .not('openai_step3_categorie', 'is', null)
             .eq('unipile_profile_scraped', true)
             .is('lead_id', null);
@@ -151,6 +161,7 @@ export const useFunnelStepData = (step: string, timeFilter: string, isOpen: bool
       }
 
       const { data: posts, error } = await query.limit(100);
+      console.log('Step data query result:', { data: posts, error, step });
 
       if (error) throw error;
 
@@ -165,6 +176,7 @@ export const useFunnelStepData = (step: string, timeFilter: string, isOpen: bool
   };
 
   useEffect(() => {
+    console.log('useFunnelStepData useEffect triggered:', { step, timeFilter, isOpen });
     fetchStepData();
   }, [step, timeFilter, isOpen]);
 

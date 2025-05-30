@@ -8,6 +8,7 @@ import { TrendingUp, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Admin = () => {
+  console.log('Admin component rendered');
   const navigate = useNavigate();
 
   return (
@@ -34,7 +35,12 @@ const Admin = () => {
               <p className="text-gray-600 mb-4">
                 Analysez le funnel de traitement des données pour identifier où les leads sont perdus dans le processus.
               </p>
-              <Button onClick={() => navigate('/funnel-analysis')}>
+              <Button 
+                onClick={() => {
+                  console.log('Navigating to funnel analysis');
+                  navigate('/funnel-analysis');
+                }}
+              >
                 Voir l'analyse du funnel
               </Button>
             </CardContent>

@@ -6,18 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { useFunnelMetrics } from '@/hooks/useFunnelMetrics';
 import { useFunnelStepData } from '@/hooks/useFunnelStepData';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 interface ProcessingFunnelProps {
   timeFilter: string;
 }
 
 const ProcessingFunnel = ({ timeFilter }: ProcessingFunnelProps) => {
+  console.log('ProcessingFunnel rendered with timeFilter:', timeFilter);
   const { metrics, loading, error } = useFunnelMetrics(timeFilter);
   const [openStep, setOpenStep] = useState<string | null>(null);
 
+  console.log('ProcessingFunnel state:', { metrics, loading, error, openStep });
+
   const toggleStep = (step: string) => {
+    console.log('Toggling step:', step);
     setOpenStep(openStep === step ? null : step);
   };
 
@@ -35,6 +37,7 @@ const ProcessingFunnel = ({ timeFilter }: ProcessingFunnelProps) => {
   };
 
   if (loading) {
+    console.log('Showing loading state');
     return (
       <Card>
         <CardContent className="p-6">
@@ -45,6 +48,7 @@ const ProcessingFunnel = ({ timeFilter }: ProcessingFunnelProps) => {
   }
 
   if (error) {
+    console.log('Showing error state:', error);
     return (
       <Card>
         <CardContent className="p-6">
@@ -55,6 +59,7 @@ const ProcessingFunnel = ({ timeFilter }: ProcessingFunnelProps) => {
   }
 
   if (!metrics) {
+    console.log('No metrics available');
     return (
       <Card>
         <CardContent className="p-6">
@@ -63,6 +68,8 @@ const ProcessingFunnel = ({ timeFilter }: ProcessingFunnelProps) => {
       </Card>
     );
   }
+
+  console.log('Rendering funnel with metrics:', metrics);
 
   return (
     <div className="space-y-4">
@@ -120,7 +127,10 @@ const ProcessingFunnel = ({ timeFilter }: ProcessingFunnelProps) => {
 };
 
 const StepDataTable = ({ step, timeFilter, isOpen }: { step: string; timeFilter: string; isOpen: boolean }) => {
+  console.log('StepDataTable rendered:', { step, timeFilter, isOpen });
   const { data, loading, error } = useFunnelStepData(step, timeFilter, isOpen);
+
+  console.log('StepDataTable state:', { data: data?.length, loading, error });
 
   if (loading) {
     return (
@@ -161,7 +171,7 @@ const StepDataTable = ({ step, timeFilter, isOpen }: { step: string; timeFilter:
                     {post.author_name || 'Auteur inconnu'}
                   </div>
                   <div className="text-xs text-gray-500 mb-2">
-                    {format(new Date(post.created_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    {new Date(post.created_at).toLocaleDateString('fr-FR')}
                   </div>
                 </div>
                 <Button
@@ -180,7 +190,7 @@ const StepDataTable = ({ step, timeFilter, isOpen }: { step: string; timeFilter:
                 </div>
               )}
               
-              <div className="text-sm text-gray-700 mb-2 line-clamp-3">
+              <div className="text-sm text-gray-700 mb-2">
                 {post.text.substring(0, 200)}
                 {post.text.length > 200 && '...'}
               </div>
@@ -189,11 +199,6 @@ const StepDataTable = ({ step, timeFilter, isOpen }: { step: string; timeFilter:
                 <Badge variant="outline">
                   Type: {post.author_type}
                 </Badge>
-                {post.processing_status && (
-                  <Badge variant="outline">
-                    Status: {post.processing_status}
-                  </Badge>
-                )}
                 {post.openai_step1_recrute_poste && (
                   <Badge variant="outline">
                     Step1: {post.openai_step1_recrute_poste}

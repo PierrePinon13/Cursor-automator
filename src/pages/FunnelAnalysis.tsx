@@ -6,7 +6,10 @@ import ProcessingFunnel from '@/components/admin/ProcessingFunnel';
 import FunnelFilters from '@/components/admin/FunnelFilters';
 
 const FunnelAnalysis = () => {
+  console.log('FunnelAnalysis component rendered');
   const [timeFilter, setTimeFilter] = useState('today');
+
+  console.log('FunnelAnalysis state:', { timeFilter });
 
   return (
     <div className="min-h-screen bg-gray-50">

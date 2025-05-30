@@ -19,7 +19,10 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  console.log('useFunnelMetrics called with timeFilter:', timeFilter);
+
   const getDateRange = (filter: string) => {
+    console.log('getDateRange called with filter:', filter);
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -30,20 +33,17 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
       }
       case 'today':
         return { start: today, end: now };
-      
       case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
         const endYesterday = new Date(today);
         return { start: yesterday, end: endYesterday };
       }
-      
       case 'this-week': {
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay() + 1);
         return { start: startOfWeek, end: now };
       }
-      
       case 'last-week': {
         const startOfLastWeek = new Date(today);
         startOfLastWeek.setDate(today.getDate() - today.getDay() - 6);
@@ -51,65 +51,69 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         endOfLastWeek.setDate(today.getDate() - today.getDay());
         return { start: startOfLastWeek, end: endOfLastWeek };
       }
-      
       case 'this-month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         return { start: startOfMonth, end: now };
       }
-      
       default:
         return { start: today, end: now };
     }
   };
 
   const fetchMetrics = async () => {
+    console.log('fetchMetrics starting...');
     setLoading(true);
     setError(null);
     
     try {
       const dateRange = getDateRange(timeFilter);
+      console.log('Date range:', dateRange);
       
-      // Récupérer tous les posts dans la période
+      // Simplify the query first
       const { data: allPosts, error: allPostsError } = await supabase
         .from('linkedin_posts')
-        .select('*')
+        .select('id, author_type, openai_step1_recrute_poste, openai_step2_reponse, openai_step3_categorie, unipile_profile_scraped, lead_id, created_at')
         .gte('created_at', dateRange.start.toISOString())
         .lte('created_at', dateRange.end.toISOString());
+
+      console.log('All posts query result:', { data: allPosts, error: allPostsError });
 
       if (allPostsError) throw allPostsError;
 
       const totalPosts = allPosts?.length || 0;
+      console.log('Total posts:', totalPosts);
       
-      // Étape 1: Filtre Person (author_type = 'Person')
+      // Simplify the filtering logic
       const personPosts = allPosts?.filter(post => post.author_type === 'Person') || [];
+      console.log('Person posts:', personPosts.length);
       
-      // Étape 2: OpenAI Step 1 (recrute_poste = 'Oui')
-      const step1Passed = personPosts?.filter(post => 
-        post.openai_step1_recrute_poste?.toLowerCase() === 'oui' || 
-        post.openai_step1_recrute_poste?.toLowerCase() === 'yes'
-      ) || [];
+      const step1Passed = personPosts?.filter(post => {
+        const value = post.openai_step1_recrute_poste?.toLowerCase();
+        return value === 'oui' || value === 'yes';
+      }) || [];
+      console.log('Step 1 passed:', step1Passed.length);
       
-      // Étape 3: OpenAI Step 2 (reponse = 'Oui')
-      const step2Passed = step1Passed?.filter(post => 
-        post.openai_step2_reponse?.toLowerCase() === 'oui' || 
-        post.openai_step2_reponse?.toLowerCase() === 'yes'
-      ) || [];
+      const step2Passed = step1Passed?.filter(post => {
+        const value = post.openai_step2_reponse?.toLowerCase();
+        return value === 'oui' || value === 'yes';
+      }) || [];
+      console.log('Step 2 passed:', step2Passed.length);
       
-      // Étape 4: OpenAI Step 3 (categorie != 'Autre')
       const step3Passed = step2Passed?.filter(post => 
         post.openai_step3_categorie && 
         post.openai_step3_categorie !== 'Autre'
       ) || [];
+      console.log('Step 3 passed:', step3Passed.length);
       
-      // Étape 5: Unipile scraped
       const unipileScraped = step3Passed?.filter(post => 
         post.unipile_profile_scraped === true
       ) || [];
+      console.log('Unipile scraped:', unipileScraped.length);
       
-      // Étape 6: Ajoutés aux leads
       const addedToLeads = unipileScraped?.filter(post => 
         post.lead_id !== null
       ) || [];
+      console.log('Added to leads:', addedToLeads.length);
 
       const steps: FunnelStepMetrics[] = [
         {
@@ -122,25 +126,25 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
           step: 'person-filter',
           count: personPosts.length,
           percentage: totalPosts > 0 ? (personPosts.length / totalPosts) * 100 : 0,
-          description: 'Filtre Person (author_type = Person)'
+          description: 'Filtre Person'
         },
         {
           step: 'openai-step1',
           count: step1Passed.length,
           percentage: personPosts.length > 0 ? (step1Passed.length / personPosts.length) * 100 : 0,
-          description: 'OpenAI Step 1 (Détection recrutement)'
+          description: 'OpenAI Step 1'
         },
         {
           step: 'openai-step2',
           count: step2Passed.length,
           percentage: step1Passed.length > 0 ? (step2Passed.length / step1Passed.length) * 100 : 0,
-          description: 'OpenAI Step 2 (Langue et localisation)'
+          description: 'OpenAI Step 2'
         },
         {
           step: 'openai-step3',
           count: step3Passed.length,
           percentage: step2Passed.length > 0 ? (step3Passed.length / step2Passed.length) * 100 : 0,
-          description: 'OpenAI Step 3 (Catégorisation)'
+          description: 'OpenAI Step 3'
         },
         {
           step: 'unipile-scraped',
@@ -156,10 +160,11 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
         }
       ];
 
+      console.log('Final steps:', steps);
       setMetrics({ steps, timeFilter });
 
     } catch (err: any) {
-      console.error('Error fetching funnel metrics:', err);
+      console.error('Error in fetchMetrics:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -167,6 +172,7 @@ export const useFunnelMetrics = (timeFilter: string = 'today') => {
   };
 
   useEffect(() => {
+    console.log('useEffect triggered with timeFilter:', timeFilter);
     fetchMetrics();
   }, [timeFilter]);
 
