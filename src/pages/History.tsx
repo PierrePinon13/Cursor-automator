@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import ActivityDetail from '@/components/history/ActivityDetail';
@@ -109,69 +108,64 @@ const History = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <h1 className="text-2xl font-bold text-gray-900">Historique</h1>
+    <div className="min-h-screen bg-white">
+      {/* Header minimal avec juste les boutons de navigation */}
+      <div className="flex items-center justify-between p-3 bg-white border-b">
+        <SidebarTrigger />
+        <UserActionsDropdown />
+      </div>
+
+      <div className="flex h-[calc(100vh-60px)]">
+        {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
+        <div className="w-1/4 bg-white border-r flex flex-col">
+          <div className="p-4 border-b">
+            <HistoryFilters
+              filterBy={filterBy}
+              onFilterByChange={setFilterBy}
+              activityTypes={activityTypes}
+              onActivityTypesChange={setActivityTypes}
+              timeFilter={timeFilter}
+              onTimeFilterChange={setTimeFilter}
+              customDateRange={customDateRange}
+              onCustomDateRangeChange={setCustomDateRange}
+              activitiesCount={filteredActivities.length}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+            />
           </div>
           
-          <UserActionsDropdown />
-        </div>
-
-        <div className="flex h-[calc(100vh-180px)]">
-          {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
-          <div className="w-1/4 bg-white border-r flex flex-col">
-            <div className="p-4 border-b">
-              <HistoryFilters
-                filterBy={filterBy}
-                onFilterByChange={setFilterBy}
-                activityTypes={activityTypes}
-                onActivityTypesChange={setActivityTypes}
-                timeFilter={timeFilter}
-                onTimeFilterChange={setTimeFilter}
-                customDateRange={customDateRange}
-                onCustomDateRangeChange={setCustomDateRange}
-                activitiesCount={filteredActivities.length}
-                searchQuery={searchQuery}
-                onSearchQueryChange={setSearchQuery}
-              />
-            </div>
-            
-            <div className="flex-1 overflow-hidden">
-              {loading ? (
-                <div className="flex items-center justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : filteredActivities.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <div className="text-center">
-                    <p className="text-lg">Aucune activité trouvée</p>
-                  </div>
-                </div>
-              ) : (
-                <ActivityList 
-                  activities={filteredActivities}
-                  selectedActivity={selectedActivity}
-                  onSelectActivity={handleSelectActivity}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Colonne de droite : Détail de l'activité - 75% de largeur */}
-          <div className="w-3/4 bg-white">
-            {selectedActivity ? (
-              <ActivityDetail activity={selectedActivity} />
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">
+          <div className="flex-1 overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : filteredActivities.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
-                  <p className="text-lg">Sélectionnez une activité pour voir les détails</p>
+                  <p className="text-lg">Aucune activité trouvée</p>
                 </div>
               </div>
+            ) : (
+              <ActivityList 
+                activities={filteredActivities}
+                selectedActivity={selectedActivity}
+                onSelectActivity={handleSelectActivity}
+              />
             )}
           </div>
+        </div>
+
+        {/* Colonne de droite : Détail de l'activité - 75% de largeur */}
+        <div className="w-3/4 bg-white">
+          {selectedActivity ? (
+            <ActivityDetail activity={selectedActivity} />
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <p className="text-lg">Sélectionnez une activité pour voir les détails</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
