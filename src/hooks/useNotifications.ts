@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -91,62 +92,75 @@ export const useNotifications = () => {
       }
 
       // Récupérer les activités récentes depuis la nouvelle table activities
-      const { data: recentActivities } = await supabase
-        .from('activities')
-        .select(`
-          *,
-          lead:leads (
-            id,
-            author_name,
-            author_headline,
-            author_profile_url,
-            company_name,
-            company_position,
-            matched_client_name
-          )
-        `)
-        .gte('performed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order('performed_at', { ascending: false })
-        .limit(30);
+      try {
+        const { data: recentActivities, error: activitiesError } = await supabase
+          .from('activities' as any)
+          .select(`
+            *,
+            lead:leads (
+              id,
+              author_name,
+              author_headline,
+              author_profile_url,
+              company_name,
+              company_position,
+              matched_client_name
+            )
+          `)
+          .gte('performed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .order('performed_at', { ascending: false })
+          .limit(30);
 
-      if (recentActivities && recentActivities.length > 0) {
-        recentActivities.forEach(activity => {
-          let title = '';
-          let message = '';
+        console.log('Recent activities:', recentActivities, 'Error:', activitiesError);
 
-          switch (activity.activity_type) {
-            case 'linkedin_message':
-              title = 'Message LinkedIn envoyé';
-              message = `Message envoyé à ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
-              break;
-            case 'phone_call':
-              const statusText = activity.outcome === 'positive' ? 'positif' : 
-                                activity.outcome === 'negative' ? 'négatif' : 'neutre';
-              title = `Appel ${statusText}`;
-              message = `Appel ${statusText} avec ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
-              break;
-            case 'linkedin_connection':
-              title = 'Demande de connexion LinkedIn';
-              message = `Connexion envoyée à ${activity.lead.author_name}`;
-              break;
-          }
+        if (recentActivities && recentActivities.length > 0) {
+          recentActivities.forEach(activity => {
+            let title = '';
+            let message = '';
 
-          mockNotifications.push({
-            id: `activity-${activity.id}`,
-            type: activity.activity_type as 'linkedin_message' | 'phone_call',
-            title,
-            message,
-            read: true,
-            created_at: activity.performed_at,
-            lead_id: activity.lead_id,
-            lead_data: {
-              ...activity.lead,
-              approach_message: activity.activity_type === 'linkedin_message' ? 
-                activity.activity_data?.message_content : undefined
-            },
-            sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu'
+            switch (activity.activity_type) {
+              case 'linkedin_message':
+                // Utiliser message_type pour différencier
+                if (activity.activity_data?.message_type === 'connection_request') {
+                  title = 'Demande de connexion LinkedIn';
+                  message = `Connexion envoyée à ${activity.lead.author_name}`;
+                } else {
+                  title = 'Message LinkedIn envoyé';
+                  message = `Message envoyé à ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
+                }
+                break;
+              case 'phone_call':
+                const statusText = activity.outcome === 'positive' ? 'positif' : 
+                                  activity.outcome === 'negative' ? 'négatif' : 'neutre';
+                title = `Appel ${statusText}`;
+                message = `Appel ${statusText} avec ${activity.lead.author_name}${activity.lead.company_position ? ` - ${activity.lead.company_position}` : ''}`;
+                break;
+              case 'linkedin_connection':
+                title = 'Demande de connexion LinkedIn';
+                message = `Connexion envoyée à ${activity.lead.author_name}`;
+                break;
+            }
+
+            mockNotifications.push({
+              id: `activity-${activity.id}`,
+              type: activity.activity_type as 'linkedin_message' | 'phone_call',
+              title,
+              message,
+              read: true,
+              created_at: activity.performed_at,
+              lead_id: activity.lead_id,
+              lead_data: {
+                ...activity.lead,
+                approach_message: activity.activity_type === 'linkedin_message' ? 
+                  activity.activity_data?.message_content : undefined
+              },
+              sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu'
+            });
           });
-        });
+        }
+      } catch (activitiesError) {
+        console.warn('Could not fetch activities for notifications:', activitiesError);
+        // Continue sans les activités si la table n'est pas encore accessible
       }
 
       // Trier par date décroissante

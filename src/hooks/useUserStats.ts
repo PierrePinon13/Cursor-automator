@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -83,6 +84,7 @@ export const useUserStats = () => {
     try {
       console.log('Fetching stats with:', { viewType, timeFilter, userId: user.id });
       
+      // Utiliser d'abord les stats existantes de la table user_stats
       let query = supabase
         .from('user_stats')
         .select('*');
@@ -157,11 +159,81 @@ export const useUserStats = () => {
       console.log('Aggregated stats:', aggregated);
       setAggregatedStats(aggregated);
 
+      // Si pas de données dans user_stats, essayer de générer des stats depuis la table activities
+      if (processedStats.length === 0) {
+        try {
+          console.log('No user_stats data, trying to fetch from activities table');
+          await generateStatsFromActivities(viewType, timeFilter);
+        } catch (activitiesError) {
+          console.warn('Could not fetch stats from activities table:', activitiesError);
+        }
+      }
+
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateStatsFromActivities = async (viewType: ViewType, timeFilter: TimeFilter) => {
+    // Fallback: générer des stats depuis la table activities si elle est accessible
+    const dateRange = getDateRange(timeFilter);
+    
+    let activitiesQuery = supabase
+      .from('activities' as any)
+      .select('*');
+
+    if (viewType === 'personal') {
+      activitiesQuery = activitiesQuery.eq('performed_by_user_id', user.id);
+    }
+
+    if (dateRange) {
+      const startDate = dateRange.start.toISOString();
+      const endDate = new Date(dateRange.end.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString();
+      
+      activitiesQuery = activitiesQuery
+        .gte('performed_at', startDate)
+        .lte('performed_at', endDate);
+    }
+
+    const { data: activitiesData, error: activitiesError } = await activitiesQuery;
+
+    if (activitiesError) {
+      console.error('Error fetching activities for stats:', activitiesError);
+      return;
+    }
+
+    console.log('Activities data for stats:', activitiesData);
+
+    // Calculer les stats à partir des activités
+    const totals = (activitiesData || []).reduce(
+      (acc: any, activity: any) => {
+        if (activity.activity_type === 'linkedin_message') {
+          acc.linkedin_messages_sent += 1;
+        } else if (activity.activity_type === 'phone_call') {
+          if (activity.outcome === 'positive') {
+            acc.positive_calls += 1;
+          } else if (activity.outcome === 'negative') {
+            acc.negative_calls += 1;
+          }
+        }
+        return acc;
+      },
+      { linkedin_messages_sent: 0, positive_calls: 0, negative_calls: 0 }
+    );
+
+    const totalCalls = totals.positive_calls + totals.negative_calls;
+    const successRate = totalCalls > 0 ? (totals.positive_calls / totalCalls) * 100 : 0;
+
+    const aggregated = {
+      ...totals,
+      total_calls: totalCalls,
+      success_rate: successRate,
+    };
+
+    console.log('Generated stats from activities:', aggregated);
+    setAggregatedStats(aggregated);
   };
 
   return {
