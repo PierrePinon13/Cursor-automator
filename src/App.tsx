@@ -18,6 +18,7 @@ import Profile from "./pages/Profile";
 import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 import DebugLead from "./pages/DebugLead";
+import GlobalHeader from "./components/GlobalHeader";
 
 const queryClient = new QueryClient();
 
@@ -60,8 +61,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <Clients />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Clients" />
+              <div className="flex-1">
+                <Clients />
+              </div>
             </div>
           </div>
         </SidebarProvider>
@@ -70,8 +74,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <HrProviders />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Prestataires RH" />
+              <div className="flex-1">
+                <HrProviders />
+              </div>
             </div>
           </div>
         </SidebarProvider>
@@ -80,8 +87,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <Dashboard />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Tableau de bord" />
+              <div className="flex-1">
+                <Dashboard />
+              </div>
             </div>
           </div>
         </SidebarProvider>
@@ -90,8 +100,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <Admin />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Administration" />
+              <div className="flex-1">
+                <Admin />
+              </div>
             </div>
           </div>
         </SidebarProvider>
@@ -100,8 +113,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <Profile />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Profil" />
+              <div className="flex-1">
+                <Profile />
+              </div>
             </div>
           </div>
         </SidebarProvider>
@@ -110,8 +126,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <History />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Historique" />
+              <div className="flex-1">
+                <History />
+              </div>
             </div>
           </div>
         </SidebarProvider>
@@ -120,8 +139,11 @@ const AppContent = () => {
         <SidebarProvider>
           <div className="min-h-screen flex w-full">
             <AppSidebar />
-            <div className="flex-1">
-              <DebugLead />
+            <div className="flex-1 flex flex-col">
+              <GlobalHeader title="Debug Lead" />
+              <div className="flex-1">
+                <DebugLead />
+              </div>
             </div>
           </div>
         </SidebarProvider>

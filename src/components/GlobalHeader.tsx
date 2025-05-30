@@ -1,6 +1,4 @@
 
-import { Bell } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -8,12 +6,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import NotificationButton from './notifications/NotificationButton';
 import CustomSidebarTrigger from './ui/CustomSidebarTrigger';
 
-const GlobalHeader = () => {
+interface GlobalHeaderProps {
+  title?: string;
+}
+
+const GlobalHeader = ({ title }: GlobalHeaderProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -31,6 +34,7 @@ const GlobalHeader = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <CustomSidebarTrigger />
+          {title && <h1 className="text-xl font-semibold">{title}</h1>}
         </div>
         
         <div className="flex items-center gap-4">
