@@ -13,13 +13,6 @@ const History = () => {
   const { activities, loading } = useHistory();
   const { toggleSidebar } = useSidebar();
   const [selectedActivity, setSelectedActivity] = useState(null);
-  
-  // États pour les filtres
-  const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
-  const [activityTypes, setActivityTypes] = useState<string[]>(['linkedin_message', 'phone_call']);
-  const [timeFilter, setTimeFilter] = useState('7d');
-  const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [searchQuery, setSearchQuery] = useState('');
 
   if (loading) {
     return (
@@ -45,19 +38,6 @@ const History = () => {
         </div>
         
         <HistoryStats activities={activities} />
-        <HistoryFilters 
-          filterBy={filterBy}
-          onFilterByChange={setFilterBy}
-          activityTypes={activityTypes}
-          onActivityTypesChange={setActivityTypes}
-          timeFilter={timeFilter}
-          onTimeFilterChange={setTimeFilter}
-          customDateRange={customDateRange}
-          onCustomDateRangeChange={setCustomDateRange}
-          activitiesCount={activities.length}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-        />
       </div>
       
       {/* Contenu principal en deux colonnes */}
