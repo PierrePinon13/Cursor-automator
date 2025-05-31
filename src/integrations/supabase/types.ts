@@ -814,6 +814,66 @@ export type Database = {
           },
         ]
       }
+      linkedin_posts_raw: {
+        Row: {
+          apify_dataset_id: string
+          author_headline: string | null
+          author_name: string | null
+          author_profile_id: string | null
+          author_profile_url: string | null
+          author_type: string | null
+          created_at: string
+          id: string
+          is_repost: boolean | null
+          posted_at_iso: string | null
+          posted_at_timestamp: number | null
+          raw_data: Json
+          text: string | null
+          title: string | null
+          updated_at: string
+          url: string
+          urn: string
+        }
+        Insert: {
+          apify_dataset_id: string
+          author_headline?: string | null
+          author_name?: string | null
+          author_profile_id?: string | null
+          author_profile_url?: string | null
+          author_type?: string | null
+          created_at?: string
+          id?: string
+          is_repost?: boolean | null
+          posted_at_iso?: string | null
+          posted_at_timestamp?: number | null
+          raw_data: Json
+          text?: string | null
+          title?: string | null
+          updated_at?: string
+          url: string
+          urn: string
+        }
+        Update: {
+          apify_dataset_id?: string
+          author_headline?: string | null
+          author_name?: string | null
+          author_profile_id?: string | null
+          author_profile_url?: string | null
+          author_type?: string | null
+          created_at?: string
+          id?: string
+          is_repost?: boolean | null
+          posted_at_iso?: string | null
+          posted_at_timestamp?: number | null
+          raw_data?: Json
+          text?: string | null
+          title?: string | null
+          updated_at?: string
+          url?: string
+          urn?: string
+        }
+        Relationships: []
+      }
       openai_prompts: {
         Row: {
           created_at: string

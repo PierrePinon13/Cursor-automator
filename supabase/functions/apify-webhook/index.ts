@@ -56,6 +56,7 @@ serve(async (req) => {
     const stats = {
       dataset_id: datasetId,
       total_received: 0,
+      stored_raw: 0,
       after_person_filter: 0,
       after_repost_filter: 0,
       after_deduplication: 0,
@@ -131,10 +132,70 @@ serve(async (req) => {
     stats.total_received = allDatasetItems.length
     console.log(`📊 TOTAL dataset items retrieved: ${stats.total_received}`)
 
-    // Apply filters and track statistics
-    console.log('🔍 Starting filtering process...')
+    // NOUVEAU: Stocker TOUTES les données brutes dans linkedin_posts_raw
+    console.log('💾 Storing all raw data in linkedin_posts_raw table...')
+    let rawStoredCount = 0
+    let rawErrorCount = 0
 
-    // Filter 1: Only keep authorType = "Person" (ANALYSE: ce filtre est trop strict)
+    for (const item of allDatasetItems) {
+      try {
+        // Vérifier si ce post existe déjà dans la table raw (déduplication par URN)
+        const { data: existingRawPost } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .select('id')
+          .eq('urn', item.urn)
+          .single()
+
+        if (existingRawPost) {
+          console.log(`🔄 Raw post already exists: ${item.urn} - skipping`)
+          continue
+        }
+
+        // Préparer les données pour l'insertion dans linkedin_posts_raw
+        const rawPostData = {
+          apify_dataset_id: datasetId,
+          urn: item.urn,
+          text: item.text || null,
+          title: item.title || null,
+          url: item.url,
+          posted_at_timestamp: item.postedAtTimestamp || null,
+          posted_at_iso: item.postedAt || null,
+          author_type: item.authorType || null,
+          author_profile_url: item.authorProfileUrl || null,
+          author_profile_id: item.authorProfileId || null,
+          author_name: item.authorName || null,
+          author_headline: item.authorHeadline || null,
+          is_repost: item.isRepost || false,
+          raw_data: item
+        }
+
+        // Insérer dans linkedin_posts_raw
+        const { error: rawInsertError } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .insert(rawPostData)
+
+        if (rawInsertError) {
+          console.error('❌ Error inserting raw post:', rawInsertError)
+          rawErrorCount++
+          continue
+        }
+
+        console.log('✅ Raw post stored:', item.urn)
+        rawStoredCount++
+
+      } catch (error) {
+        console.error('❌ Error processing raw item:', error)
+        rawErrorCount++
+      }
+    }
+
+    stats.stored_raw = rawStoredCount
+    console.log(`💾 Raw storage complete: ${rawStoredCount} stored, ${rawErrorCount} errors`)
+
+    // Continuer avec le traitement existant (avec filtres)
+    console.log('🔍 Starting filtering process for linkedin_posts table...')
+
+    // Filter 1: Only keep authorType = "Person"
     let filteredItems = allDatasetItems.filter(item => {
       const isPersonType = item.authorType === 'Person'
       if (!isPersonType) {
@@ -145,7 +206,7 @@ serve(async (req) => {
     stats.after_person_filter = filteredItems.length
     console.log(`✅ After Person filter: ${stats.after_person_filter}/${stats.total_received} (${((stats.after_person_filter/stats.total_received)*100).toFixed(1)}%)`)
 
-    // Filter 2: Only keep isRepost = false (ANALYSE: ce filtre est correct)
+    // Filter 2: Only keep isRepost = false
     filteredItems = filteredItems.filter(item => {
       const isNotRepost = item.isRepost !== true
       if (!isNotRepost) {
@@ -156,17 +217,14 @@ serve(async (req) => {
     stats.after_repost_filter = filteredItems.length
     console.log(`✅ After Repost filter: ${stats.after_repost_filter}/${stats.after_person_filter} (${((stats.after_repost_filter/stats.after_person_filter)*100).toFixed(1)}%)`)
 
-    // SUPPRIMÉ: Filter 3 "required fields" car tu ne veux pas de ce filtrage
-
-    // Process remaining items
+    // Process remaining items for linkedin_posts table
     let insertedCount = 0
     let deduplicatedCount = 0
     let errorCount = 0
 
     for (const item of filteredItems) {
       try {
-        // Check if this post already exists (deduplication by urn)
-        // ANALYSE: La déduplication se fait sur l'URN LinkedIn
+        // Check if this post already exists in linkedin_posts (deduplication by urn)
         const { data: existingPost } = await supabaseClient
           .from('linkedin_posts')
           .select('id')
@@ -174,16 +232,16 @@ serve(async (req) => {
           .single()
 
         if (existingPost) {
-          console.log(`🔄 Duplicate URN found: ${item.urn} - skipping`)
+          console.log(`🔄 Duplicate URN found in linkedin_posts: ${item.urn} - skipping`)
           deduplicatedCount++
           continue
         }
 
-        // Prepare the data for insertion (TOUS les champs maintenant)
+        // Prepare the data for insertion in linkedin_posts
         const postData = {
           apify_dataset_id: datasetId,
           urn: item.urn,
-          text: item.text || 'No content', // Fallback si vide
+          text: item.text || 'No content',
           title: item.title || null,
           url: item.url,
           posted_at_timestamp: item.postedAtTimestamp || null,
@@ -197,7 +255,7 @@ serve(async (req) => {
           raw_data: item
         }
 
-        // Insert into database
+        // Insert into linkedin_posts
         const { data: insertedPost, error: insertError } = await supabaseClient
           .from('linkedin_posts')
           .insert(postData)
@@ -205,12 +263,12 @@ serve(async (req) => {
           .single()
 
         if (insertError) {
-          console.error('❌ Error inserting post:', insertError)
+          console.error('❌ Error inserting post in linkedin_posts:', insertError)
           errorCount++
           continue
         }
 
-        console.log('✅ Post inserted successfully:', insertedPost.id)
+        console.log('✅ Post inserted in linkedin_posts successfully:', insertedPost.id)
         insertedCount++
 
         // Trigger OpenAI processing (async)
@@ -223,7 +281,7 @@ serve(async (req) => {
         }
 
       } catch (error) {
-        console.error('❌ Error processing item:', error)
+        console.error('❌ Error processing item for linkedin_posts:', error)
         errorCount++
       }
     }
@@ -246,18 +304,21 @@ serve(async (req) => {
 
     console.log(`🎯 Processing complete:
     📥 Total received: ${stats.total_received}
+    💾 Stored raw: ${stats.stored_raw}
     👤 After Person filter: ${stats.after_person_filter}
     🔁 After Repost filter: ${stats.after_repost_filter}
     🔍 After Deduplication: ${stats.after_deduplication}
-    ✅ Successfully inserted: ${stats.successfully_inserted}
+    ✅ Successfully inserted in linkedin_posts: ${stats.successfully_inserted}
     ❌ Processing errors: ${stats.processing_errors}`)
 
     return new Response(JSON.stringify({ 
       success: true, 
       statistics: stats,
+      rawDataStored: true,
       filtersApplied: [
-        'authorType = Person',
-        'isRepost = false',
+        'ALL data stored in linkedin_posts_raw',
+        'authorType = Person (for linkedin_posts)',
+        'isRepost = false (for linkedin_posts)',
         'URN deduplication'
       ]
     }), { 
