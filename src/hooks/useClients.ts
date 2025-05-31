@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -86,16 +85,37 @@ export function useClients() {
 
   const fetchUsers = async () => {
     try {
+      console.log('🔍 Fetching users from profiles table...');
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, full_name')
         .order('full_name');
 
-      if (error) throw error;
-      console.log('Fetched users:', data); // Debug log
+      if (error) {
+        console.error('❌ Error fetching users:', error);
+        throw error;
+      }
+      
+      console.log('✅ Fetched users data:', data);
+      console.log('📊 Number of users found:', data?.length || 0);
+      
+      if (data && data.length > 0) {
+        data.forEach((user, index) => {
+          console.log(`👤 User ${index + 1}:`, {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name
+          });
+        });
+      } else {
+        console.warn('⚠️ No users found in profiles table');
+      }
+      
       setUsers(data || []);
     } catch (error: any) {
-      console.error('Error fetching users:', error);
+      console.error('💥 Error in fetchUsers:', error);
+      setUsers([]);
     }
   };
 
@@ -156,7 +176,7 @@ export function useClients() {
     setCollaboratorsLoading(prev => new Set(prev).add(clientId));
     
     try {
-      console.log('Début mise à jour collaborateurs:', { clientId, userIds });
+      console.log('🔄 Updating collaborators:', { clientId, userIds });
       
       // Delete existing collaborators
       const { error: deleteError } = await supabase
@@ -194,9 +214,9 @@ export function useClients() {
         })
       );
       
-      console.log('Mise à jour collaborateurs réussie');
+      console.log('✅ Collaborators updated successfully');
     } catch (error: any) {
-      console.error('Error updating collaborators:', error);
+      console.error('❌ Error updating collaborators:', error);
       throw error;
     } finally {
       setCollaboratorsLoading(prev => {

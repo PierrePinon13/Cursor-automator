@@ -32,6 +32,12 @@ export function CollaboratorsSelect({
     setLocalSelectedUsers(selectedUsers);
   }, [selectedUsers]);
 
+  // Log pour debug
+  useEffect(() => {
+    console.log('🎯 CollaboratorsSelect - users received:', users.length);
+    console.log('📝 Users details:', users);
+  }, [users]);
+
   // Validation et sécurisation des données
   const safeUsers = Array.isArray(users) ? users.filter(user => 
     user && 
@@ -43,6 +49,9 @@ export function CollaboratorsSelect({
     id && typeof id === 'string'
   ) : [];
 
+  console.log('✅ Safe users after filtering:', safeUsers.length);
+  console.log('🔒 Safe selected users:', safeSelectedUsers);
+
   if (!onSelectionChange || typeof onSelectionChange !== 'function') {
     return <div className="text-sm text-red-500">Erreur de configuration</div>;
   }
@@ -52,7 +61,15 @@ export function CollaboratorsSelect({
     safeSelectedUsers.includes(user.id)
   );
 
+  // Filtrer les utilisateurs disponibles (non sélectionnés)
+  const availableUsers = safeUsers.filter(user => 
+    !safeSelectedUsers.includes(user.id)
+  );
+
+  console.log('🆓 Available users for selection:', availableUsers.length);
+
   const addUser = async (userId: string) => {
+    console.log('➕ Adding user:', userId);
     const newSelection = [...safeSelectedUsers, userId];
     setLocalSelectedUsers(newSelection);
     setOpen(false);
@@ -66,6 +83,7 @@ export function CollaboratorsSelect({
   };
 
   const removeUser = async (userId: string) => {
+    console.log('➖ Removing user:', userId);
     const newSelection = safeSelectedUsers.filter(id => id !== userId);
     setLocalSelectedUsers(newSelection);
     
@@ -85,10 +103,6 @@ export function CollaboratorsSelect({
     const name = user.full_name || user.email || 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
-
-  const availableUsers = safeUsers.filter(user => 
-    !safeSelectedUsers.includes(user.id)
-  );
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -135,7 +149,11 @@ export function CollaboratorsSelect({
               Ajouter un collaborateur
             </div>
             
-            {availableUsers.length === 0 ? (
+            {safeUsers.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-red-600">
+                ⚠️ Aucun utilisateur trouvé dans la base de données.
+              </div>
+            ) : availableUsers.length === 0 ? (
               <div className="text-sm text-muted-foreground">
                 Tous les utilisateurs sont déjà assignés.
               </div>
