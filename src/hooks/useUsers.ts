@@ -31,6 +31,12 @@ export function useUsers() {
       }
       
       console.log('✅ Users fetched successfully:', data?.length || 0);
+      console.log('👥 User details:', data?.map(u => ({ 
+        id: u.id, 
+        email: u.email, 
+        full_name: u.full_name 
+      })));
+      
       setUsers(data || []);
     } catch (error) {
       console.error('💥 Error in fetchUsers:', error);

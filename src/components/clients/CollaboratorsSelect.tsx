@@ -19,6 +19,7 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
   console.log('🎯 CollaboratorsSelect render:', {
     clientId,
     usersCount: users.length,
+    usersData: users,
     collaboratorIds,
     usersLoading,
     collaboratorsLoading
@@ -113,12 +114,14 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
         <PopoverContent className="w-[300px] p-0">
           <div className="p-4">
             <div className="text-sm font-medium mb-3">
-              Ajouter un collaborateur
+              Ajouter un collaborateur ({users.length} utilisateurs disponibles)
             </div>
             
             {users.length === 0 ? (
               <div className="text-sm text-muted-foreground text-red-600">
                 ⚠️ Aucun utilisateur trouvé dans la base de données.
+                <br />
+                <small>Vérifiez que les politiques RLS sont configurées.</small>
               </div>
             ) : availableUsers.length === 0 ? (
               <div className="text-sm text-muted-foreground">
