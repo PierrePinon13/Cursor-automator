@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { useUsers } from '@/hooks/useUsers';
 import { useClientCollaborators } from '@/hooks/useClientCollaborators';
@@ -111,52 +112,47 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0">
-          <div className="p-4">
-            <div className="text-sm font-medium mb-3">
-              Ajouter un collaborateur ({users.length} utilisateurs disponibles)
+        <PopoverContent className="w-[280px] p-0">
+          <div className="p-3">
+            <div className="text-sm font-medium mb-2">
+              Ajouter un collaborateur ({users.length})
             </div>
             
             {users.length === 0 ? (
               <div className="text-sm text-muted-foreground text-red-600">
-                ⚠️ Aucun utilisateur trouvé dans la base de données.
-                <br />
-                <small>Vérifiez que les politiques RLS sont configurées.</small>
+                ⚠️ Aucun utilisateur trouvé.
               </div>
             ) : availableUsers.length === 0 ? (
               <div className="text-sm text-muted-foreground">
                 Tous les utilisateurs sont déjà assignés.
               </div>
             ) : (
-              <div className="space-y-1">
-                {availableUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    className="w-full flex items-center space-x-3 p-3 text-left rounded-md border transition-colors hover:bg-gray-100 hover:border-gray-200"
-                    onClick={() => addUser(user.id)}
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-blue-500 text-white">
-                        {getInitials(user)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">
-                        {getDisplayName(user)}
-                      </div>
-                      {user.full_name && user.email && (
-                        <div className="text-sm text-gray-500">
-                          {user.email}
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-1">
+                  {availableUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      className="w-full flex items-center space-x-2 p-2 text-left rounded-md border transition-colors hover:bg-gray-100 hover:border-gray-200"
+                      onClick={() => addUser(user.id)}
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="bg-blue-500 text-white text-xs">
+                          {getInitials(user)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 text-sm truncate">
+                          {getDisplayName(user)}
                         </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
             )}
             
-            <div className="mt-4 pt-3 border-t border-gray-200">
+            <div className="mt-3 pt-2 border-t border-gray-200">
               <Button
                 variant="outline"
                 size="sm"
