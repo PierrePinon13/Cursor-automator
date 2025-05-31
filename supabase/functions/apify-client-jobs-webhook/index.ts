@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -157,44 +158,50 @@ serve(async (req) => {
 
     for (const item of datasetItems) {
       try {
-        // Filtre supprimé - on traite tous les items
-        console.log('🔄 Processing item:', item.title || item.url || 'No title/URL')
+        // Log de debug pour voir la structure des données
+        console.log('🔄 Processing item:', JSON.stringify(item, null, 2))
 
         // Try to match with a client
         let matchedClient = null
-        if (item.company && clients) {
-          matchedClient = clients.find(client => 
-            client.company_name.toLowerCase().includes(item.company.toLowerCase()) ||
-            item.company.toLowerCase().includes(client.company_name.toLowerCase())
-          )
+        const companyName = item.companyName || item.company || null
+        
+        if (companyName && clients) {
+          matchedClient = clients.find(client => {
+            if (!client.company_name || !companyName) return false
+            return client.company_name.toLowerCase().includes(companyName.toLowerCase()) ||
+                   companyName.toLowerCase().includes(client.company_name.toLowerCase())
+          })
         }
 
-        // Prepare job offer data - on accepte même sans title/url
+        // Prepare job offer data - utilisation des bons noms de champs
         const jobOfferData = {
           apify_dataset_id: datasetId,
           title: item.title || null,
-          company_name: item.company || null,
-          url: item.url || null,
+          company_name: companyName,
+          url: item.link || item.url || null,
           location: item.location || null,
           job_type: item.employmentType || null,
           salary: item.salary || null,
           description: item.description || null,
-          posted_at: item.publishedAt ? new Date(item.publishedAt).toISOString() : null,
+          posted_at: item.postedAt ? new Date(item.postedAt).toISOString() : (item.publishedAt ? new Date(item.publishedAt).toISOString() : null),
           matched_client_id: matchedClient?.id || null,
           matched_client_name: matchedClient?.company_name || null,
           raw_data: item
         }
 
+        console.log('📋 Prepared job offer data:', JSON.stringify(jobOfferData, null, 2))
+
         // Check if this job offer already exists (seulement si on a une URL)
-        if (item.url) {
+        const jobUrl = item.link || item.url
+        if (jobUrl) {
           const { data: existingOffer } = await supabaseClient
             .from('client_job_offers')
             .select('id')
-            .eq('url', item.url)
+            .eq('url', jobUrl)
             .single()
 
           if (existingOffer) {
-            console.log('⚠️ Job offer already exists, skipping:', item.title || item.url)
+            console.log('⚠️ Job offer already exists, skipping:', item.title || jobUrl)
             skippedCount++
             continue
           }
@@ -211,7 +218,7 @@ serve(async (req) => {
           continue
         }
 
-        console.log('✅ Inserted job offer:', item.title || item.url || 'No title/URL')
+        console.log('✅ Inserted job offer:', item.title || jobUrl || 'No title/URL')
         processedCount++
 
       } catch (error) {
