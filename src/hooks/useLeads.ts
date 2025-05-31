@@ -1,26 +1,86 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { useToast } from './use-toast';
+import { useAuth } from './useAuth';
+import { useUserRole } from './useUserRole';
 
-type Lead = Tables<'leads'>;
+export interface Lead {
+  id: string;
+  author_name: string | null;
+  author_headline: string | null;
+  author_profile_url: string | null;
+  company_name: string | null;
+  company_position: string | null;
+  phone_number: string | null;
+  openai_step3_categorie: string | null;
+  openai_step3_postes_selectionnes: string[] | null;
+  openai_step2_localisation: string | null;
+  latest_post_date: string | null;
+  latest_post_url: string | null;
+  latest_post_urn: string | null;
+  last_contact_at: string | null;
+  linkedin_message_sent_at: string | null;
+  phone_contact_at: string | null;
+  phone_contact_status: string | null;
+  phone_contact_by_user_name: string | null;
+  approach_message: string | null;
+  is_client_lead: boolean | null;
+  matched_client_name: string | null;
+  matched_client_id: string | null;
+  created_at: string;
+  updated_at: string;
+  url: string | null;
+  title: string | null;
+  text: string | null;
+  processing_status: string | null;
+  assigned_user?: {
+    id: string;
+    full_name: string | null;
+    email: string;
+  } | null;
+}
 
-export function useLeads() {
+export const useLeads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
-  const [selectedContactFilter, setSelectedContactFilter] = useState('all');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('7days');
+  const [selectedContactFilter, setSelectedContactFilter] = useState('exclude_2weeks');
+  const [visibleColumns, setVisibleColumns] = useState([
+    'posted_date', 'job_title', 'author_name', 'company', 'last_contact', 'category'
+  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
 
   const fetchLeads = async () => {
+    if (!user) return;
+
+    setLoading(true);
     try {
-      setLoading(true);
-      console.log('📋 Fetching leads from leads table...');
+      console.log('🔍 Fetching leads...');
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
-        .select('*')
+        .select(`
+          *,
+          assigned_user:lead_assignments(
+            user:profiles(
+              id,
+              full_name,
+              email
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
+
+      // Filtrer automatiquement la catégorie "Autre" pour les non-admins
+      if (!isAdmin) {
+        query = query.neq('openai_step3_categorie', 'Autre');
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('❌ Error fetching leads:', error);
@@ -28,10 +88,22 @@ export function useLeads() {
       }
 
       console.log(`✅ Fetched ${data?.length || 0} leads`);
-      setLeads(data || []);
+      
+      // Transformer les données pour aplatir l'assignation
+      const transformedLeads = (data || []).map(lead => ({
+        ...lead,
+        assigned_user: lead.assigned_user?.[0]?.user || null
+      }));
+
+      setLeads(transformedLeads);
     } catch (error) {
       console.error('❌ Error in fetchLeads:', error);
       setLeads([]);
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer les leads.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -39,38 +111,25 @@ export function useLeads() {
 
   useEffect(() => {
     fetchLeads();
-  }, []);
-
-  // Filtrage par catégories
-  const filteredByCategory = selectedCategories.length > 0 
-    ? leads.filter(lead => 
-        lead.openai_step3_categorie && 
-        selectedCategories.includes(lead.openai_step3_categorie)
-      )
-    : leads;
+  }, [user, isAdmin]); // Refetch when admin status changes
 
   // Filtrage par date
-  const filteredByDate = filteredByCategory.filter(lead => {
+  const filteredByDate = leads.filter(lead => {
     if (selectedDateFilter === 'all') return true;
     
     const leadDate = new Date(lead.created_at);
     const now = new Date();
     
     switch (selectedDateFilter) {
-      case 'today':
-        return leadDate.toDateString() === now.toDateString();
-      case 'yesterday':
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return leadDate.toDateString() === yesterday.toDateString();
-      case 'last_7_days':
-        const sevenDaysAgo = new Date(now);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      case '24h':
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        return leadDate >= yesterday;
+      case '48h':
+        const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+        return leadDate >= twoDaysAgo;
+      case '7days':
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         return leadDate >= sevenDaysAgo;
-      case 'last_30_days':
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return leadDate >= thirtyDaysAgo;
       default:
         return true;
     }
@@ -78,32 +137,94 @@ export function useLeads() {
 
   // Filtrage par statut de contact
   const filteredByContact = filteredByDate.filter(lead => {
+    if (selectedContactFilter === 'exclude_none') return true;
+    
+    const lastContactDate = lead.last_contact_at ? new Date(lead.last_contact_at) : null;
+    if (!lastContactDate) return true;
+    
+    const now = new Date();
+    const diffInMs = now.getTime() - lastContactDate.getTime();
+    const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+    
     switch (selectedContactFilter) {
-      case 'contacted':
-        return lead.last_contact_at !== null;
-      case 'not_contacted':
-        return lead.last_contact_at === null;
-      case 'linkedin_sent':
-        return lead.linkedin_message_sent_at !== null;
-      case 'phone_contacted':
-        return lead.phone_contact_at !== null;
+      case 'exclude_1week':
+        return diffInDays > 7;
+      case 'exclude_2weeks':
+        return diffInDays > 14;
+      case 'exclude_1month':
+        return diffInDays > 30;
+      case 'exclude_all_contacted':
+        return false;
       default:
         return true;
     }
   });
 
+  // Filtrage par catégories
+  const filteredByCategory = selectedCategories.length === 0 
+    ? filteredByContact 
+    : filteredByContact.filter(lead => 
+        lead.openai_step3_categorie && selectedCategories.includes(lead.openai_step3_categorie)
+      );
+
+  // Recherche
+  const filteredBySearch = searchQuery
+    ? filteredByCategory.filter(lead =>
+        lead.author_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.openai_step3_categorie?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.openai_step3_postes_selectionnes?.some(poste =>
+          poste.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      )
+    : filteredByCategory;
+
   // Catégories disponibles
-  const availableCategories = Array.from(
-    new Set(
+  const availableCategories = useMemo(() => {
+    const categories = Array.from(new Set(
       leads
         .map(lead => lead.openai_step3_categorie)
         .filter(Boolean)
-    )
-  ).sort();
+    )) as string[];
+    
+    // Filtrer "Autre" pour les non-admins
+    return isAdmin ? categories : categories.filter(cat => cat !== 'Autre');
+  }, [leads, isAdmin]);
+
+  // Mettre à jour le statut du contact téléphonique
+  const updatePhoneContactStatus = async (leadId: string, status: string, userId: string, userName: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          phone_contact_status: status,
+          phone_contact_at: new Date().toISOString(),
+          phone_contact_by_user_id: userId,
+          phone_contact_by_user_name: userName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      await fetchLeads();
+      toast({
+        title: "Succès",
+        description: "Statut du contact téléphonique mis à jour.",
+      });
+    } catch (error: any) {
+      console.error('Error updating phone contact status:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le statut du contact téléphonique.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return {
     leads,
-    filteredLeads: filteredByContact,
+    filteredLeads: filteredBySearch,
     loading,
     selectedCategories,
     setSelectedCategories,
@@ -111,7 +232,12 @@ export function useLeads() {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
+    visibleColumns,
+    setVisibleColumns,
+    searchQuery,
+    setSearchQuery,
     availableCategories,
+    updatePhoneContactStatus,
     refreshLeads: fetchLeads
   };
-}
+};

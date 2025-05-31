@@ -1,8 +1,10 @@
+
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, Grid3X3, Search } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
@@ -99,6 +101,10 @@ const categoryColors = {
   'Data': {
     active: 'bg-teal-100 border-teal-300 text-teal-800 hover:bg-teal-150',
     inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Autre': {
+    active: 'bg-gray-100 border-gray-300 text-gray-800 hover:bg-gray-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   }
 };
 
@@ -119,7 +125,11 @@ export default function LeadsFilters({
   searchQuery = '',
   setSearchQuery
 }: LeadsFiltersProps) {
+  const { isAdmin } = useUserRole();
   const columnOptions = getColumnOptions(showAssignmentColumn);
+
+  // Filtrer les catégories selon le rôle de l'utilisateur
+  const categoriesToShow = isAdmin ? [...allCategories, 'Autre'] : allCategories;
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -199,7 +209,7 @@ export default function LeadsFilters({
       
       {/* Categories badges row - Plus compact */}
       <div className="flex flex-wrap gap-1.5">
-        {allCategories.map((category) => {
+        {categoriesToShow.map((category) => {
           const isSelected = selectedCategories.includes(category);
           const colors = categoryColors[category as keyof typeof categoryColors];
           const colorClass = isSelected ? colors.active : colors.inactive;
