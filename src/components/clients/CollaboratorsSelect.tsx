@@ -1,113 +1,80 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Plus, X, Loader2 } from 'lucide-react';
-
-interface User {
-  id: string;
-  email: string;
-  full_name: string | null;
-}
+import { useUsers } from '@/hooks/useUsers';
+import { useClientCollaborators } from '@/hooks/useClientCollaborators';
 
 interface CollaboratorsSelectProps {
-  users: User[];
-  selectedUsers: string[];
-  onSelectionChange: (userIds: string[]) => void;
-  isLoading?: boolean;
+  clientId: string;
 }
 
-export function CollaboratorsSelect({ 
-  users = [], 
-  selectedUsers = [], 
-  onSelectionChange,
-  isLoading = false
-}: CollaboratorsSelectProps) {
+export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
-  const [localSelectedUsers, setLocalSelectedUsers] = useState(selectedUsers);
+  const { users, loading: usersLoading } = useUsers();
+  const { collaboratorIds, loading: collaboratorsLoading, updateCollaborators } = useClientCollaborators(clientId);
 
-  // Synchroniser avec les utilisateurs sélectionnés externes
-  useEffect(() => {
-    setLocalSelectedUsers(selectedUsers);
-  }, [selectedUsers]);
-
-  // Log pour debug
-  useEffect(() => {
-    console.log('🎯 CollaboratorsSelect - users received:', users.length);
-    console.log('📝 Users details:', users);
-  }, [users]);
-
-  // Validation et sécurisation des données
-  const safeUsers = Array.isArray(users) ? users.filter(user => 
-    user && 
-    user.id && 
-    (user.full_name || user.email)
-  ) : [];
-
-  const safeSelectedUsers = Array.isArray(localSelectedUsers) ? localSelectedUsers.filter(id => 
-    id && typeof id === 'string'
-  ) : [];
-
-  console.log('✅ Safe users after filtering:', safeUsers.length);
-  console.log('🔒 Safe selected users:', safeSelectedUsers);
-
-  if (!onSelectionChange || typeof onSelectionChange !== 'function') {
-    return <div className="text-sm text-red-500">Erreur de configuration</div>;
-  }
+  console.log('🎯 CollaboratorsSelect render:', {
+    clientId,
+    usersCount: users.length,
+    collaboratorIds,
+    usersLoading,
+    collaboratorsLoading
+  });
 
   // Trouver les utilisateurs sélectionnés
-  const selectedUsersData = safeUsers.filter(user => 
-    safeSelectedUsers.includes(user.id)
-  );
-
+  const selectedUsers = users.filter(user => collaboratorIds.includes(user.id));
+  
   // Filtrer les utilisateurs disponibles (non sélectionnés)
-  const availableUsers = safeUsers.filter(user => 
-    !safeSelectedUsers.includes(user.id)
-  );
-
-  console.log('🆓 Available users for selection:', availableUsers.length);
+  const availableUsers = users.filter(user => !collaboratorIds.includes(user.id));
 
   const addUser = async (userId: string) => {
     console.log('➕ Adding user:', userId);
-    const newSelection = [...safeSelectedUsers, userId];
-    setLocalSelectedUsers(newSelection);
+    const newSelection = [...collaboratorIds, userId];
     setOpen(false);
     
     try {
-      await onSelectionChange(newSelection);
+      await updateCollaborators(newSelection);
     } catch (error) {
       console.error('Erreur lors de l\'ajout:', error);
-      setLocalSelectedUsers(safeSelectedUsers);
     }
   };
 
   const removeUser = async (userId: string) => {
     console.log('➖ Removing user:', userId);
-    const newSelection = safeSelectedUsers.filter(id => id !== userId);
-    setLocalSelectedUsers(newSelection);
+    const newSelection = collaboratorIds.filter(id => id !== userId);
     
     try {
-      await onSelectionChange(newSelection);
+      await updateCollaborators(newSelection);
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
-      setLocalSelectedUsers(safeSelectedUsers);
     }
   };
 
-  const getDisplayName = (user: User) => {
+  const getDisplayName = (user: any) => {
     return user.full_name || user.email || 'Utilisateur inconnu';
   };
 
-  const getInitials = (user: User) => {
+  const getInitials = (user: any) => {
     const name = user.full_name || user.email || 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
   };
+
+  if (usersLoading) {
+    return (
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm text-gray-500">Chargement...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {/* Affichage des collaborateurs sélectionnés */}
-      {selectedUsersData.map((user) => (
+      {selectedUsers.map((user) => (
         <div key={user.id} className="flex items-center gap-1 bg-gray-100 rounded-full pr-1 pl-1">
           <Avatar className="h-6 w-6">
             <AvatarFallback className="text-xs bg-blue-500 text-white">
@@ -119,7 +86,7 @@ export function CollaboratorsSelect({
             variant="ghost"
             size="sm"
             className="h-5 w-5 p-0 hover:bg-red-100 rounded-full"
-            disabled={isLoading}
+            disabled={collaboratorsLoading}
             onClick={() => removeUser(user.id)}
           >
             <X className="h-3 w-3 text-red-500" />
@@ -134,9 +101,9 @@ export function CollaboratorsSelect({
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0 rounded-full border-dashed"
-            disabled={isLoading || availableUsers.length === 0}
+            disabled={collaboratorsLoading || availableUsers.length === 0}
           >
-            {isLoading ? (
+            {collaboratorsLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
@@ -149,7 +116,7 @@ export function CollaboratorsSelect({
               Ajouter un collaborateur
             </div>
             
-            {safeUsers.length === 0 ? (
+            {users.length === 0 ? (
               <div className="text-sm text-muted-foreground text-red-600">
                 ⚠️ Aucun utilisateur trouvé dans la base de données.
               </div>

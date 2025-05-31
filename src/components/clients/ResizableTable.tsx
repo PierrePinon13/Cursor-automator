@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -37,7 +36,7 @@ interface ResizableTableProps {
 }
 
 export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }: ResizableTableProps) {
-  const { deleteClient, updateClient, updateCollaborators, collaboratorsLoading } = useClients();
+  const { deleteClient, updateClient } = useClients();
   
   const [columnWidths, setColumnWidths] = useState({
     name: 200,
@@ -103,21 +102,7 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
     }
   };
 
-  const handleCollaboratorsChange = async (clientId: string, userIds: string[]) => {
-    if (!clientId || !Array.isArray(userIds)) {
-      console.error('Données invalides pour la mise à jour des collaborateurs');
-      return;
-    }
-    
-    try {
-      await updateCollaborators(clientId, userIds);
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour des collaborateurs:', error);
-    }
-  };
-
   const handleTrackingToggle = async (clientId: string, trackingEnabled: boolean) => {
-    // Mise à jour immédiate de l'état local
     setLocalTrackingStates(prev => ({
       ...prev,
       [clientId]: trackingEnabled
@@ -127,7 +112,6 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
       await updateClient(clientId, { tracking_enabled: trackingEnabled });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du suivi:', error);
-      // Revenir à l'ancien état en cas d'erreur
       setLocalTrackingStates(prev => ({
         ...prev,
         [clientId]: !trackingEnabled
@@ -150,10 +134,6 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
 
   const validClients = Array.isArray(filteredClients) ? filteredClients.filter(client => 
     client && client.id && client.company_name
-  ) : [];
-
-  const validUsers = Array.isArray(users) ? users.filter(user => 
-    user && user.id && (user.email || user.full_name)
   ) : [];
 
   return (
@@ -218,13 +198,6 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
         </TableHeader>
         <TableBody>
           {validClients.map((client) => {
-            const collaboratorIds = Array.isArray(client.collaborators) 
-              ? client.collaborators
-                  .filter(c => c && c.id)
-                  .map(c => c.id)
-              : [];
-            
-            const isCollaboratorsLoading = collaboratorsLoading.has(client.id);
             const localTrackingState = localTrackingStates[client.id] ?? client.tracking_enabled;
             
             return (
@@ -236,12 +209,7 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
                   {client.company_name}
                 </TableCell>
                 <TableCell style={{ width: columnWidths.collaborators }}>
-                  <CollaboratorsSelect
-                    users={validUsers}
-                    selectedUsers={collaboratorIds}
-                    onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
-                    isLoading={isCollaboratorsLoading}
-                  />
+                  <CollaboratorsSelect clientId={client.id} />
                 </TableCell>
                 <TableCell style={{ width: columnWidths.tier }}>
                   <TierSelector

@@ -29,7 +29,6 @@ export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collaboratorsLoading, setCollaboratorsLoading] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,7 +40,6 @@ export function useClients() {
     try {
       console.log('🔍 Fetching clients...');
       
-      // 1. Récupérer tous les clients
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
@@ -50,44 +48,7 @@ export function useClients() {
       if (clientsError) throw clientsError;
       console.log('✅ Clients fetched:', clientsData?.length || 0);
 
-      // 2. Récupérer toutes les relations client_collaborators
-      const { data: collaboratorRelations, error: relationsError } = await supabase
-        .from('client_collaborators')
-        .select('client_id, user_id');
-
-      if (relationsError) throw relationsError;
-      console.log('✅ Collaborator relations fetched:', collaboratorRelations?.length || 0);
-
-      // 3. Récupérer tous les utilisateurs
-      const { data: usersData, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name');
-
-      if (usersError) throw usersError;
-      console.log('✅ Users fetched for collaborators:', usersData?.length || 0);
-
-      // 4. Construire la structure finale
-      const clientsWithCollaborators = (clientsData || []).map((client) => {
-        // Trouver les IDs des collaborateurs pour ce client
-        const collaboratorIds = collaboratorRelations
-          ?.filter(rel => rel.client_id === client.id)
-          .map(rel => rel.user_id) || [];
-
-        // Récupérer les détails des collaborateurs
-        const collaborators = usersData
-          ?.filter(user => collaboratorIds.includes(user.id))
-          .map(user => ({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.full_name || null
-          })) || [];
-
-        console.log(`👥 Client ${client.company_name} has ${collaborators.length} collaborators`);
-
-        return { ...client, collaborators };
-      });
-
-      setClients(clientsWithCollaborators);
+      setClients(clientsData || []);
     } catch (error: any) {
       console.error('❌ Error fetching clients:', error);
     } finally {
@@ -111,18 +72,6 @@ export function useClients() {
       
       console.log('✅ Fetched users data:', data);
       console.log('📊 Number of users found:', data?.length || 0);
-      
-      if (data && data.length > 0) {
-        data.forEach((user, index) => {
-          console.log(`👤 User ${index + 1}:`, {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name
-          });
-        });
-      } else {
-        console.warn('⚠️ No users found in profiles table');
-      }
       
       setUsers(data || []);
     } catch (error: any) {
@@ -158,7 +107,6 @@ export function useClients() {
 
       if (error) throw error;
 
-      // Mise à jour immédiate de l'état local
       setClients(prevClients => 
         prevClients.map(client => 
           client.id === id ? { ...client, ...clientData } : client
@@ -181,61 +129,6 @@ export function useClients() {
       await fetchClients();
     } catch (error: any) {
       console.error('Error deleting client:', error);
-    }
-  };
-
-  const updateCollaborators = async (clientId: string, userIds: string[]) => {
-    setCollaboratorsLoading(prev => new Set(prev).add(clientId));
-    
-    try {
-      console.log('🔄 Updating collaborators:', { clientId, userIds });
-      
-      // Delete existing collaborators
-      const { error: deleteError } = await supabase
-        .from('client_collaborators')
-        .delete()
-        .eq('client_id', clientId);
-
-      if (deleteError) throw deleteError;
-
-      // Add new collaborators
-      if (userIds.length > 0) {
-        const collaborators = userIds.map(userId => ({
-          client_id: clientId,
-          user_id: userId
-        }));
-
-        const { error: insertError } = await supabase
-          .from('client_collaborators')
-          .insert(collaborators);
-
-        if (insertError) throw insertError;
-      }
-
-      // Mise à jour immédiate de l'état local
-      setClients(prevClients => 
-        prevClients.map(client => {
-          if (client.id === clientId) {
-            const selectedCollaborators = users.filter(user => userIds.includes(user.id));
-            return {
-              ...client,
-              collaborators: selectedCollaborators
-            };
-          }
-          return client;
-        })
-      );
-      
-      console.log('✅ Collaborators updated successfully');
-    } catch (error: any) {
-      console.error('❌ Error updating collaborators:', error);
-      throw error;
-    } finally {
-      setCollaboratorsLoading(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(clientId);
-        return newSet;
-      });
     }
   };
 
@@ -290,11 +183,9 @@ export function useClients() {
     clients,
     users,
     loading,
-    collaboratorsLoading,
     createClient,
     updateClient,
     deleteClient,
-    updateCollaborators,
     importClients,
     refreshClients: fetchClients,
     getUnqualifiedClients,
