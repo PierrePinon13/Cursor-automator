@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, Calendar, MapPin, DollarSign } from 'lucide-react';
+import { ExternalLink, Calendar, MapPin, DollarSign, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ClientLeadsView } from './ClientLeadsView';
 
 export function JobOffersSection() {
-  const { jobOffers, loading } = useClientJobOffers();
+  const { jobOffers, loading, refreshJobOffers } = useClientJobOffers();
 
   if (loading) {
     return (
@@ -31,9 +31,34 @@ export function JobOffersSection() {
       <TabsContent value="job-offers" className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Offres d'emploi des clients</h3>
-          <Badge variant="secondary">
-            {jobOffers.length} offres
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">
+              {jobOffers.length} offres
+            </Badge>
+            <Button
+              onClick={refreshJobOffers}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Actualiser
+            </Button>
+          </div>
+        </div>
+
+        {/* Message de débogage temporaire */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-medium text-blue-900 mb-2">Informations de débogage :</h4>
+          <p className="text-sm text-blue-800">
+            📊 Nombre total d'offres récupérées : {jobOffers.length}
+          </p>
+          <p className="text-sm text-blue-800">
+            📅 Dernière actualisation : {new Date().toLocaleTimeString('fr-FR')}
+          </p>
+          <p className="text-sm text-blue-800">
+            🔍 Vérifiez la console du navigateur (F12) pour plus de détails
+          </p>
         </div>
 
         {jobOffers.length === 0 ? (
@@ -41,9 +66,12 @@ export function JobOffersSection() {
             <CardContent className="p-8 text-center">
               <div className="text-muted-foreground">
                 <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Aucune offre d'emploi trouvée</p>
+                <p className="font-medium">Aucune offre d'emploi trouvée</p>
                 <p className="text-sm mt-2">
                   Les offres d'emploi de vos clients apparaîtront ici automatiquement
+                </p>
+                <p className="text-sm mt-1 text-blue-600">
+                  Si vous attendez des données reçues à 22h42, elles devraient apparaître ici
                 </p>
               </div>
             </CardContent>
@@ -65,6 +93,9 @@ export function JobOffersSection() {
                             Client: {offer.matched_client_name}
                           </Badge>
                         )}
+                        <span className="text-xs text-gray-500">
+                          ID: {offer.id.slice(0, 8)}...
+                        </span>
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" asChild>
@@ -108,12 +139,17 @@ export function JobOffersSection() {
                       )}
                     </div>
                     
-                    {offer.posted_at && (
-                      <div className="flex items-center gap-1 text-gray-500">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(offer.posted_at), 'dd MMM yyyy', { locale: fr })}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 text-gray-500">
+                      {offer.posted_at && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(offer.posted_at), 'dd MMM yyyy', { locale: fr })}
+                        </div>
+                      )}
+                      <span className="text-xs">
+                        Ajouté: {format(new Date(offer.created_at), 'dd/MM HH:mm', { locale: fr })}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

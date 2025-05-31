@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -47,6 +46,18 @@ export function useClientJobOffers() {
       setLoading(true);
       console.log('📋 Fetching client job offers...');
       
+      // D'abord, comptons le total dans la table
+      const { count, error: countError } = await supabase
+        .from('client_job_offers')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('❌ Error counting job offers:', countError);
+      } else {
+        console.log(`🔢 Total job offers in database: ${count}`);
+      }
+
+      // Maintenant récupérons les données
       const { data, error } = await supabase
         .from('client_job_offers')
         .select('*')
@@ -57,7 +68,24 @@ export function useClientJobOffers() {
         throw error;
       }
 
-      console.log(`✅ Fetched ${data?.length || 0} job offers`);
+      console.log(`✅ Successfully fetched ${data?.length || 0} job offers from query`);
+      console.log('📊 Sample data:', data?.slice(0, 2));
+      
+      // Vérifions les données récentes (dernières 24h)
+      const last24Hours = new Date();
+      last24Hours.setHours(last24Hours.getHours() - 24);
+      const recentOffers = data?.filter(offer => new Date(offer.created_at) > last24Hours) || [];
+      console.log(`⏰ Job offers from last 24 hours: ${recentOffers.length}`);
+      
+      if (recentOffers.length > 0) {
+        console.log('🕐 Recent offers created_at times:', recentOffers.map(offer => ({
+          id: offer.id,
+          title: offer.title,
+          created_at: offer.created_at,
+          company_name: offer.company_name
+        })));
+      }
+
       setJobOffers(data || []);
     } catch (error) {
       console.error('❌ Error in fetchJobOffers:', error);
