@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -45,14 +46,14 @@ export function useClients() {
 
       if (clientsError) throw clientsError;
 
-      // Fetch collaborators for each client
+      // Fetch collaborators for each client using explicit relationship
       const clientsWithCollaborators = await Promise.all(
         (clientsData || []).map(async (client) => {
           const { data: collaboratorsData, error: collaboratorsError } = await supabase
             .from('client_collaborators')
             .select(`
               user_id,
-              profiles (
+              profiles!client_collaborators_user_id_fkey (
                 id,
                 email,
                 full_name
