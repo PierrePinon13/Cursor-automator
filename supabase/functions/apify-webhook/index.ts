@@ -52,83 +52,126 @@ serve(async (req) => {
       })
     }
 
-    // Fetch ALL dataset items from Apify with pagination
-    console.log('Fetching dataset items from Apify with pagination...')
+    // Initialize statistics tracking
+    const stats = {
+      dataset_id: datasetId,
+      total_received: 0,
+      after_person_filter: 0,
+      after_repost_filter: 0,
+      after_required_fields_filter: 0,
+      after_deduplication: 0,
+      successfully_inserted: 0,
+      processing_errors: 0,
+      started_at: new Date().toISOString()
+    }
+
+    // Fetch ALL dataset items from Apify with improved pagination
+    console.log('🔄 Starting data retrieval with improved pagination...')
     let allDatasetItems: any[] = []
     let offset = 0
     const limit = 1000 // Apify's max per request
-    let hasMoreData = true
+    let consecutiveEmptyBatches = 0
+    const maxConsecutiveEmpty = 3 // Stop after 3 consecutive empty batches
 
-    while (hasMoreData) {
-      console.log(`Fetching items: offset=${offset}, limit=${limit}`)
+    while (consecutiveEmptyBatches < maxConsecutiveEmpty) {
+      console.log(`📥 Fetching batch: offset=${offset}, limit=${limit}`)
       
-      const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json&offset=${offset}&limit=${limit}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apifyApiKey}`,
-          'Accept': 'application/json',
-        },
-      })
-
-      if (!apifyResponse.ok) {
-        const errorText = await apifyResponse.text()
-        console.error('Apify API error:', apifyResponse.status, errorText)
-        return new Response(`Apify API error: ${apifyResponse.status}`, { 
-          status: 500,
-          headers: corsHeaders 
+      try {
+        const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json&offset=${offset}&limit=${limit}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apifyApiKey}`,
+            'Accept': 'application/json',
+          },
         })
-      }
 
-      const batchItems = await apifyResponse.json()
-      console.log(`Retrieved ${batchItems.length} items in this batch`)
-      
-      // If we got fewer items than the limit, we've reached the end
-      if (batchItems.length < limit) {
-        hasMoreData = false
-      }
-      
-      // Add items to our collection
-      allDatasetItems = allDatasetItems.concat(batchItems)
-      
-      // Update offset for next iteration
-      offset += limit
-      
-      // Safety check to prevent infinite loops
-      if (offset > 50000) { // Maximum 50k items as safety
-        console.warn('Reached safety limit of 50k items, stopping pagination')
-        hasMoreData = false
+        if (!apifyResponse.ok) {
+          const errorText = await apifyResponse.text()
+          console.error('❌ Apify API error:', apifyResponse.status, errorText)
+          throw new Error(`Apify API error: ${apifyResponse.status}`)
+        }
+
+        const batchItems = await apifyResponse.json()
+        console.log(`📊 Retrieved ${batchItems.length} items in this batch`)
+        
+        // If we got no items, increment empty batch counter
+        if (batchItems.length === 0) {
+          consecutiveEmptyBatches++
+          console.log(`⚠️ Empty batch ${consecutiveEmptyBatches}/${maxConsecutiveEmpty}`)
+        } else {
+          // Reset counter if we got data
+          consecutiveEmptyBatches = 0
+          allDatasetItems = allDatasetItems.concat(batchItems)
+        }
+        
+        // If we got fewer items than the limit, we might be at the end
+        if (batchItems.length < limit) {
+          console.log('📄 Reached end of dataset (fewer items than limit)')
+          break
+        }
+        
+        // Update offset for next iteration
+        offset += limit
+        
+        // Safety check to prevent infinite loops
+        if (offset > 100000) { // Maximum 100k items as safety
+          console.warn('⚠️ Reached safety limit of 100k items, stopping pagination')
+          break
+        }
+
+      } catch (error) {
+        console.error('❌ Error fetching batch:', error)
+        consecutiveEmptyBatches++
+        if (consecutiveEmptyBatches >= maxConsecutiveEmpty) {
+          console.error('❌ Too many consecutive errors, stopping pagination')
+          break
+        }
       }
     }
 
-    console.log(`Total dataset items retrieved: ${allDatasetItems.length}`)
+    stats.total_received = allDatasetItems.length
+    console.log(`📊 TOTAL dataset items retrieved: ${stats.total_received}`)
 
-    // Filter and process the data
-    let processedCount = 0
-    let filteredOutCount = 0
+    // Apply filters and track statistics
+    console.log('🔍 Starting filtering process...')
 
-    for (const item of allDatasetItems) {
+    // Filter 1: Only keep authorType = "Person"
+    let filteredItems = allDatasetItems.filter(item => {
+      if (item.authorType !== 'Person') {
+        return false
+      }
+      return true
+    })
+    stats.after_person_filter = filteredItems.length
+    console.log(`✅ After Person filter: ${stats.after_person_filter}/${stats.total_received} (${((stats.after_person_filter/stats.total_received)*100).toFixed(1)}%)`)
+
+    // Filter 2: Only keep isRepost = false
+    filteredItems = filteredItems.filter(item => {
+      if (item.isRepost === true) {
+        return false
+      }
+      return true
+    })
+    stats.after_repost_filter = filteredItems.length
+    console.log(`✅ After Repost filter: ${stats.after_repost_filter}/${stats.after_person_filter} (${((stats.after_repost_filter/stats.after_person_filter)*100).toFixed(1)}%)`)
+
+    // Filter 3: Check for required fields
+    filteredItems = filteredItems.filter(item => {
+      if (!item.authorProfileUrl || !item.urn || !item.text) {
+        return false
+      }
+      return true
+    })
+    stats.after_required_fields_filter = filteredItems.length
+    console.log(`✅ After Required fields filter: ${stats.after_required_fields_filter}/${stats.after_repost_filter} (${((stats.after_required_fields_filter/stats.after_repost_filter)*100).toFixed(1)}%)`)
+
+    // Process remaining items
+    let insertedCount = 0
+    let deduplicatedCount = 0
+    let errorCount = 0
+
+    for (const item of filteredItems) {
       try {
-        // Filter 1: Only keep authorType = "Person"
-        if (item.authorType !== 'Person') {
-          console.log('Filtering out non-Person post:', item.urn || 'unknown')
-          filteredOutCount++
-          continue
-        }
-
-        // Filter 2: Only keep isRepost = false (NEW FILTER)
-        if (item.isRepost === true) {
-          console.log('Filtering out repost:', item.urn || 'unknown')
-          filteredOutCount++
-          continue
-        }
-
-        // Check for required fields
-        if (!item.authorProfileUrl || !item.urn || !item.text) {
-          console.log('Skipping item missing required fields:', item.urn || 'unknown')
-          filteredOutCount++
-          continue
-        }
-
         // Check if this post already exists (deduplication by urn)
         const { data: existingPost } = await supabaseClient
           .from('linkedin_posts')
@@ -137,7 +180,7 @@ serve(async (req) => {
           .single()
 
         if (existingPost) {
-          console.log('Post already exists, skipping:', item.urn)
+          deduplicatedCount++
           continue
         }
 
@@ -167,12 +210,13 @@ serve(async (req) => {
           .single()
 
         if (insertError) {
-          console.error('Error inserting post:', insertError)
+          console.error('❌ Error inserting post:', insertError)
+          errorCount++
           continue
         }
 
-        console.log('Post inserted successfully:', insertedPost.id)
-        processedCount++
+        console.log('✅ Post inserted successfully:', insertedPost.id)
+        insertedCount++
 
         // Trigger OpenAI processing (async)
         try {
@@ -180,26 +224,46 @@ serve(async (req) => {
             body: { postId: insertedPost.id }
           })
         } catch (processingError) {
-          console.error('Error triggering post processing:', processingError)
+          console.error('⚠️ Error triggering post processing:', processingError)
         }
 
       } catch (error) {
-        console.error('Error processing item:', error)
-        filteredOutCount++
+        console.error('❌ Error processing item:', error)
+        errorCount++
       }
     }
 
-    console.log(`Processing complete: ${processedCount} inserted, ${filteredOutCount} filtered out from ${allDatasetItems.length} total items`)
+    // Update final statistics
+    stats.after_deduplication = stats.after_required_fields_filter - deduplicatedCount
+    stats.successfully_inserted = insertedCount
+    stats.processing_errors = errorCount
+    stats.completed_at = new Date().toISOString()
+
+    // Store statistics in database
+    try {
+      await supabaseClient
+        .from('apify_webhook_stats')
+        .insert(stats)
+      console.log('📊 Statistics saved to database')
+    } catch (statsError) {
+      console.error('⚠️ Error saving statistics:', statsError)
+    }
+
+    console.log(`🎯 Processing complete:
+    📥 Total received: ${stats.total_received}
+    👤 After Person filter: ${stats.after_person_filter}
+    🔁 After Repost filter: ${stats.after_repost_filter}
+    ✅ After Required fields: ${stats.after_required_fields_filter}
+    🔍 After Deduplication: ${stats.after_deduplication}
+    ✅ Successfully inserted: ${stats.successfully_inserted}
+    ❌ Processing errors: ${stats.processing_errors}`)
 
     return new Response(JSON.stringify({ 
       success: true, 
-      totalItems: allDatasetItems.length,
-      processedCount,
-      filteredOutCount,
-      datasetId: datasetId,
+      statistics: stats,
       filtersApplied: [
         'authorType = Person',
-        'isRepost = false (NEW)',
+        'isRepost = false',
         'required fields present',
         'URN deduplication'
       ]
@@ -209,7 +273,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('Error in apify-webhook function:', error)
+    console.error('❌ Error in apify-webhook function:', error)
     return new Response('Internal server error', { 
       status: 500,
       headers: corsHeaders

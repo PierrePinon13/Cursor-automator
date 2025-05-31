@@ -4,10 +4,11 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, BarChart3 } from 'lucide-react';
+import { TrendingUp, BarChart3, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import FunnelChart from '@/components/admin/FunnelChart';
 import FunnelFilters from '@/components/admin/FunnelFilters';
+import ApifyWebhookStats from '@/components/admin/ApifyWebhookStats';
 import { useState } from 'react';
 
 const Admin = () => {
@@ -34,6 +35,10 @@ const Admin = () => {
           />
           
           <FunnelChart timeFilter={timeFilter} />
+        </div>
+
+        <div className="mb-8">
+          <ApifyWebhookStats />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
