@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -39,9 +40,7 @@ export const useHistory = () => {
             company_position,
             matched_client_name,
             latest_post_urn,
-            latest_post_url,
-            phone_number,
-            phone_contact_status
+            latest_post_url
           )
         `)
         .in('activity_type', ['linkedin_message', 'phone_call'])
@@ -101,10 +100,7 @@ export const useHistory = () => {
           title,
           message,
           created_at: activity.performed_at,
-          lead_data: {
-            ...lead,
-            phone_contact_status: activity.outcome || lead.phone_contact_status // Utiliser l'outcome de l'activité si disponible
-          },
+          lead_data: lead,
           sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu',
           message_type: activityData.message_type as 'connection_request' | 'direct_message',
           message_content: activityData.message_content || null // Récupérer le contenu du message
