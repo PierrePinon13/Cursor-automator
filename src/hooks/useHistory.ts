@@ -12,6 +12,7 @@ export interface HistoryActivity {
   lead_data?: any;
   sender_name?: string;
   message_type?: 'connection_request' | 'direct_message';
+  message_content?: string; // Nouveau champ pour le contenu du message
 }
 
 export const useHistory = () => {
@@ -101,7 +102,8 @@ export const useHistory = () => {
           created_at: activity.performed_at,
           lead_data: lead,
           sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu',
-          message_type: activityData.message_type as 'connection_request' | 'direct_message'
+          message_type: activityData.message_type as 'connection_request' | 'direct_message',
+          message_content: activityData.message_content || null // Récupérer le contenu du message
         };
       });
 

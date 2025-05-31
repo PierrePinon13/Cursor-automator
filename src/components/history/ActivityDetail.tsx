@@ -2,7 +2,7 @@
 import React from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserCheck, User, Calendar, Clock } from 'lucide-react';
+import { MessageSquare, Phone, UserCheck, User, Calendar, Clock, FileText } from 'lucide-react';
 import { HistoryActivity } from '@/hooks/useHistory';
 
 interface ActivityDetailProps {
@@ -149,6 +149,23 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
               <p className="text-sm text-gray-600">
                 {activity.message_type === 'connection_request' ? 'Demande de connexion' : 'Message direct'}
               </p>
+            </div>
+          )}
+
+          {/* Affichage du contenu du message si disponible */}
+          {activity.message_content && (
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4 text-gray-600" />
+                <p className="text-sm font-medium text-gray-900">
+                  {activity.message_type === 'connection_request' ? 'Message de la demande de connexion' : 'Contenu du message'}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {activity.message_content}
+                </p>
+              </div>
             </div>
           )}
         </div>
