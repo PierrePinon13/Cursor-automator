@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -158,12 +157,8 @@ serve(async (req) => {
 
     for (const item of datasetItems) {
       try {
-        // Basic validation
-        if (!item.title || !item.url) {
-          console.log('⚠️ Skipping item missing title or URL')
-          skippedCount++
-          continue
-        }
+        // Filtre supprimé - on traite tous les items
+        console.log('🔄 Processing item:', item.title || item.url || 'No title/URL')
 
         // Try to match with a client
         let matchedClient = null
@@ -174,12 +169,12 @@ serve(async (req) => {
           )
         }
 
-        // Prepare job offer data
+        // Prepare job offer data - on accepte même sans title/url
         const jobOfferData = {
           apify_dataset_id: datasetId,
-          title: item.title,
+          title: item.title || null,
           company_name: item.company || null,
-          url: item.url,
+          url: item.url || null,
           location: item.location || null,
           job_type: item.employmentType || null,
           salary: item.salary || null,
@@ -190,17 +185,19 @@ serve(async (req) => {
           raw_data: item
         }
 
-        // Check if this job offer already exists
-        const { data: existingOffer } = await supabaseClient
-          .from('client_job_offers')
-          .select('id')
-          .eq('url', item.url)
-          .single()
+        // Check if this job offer already exists (seulement si on a une URL)
+        if (item.url) {
+          const { data: existingOffer } = await supabaseClient
+            .from('client_job_offers')
+            .select('id')
+            .eq('url', item.url)
+            .single()
 
-        if (existingOffer) {
-          console.log('⚠️ Job offer already exists, skipping:', item.title)
-          skippedCount++
-          continue
+          if (existingOffer) {
+            console.log('⚠️ Job offer already exists, skipping:', item.title || item.url)
+            skippedCount++
+            continue
+          }
         }
 
         // Insert the job offer
@@ -214,7 +211,7 @@ serve(async (req) => {
           continue
         }
 
-        console.log('✅ Inserted job offer:', item.title)
+        console.log('✅ Inserted job offer:', item.title || item.url || 'No title/URL')
         processedCount++
 
       } catch (error) {
