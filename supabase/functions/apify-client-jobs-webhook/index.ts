@@ -29,13 +29,57 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    console.log('📦 Received webhook data:', body)
+    console.log('📦 Received webhook data:', JSON.stringify(body, null, 2))
 
-    const { datasetId } = body
+    // Support pour différents formats de webhook
+    let datasetId = null
+    
+    if (body.datasetId) {
+      // Format direct avec datasetId
+      datasetId = body.datasetId
+    } else if (body.resource && body.resource.defaultDatasetId) {
+      // Format webhook Apify standard
+      datasetId = body.resource.defaultDatasetId
+    } else if (body.eventData && body.eventData.actorRunId) {
+      // On peut aussi essayer de récupérer le dataset via l'API Apify en utilisant le run ID
+      console.log('🔍 Attempting to get dataset from run ID:', body.eventData.actorRunId)
+      
+      const apifyApiKey = Deno.env.get('APIFY_API_KEY')
+      if (!apifyApiKey) {
+        console.error('❌ Apify API key not configured')
+        return new Response(
+          JSON.stringify({ error: 'Apify API key not configured' }), 
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Récupérer les infos du run pour obtenir le dataset ID
+      const runResponse = await fetch(`https://api.apify.com/v2/actor-runs/${body.eventData.actorRunId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apifyApiKey}`,
+          'Accept': 'application/json',
+        },
+      })
+
+      if (runResponse.ok) {
+        const runData = await runResponse.json()
+        datasetId = runData.data.defaultDatasetId
+        console.log('📋 Found dataset ID from run:', datasetId)
+      }
+    }
 
     if (!datasetId) {
+      console.log('❌ No dataset ID found in webhook data:', Object.keys(body))
       return new Response(
-        JSON.stringify({ error: 'datasetId is required' }), 
+        JSON.stringify({ 
+          error: 'datasetId is required',
+          receivedKeys: Object.keys(body),
+          helpMessage: 'Send either { datasetId: "..." } or standard Apify webhook format'
+        }), 
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
