@@ -2,9 +2,9 @@
 import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Upload, AlertCircle, Users, Copy, ExternalLink } from 'lucide-react';
-import { ClientsTable } from './ClientsTable';
+import { Input } from '@/components/ui/input';
+import { Plus, Upload, AlertCircle, Users, Copy, ExternalLink, Search } from 'lucide-react';
+import { ResizableTable } from './ResizableTable';
 import { ClientDialog } from './ClientDialog';
 import { ImportClientsDialog } from './ImportClientsDialog';
 import { IncompleteClientsDialog } from './IncompleteClientsDialog';
@@ -18,6 +18,7 @@ export function ClientManagement() {
   const [isIncompleteDialogOpen, setIsIncompleteDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
   const [showQualification, setShowQualification] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   // Count incomplete clients
@@ -118,11 +119,23 @@ export function ClientManagement() {
         )}
       </div>
 
+      {/* Barre de recherche */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          placeholder="Rechercher un client..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       <div className="bg-white rounded-lg shadow">
-        <ClientsTable 
+        <ResizableTable 
           clients={clients}
           users={users}
           onEdit={setEditingClient}
+          searchTerm={searchTerm}
         />
       </div>
 
