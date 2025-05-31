@@ -221,6 +221,8 @@ export type Database = {
           company_name: string
           created_at: string
           id: string
+          tier: string | null
+          tracking_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -229,6 +231,8 @@ export type Database = {
           company_name: string
           created_at?: string
           id?: string
+          tier?: string | null
+          tracking_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -237,6 +241,8 @@ export type Database = {
           company_name?: string
           created_at?: string
           id?: string
+          tier?: string | null
+          tracking_enabled?: boolean
           updated_at?: string
         }
         Relationships: []

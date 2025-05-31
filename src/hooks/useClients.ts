@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -8,6 +7,8 @@ interface Client {
   company_name: string;
   company_linkedin_url: string | null;
   company_linkedin_id: string | null;
+  tier: string | null;
+  tracking_enabled: boolean;
   created_at: string;
   updated_at: string;
   collaborators?: {
@@ -287,6 +288,28 @@ export function useClients() {
     }
   };
 
+  const getUnqualifiedClients = () => {
+    return clients.filter(client => !client.tier);
+  };
+
+  const getTrackedClients = () => {
+    return clients.filter(client => client.tracking_enabled);
+  };
+
+  const generateLinkedInJobsUrl = () => {
+    const trackedClients = getTrackedClients();
+    const linkedinIds = trackedClients
+      .filter(client => client.company_linkedin_id)
+      .map(client => client.company_linkedin_id)
+      .join('%2C');
+
+    if (!linkedinIds) {
+      return null;
+    }
+
+    return `https://www.linkedin.com/jobs/search/?f_C=${linkedinIds}&f_TPR=r86400&geoId=105015875&origin=JOB_SEARCH_PAGE_JOB_FILTER&refresh=true`;
+  };
+
   return {
     clients,
     users,
@@ -298,5 +321,8 @@ export function useClients() {
     updateCollaborators,
     importClients,
     refreshClients: fetchClients,
+    getUnqualifiedClients,
+    getTrackedClients,
+    generateLinkedInJobsUrl,
   };
 }

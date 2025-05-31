@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useClients } from '@/hooks/useClients';
 
 interface Client {
@@ -11,6 +13,8 @@ interface Client {
   company_name: string;
   company_linkedin_url: string | null;
   company_linkedin_id: string | null;
+  tier: string | null;
+  tracking_enabled: boolean;
 }
 
 interface User {
@@ -32,6 +36,8 @@ export function ClientDialog({ open, onOpenChange, client, users }: ClientDialog
     company_name: '',
     company_linkedin_url: '',
     company_linkedin_id: '',
+    tier: '',
+    tracking_enabled: true,
   });
   const [loading, setLoading] = useState(false);
 
@@ -41,12 +47,16 @@ export function ClientDialog({ open, onOpenChange, client, users }: ClientDialog
         company_name: client.company_name,
         company_linkedin_url: client.company_linkedin_url || '',
         company_linkedin_id: client.company_linkedin_id || '',
+        tier: client.tier || '',
+        tracking_enabled: client.tracking_enabled,
       });
     } else {
       setFormData({
         company_name: '',
         company_linkedin_url: '',
         company_linkedin_id: '',
+        tier: '',
+        tracking_enabled: true,
       });
     }
   }, [client, open]);
@@ -60,6 +70,8 @@ export function ClientDialog({ open, onOpenChange, client, users }: ClientDialog
         company_name: formData.company_name,
         company_linkedin_url: formData.company_linkedin_url || null,
         company_linkedin_id: formData.company_linkedin_id || null,
+        tier: formData.tier || null,
+        tracking_enabled: formData.tracking_enabled,
       };
 
       if (client) {
@@ -116,6 +128,32 @@ export function ClientDialog({ open, onOpenChange, client, users }: ClientDialog
               onChange={(e) => setFormData(prev => ({ ...prev, company_linkedin_id: e.target.value }))}
               placeholder="ID LinkedIn de l'entreprise"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tier">Tier</Label>
+            <Select
+              value={formData.tier}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, tier: value }))}
+            >
+              <SelectTrigger id="tier">
+                <SelectValue placeholder="Sélectionner un tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Tier 1">Tier 1</SelectItem>
+                <SelectItem value="Tier 2">Tier 2</SelectItem>
+                <SelectItem value="Tier 3">Tier 3</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="tracking_enabled"
+              checked={formData.tracking_enabled}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, tracking_enabled: checked }))}
+            />
+            <Label htmlFor="tracking_enabled">Suivi activé</Label>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

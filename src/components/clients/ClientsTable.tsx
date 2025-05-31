@@ -1,6 +1,8 @@
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Edit, Trash2, ExternalLink } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { CollaboratorsSelect } from './CollaboratorsSelect';
@@ -10,6 +12,8 @@ interface Client {
   company_name: string;
   company_linkedin_url: string | null;
   company_linkedin_id: string | null;
+  tier: string | null;
+  tracking_enabled: boolean;
   collaborators?: {
     id: string;
     email: string;
@@ -30,7 +34,7 @@ interface ClientsTableProps {
 }
 
 export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
-  const { deleteClient, updateCollaborators, collaboratorsLoading } = useClients();
+  const { deleteClient, updateClient, updateCollaborators, collaboratorsLoading } = useClients();
 
   console.log('ClientsTable - Données reçues:', { 
     clientsCount: clients?.length,
@@ -59,6 +63,14 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
     }
   };
 
+  const handleTrackingToggle = async (clientId: string, trackingEnabled: boolean) => {
+    try {
+      await updateClient(clientId, { tracking_enabled: trackingEnabled });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du suivi:', error);
+    }
+  };
+
   // Validation des données
   const validClients = Array.isArray(clients) ? clients.filter(client => 
     client && client.id && client.company_name
@@ -74,11 +86,26 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
     validUsers: validUsers
   });
 
+  const getTierBadgeVariant = (tier: string | null) => {
+    switch (tier) {
+      case 'Tier 1':
+        return 'default';
+      case 'Tier 2':
+        return 'secondary';
+      case 'Tier 3':
+        return 'outline';
+      default:
+        return 'destructive';
+    }
+  };
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Nom de l'entreprise</TableHead>
+          <TableHead>Tier</TableHead>
+          <TableHead>Suivi</TableHead>
           <TableHead>URL LinkedIn</TableHead>
           <TableHead>ID LinkedIn</TableHead>
           <TableHead>Collaborateurs</TableHead>
@@ -105,6 +132,21 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
             <TableRow key={client.id}>
               <TableCell className="font-medium">
                 {client.company_name}
+              </TableCell>
+              <TableCell>
+                {client.tier ? (
+                  <Badge variant={getTierBadgeVariant(client.tier)}>
+                    {client.tier}
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">Non qualifié</Badge>
+                )}
+              </TableCell>
+              <TableCell>
+                <Switch
+                  checked={client.tracking_enabled}
+                  onCheckedChange={(checked) => handleTrackingToggle(client.id, checked)}
+                />
               </TableCell>
               <TableCell>
                 {client.company_linkedin_url ? (
@@ -164,7 +206,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
         })}
         {validClients.length === 0 && (
           <TableRow>
-            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
               Aucun client trouvé. Ajoutez votre premier client ou importez un fichier CSV.
             </TableCell>
           </TableRow>
