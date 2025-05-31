@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExternalLink, Calendar, MapPin, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ClientLeadsSection } from './ClientLeadsSection';
+import { ClientLeadsView } from './ClientLeadsView';
 
 export function JobOffersSection() {
   const { jobOffers, loading } = useClientJobOffers();
@@ -123,7 +123,7 @@ export function JobOffersSection() {
       </TabsContent>
       
       <TabsContent value="client-posts" className="space-y-4">
-        <ClientLeadsSection />
+        <ClientLeadsView />
       </TabsContent>
     </Tabs>
   );
