@@ -9,6 +9,10 @@ export function useClientCollaborators(clientId: string) {
   useEffect(() => {
     if (clientId) {
       fetchCollaborators();
+    } else {
+      // Reset when clientId is empty (popover closed)
+      setCollaboratorIds([]);
+      setLoading(false);
     }
   }, [clientId]);
 

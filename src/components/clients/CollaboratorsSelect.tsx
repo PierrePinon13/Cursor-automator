@@ -15,12 +15,16 @@ interface CollaboratorsSelectProps {
 export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
   const { users, loading: usersLoading } = useUsers();
-  const { collaboratorIds, loading: collaboratorsLoading, updateCollaborators } = useClientCollaborators(clientId);
+  
+  // Only load collaborators when popover is opened
+  const { collaboratorIds, loading: collaboratorsLoading, updateCollaborators } = useClientCollaborators(
+    open ? clientId : ''
+  );
 
   console.log('🎯 CollaboratorsSelect render:', {
     clientId,
+    open,
     usersCount: users.length,
-    usersData: users,
     collaboratorIds,
     usersLoading,
     collaboratorsLoading
@@ -64,7 +68,8 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
     return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
-  if (usersLoading) {
+  // Show loading only when popover is open and data is loading
+  if (open && (usersLoading || collaboratorsLoading)) {
     return (
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -75,8 +80,8 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {/* Affichage des collaborateurs sélectionnés */}
-      {selectedUsers.map((user) => (
+      {/* Affichage des collaborateurs sélectionnés - only when popover has been opened */}
+      {open && selectedUsers.map((user) => (
         <div key={user.id} className="flex items-center gap-1 bg-gray-100 rounded-full pr-1 pl-1">
           <Avatar className="h-6 w-6">
             <AvatarFallback className="text-xs bg-blue-500 text-white">
@@ -103,9 +108,9 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0 rounded-full border-dashed"
-            disabled={collaboratorsLoading || availableUsers.length === 0}
+            disabled={open && (collaboratorsLoading || (users.length > 0 && availableUsers.length === 0))}
           >
-            {collaboratorsLoading ? (
+            {open && collaboratorsLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
@@ -127,7 +132,7 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
                 Tous les utilisateurs sont déjà assignés.
               </div>
             ) : (
-              <ScrollArea className="h-[200px]">
+              <ScrollArea className="h-[260px]">
                 <div className="space-y-1">
                   {availableUsers.map((user) => (
                     <button
