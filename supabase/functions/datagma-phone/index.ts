@@ -81,9 +81,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Récupérer la clé API Datagma depuis les secrets Supabase
+    const datagmaApiKey = Deno.env.get('DATAGMA_API_KEY');
+    
+    if (!datagmaApiKey) {
+      console.error('Datagma API key not configured');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Datagma API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Encoder l'URL LinkedIn pour l'API Datagma
     const encodedLinkedInUrl = encodeURIComponent(lead.author_profile_url);
-    const datagmaApiKey = '3edad5097012';
     
     // Appeler l'API Datagma
     const datagmaUrl = `https://gateway.datagma.net/api/ingress/v1/search?apiId=${datagmaApiKey}&username=${encodedLinkedInUrl}&minimumMatch=1`;
