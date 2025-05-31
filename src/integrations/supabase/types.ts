@@ -89,6 +89,51 @@ export type Database = {
         }
         Relationships: []
       }
+      apify_webhook_stats: {
+        Row: {
+          after_deduplication: number
+          after_person_filter: number
+          after_repost_filter: number
+          after_required_fields_filter: number
+          completed_at: string | null
+          created_at: string
+          dataset_id: string
+          id: string
+          processing_errors: number
+          started_at: string
+          successfully_inserted: number
+          total_received: number
+        }
+        Insert: {
+          after_deduplication?: number
+          after_person_filter?: number
+          after_repost_filter?: number
+          after_required_fields_filter?: number
+          completed_at?: string | null
+          created_at?: string
+          dataset_id: string
+          id?: string
+          processing_errors?: number
+          started_at: string
+          successfully_inserted?: number
+          total_received?: number
+        }
+        Update: {
+          after_deduplication?: number
+          after_person_filter?: number
+          after_repost_filter?: number
+          after_required_fields_filter?: number
+          completed_at?: string | null
+          created_at?: string
+          dataset_id?: string
+          id?: string
+          processing_errors?: number
+          started_at?: string
+          successfully_inserted?: number
+          total_received?: number
+        }
+        Relationships: []
+      }
       client_collaborators: {
         Row: {
           client_id: string
