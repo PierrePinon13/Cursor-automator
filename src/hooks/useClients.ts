@@ -39,46 +39,57 @@ export function useClients() {
 
   const fetchClients = async () => {
     try {
+      console.log('🔍 Fetching clients...');
+      
+      // 1. Récupérer tous les clients
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
         .order('company_name');
 
       if (clientsError) throw clientsError;
+      console.log('✅ Clients fetched:', clientsData?.length || 0);
 
-      // Fetch collaborators for each client using explicit relationship
-      const clientsWithCollaborators = await Promise.all(
-        (clientsData || []).map(async (client) => {
-          const { data: collaboratorsData, error: collaboratorsError } = await supabase
-            .from('client_collaborators')
-            .select(`
-              user_id,
-              profiles!client_collaborators_user_id_fkey (
-                id,
-                email,
-                full_name
-              )
-            `)
-            .eq('client_id', client.id);
+      // 2. Récupérer toutes les relations client_collaborators
+      const { data: collaboratorRelations, error: relationsError } = await supabase
+        .from('client_collaborators')
+        .select('client_id, user_id');
 
-          if (collaboratorsError) {
-            console.error('Error fetching collaborators:', collaboratorsError);
-            return { ...client, collaborators: [] };
-          }
+      if (relationsError) throw relationsError;
+      console.log('✅ Collaborator relations fetched:', collaboratorRelations?.length || 0);
 
-          const collaborators = collaboratorsData?.map((item: any) => ({
-            id: item.profiles?.id || '',
-            email: item.profiles?.email || '',
-            full_name: item.profiles?.full_name || null
+      // 3. Récupérer tous les utilisateurs
+      const { data: usersData, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name');
+
+      if (usersError) throw usersError;
+      console.log('✅ Users fetched for collaborators:', usersData?.length || 0);
+
+      // 4. Construire la structure finale
+      const clientsWithCollaborators = (clientsData || []).map((client) => {
+        // Trouver les IDs des collaborateurs pour ce client
+        const collaboratorIds = collaboratorRelations
+          ?.filter(rel => rel.client_id === client.id)
+          .map(rel => rel.user_id) || [];
+
+        // Récupérer les détails des collaborateurs
+        const collaborators = usersData
+          ?.filter(user => collaboratorIds.includes(user.id))
+          .map(user => ({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.full_name || null
           })) || [];
 
-          return { ...client, collaborators };
-        })
-      );
+        console.log(`👥 Client ${client.company_name} has ${collaborators.length} collaborators`);
+
+        return { ...client, collaborators };
+      });
 
       setClients(clientsWithCollaborators);
     } catch (error: any) {
-      console.error('Error fetching clients:', error);
+      console.error('❌ Error fetching clients:', error);
     } finally {
       setLoading(false);
     }
