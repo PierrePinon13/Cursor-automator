@@ -2,8 +2,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, X, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User {
@@ -26,14 +27,7 @@ export function CollaboratorsSelect({
   isLoading = false
 }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
-  const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
-
-  console.log('CollaboratorsSelect - Données reçues:', { 
-    users, 
-    selectedUsers,
-    usersCount: users?.length,
-    selectedCount: selectedUsers?.length 
-  });
+  const [localSelectedUsers, setLocalSelectedUsers] = useState(selectedUsers);
 
   // Validation et sécurisation des données
   const safeUsers = Array.isArray(users) ? users.filter(user => 
@@ -42,15 +36,9 @@ export function CollaboratorsSelect({
     (user.full_name || user.email)
   ) : [];
 
-  const safeSelectedUsers = Array.isArray(selectedUsers) ? selectedUsers.filter(id => 
+  const safeSelectedUsers = Array.isArray(localSelectedUsers) ? localSelectedUsers.filter(id => 
     id && typeof id === 'string'
   ) : [];
-
-  console.log('CollaboratorsSelect - Données sécurisées:', { 
-    safeUsers, 
-    safeSelectedUsers,
-    safeUsersCount: safeUsers.length 
-  });
 
   if (!onSelectionChange || typeof onSelectionChange !== 'function') {
     return <div className="text-sm text-red-500">Erreur de configuration</div>;
@@ -61,48 +49,28 @@ export function CollaboratorsSelect({
     safeSelectedUsers.includes(user.id)
   );
 
-  const toggleUser = async (userId: string) => {
-    console.log('Tentative de sélection utilisateur:', userId);
-    
-    // Ajouter l'utilisateur aux actions en cours
-    setPendingActions(prev => new Set(prev).add(userId));
+  const addUser = async (userId: string) => {
+    const newSelection = [...safeSelectedUsers, userId];
+    setLocalSelectedUsers(newSelection);
+    setOpen(false);
     
     try {
-      const newSelection = safeSelectedUsers.includes(userId)
-        ? safeSelectedUsers.filter(id => id !== userId)
-        : [...safeSelectedUsers, userId];
-      
-      console.log('Nouvelle sélection:', newSelection);
       await onSelectionChange(newSelection);
-      
-      // Fermer le popover immédiatement après sélection
-      setOpen(false);
     } catch (error) {
-      console.error('Erreur lors de la sélection:', error);
-    } finally {
-      // Retirer l'utilisateur des actions en cours
-      setPendingActions(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
-      });
+      console.error('Erreur lors de l\'ajout:', error);
+      setLocalSelectedUsers(safeSelectedUsers);
     }
   };
 
   const removeUser = async (userId: string) => {
-    setPendingActions(prev => new Set(prev).add(userId));
+    const newSelection = safeSelectedUsers.filter(id => id !== userId);
+    setLocalSelectedUsers(newSelection);
     
     try {
-      const newSelection = safeSelectedUsers.filter(id => id !== userId);
       await onSelectionChange(newSelection);
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
-    } finally {
-      setPendingActions(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
-      });
+      setLocalSelectedUsers(safeSelectedUsers);
     }
   };
 
@@ -110,120 +78,90 @@ export function CollaboratorsSelect({
     return user.full_name || user.email || 'Utilisateur inconnu';
   };
 
+  const getInitials = (user: User) => {
+    const name = user.full_name || user.email || 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  };
+
+  const availableUsers = safeUsers.filter(user => 
+    !safeSelectedUsers.includes(user.id)
+  );
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       {/* Affichage des collaborateurs sélectionnés */}
-      {selectedUsersData.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {selectedUsersData.map((user) => {
-            const userPending = pendingActions.has(user.id);
-            return (
-              <Badge key={user.id} variant="secondary" className="flex items-center gap-1">
-                {getDisplayName(user)}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  disabled={userPending || isLoading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeUser(user.id);
-                  }}
-                >
-                  {userPending ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <X className="h-3 w-3" />
-                  )}
-                </Button>
-              </Badge>
-            );
-          })}
+      {selectedUsersData.map((user) => (
+        <div key={user.id} className="flex items-center gap-1 bg-gray-100 rounded-full pr-1 pl-1">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-xs bg-blue-500 text-white">
+              {getInitials(user)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm px-1">{getDisplayName(user)}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0 hover:bg-red-100 rounded-full"
+            disabled={isLoading}
+            onClick={() => removeUser(user.id)}
+          >
+            <X className="h-3 w-3 text-red-500" />
+          </Button>
         </div>
-      )}
+      ))}
       
-      {/* Sélecteur de collaborateurs */}
+      {/* Bouton d'ajout */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="justify-between"
-            disabled={isLoading}
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full border-dashed"
+            disabled={isLoading || availableUsers.length === 0}
           >
             {isLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Mise à jour...
-              </div>
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <>
-                {safeSelectedUsers.length > 0 
-                  ? `${safeSelectedUsers.length} collaborateur(s) sélectionné(s)` 
-                  : "Sélectionner des collaborateurs"}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </>
+              <Plus className="h-4 w-4" />
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0">
           <div className="p-4">
             <div className="text-sm font-medium mb-3">
-              Collaborateurs disponibles ({safeUsers.length})
+              Ajouter un collaborateur
             </div>
             
-            {safeUsers.length === 0 ? (
+            {availableUsers.length === 0 ? (
               <div className="text-sm text-muted-foreground">
-                Aucun utilisateur disponible dans le système.
+                Tous les utilisateurs sont déjà assignés.
               </div>
             ) : (
               <div className="space-y-1">
-                {safeUsers.map((user) => {
-                  const isSelected = safeSelectedUsers.includes(user.id);
-                  const isPending = pendingActions.has(user.id);
-                  
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      className={cn(
-                        "w-full flex items-center space-x-3 p-3 text-left rounded-md border transition-colors",
-                        isPending || isLoading
-                          ? "opacity-50 cursor-not-allowed bg-gray-50"
-                          : "hover:bg-gray-100 border-transparent hover:border-gray-200"
-                      )}
-                      disabled={isPending || isLoading}
-                      onClick={() => {
-                        console.log('Clic sur utilisateur:', user);
-                        toggleUser(user.id);
-                      }}
-                    >
-                      <div className="flex items-center justify-center w-4 h-4">
-                        {isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                        ) : (
-                          <Check
-                            className={cn(
-                              "h-4 w-4 text-blue-600",
-                              isSelected ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                        )}
+                {availableUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    className="w-full flex items-center space-x-3 p-3 text-left rounded-md border transition-colors hover:bg-gray-100 hover:border-gray-200"
+                    onClick={() => addUser(user.id)}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-blue-500 text-white">
+                        {getInitials(user)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">
+                        {getDisplayName(user)}
                       </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">
-                          {getDisplayName(user)}
+                      {user.full_name && user.email && (
+                        <div className="text-sm text-gray-500">
+                          {user.email}
                         </div>
-                        {user.full_name && user.email && (
-                          <div className="text-sm text-gray-500">
-                            {user.email}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
             
@@ -233,7 +171,6 @@ export function CollaboratorsSelect({
                 size="sm"
                 className="w-full"
                 onClick={() => setOpen(false)}
-                disabled={isLoading}
               >
                 Fermer
               </Button>
@@ -241,13 +178,6 @@ export function CollaboratorsSelect({
           </div>
         </PopoverContent>
       </Popover>
-      
-      {/* Message informatif */}
-      {safeUsers.length === 0 && (
-        <div className="text-sm text-muted-foreground">
-          Aucun utilisateur disponible. Les utilisateurs doivent être ajoutés au système pour pouvoir être assignés comme collaborateurs.
-        </div>
-      )}
     </div>
   );
 }

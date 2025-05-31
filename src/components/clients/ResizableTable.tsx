@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -51,6 +51,16 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
   const [resizing, setResizing] = useState<string | null>(null);
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
+  const [localTrackingStates, setLocalTrackingStates] = useState<Record<string, boolean>>({});
+
+  // Initialiser les états locaux
+  useEffect(() => {
+    const trackingStates: Record<string, boolean> = {};
+    clients.forEach(client => {
+      trackingStates[client.id] = client.tracking_enabled;
+    });
+    setLocalTrackingStates(trackingStates);
+  }, [clients]);
 
   const handleMouseDown = (e: React.MouseEvent, column: string) => {
     setResizing(column);
@@ -107,10 +117,21 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
   };
 
   const handleTrackingToggle = async (clientId: string, trackingEnabled: boolean) => {
+    // Mise à jour immédiate de l'état local
+    setLocalTrackingStates(prev => ({
+      ...prev,
+      [clientId]: trackingEnabled
+    }));
+
     try {
       await updateClient(clientId, { tracking_enabled: trackingEnabled });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du suivi:', error);
+      // Revenir à l'ancien état en cas d'erreur
+      setLocalTrackingStates(prev => ({
+        ...prev,
+        [clientId]: !trackingEnabled
+      }));
     }
   };
 
@@ -204,6 +225,7 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
               : [];
             
             const isCollaboratorsLoading = collaboratorsLoading.has(client.id);
+            const localTrackingState = localTrackingStates[client.id] ?? client.tracking_enabled;
             
             return (
               <TableRow key={client.id}>
@@ -229,7 +251,7 @@ export function ResizableTable({ clients = [], users = [], onEdit, searchTerm }:
                 </TableCell>
                 <TableCell style={{ width: columnWidths.tracking }}>
                   <Switch
-                    checked={client.tracking_enabled}
+                    checked={localTrackingState}
                     onCheckedChange={(checked) => handleTrackingToggle(client.id, checked)}
                   />
                 </TableCell>

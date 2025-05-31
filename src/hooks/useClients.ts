@@ -29,7 +29,6 @@ export function useClients() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState<Set<string>>(new Set());
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchClients();
@@ -78,11 +77,6 @@ export function useClients() {
       setClients(clientsWithCollaborators);
     } catch (error: any) {
       console.error('Error fetching clients:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de récupérer les clients.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -112,20 +106,10 @@ export function useClients() {
 
       if (error) throw error;
 
-      toast({
-        title: "Succès",
-        description: "Client créé avec succès.",
-      });
-
       await fetchClients();
       return data;
     } catch (error: any) {
       console.error('Error creating client:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer le client.",
-        variant: "destructive",
-      });
       throw error;
     }
   };
@@ -139,19 +123,9 @@ export function useClients() {
 
       if (error) throw error;
 
-      toast({
-        title: "Succès",
-        description: "Client mis à jour avec succès.",
-      });
-
       await fetchClients();
     } catch (error: any) {
       console.error('Error updating client:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour le client.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -164,19 +138,9 @@ export function useClients() {
 
       if (error) throw error;
 
-      toast({
-        title: "Succès",
-        description: "Client supprimé avec succès.",
-      });
-
       await fetchClients();
     } catch (error: any) {
       console.error('Error deleting client:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer le client.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -223,35 +187,9 @@ export function useClients() {
         })
       );
       
-      // Toast avec durée limitée
-      const toastId = toast({
-        title: "Succès",
-        description: "Collaborateurs mis à jour avec succès.",
-      });
-
-      // Fermer le toast après 2 secondes
-      setTimeout(() => {
-        if (toastId && toastId.dismiss) {
-          toastId.dismiss();
-        }
-      }, 2000);
-      
       console.log('Mise à jour collaborateurs réussie');
     } catch (error: any) {
       console.error('Error updating collaborators:', error);
-      const errorToastId = toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour les collaborateurs.",
-        variant: "destructive",
-      });
-
-      // Fermer le toast d'erreur après 3 secondes
-      setTimeout(() => {
-        if (errorToastId && errorToastId.dismiss) {
-          errorToastId.dismiss();
-        }
-      }, 3000);
-      
       throw error;
     } finally {
       // Retirer le client des opérations en cours

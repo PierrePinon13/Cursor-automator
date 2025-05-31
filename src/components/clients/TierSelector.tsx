@@ -10,23 +10,30 @@ interface TierSelectorProps {
 }
 
 export function TierSelector({ value, onChange, disabled = false }: TierSelectorProps) {
+  const [localValue, setLocalValue] = useState(value);
   const tiers = ['1', '2', '3'];
 
-  const handleTierClick = (tier: string) => {
+  const handleTierClick = async (tier: string) => {
     if (disabled) return;
     
-    // Si le tier est déjà sélectionné, on le désélectionne
-    if (value === `Tier ${tier}`) {
-      onChange(null);
-    } else {
-      onChange(`Tier ${tier}`);
+    const newValue = localValue === `Tier ${tier}` ? null : `Tier ${tier}`;
+    
+    // Mise à jour immédiate de l'état local pour l'UI
+    setLocalValue(newValue);
+    
+    // Appel de la fonction de mise à jour
+    try {
+      await onChange(newValue);
+    } catch (error) {
+      // En cas d'erreur, revenir à l'ancienne valeur
+      setLocalValue(value);
     }
   };
 
   return (
     <div className="flex gap-1">
       {tiers.map((tier) => {
-        const isSelected = value === `Tier ${tier}`;
+        const isSelected = localValue === `Tier ${tier}`;
         return (
           <Button
             key={tier}
