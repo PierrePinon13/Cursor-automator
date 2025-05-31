@@ -1,11 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Plus, X, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface User {
   id: string;
@@ -28,6 +26,11 @@ export function CollaboratorsSelect({
 }: CollaboratorsSelectProps) {
   const [open, setOpen] = useState(false);
   const [localSelectedUsers, setLocalSelectedUsers] = useState(selectedUsers);
+
+  // Synchroniser avec les utilisateurs sélectionnés externes
+  useEffect(() => {
+    setLocalSelectedUsers(selectedUsers);
+  }, [selectedUsers]);
 
   // Validation et sécurisation des données
   const safeUsers = Array.isArray(users) ? users.filter(user => 

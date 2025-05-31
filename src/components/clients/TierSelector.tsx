@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,11 @@ interface TierSelectorProps {
 export function TierSelector({ value, onChange, disabled = false }: TierSelectorProps) {
   const [localValue, setLocalValue] = useState(value);
   const tiers = ['1', '2', '3'];
+
+  // Synchroniser avec la valeur externe
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   const handleTierClick = async (tier: string) => {
     if (disabled) return;

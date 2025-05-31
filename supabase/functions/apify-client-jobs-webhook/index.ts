@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 console.log("Starting Apify Client Jobs Webhook function")
 
@@ -42,15 +43,154 @@ serve(async (req) => {
       )
     }
 
-    console.log(`✅ Successfully received dataset ID: ${datasetId}`)
+    console.log(`📋 Processing dataset ID: ${datasetId}`)
+
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Get the Apify API key from environment
+    const apifyApiKey = Deno.env.get('APIFY_API_KEY')
+    if (!apifyApiKey) {
+      console.error('❌ Apify API key not configured')
+      return new Response(
+        JSON.stringify({ error: 'Apify API key not configured' }), 
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Fetch dataset items from Apify
+    console.log('🔄 Fetching dataset items from Apify...')
+    const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apifyApiKey}`,
+        'Accept': 'application/json',
+      },
+    })
+
+    if (!apifyResponse.ok) {
+      const errorText = await apifyResponse.text()
+      console.error('❌ Apify API error:', apifyResponse.status, errorText)
+      return new Response(
+        JSON.stringify({ error: `Apify API error: ${apifyResponse.status}` }), 
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const datasetItems = await apifyResponse.json()
+    console.log(`📊 Retrieved ${datasetItems.length} items from dataset`)
+
+    // Fetch clients for matching
+    const { data: clients, error: clientsError } = await supabaseClient
+      .from('clients')
+      .select('id, company_name, company_linkedin_id')
+      .eq('tracking_enabled', true)
+
+    if (clientsError) {
+      console.error('❌ Error fetching clients:', clientsError)
+      return new Response(
+        JSON.stringify({ error: 'Error fetching clients from database' }), 
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log(`👥 Found ${clients?.length || 0} tracked clients`)
+
+    // Process and store job offers
+    let processedCount = 0
+    let skippedCount = 0
+
+    for (const item of datasetItems) {
+      try {
+        // Basic validation
+        if (!item.title || !item.url) {
+          console.log('⚠️ Skipping item missing title or URL')
+          skippedCount++
+          continue
+        }
+
+        // Try to match with a client
+        let matchedClient = null
+        if (item.company && clients) {
+          matchedClient = clients.find(client => 
+            client.company_name.toLowerCase().includes(item.company.toLowerCase()) ||
+            item.company.toLowerCase().includes(client.company_name.toLowerCase())
+          )
+        }
+
+        // Prepare job offer data
+        const jobOfferData = {
+          apify_dataset_id: datasetId,
+          title: item.title,
+          company_name: item.company || null,
+          url: item.url,
+          location: item.location || null,
+          job_type: item.employmentType || null,
+          salary: item.salary || null,
+          description: item.description || null,
+          posted_at: item.publishedAt ? new Date(item.publishedAt).toISOString() : null,
+          matched_client_id: matchedClient?.id || null,
+          matched_client_name: matchedClient?.company_name || null,
+          raw_data: item
+        }
+
+        // Check if this job offer already exists
+        const { data: existingOffer } = await supabaseClient
+          .from('client_job_offers')
+          .select('id')
+          .eq('url', item.url)
+          .single()
+
+        if (existingOffer) {
+          console.log('⚠️ Job offer already exists, skipping:', item.title)
+          skippedCount++
+          continue
+        }
+
+        // Insert the job offer
+        const { error: insertError } = await supabaseClient
+          .from('client_job_offers')
+          .insert(jobOfferData)
+
+        if (insertError) {
+          console.error('❌ Error inserting job offer:', insertError)
+          skippedCount++
+          continue
+        }
+
+        console.log('✅ Inserted job offer:', item.title)
+        processedCount++
+
+      } catch (error) {
+        console.error('❌ Error processing item:', error)
+        skippedCount++
+      }
+    }
+
+    console.log(`🎯 Processing complete: ${processedCount} inserted, ${skippedCount} skipped`)
     
-    // Répondre avec un 200 pour confirmer la réception
+    // Répondre avec un 200 pour confirmer la réception et le traitement
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Dataset ID received successfully',
+        message: 'Dataset processed successfully',
         datasetId: datasetId,
-        receivedAt: new Date().toISOString()
+        totalItems: datasetItems.length,
+        processedCount,
+        skippedCount,
+        processedAt: new Date().toISOString()
       }), 
       { 
         status: 200, 

@@ -29,7 +29,7 @@ const Clients = () => {
         <div className="flex items-center gap-4">
           <SidebarTrigger />
           <h1 className="text-2xl font-bold text-gray-900">
-            {showManagement ? '' : 'Offres d\'emploi'}
+            {showManagement ? 'Gestion des clients' : 'Clients'}
           </h1>
         </div>
         

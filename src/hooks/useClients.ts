@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -91,6 +92,7 @@ export function useClients() {
         .order('full_name');
 
       if (error) throw error;
+      console.log('Fetched users:', data); // Debug log
       setUsers(data || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
@@ -124,7 +126,12 @@ export function useClients() {
 
       if (error) throw error;
 
-      await fetchClients();
+      // Mise à jour immédiate de l'état local
+      setClients(prevClients => 
+        prevClients.map(client => 
+          client.id === id ? { ...client, ...clientData } : client
+        )
+      );
     } catch (error: any) {
       console.error('Error updating client:', error);
     }
@@ -146,7 +153,6 @@ export function useClients() {
   };
 
   const updateCollaborators = async (clientId: string, userIds: string[]) => {
-    // Ajouter le client aux opérations en cours
     setCollaboratorsLoading(prev => new Set(prev).add(clientId));
     
     try {
@@ -193,7 +199,6 @@ export function useClients() {
       console.error('Error updating collaborators:', error);
       throw error;
     } finally {
-      // Retirer le client des opérations en cours
       setCollaboratorsLoading(prev => {
         const newSet = new Set(prev);
         newSet.delete(clientId);
