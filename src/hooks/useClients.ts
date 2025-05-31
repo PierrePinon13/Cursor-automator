@@ -29,6 +29,7 @@ export function useClients() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchClients();
