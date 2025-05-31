@@ -52,7 +52,7 @@ const Leads = () => {
     return (
       (lead.title && lead.title.toLowerCase().includes(query)) ||
       (lead.author_name && lead.author_name.toLowerCase().includes(query)) ||
-      (lead.unipile_company && lead.unipile_company.toLowerCase().includes(query)) ||
+      (lead.company_name && lead.company_name.toLowerCase().includes(query)) ||
       (lead.openai_step2_localisation && lead.openai_step2_localisation.toLowerCase().includes(query))
     );
   });

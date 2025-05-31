@@ -58,7 +58,6 @@ serve(async (req) => {
       total_received: 0,
       after_person_filter: 0,
       after_repost_filter: 0,
-      after_required_fields_filter: 0,
       after_deduplication: 0,
       successfully_inserted: 0,
       processing_errors: 0,
@@ -135,35 +134,29 @@ serve(async (req) => {
     // Apply filters and track statistics
     console.log('🔍 Starting filtering process...')
 
-    // Filter 1: Only keep authorType = "Person"
+    // Filter 1: Only keep authorType = "Person" (ANALYSE: ce filtre est trop strict)
     let filteredItems = allDatasetItems.filter(item => {
-      if (item.authorType !== 'Person') {
-        return false
+      const isPersonType = item.authorType === 'Person'
+      if (!isPersonType) {
+        console.log(`❌ Filtered out authorType: ${item.authorType} for post: ${item.urn}`)
       }
-      return true
+      return isPersonType
     })
     stats.after_person_filter = filteredItems.length
     console.log(`✅ After Person filter: ${stats.after_person_filter}/${stats.total_received} (${((stats.after_person_filter/stats.total_received)*100).toFixed(1)}%)`)
 
-    // Filter 2: Only keep isRepost = false
+    // Filter 2: Only keep isRepost = false (ANALYSE: ce filtre est correct)
     filteredItems = filteredItems.filter(item => {
-      if (item.isRepost === true) {
-        return false
+      const isNotRepost = item.isRepost !== true
+      if (!isNotRepost) {
+        console.log(`❌ Filtered out repost: ${item.urn}`)
       }
-      return true
+      return isNotRepost
     })
     stats.after_repost_filter = filteredItems.length
     console.log(`✅ After Repost filter: ${stats.after_repost_filter}/${stats.after_person_filter} (${((stats.after_repost_filter/stats.after_person_filter)*100).toFixed(1)}%)`)
 
-    // Filter 3: Check for required fields
-    filteredItems = filteredItems.filter(item => {
-      if (!item.authorProfileUrl || !item.urn || !item.text) {
-        return false
-      }
-      return true
-    })
-    stats.after_required_fields_filter = filteredItems.length
-    console.log(`✅ After Required fields filter: ${stats.after_required_fields_filter}/${stats.after_repost_filter} (${((stats.after_required_fields_filter/stats.after_repost_filter)*100).toFixed(1)}%)`)
+    // SUPPRIMÉ: Filter 3 "required fields" car tu ne veux pas de ce filtrage
 
     // Process remaining items
     let insertedCount = 0
@@ -173,6 +166,7 @@ serve(async (req) => {
     for (const item of filteredItems) {
       try {
         // Check if this post already exists (deduplication by urn)
+        // ANALYSE: La déduplication se fait sur l'URN LinkedIn
         const { data: existingPost } = await supabaseClient
           .from('linkedin_posts')
           .select('id')
@@ -180,23 +174,24 @@ serve(async (req) => {
           .single()
 
         if (existingPost) {
+          console.log(`🔄 Duplicate URN found: ${item.urn} - skipping`)
           deduplicatedCount++
           continue
         }
 
-        // Prepare the data for insertion
+        // Prepare the data for insertion (TOUS les champs maintenant)
         const postData = {
           apify_dataset_id: datasetId,
           urn: item.urn,
-          text: item.text,
+          text: item.text || 'No content', // Fallback si vide
           title: item.title || null,
           url: item.url,
           posted_at_timestamp: item.postedAtTimestamp || null,
           posted_at_iso: item.postedAt || null,
           author_type: item.authorType,
-          author_profile_url: item.authorProfileUrl,
+          author_profile_url: item.authorProfileUrl || 'Unknown',
           author_profile_id: item.authorProfileId || null,
-          author_name: item.authorName || null,
+          author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
           processing_status: 'pending',
           raw_data: item
@@ -234,7 +229,7 @@ serve(async (req) => {
     }
 
     // Update final statistics
-    stats.after_deduplication = stats.after_required_fields_filter - deduplicatedCount
+    stats.after_deduplication = stats.after_repost_filter - deduplicatedCount
     stats.successfully_inserted = insertedCount
     stats.processing_errors = errorCount
     stats.completed_at = new Date().toISOString()
@@ -253,7 +248,6 @@ serve(async (req) => {
     📥 Total received: ${stats.total_received}
     👤 After Person filter: ${stats.after_person_filter}
     🔁 After Repost filter: ${stats.after_repost_filter}
-    ✅ After Required fields: ${stats.after_required_fields_filter}
     🔍 After Deduplication: ${stats.after_deduplication}
     ✅ Successfully inserted: ${stats.successfully_inserted}
     ❌ Processing errors: ${stats.processing_errors}`)
@@ -264,7 +258,6 @@ serve(async (req) => {
       filtersApplied: [
         'authorType = Person',
         'isRepost = false',
-        'required fields present',
         'URN deduplication'
       ]
     }), { 
