@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
 import { useClientLeadsNew } from '@/hooks/useClientLeadsNew';
-import { useSavedViews } from '@/hooks/useSavedViews';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
@@ -23,15 +22,6 @@ export function ClientLeadsView() {
     setSearchQuery,
     refreshLeads
   } = useClientLeadsNew();
-
-  const {
-    savedViews,
-    saveView,
-    deleteView,
-    setDefaultView,
-    getDefaultView,
-    applyView
-  } = useSavedViews();
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'posted_date',
@@ -68,26 +58,18 @@ export function ClientLeadsView() {
         </div>
         
         <SavedViewsButton
-          savedViews={savedViews}
-          onSaveView={(name) => saveView(
-            name,
-            selectedCategories,
-            visibleColumns,
-            selectedDateFilter,
-            selectedContactFilter,
-            viewMode
-          )}
-          onDeleteView={deleteView}
-          onApplyView={(view) => {
-            const applied = applyView(view);
-            setSelectedCategories(applied.selectedCategories);
-            setVisibleColumns(applied.visibleColumns);
-            setSelectedDateFilter(applied.selectedDateFilter);
-            setSelectedContactFilter(applied.selectedContactFilter);
-            setViewMode(applied.viewMode);
+          selectedCategories={selectedCategories}
+          visibleColumns={visibleColumns}
+          selectedDateFilter={selectedDateFilter}
+          selectedContactFilter={selectedContactFilter}
+          viewMode={viewMode}
+          onApplyView={(viewConfig) => {
+            setSelectedCategories(viewConfig.selectedCategories);
+            setVisibleColumns(viewConfig.visibleColumns);
+            setSelectedDateFilter(viewConfig.selectedDateFilter);
+            setSelectedContactFilter(viewConfig.selectedContactFilter);
+            setViewMode(viewConfig.viewMode);
           }}
-          onSetDefaultView={setDefaultView}
-          getDefaultView={getDefaultView}
         />
       </div>
 
