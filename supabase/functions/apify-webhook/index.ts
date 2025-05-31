@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -111,6 +110,14 @@ serve(async (req) => {
       try {
         // Filter 1: Only keep authorType = "Person"
         if (item.authorType !== 'Person') {
+          console.log('Filtering out non-Person post:', item.urn || 'unknown')
+          filteredOutCount++
+          continue
+        }
+
+        // Filter 2: Only keep isRepost = false (NEW FILTER)
+        if (item.isRepost === true) {
+          console.log('Filtering out repost:', item.urn || 'unknown')
           filteredOutCount++
           continue
         }
@@ -189,7 +196,13 @@ serve(async (req) => {
       totalItems: allDatasetItems.length,
       processedCount,
       filteredOutCount,
-      datasetId: datasetId
+      datasetId: datasetId,
+      filtersApplied: [
+        'authorType = Person',
+        'isRepost = false (NEW)',
+        'required fields present',
+        'URN deduplication'
+      ]
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

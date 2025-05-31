@@ -97,14 +97,28 @@ export async function executeLeadDeduplication(context: ProcessingContext) {
 
 export async function executeLeadCreation(
   context: ProcessingContext,
-  step3Result: OpenAIStep3Result,
-  scrapingResult: UnipileScrapingResult,
-  clientMatch: ClientMatchResult,
+  step3Result: any,
+  scrapingResult: any,
+  clientMatch: any,
   approachMessage?: string
 ): Promise<any> {
-  console.log('Executing Lead Creation');
+  console.log('🏗️ Executing Lead Creation with improved deduplication');
   
   try {
+    // D'abord, vérifier la déduplication
+    const { handleLeadDeduplication } = await import('./lead-deduplication.ts');
+    const deduplicationResult = await handleLeadDeduplication(context.supabaseClient, context.post);
+    
+    if (deduplicationResult.isExisting) {
+      console.log('✅ Lead updated via deduplication:', deduplicationResult.leadId);
+      return {
+        success: true,
+        leadId: deduplicationResult.leadId,
+        action: 'updated_via_deduplication'
+      };
+    }
+    
+    // Si pas de lead existant, en créer un nouveau
     const { createOrUpdateLead } = await import('./lead-creation.ts');
     
     const leadResult = await createOrUpdateLead(
@@ -115,11 +129,11 @@ export async function executeLeadCreation(
       approachMessage
     );
 
-    console.log('Lead creation result:', leadResult);
+    console.log('🎯 Lead creation result:', leadResult);
     return leadResult;
 
   } catch (error: any) {
-    console.error('Error in lead creation step:', error);
+    console.error('❌ Error in improved lead creation step:', error);
     return {
       success: false,
       action: 'error',

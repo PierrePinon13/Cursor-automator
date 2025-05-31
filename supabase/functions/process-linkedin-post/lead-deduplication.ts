@@ -13,10 +13,10 @@ export async function handleLeadDeduplication(
   post: any
 ): Promise<LeadDeduplicationResult> {
   try {
-    console.log('Starting lead deduplication for profile:', post.author_profile_id);
+    console.log('🔍 Starting improved lead deduplication for profile:', post.author_profile_id);
     
     if (!post.author_profile_id) {
-      console.log('No author_profile_id found, skipping deduplication');
+      console.log('❌ No author_profile_id found, skipping deduplication');
       return {
         isExisting: false,
         action: 'error',
@@ -24,70 +24,84 @@ export async function handleLeadDeduplication(
       };
     }
 
-    // Recherche plus large : chercher tous les posts avec le même author_profile_id
-    // peu importe leur statut (completed, pending, processing, etc.)
-    console.log('🔍 Searching for existing leads with profile ID:', post.author_profile_id);
+    // NOUVELLE STRATÉGIE : Chercher d'abord dans la table leads
+    console.log('🔍 Searching for existing lead with profile ID:', post.author_profile_id);
     
-    const { data: existingLeads, error: fetchError } = await supabaseClient
-      .from('linkedin_posts')
-      .select('id, processing_status, created_at, updated_at, author_name')
+    const { data: existingLead, error: fetchLeadError } = await supabaseClient
+      .from('leads')
+      .select('id, created_at, updated_at, author_name, latest_post_date')
       .eq('author_profile_id', post.author_profile_id)
-      .neq('id', post.id) // Exclude current post
-      .order('created_at', { ascending: false });
+      .single();
 
-    if (fetchError) {
-      console.error('Error checking for existing leads:', fetchError);
+    if (fetchLeadError && fetchLeadError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('❌ Error checking for existing lead:', fetchLeadError);
       return {
         isExisting: false,
         action: 'error',
-        error: `Failed to check for existing leads: ${fetchError.message}`
+        error: `Failed to check for existing lead: ${fetchLeadError.message}`
       };
     }
 
-    console.log(`📊 Found ${existingLeads?.length || 0} existing leads for this profile`);
-    
-    if (existingLeads && existingLeads.length > 0) {
-      // Log all existing leads found
-      existingLeads.forEach((lead, index) => {
-        console.log(`📋 Existing lead ${index + 1}: ID=${lead.id}, status=${lead.processing_status}, created=${lead.created_at}, name=${lead.author_name}`);
+    if (existingLead) {
+      console.log('✅ Existing lead found:', existingLead.id);
+      console.log('📊 Lead details:', {
+        id: existingLead.id,
+        created: existingLead.created_at,
+        updated: existingLead.updated_at,
+        name: existingLead.author_name,
+        latest_post: existingLead.latest_post_date
       });
 
-      // Prendre le lead le plus récent (premier dans la liste triée)
-      const existingLead = existingLeads[0];
-      
-      console.log('✅ Duplicate detected! Updating existing lead:', existingLead.id, 'with new information');
-      
-      // Update the existing lead with the latest information
+      // Mettre à jour le lead existant avec les dernières informations
+      const updateData = {
+        // Données du post le plus récent
+        text: post.text,
+        title: post.title,
+        url: post.url,
+        posted_at_timestamp: post.posted_at_timestamp,
+        posted_at_iso: post.posted_at_iso,
+        author_name: post.author_name,
+        author_headline: post.author_headline,
+        
+        // Mettre à jour les données OpenAI si disponibles
+        ...(post.openai_step2_localisation && { openai_step2_localisation: post.openai_step2_localisation }),
+        ...(post.openai_step3_categorie && { openai_step3_categorie: post.openai_step3_categorie }),
+        ...(post.openai_step3_postes_selectionnes && { openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes }),
+        ...(post.openai_step3_justification && { openai_step3_justification: post.openai_step3_justification }),
+        
+        // Mettre à jour les données Unipile si disponibles
+        ...(post.unipile_company && { company_name: post.unipile_company, unipile_company: post.unipile_company }),
+        ...(post.unipile_position && { company_position: post.unipile_position, unipile_position: post.unipile_position }),
+        ...(post.unipile_company_linkedin_id && { 
+          company_linkedin_id: post.unipile_company_linkedin_id, 
+          unipile_company_linkedin_id: post.unipile_company_linkedin_id 
+        }),
+        
+        // Mettre à jour le message d'approche si disponible
+        ...(post.approach_message && { approach_message: post.approach_message }),
+        ...(post.approach_message_generated !== undefined && { approach_message_generated: post.approach_message_generated }),
+        
+        // Informations de matching client
+        ...(post.is_client_lead !== undefined && { is_client_lead: post.is_client_lead }),
+        ...(post.matched_client_id && { matched_client_id: post.matched_client_id }),
+        ...(post.matched_client_name && { matched_client_name: post.matched_client_name }),
+        
+        // Informations du post le plus récent
+        latest_post_date: post.posted_at_iso,
+        latest_post_url: post.url,
+        latest_post_urn: post.urn,
+        
+        // Métadonnées
+        last_updated_at: new Date().toISOString()
+      };
+
       const { error: updateError } = await supabaseClient
-        .from('linkedin_posts')
-        .update({
-          // Update with latest post information
-          text: post.text,
-          title: post.title,
-          url: post.url,
-          posted_at_timestamp: post.posted_at_timestamp,
-          posted_at_iso: post.posted_at_iso,
-          author_name: post.author_name,
-          author_headline: post.author_headline,
-          // Update processing results if they exist in the new post
-          ...(post.openai_step2_localisation && { openai_step2_localisation: post.openai_step2_localisation }),
-          ...(post.openai_step3_categorie && { openai_step3_categorie: post.openai_step3_categorie }),
-          ...(post.openai_step3_postes_selectionnes && { openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes }),
-          ...(post.openai_step3_justification && { openai_step3_justification: post.openai_step3_justification }),
-          ...(post.unipile_company && { unipile_company: post.unipile_company }),
-          ...(post.unipile_position && { unipile_position: post.unipile_position }),
-          ...(post.unipile_company_linkedin_id && { unipile_company_linkedin_id: post.unipile_company_linkedin_id }),
-          ...(post.approach_message && { approach_message: post.approach_message }),
-          ...(post.approach_message_generated !== undefined && { approach_message_generated: post.approach_message_generated }),
-          ...(post.phone_number && { phone_number: post.phone_number }),
-          ...(post.is_client_lead !== undefined && { is_client_lead: post.is_client_lead }),
-          ...(post.matched_client_name && { matched_client_name: post.matched_client_name }),
-          updated_at: new Date().toISOString()
-        })
+        .from('leads')
+        .update(updateData)
         .eq('id', existingLead.id);
 
       if (updateError) {
-        console.error('Error updating existing lead:', updateError);
+        console.error('❌ Error updating existing lead:', updateError);
         return {
           isExisting: true,
           leadId: existingLead.id,
@@ -96,12 +110,13 @@ export async function handleLeadDeduplication(
         };
       }
 
-      // Mark the current duplicate post as processed but duplicate
+      // Lier le post actuel au lead existant
       await supabaseClient
         .from('linkedin_posts')
-        .update({
-          processing_status: 'duplicate',
-          updated_at: new Date().toISOString()
+        .update({ 
+          lead_id: existingLead.id,
+          processing_status: 'completed',
+          last_updated_at: new Date().toISOString()
         })
         .eq('id', post.id);
 
@@ -112,7 +127,7 @@ export async function handleLeadDeduplication(
         action: 'updated'
       };
     } else {
-      console.log('✨ No existing lead found, this is a new lead');
+      console.log('✨ No existing lead found, will create new one');
       return {
         isExisting: false,
         action: 'created'
@@ -120,7 +135,7 @@ export async function handleLeadDeduplication(
     }
 
   } catch (error: any) {
-    console.error('❌ Error in lead deduplication:', error);
+    console.error('❌ Error in improved lead deduplication:', error);
     return {
       isExisting: false,
       action: 'error',
