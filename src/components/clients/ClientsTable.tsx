@@ -1,11 +1,12 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, ExternalLink } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { CollaboratorsSelect } from './CollaboratorsSelect';
+import { TierSelector } from './TierSelector';
+import { LinkedInIcon } from './LinkedInIcon';
 
 interface Client {
   id: string;
@@ -36,12 +37,6 @@ interface ClientsTableProps {
 export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
   const { deleteClient, updateClient, updateCollaborators, collaboratorsLoading } = useClients();
 
-  console.log('ClientsTable - Données reçues:', { 
-    clientsCount: clients?.length,
-    usersCount: users?.length,
-    users: users
-  });
-
   const handleDelete = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) {
       await deleteClient(id);
@@ -71,6 +66,14 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
     }
   };
 
+  const handleTierChange = async (clientId: string, tier: string | null) => {
+    try {
+      await updateClient(clientId, { tier });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du tier:', error);
+    }
+  };
+
   // Validation des données
   const validClients = Array.isArray(clients) ? clients.filter(client => 
     client && client.id && client.company_name
@@ -80,35 +83,15 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
     user && user.id && (user.email || user.full_name)
   ) : [];
 
-  console.log('ClientsTable - Données validées:', { 
-    validClientsCount: validClients.length,
-    validUsersCount: validUsers.length,
-    validUsers: validUsers
-  });
-
-  const getTierBadgeVariant = (tier: string | null) => {
-    switch (tier) {
-      case 'Tier 1':
-        return 'default';
-      case 'Tier 2':
-        return 'secondary';
-      case 'Tier 3':
-        return 'outline';
-      default:
-        return 'destructive';
-    }
-  };
-
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Nom de l'entreprise</TableHead>
+          <TableHead>Nom</TableHead>
+          <TableHead>Collaborateurs</TableHead>
           <TableHead>Tier</TableHead>
           <TableHead>Suivi</TableHead>
-          <TableHead>URL LinkedIn</TableHead>
-          <TableHead>ID LinkedIn</TableHead>
-          <TableHead>Collaborateurs</TableHead>
+          <TableHead>LinkedIn</TableHead>
           <TableHead className="w-[120px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -121,11 +104,6 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                 .map(c => c.id)
             : [];
           
-          console.log(`Collaborateurs pour ${client.company_name}:`, {
-            collaborators: client.collaborators,
-            collaboratorIds: collaboratorIds
-          });
-          
           const isCollaboratorsLoading = collaboratorsLoading.has(client.id);
           
           return (
@@ -134,13 +112,18 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                 {client.company_name}
               </TableCell>
               <TableCell>
-                {client.tier ? (
-                  <Badge variant={getTierBadgeVariant(client.tier)}>
-                    {client.tier}
-                  </Badge>
-                ) : (
-                  <Badge variant="destructive">Non qualifié</Badge>
-                )}
+                <CollaboratorsSelect
+                  users={validUsers}
+                  selectedUsers={collaboratorIds}
+                  onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
+                  isLoading={isCollaboratorsLoading}
+                />
+              </TableCell>
+              <TableCell>
+                <TierSelector
+                  value={client.tier}
+                  onChange={(tier) => handleTierChange(client.id, tier)}
+                />
               </TableCell>
               <TableCell>
                 <Switch
@@ -149,39 +132,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                 />
               </TableCell>
               <TableCell>
-                {client.company_linkedin_url ? (
-                  <div className="flex items-center gap-2">
-                    <span className="truncate max-w-[200px]">
-                      {client.company_linkedin_url}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(client.company_linkedin_url!, '_blank')}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <span className="text-gray-400">-</span>
-                )}
-              </TableCell>
-              <TableCell>
-                {client.company_linkedin_id ? (
-                  <Badge variant="secondary">
-                    {client.company_linkedin_id}
-                  </Badge>
-                ) : (
-                  <span className="text-gray-400">-</span>
-                )}
-              </TableCell>
-              <TableCell>
-                <CollaboratorsSelect
-                  users={validUsers}
-                  selectedUsers={collaboratorIds}
-                  onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
-                  isLoading={isCollaboratorsLoading}
-                />
+                <LinkedInIcon url={client.company_linkedin_url} />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
@@ -206,7 +157,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
         })}
         {validClients.length === 0 && (
           <TableRow>
-            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
               Aucun client trouvé. Ajoutez votre premier client ou importez un fichier CSV.
             </TableCell>
           </TableRow>

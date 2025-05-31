@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Upload, AlertCircle, ExternalLink, Users } from 'lucide-react';
+import { Plus, Upload, AlertCircle, Users, Copy, ExternalLink } from 'lucide-react';
 import { ClientsTable } from './ClientsTable';
 import { ClientDialog } from './ClientDialog';
 import { ImportClientsDialog } from './ImportClientsDialog';
 import { IncompleteClientsDialog } from './IncompleteClientsDialog';
 import { ClientQualification } from './ClientQualification';
+import { useToast } from '@/hooks/use-toast';
 
 export function ClientManagement() {
   const { clients, users, loading, generateLinkedInJobsUrl, getUnqualifiedClients } = useClients();
@@ -17,6 +18,7 @@ export function ClientManagement() {
   const [isIncompleteDialogOpen, setIsIncompleteDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
   const [showQualification, setShowQualification] = useState(false);
+  const { toast } = useToast();
 
   // Count incomplete clients
   const incompleteCount = clients.filter(client => 
@@ -25,6 +27,16 @@ export function ClientManagement() {
 
   const unqualifiedCount = getUnqualifiedClients().length;
   const linkedInJobsUrl = generateLinkedInJobsUrl();
+
+  const copyLinkedInUrl = () => {
+    if (linkedInJobsUrl) {
+      navigator.clipboard.writeText(linkedInJobsUrl);
+      toast({
+        title: "URL copiée",
+        description: "L'URL LinkedIn Jobs a été copiée dans le presse-papiers.",
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -43,46 +55,6 @@ export function ClientManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Gestion des clients</h2>
-      </div>
-
-      {/* LinkedIn Jobs URL Card */}
-      {linkedInJobsUrl && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ExternalLink className="h-5 w-5" />
-              URL LinkedIn Jobs pour clients suivis
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                value={linkedInJobsUrl}
-                readOnly
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm"
-              />
-              <Button
-                onClick={() => window.open(linkedInJobsUrl, '_blank')}
-                variant="outline"
-                size="sm"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => navigator.clipboard.writeText(linkedInJobsUrl)}
-                variant="outline"
-                size="sm"
-              >
-                Copier
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="flex items-center justify-between">
         <div className="flex gap-3">
           {unqualifiedCount > 0 && (
@@ -121,6 +93,29 @@ export function ClientManagement() {
             Nouveau client
           </Button>
         </div>
+
+        {/* URL LinkedIn Jobs - discret en haut à droite */}
+        {linkedInJobsUrl && (
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={copyLinkedInUrl}
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <Copy className="h-4 w-4" />
+              URL LinkedIn
+            </Button>
+            <Button
+              onClick={() => window.open(linkedInJobsUrl, '_blank')}
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow">
