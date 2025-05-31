@@ -205,7 +205,7 @@ const Leads = () => {
       <div className="bg-white">
         {viewMode === 'table' ? (
           <DraggableTable 
-            leads={filteredLeads} 
+            leads={filteredLeads as any} 
             visibleColumns={visibleColumns}
             onActionCompleted={handleActionCompleted}
             selectedLeadIndex={selectedLeadIndex}
@@ -214,7 +214,7 @@ const Leads = () => {
         ) : (
           <div className="px-6 pb-6">
             <CardView 
-              leads={filteredLeads}
+              leads={filteredLeads as any}
               onActionCompleted={handleActionCompleted}
               selectedLeadIndex={selectedLeadIndex}
               onLeadSelect={setSelectedLeadIndex}

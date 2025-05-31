@@ -92,7 +92,9 @@ export const useLeads = () => {
       // Transformer les données pour aplatir l'assignation
       const transformedLeads = (data || []).map(lead => ({
         ...lead,
-        assigned_user: lead.assigned_user?.[0]?.user || null
+        assigned_user: Array.isArray(lead.assigned_user) && lead.assigned_user.length > 0 
+          ? lead.assigned_user[0]?.user || null 
+          : null
       }));
 
       setLeads(transformedLeads);
