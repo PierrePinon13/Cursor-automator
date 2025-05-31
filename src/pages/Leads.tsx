@@ -10,6 +10,7 @@ import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
+import type { Lead } from '@/hooks/useLeads';
 
 const Leads = () => {
   const { 
@@ -45,7 +46,7 @@ const Leads = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter leads based on search query
-  const filteredLeads = baseFilteredLeads.filter(lead => {
+  const filteredLeads: Lead[] = baseFilteredLeads.filter(lead => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     

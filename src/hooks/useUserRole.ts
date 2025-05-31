@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 export const useUserRole = () => {
@@ -9,34 +8,22 @@ export const useUserRole = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    const checkAdminRole = async () => {
+    const checkAdminRole = () => {
       if (!user) {
         setIsAdmin(false);
         setLoading(false);
         return;
       }
 
-      try {
-        // Vérifier si l'utilisateur a le rôle admin
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-          .single();
+      // Pour l'instant, déterminons le rôle admin basé sur l'email
+      // Cette logique peut être changée plus tard
+      const adminEmails = [
+        'admin@example.com', // Remplacez par les emails admin réels
+        // Ajoutez d'autres emails admin ici
+      ];
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Erreur lors de la vérification du rôle admin:', error);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(!!data);
-        }
-      } catch (error) {
-        console.error('Erreur lors de la vérification du rôle admin:', error);
-        setIsAdmin(false);
-      } finally {
-        setLoading(false);
-      }
+      setIsAdmin(adminEmails.includes(user.email || ''));
+      setLoading(false);
     };
 
     checkAdminRole();
