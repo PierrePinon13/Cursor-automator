@@ -35,26 +35,11 @@ interface ClientsTableProps {
 }
 
 export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableProps) {
-  const { deleteClient, updateClient, updateCollaborators, collaboratorsLoading } = useClients();
+  const { deleteClient, updateClient } = useClients();
 
   const handleDelete = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) {
       await deleteClient(id);
-    }
-  };
-
-  const handleCollaboratorsChange = async (clientId: string, userIds: string[]) => {
-    console.log('Mise à jour des collaborateurs:', { clientId, userIds });
-    
-    if (!clientId || !Array.isArray(userIds)) {
-      console.error('Données invalides pour la mise à jour des collaborateurs');
-      return;
-    }
-    
-    try {
-      await updateCollaborators(clientId, userIds);
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour des collaborateurs:', error);
     }
   };
 
@@ -79,10 +64,6 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
     client && client.id && client.company_name
   ) : [];
 
-  const validUsers = Array.isArray(users) ? users.filter(user => 
-    user && user.id && (user.email || user.full_name)
-  ) : [];
-
   return (
     <Table>
       <TableHeader>
@@ -97,27 +78,13 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
       </TableHeader>
       <TableBody>
         {validClients.map((client) => {
-          // Extraire les IDs des collaborateurs de manière sécurisée
-          const collaboratorIds = Array.isArray(client.collaborators) 
-            ? client.collaborators
-                .filter(c => c && c.id)
-                .map(c => c.id)
-            : [];
-          
-          const isCollaboratorsLoading = collaboratorsLoading.has(client.id);
-          
           return (
             <TableRow key={client.id}>
               <TableCell className="font-medium">
                 {client.company_name}
               </TableCell>
               <TableCell>
-                <CollaboratorsSelect
-                  users={validUsers}
-                  selectedUsers={collaboratorIds}
-                  onSelectionChange={(userIds) => handleCollaboratorsChange(client.id, userIds)}
-                  isLoading={isCollaboratorsLoading}
-                />
+                <CollaboratorsSelect clientId={client.id} />
               </TableCell>
               <TableCell>
                 <TierSelector
