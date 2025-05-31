@@ -2,7 +2,7 @@
 import React from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MessageSquare, Phone, UserCheck, User, Calendar, Clock, FileText } from 'lucide-react';
+import { MessageSquare, Phone, UserCheck, User, Calendar, Clock, FileText, ExternalLink, PhoneCall } from 'lucide-react';
 import { HistoryActivity } from '@/hooks/useHistory';
 
 interface ActivityDetailProps {
@@ -35,130 +35,128 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     }
   };
 
+  const getCallStatusIcon = (status: string) => {
+    switch (status) {
+      case 'positive':
+        return <PhoneCall className="h-4 w-4 text-green-600" />;
+      case 'negative':
+        return <PhoneCall className="h-4 w-4 text-red-600" />;
+      default:
+        return <PhoneCall className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getCallStatusText = (status: string) => {
+    switch (status) {
+      case 'positive':
+        return 'Appel positif';
+      case 'negative':
+        return 'Appel négatif';
+      default:
+        return 'Appel neutre';
+    }
+  };
+
   const activityDate = new Date(activity.created_at);
 
   return (
-    <div className="h-full p-6 bg-white">
+    <div className="h-full p-6 bg-white overflow-y-auto">
       <div className="space-y-6">
-        {/* En-tête avec icône et titre */}
-        <div className="flex items-center gap-3 pb-4 border-b">
-          {getActivityIcon()}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {activity.title}
-            </h2>
-            <p className="text-sm text-gray-600">
-              Détail de l'activité
-            </p>
-          </div>
-        </div>
-
-        {/* Informations temporelles */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-gray-500" />
+        {/* 1. Détails de l'action (quoi, par qui, quand) */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 pb-4 border-b">
+            {getActivityIcon()}
             <div>
-              <p className="text-sm font-medium text-gray-900">Date</p>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {activity.title}
+              </h2>
               <p className="text-sm text-gray-600">
-                {format(activityDate, 'dd MMMM yyyy', { locale: fr })}
+                {activity.message}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Clock className="h-4 w-4 text-gray-500" />
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-900">Heure</p>
-              <p className="text-sm text-gray-600">
-                {format(activityDate, 'HH:mm', { locale: fr })} ({formatDistanceToNow(activityDate, { addSuffix: true, locale: fr })})
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <User className="h-4 w-4 text-gray-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">Utilisateur</p>
+              <p className="text-sm font-medium text-gray-900 mb-1">Effectué par</p>
               <p className="text-sm text-gray-600">
                 {activity.sender_name}
               </p>
             </div>
+
+            <div>
+              <p className="text-sm font-medium text-gray-900 mb-1">Date et heure</p>
+              <p className="text-sm text-gray-600">
+                {format(activityDate, 'dd/MM/yyyy à HH:mm', { locale: fr })}
+              </p>
+              <p className="text-xs text-gray-500">
+                ({formatDistanceToNow(activityDate, { addSuffix: true, locale: fr })})
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Informations sur le lead */}
+        {/* 2. Informations du lead (prénom nom, poste entreprise, lien linkedin) */}
         {activity.lead_data && (
-          <div className="space-y-3 pt-4 border-t">
-            <h3 className="text-sm font-semibold text-gray-900">Contact</h3>
+          <div className="space-y-4 pt-4 border-t">
+            <h3 className="text-base font-semibold text-gray-900">Informations du lead</h3>
             
-            <div>
-              <p className="text-sm font-medium text-gray-900">Nom</p>
-              <p className="text-sm text-gray-600">
-                {activity.lead_data.author_name || 'Non renseigné'}
-              </p>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-1">Nom complet</p>
+                  <p className="text-sm text-gray-700">
+                    {activity.lead_data.author_name || 'Non renseigné'}
+                  </p>
+                </div>
+
+                {activity.lead_data.company_position && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Poste</p>
+                    <p className="text-sm text-gray-700">
+                      {activity.lead_data.company_position}
+                    </p>
+                  </div>
+                )}
+
+                {activity.lead_data.company_name && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Entreprise</p>
+                    <p className="text-sm text-gray-700">
+                      {activity.lead_data.company_name}
+                    </p>
+                  </div>
+                )}
+
+                {activity.lead_data.author_profile_url && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Profil LinkedIn</p>
+                    <a 
+                      href={activity.lead_data.author_profile_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Voir le profil
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
-
-            {activity.lead_data.company_position && (
-              <div>
-                <p className="text-sm font-medium text-gray-900">Poste</p>
-                <p className="text-sm text-gray-600">
-                  {activity.lead_data.company_position}
-                </p>
-              </div>
-            )}
-
-            {activity.lead_data.company_name && (
-              <div>
-                <p className="text-sm font-medium text-gray-900">Entreprise</p>
-                <p className="text-sm text-gray-600">
-                  {activity.lead_data.company_name}
-                </p>
-              </div>
-            )}
-
-            {activity.lead_data.author_profile_url && (
-              <div>
-                <p className="text-sm font-medium text-gray-900">Profil LinkedIn</p>
-                <a 
-                  href={activity.lead_data.author_profile_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  Voir le profil
-                </a>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Détails du message */}
-        <div className="space-y-3 pt-4 border-t">
-          <h3 className="text-sm font-semibold text-gray-900">Détails de l'activité</h3>
-          
-          <div>
-            <p className="text-sm font-medium text-gray-900">Action</p>
-            <p className="text-sm text-gray-600">
-              {activity.message}
-            </p>
-          </div>
-
-          {activity.type === 'linkedin_message' && activity.message_type && (
-            <div>
-              <p className="text-sm font-medium text-gray-900">Type de message</p>
-              <p className="text-sm text-gray-600">
-                {activity.message_type === 'connection_request' ? 'Demande de connexion' : 'Message direct'}
-              </p>
-            </div>
-          )}
-
-          {/* Affichage du contenu du message si disponible */}
-          {activity.message_content && (
-            <div className="bg-gray-50 p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="h-4 w-4 text-gray-600" />
-                <p className="text-sm font-medium text-gray-900">
-                  {activity.message_type === 'connection_request' ? 'Message de la demande de connexion' : 'Contenu du message'}
+        {/* 3. Message envoyé (pour les messages LinkedIn) */}
+        {activity.type === 'linkedin_message' && activity.message_content && (
+          <div className="space-y-3 pt-4 border-t">
+            <h3 className="text-base font-semibold text-gray-900">Message envoyé</h3>
+            
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="h-4 w-4 text-blue-600" />
+                <p className="text-sm font-medium text-blue-900">
+                  {activity.message_type === 'connection_request' ? 'Message de demande de connexion' : 'Message direct'}
                 </p>
               </div>
               <div className="bg-white p-3 rounded border">
@@ -167,8 +165,39 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                 </p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* 4. Informations d'appel téléphonique */}
+        {activity.type === 'phone_call' && (
+          <div className="space-y-3 pt-4 border-t">
+            <h3 className="text-base font-semibold text-gray-900">Détails de l'appel</h3>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="space-y-3">
+                {/* Statut de l'appel avec pictogramme */}
+                <div className="flex items-center gap-3">
+                  {getCallStatusIcon(activity.lead_data?.phone_contact_status || 'neutral')}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {getCallStatusText(activity.lead_data?.phone_contact_status || 'neutral')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Numéro de téléphone si disponible */}
+                {activity.lead_data?.phone_number && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Numéro appelé</p>
+                    <p className="text-sm text-gray-700 font-mono">
+                      {activity.lead_data.phone_number}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
