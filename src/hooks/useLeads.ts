@@ -59,23 +59,12 @@ export const useLeads = () => {
 
     setLoading(true);
     try {
-      console.log('🔍 Fetching leads...');
+      console.log('🔍 Fetching leads with simplified query...');
       
-      // Requête simplifiée pour éviter l'ambiguïté des relations
+      // Requête simplifiée sans jointures complexes
       let query = supabase
         .from('leads')
-        .select(`
-          *,
-          lead_assignments!inner(
-            user_id,
-            assigned_at,
-            profiles!fk_lead_assignments_assigned_user(
-              id,
-              full_name,
-              email
-            )
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       // Filtrer automatiquement la catégorie "Autre" pour les non-admins
@@ -83,21 +72,20 @@ export const useLeads = () => {
         query = query.neq('openai_step3_categorie', 'Autre');
       }
 
-      const { data, error } = await query;
+      const { data: leadsData, error } = await query;
 
       if (error) {
         console.error('❌ Error fetching leads:', error);
         throw error;
       }
 
-      console.log(`✅ Fetched ${data?.length || 0} leads`);
+      console.log(`✅ Fetched ${leadsData?.length || 0} leads`);
       
-      // Transformer les données pour aplatir l'assignation
-      const transformedLeads = (data || []).map(lead => ({
+      // Pour l'instant, on utilise les leads sans les informations d'assignation
+      // On peut les ajouter plus tard si nécessaire avec une requête séparée
+      const transformedLeads = (leadsData || []).map(lead => ({
         ...lead,
-        assigned_user: Array.isArray(lead.lead_assignments) && lead.lead_assignments.length > 0 
-          ? lead.lead_assignments[0]?.profiles || null 
-          : null
+        assigned_user: null // Temporairement null, on peut récupérer ça séparément si besoin
       }));
 
       setLeads(transformedLeads);
@@ -192,7 +180,6 @@ export const useLeads = () => {
         .filter(Boolean)
     )) as string[];
     
-    // Filtrer "Autre" pour les non-admins
     return isAdmin ? categories : categories.filter(cat => cat !== 'Autre');
   }, [leads, isAdmin]);
 
