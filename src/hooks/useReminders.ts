@@ -43,22 +43,47 @@ export const useReminders = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // Récupérer les rappels
+      const { data: remindersData, error: remindersError } = await supabase
         .from('reminders')
-        .select(`
-          *,
-          lead_data:leads!reminders_lead_id_fkey(author_name, company_position),
-          creator_profiles:profiles!reminders_creator_user_id_fkey(full_name)
-        `)
+        .select('*')
         .eq('target_user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (remindersError) throw remindersError;
 
-      const formattedReminders = (data || []).map(reminder => ({
-        ...reminder,
-        creator_name: reminder.creator_profiles?.full_name || 'Utilisateur inconnu'
-      }));
+      // Récupérer les données des leads séparément
+      const leadIds = remindersData?.map(r => r.lead_id) || [];
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('id, author_name, company_position')
+        .in('id', leadIds);
+
+      if (leadsError) throw leadsError;
+
+      // Récupérer les noms des créateurs séparément
+      const creatorIds = remindersData?.map(r => r.creator_user_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', creatorIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combiner les données
+      const formattedReminders = (remindersData || []).map(reminder => {
+        const leadData = leadsData?.find(lead => lead.id === reminder.lead_id);
+        const creatorProfile = profilesData?.find(profile => profile.id === reminder.creator_user_id);
+        
+        return {
+          ...reminder,
+          lead_data: leadData ? {
+            author_name: leadData.author_name,
+            company_position: leadData.company_position
+          } : undefined,
+          creator_name: creatorProfile?.full_name || 'Utilisateur inconnu'
+        };
+      });
 
       setReminders(formattedReminders);
       setUnreadCount(formattedReminders.filter(r => !r.read).length);

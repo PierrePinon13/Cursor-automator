@@ -12,8 +12,8 @@ export interface ProcessingFunnelProps {
 
 const ProcessingFunnel = ({ timeFilter = '24h' }: ProcessingFunnelProps) => {
   const [selectedTimeFilter, setSelectedTimeFilter] = useState(timeFilter);
-  const { data: metrics, loading: metricsLoading } = useFunnelMetrics(selectedTimeFilter);
-  const { data: evolution, loading: evolutionLoading } = useFunnelEvolution(selectedTimeFilter);
+  const { metrics, loading: metricsLoading } = useFunnelMetrics(selectedTimeFilter);
+  const { evolutionData, loading: evolutionLoading } = useFunnelEvolution(selectedTimeFilter);
 
   const loading = metricsLoading || evolutionLoading;
 
@@ -38,7 +38,7 @@ const ProcessingFunnel = ({ timeFilter = '24h' }: ProcessingFunnelProps) => {
             <CardTitle>Métriques du funnel de traitement</CardTitle>
           </CardHeader>
           <CardContent>
-            <FunnelChart metrics={metrics} evolution={evolution} />
+            <FunnelChart timeFilter={selectedTimeFilter} />
           </CardContent>
         </Card>
       </div>
