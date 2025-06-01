@@ -1245,6 +1245,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_hourly_processing_breakdown: {
+        Args: { target_date: string }
+        Returns: {
+          hour_timestamp: string
+          total_posts: number
+          raw_posts: number
+          filtered_posts: number
+          completed_posts: number
+          failed_posts: number
+          pending_posts: number
+        }[]
+      }
       increment_linkedin_messages: {
         Args: { user_uuid: string }
         Returns: undefined

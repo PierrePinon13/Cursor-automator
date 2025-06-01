@@ -112,9 +112,18 @@ export default function DataProcessingDiagnostics() {
         console.error('Error counting leads:', leadsError);
       }
 
-      // 8. Hourly breakdown for today
+      // 8. Hourly breakdown using direct SQL query
       const { data: hourlyData, error: hourlyError } = await supabase
-        .rpc('get_hourly_processing_breakdown', { target_date: today });
+        .rpc('get_hourly_processing_breakdown', { target_date: today })
+        .returns<{
+          hour_timestamp: string;
+          total_posts: number;
+          raw_posts: number;
+          filtered_posts: number;
+          completed_posts: number;
+          failed_posts: number;
+          pending_posts: number;
+        }[]>();
 
       if (hourlyError) {
         console.error('Error fetching hourly breakdown:', hourlyError);
@@ -147,7 +156,8 @@ export default function DataProcessingDiagnostics() {
         leadsCount,
         rawPostsInWindow: rawPostsInWindow?.length,
         filteredPostsInWindow: filteredPostsInWindow?.length,
-        statusCounts
+        statusCounts,
+        hourlyData: hourlyData?.length
       });
 
     } catch (err: any) {
@@ -290,6 +300,34 @@ export default function DataProcessingDiagnostics() {
                       <div className="font-medium">Erreurs</div>
                       <div className="text-red-600">{stat.processing_errors}</div>
                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Répartition horaire */}
+      {data?.hourly_breakdown && data.hourly_breakdown.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Répartition horaire (Aujourd'hui)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {data.hourly_breakdown.map((hour, index) => (
+                <div key={index} className="flex items-center justify-between p-2 border rounded">
+                  <span className="font-medium">
+                    {new Date(hour.hour_timestamp).toLocaleTimeString('fr-FR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                  <div className="flex gap-4 text-sm">
+                    <span className="text-blue-600">Raw: {hour.raw_posts}</span>
+                    <span className="text-orange-600">Filtrés: {hour.filtered_posts}</span>
+                    <span className="text-green-600">Complétés: {hour.completed_posts}</span>
                   </div>
                 </div>
               ))}
