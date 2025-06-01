@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert, MessageSquare, UserPlus } from 'lucide-react';
@@ -79,7 +78,6 @@ const LeadActions = ({
     if (!user) return;
 
     try {
-      // Créer une entrée dans la table des publications mal ciblées
       const { error } = await supabase
         .from('mistargeted_posts')
         .insert({

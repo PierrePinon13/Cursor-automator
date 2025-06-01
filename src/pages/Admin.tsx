@@ -1,90 +1,66 @@
 
-import SystemStatus from '@/components/SystemStatus';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import UserActionsDropdown from '@/components/UserActionsDropdown';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { TrendingUp, BarChart3, Activity } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import FunnelChart from '@/components/admin/FunnelChart';
-import FunnelFilters from '@/components/admin/FunnelFilters';
-import ApifyWebhookStats from '@/components/admin/ApifyWebhookStats';
 import { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ProcessingFunnel from '@/components/admin/ProcessingFunnel';
+import ApifyWebhookStats from '@/components/admin/ApifyWebhookStats';
+import MistargetedPostsSection from '@/components/admin/MistargetedPostsSection';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Card, CardContent } from '@/components/ui/card';
 
 const Admin = () => {
-  console.log('Admin component rendered');
-  const navigate = useNavigate();
-  const [timeFilter, setTimeFilter] = useState('today');
+  const { isAdmin, loading } = useUserRole();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Vérification des permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card>
+          <CardContent className="text-center py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Accès refusé</h1>
+            <p className="text-gray-600">Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <h1 className="text-2xl font-bold text-gray-900">Administration</h1>
-          </div>
-          
-          <UserActionsDropdown />
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <FunnelFilters 
-            timeFilter={timeFilter}
-            onTimeFilterChange={setTimeFilter}
-          />
-          
-          <FunnelChart timeFilter={timeFilter} />
+          <h1 className="text-3xl font-bold text-gray-900">Administration</h1>
+          <p className="mt-2 text-gray-600">Gestion et monitoring du système</p>
         </div>
 
-        <div className="mb-8">
-          <ApifyWebhookStats />
-        </div>
+        <Tabs defaultValue="funnel" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="funnel">Funnel de traitement</TabsTrigger>
+            <TabsTrigger value="webhooks">Statistiques Apify</TabsTrigger>
+            <TabsTrigger value="mistargeted">Publications mal ciblées</TabsTrigger>
+          </TabsList>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Analyse du Funnel
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                Analysez le funnel de traitement des données pour identifier où les leads sont perdus dans le processus.
-              </p>
-              <Button 
-                onClick={() => {
-                  console.log('Navigating to funnel analysis');
-                  navigate('/funnel-analysis');
-                }}
-              >
-                Voir l'analyse du funnel
-              </Button>
-            </CardContent>
-          </Card>
+          <TabsContent value="funnel" className="space-y-6">
+            <ProcessingFunnel />
+          </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Statut du Système
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                Surveillez l'état général du système et les métriques de performance.
-              </p>
-              <Button variant="outline" onClick={() => document.getElementById('system-status')?.scrollIntoView()}>
-                Voir le statut
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="webhooks" className="space-y-6">
+            <ApifyWebhookStats />
+          </TabsContent>
 
-        <div id="system-status">
-          <SystemStatus />
-        </div>
+          <TabsContent value="mistargeted" className="space-y-6">
+            <MistargetedPostsSection />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

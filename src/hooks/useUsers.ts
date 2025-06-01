@@ -8,47 +8,35 @@ interface User {
   full_name: string | null;
 }
 
-export function useUsers() {
+export const useUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      console.log('🔍 Fetching all users...');
-      
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
-        .order('full_name');
+        .select('id, email, full_name');
 
-      if (error) {
-        console.error('❌ Error fetching users:', error);
-        throw error;
-      }
-      
-      console.log('✅ Users fetched successfully:', data?.length || 0);
-      console.log('👥 User details:', data?.map(u => ({ 
-        id: u.id, 
-        email: u.email, 
-        full_name: u.full_name 
-      })));
-      
+      if (error) throw error;
+
       setUsers(data || []);
     } catch (error) {
-      console.error('💥 Error in fetchUsers:', error);
+      console.error('Error fetching users:', error);
       setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   return {
     users,
     loading,
-    refreshUsers: fetchUsers
+    refetch: fetchUsers
   };
-}
+};

@@ -909,6 +909,50 @@ export type Database = {
         }
         Relationships: []
       }
+      mistargeted_posts: {
+        Row: {
+          author_name: string | null
+          author_profile_url: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          reason: string | null
+          reported_by_user_id: string
+          reported_by_user_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_name?: string | null
+          author_profile_url?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          reason?: string | null
+          reported_by_user_id: string
+          reported_by_user_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string | null
+          author_profile_url?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          reason?: string | null
+          reported_by_user_id?: string
+          reported_by_user_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mistargeted_posts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       openai_prompts: {
         Row: {
           created_at: string
