@@ -4,6 +4,7 @@ import ProcessingFunnel from './ProcessingFunnel';
 import ApifyWebhookStats from './ApifyWebhookStats';
 import MistargetedPostsSection from './MistargetedPostsSection';
 import DataProcessingDiagnostics from './DataProcessingDiagnostics';
+import DeepDataAnalysis from './DeepDataAnalysis';
 
 export default function AdminDashboard() {
   return (
@@ -13,13 +14,18 @@ export default function AdminDashboard() {
         <p className="mt-2 text-gray-600">Gestion et monitoring du système</p>
       </div>
 
-      <Tabs defaultValue="diagnostics" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="diagnostics">Diagnostic Aujourd'hui</TabsTrigger>
+      <Tabs defaultValue="deep-analysis" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="deep-analysis">Analyse Approfondie</TabsTrigger>
+          <TabsTrigger value="diagnostics">Diagnostic Standard</TabsTrigger>
           <TabsTrigger value="funnel">Funnel de traitement</TabsTrigger>
           <TabsTrigger value="webhooks">Statistiques Apify</TabsTrigger>
           <TabsTrigger value="mistargeted">Publications mal ciblées</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="deep-analysis" className="space-y-6">
+          <DeepDataAnalysis />
+        </TabsContent>
 
         <TabsContent value="diagnostics" className="space-y-6">
           <DataProcessingDiagnostics />
