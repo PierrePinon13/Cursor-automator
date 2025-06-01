@@ -21,11 +21,12 @@ export const useUserRole = () => {
       // Configurer les emails admin
       const adminEmails = [
         'pierre.pinon@gmail.com',
+        'ppinon@getpro.fr',
         'admin@example.com',
       ];
 
-      const userIsAdmin = adminEmails.includes(user.email);
-      console.log('User is admin:', userIsAdmin);
+      const userIsAdmin = adminEmails.includes(user.email.toLowerCase());
+      console.log('User is admin:', userIsAdmin, 'Email:', user.email);
       
       setIsAdmin(userIsAdmin);
       setLoading(false);

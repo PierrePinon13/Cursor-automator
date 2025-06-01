@@ -59,9 +59,31 @@ export const useLeads = () => {
 
     setLoading(true);
     try {
-      console.log('🔍 Fetching leads with simplified query...');
+      console.log('🔍 Fetching leads with filters...');
       
-      // Requête simplifiée sans jointures complexes
+      // Récupérer les IDs des publications mal ciblées
+      const { data: mistargetedPosts, error: mistargetedError } = await supabase
+        .from('mistargeted_posts')
+        .select('lead_id');
+
+      if (mistargetedError) {
+        console.error('Error fetching mistargeted posts:', mistargetedError);
+      }
+
+      const mistargetedLeadIds = mistargetedPosts?.map(post => post.lead_id) || [];
+
+      // Récupérer les noms des prestataires RH
+      const { data: hrProviders, error: hrError } = await supabase
+        .from('hr_providers')
+        .select('company_name');
+
+      if (hrError) {
+        console.error('Error fetching HR providers:', hrError);
+      }
+
+      const hrProviderNames = hrProviders?.map(provider => provider.company_name.toLowerCase()) || [];
+
+      // Requête principale pour les leads
       let query = supabase
         .from('leads')
         .select('*')
@@ -70,6 +92,11 @@ export const useLeads = () => {
       // Filtrer automatiquement la catégorie "Autre" pour les non-admins
       if (!isAdmin) {
         query = query.neq('openai_step3_categorie', 'Autre');
+      }
+
+      // Exclure les publications mal ciblées
+      if (mistargetedLeadIds.length > 0) {
+        query = query.not('id', 'in', `(${mistargetedLeadIds.join(',')})`);
       }
 
       const { data: leadsData, error } = await query;
@@ -81,9 +108,15 @@ export const useLeads = () => {
 
       console.log(`✅ Fetched ${leadsData?.length || 0} leads`);
       
-      // Pour l'instant, on utilise les leads sans les informations d'assignation
-      // On peut les ajouter plus tard si nécessaire avec une requête séparée
-      const transformedLeads = (leadsData || []).map(lead => ({
+      // Filtrer les leads des prestataires RH
+      const filteredLeads = (leadsData || []).filter(lead => {
+        if (!lead.unipile_company) return true;
+        return !hrProviderNames.includes(lead.unipile_company.toLowerCase());
+      });
+
+      console.log(`🔍 After filtering HR providers: ${filteredLeads.length} leads`);
+
+      const transformedLeads = filteredLeads.map(lead => ({
         ...lead,
         assigned_user: null // Temporairement null, on peut récupérer ça séparément si besoin
       }));

@@ -51,20 +51,56 @@ export const useLeadsNew = () => {
 
   const fetchLeads = async () => {
     try {
-      console.log('🔍 Fetching leads...');
+      console.log('🔍 Fetching leads with filters...');
       
-      const { data: leadsData, error: leadsError } = await supabase
+      // Récupérer les IDs des publications mal ciblées
+      const { data: mistargetedPosts, error: mistargetedError } = await supabase
+        .from('mistargeted_posts')
+        .select('lead_id');
+
+      if (mistargetedError) {
+        console.error('Error fetching mistargeted posts:', mistargetedError);
+      }
+
+      const mistargetedLeadIds = mistargetedPosts?.map(post => post.lead_id) || [];
+
+      // Récupérer les noms des prestataires RH
+      const { data: hrProviders, error: hrError } = await supabase
+        .from('hr_providers')
+        .select('company_name');
+
+      if (hrError) {
+        console.error('Error fetching HR providers:', hrError);
+      }
+
+      const hrProviderNames = hrProviders?.map(provider => provider.company_name.toLowerCase()) || [];
+
+      // Requête principale pour les leads
+      let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
+
+      // Exclure les publications mal ciblées
+      if (mistargetedLeadIds.length > 0) {
+        query = query.not('id', 'in', `(${mistargetedLeadIds.join(',')})`);
+      }
+
+      const { data: leadsData, error: leadsError } = await query;
 
       if (leadsError) {
         console.error('❌ Error fetching leads:', leadsError);
         throw leadsError;
       }
       
-      console.log(`📋 Fetched ${leadsData?.length || 0} leads`);
-      setLeads(leadsData || []);
+      // Filtrer les leads des prestataires RH
+      const filteredLeads = (leadsData || []).filter(lead => {
+        if (!lead.unipile_company) return true;
+        return !hrProviderNames.includes(lead.unipile_company.toLowerCase());
+      });
+
+      console.log(`📋 Fetched ${filteredLeads.length} leads after filtering`);
+      setLeads(filteredLeads);
     } catch (error) {
       console.error('💥 Error fetching leads:', error);
     } finally {

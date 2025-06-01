@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw, Sparkles, FileText } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,10 +30,6 @@ const LeadMessageEditor = ({ lead, message, onMessageChange, disabled }: LeadMes
   const MAX_CHARACTERS = 300;
   const isOverLimit = message.length > MAX_CHARACTERS;
   const remainingChars = MAX_CHARACTERS - message.length;
-
-  // Déterminer si le message actuel vient de l'IA ou du template par défaut
-  const isAIGenerated = lead.approach_message_generated && lead.approach_message && !lead.approach_message_error?.includes('[Used default template]');
-  const usedDefaultTemplate = lead.approach_message_error?.includes('[Used default template]');
 
   const generateDefaultMessage = () => {
     // Prioriser le message généré par l'IA s'il existe
@@ -77,7 +73,7 @@ Bien cordialement,
           title: "Message régénéré",
           description: data.usedDefaultTemplate 
             ? `Template par défaut utilisé après ${data.attempts} tentatives`
-            : `Message IA généré en ${data.attempts} tentative(s)`,
+            : `Message régénéré en ${data.attempts} tentative(s)`,
         });
       } else {
         throw new Error(data.error || 'Erreur lors de la régénération');
@@ -126,23 +122,8 @@ Bien cordialement,
           </Button>
         </div>
       </div>
-      
-      {/* Indicateur du type de message */}
-      {isAIGenerated && (
-        <div className="text-xs text-green-600 bg-green-50 p-2 rounded flex items-center gap-1">
-          <Sparkles className="h-3 w-3" />
-          Message généré automatiquement par l'IA
-        </div>
-      )}
-      
-      {usedDefaultTemplate && (
-        <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded flex items-center gap-1">
-          <FileText className="h-3 w-3" />
-          Template par défaut utilisé (échec de génération IA)
-        </div>
-      )}
 
-      {lead.approach_message_error && !usedDefaultTemplate && (
+      {lead.approach_message_error && (
         <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
           Erreur de génération : {lead.approach_message_error}
         </div>
