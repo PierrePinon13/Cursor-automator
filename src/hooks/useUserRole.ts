@@ -9,7 +9,10 @@ export const useUserRole = () => {
 
   useEffect(() => {
     const checkAdminRole = () => {
-      if (!user) {
+      console.log('Checking admin role for user:', user?.email);
+      
+      if (!user || !user.email) {
+        console.log('No user or email found');
         setIsAdmin(false);
         setLoading(false);
         return;
@@ -21,7 +24,10 @@ export const useUserRole = () => {
         'admin@example.com',
       ];
 
-      setIsAdmin(adminEmails.includes(user.email || ''));
+      const userIsAdmin = adminEmails.includes(user.email);
+      console.log('User is admin:', userIsAdmin);
+      
+      setIsAdmin(userIsAdmin);
       setLoading(false);
     };
 

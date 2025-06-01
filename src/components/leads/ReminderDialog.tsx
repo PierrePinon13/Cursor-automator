@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,7 +24,7 @@ interface ReminderDialogProps {
 const ReminderDialog = ({ open, onOpenChange, leadId, leadName }: ReminderDialogProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>('09:00');
-  const [assignedUserId, setAssignedUserId] = useState<string>('');
+  const [assignedUserId, setAssignedUserId] = useState<string>('self');
   const [loading, setLoading] = useState(false);
   
   const { users } = useUsers();
@@ -41,7 +41,7 @@ const ReminderDialog = ({ open, onOpenChange, leadId, leadName }: ReminderDialog
       const dueDate = new Date(selectedDate);
       dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-      const targetUserId = assignedUserId || user.id;
+      const targetUserId = assignedUserId === 'self' ? user.id : assignedUserId;
       const isAssignedToSelf = targetUserId === user.id;
 
       await createReminder({
@@ -62,7 +62,7 @@ const ReminderDialog = ({ open, onOpenChange, leadId, leadName }: ReminderDialog
 
       onOpenChange(false);
       setSelectedDate(undefined);
-      setAssignedUserId('');
+      setAssignedUserId('self');
       setSelectedTime('09:00');
     } catch (error) {
       console.error('Error creating reminder:', error);
@@ -81,6 +81,9 @@ const ReminderDialog = ({ open, onOpenChange, leadId, leadName }: ReminderDialog
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Planifier un rappel</DialogTitle>
+          <DialogDescription>
+            Créez un rappel pour ce lead afin de ne pas oublier de le recontacter.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">
@@ -143,10 +146,10 @@ const ReminderDialog = ({ open, onOpenChange, leadId, leadName }: ReminderDialog
             <label className="text-sm font-medium mb-2 block">Assigner à</label>
             <Select value={assignedUserId} onValueChange={setAssignedUserId}>
               <SelectTrigger>
-                <SelectValue placeholder="Moi-même" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Moi-même</SelectItem>
+                <SelectItem value="self">Moi-même</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.full_name || u.email}
