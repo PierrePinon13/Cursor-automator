@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { updateProcessingStatus, fetchPost } from './database-operations.ts'
@@ -136,7 +137,7 @@ serve(async (req) => {
     // Step 6: Generate approach message for non-client leads
     await executeMessageGeneration(context, step3Response.result, step2Response.result, clientMatch)
 
-    // Step 7: Create or update lead
+    // Step 7: Create or update lead (now includes company info step)
     const leadResult = await executeLeadCreation(
       context, 
       step3Response.result, 

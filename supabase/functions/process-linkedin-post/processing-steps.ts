@@ -1,143 +1,67 @@
-import { executeStep1, executeStep2, executeStep3 } from './openai-steps.ts'
-import { scrapLinkedInProfile } from './unipile-scraper.ts'
-import { updateProcessingStatus, updateStep1Results, updateStep2Results, updateStep3Results, updateUnipileResults, updateClientMatchResults, updateApproachMessage } from './database-operations.ts'
-import { checkIfLeadIsFromClient } from './client-matching.ts'
-import { generateApproachMessageWithRetry } from './message-generation.ts'
-import { handleLeadDeduplication } from './lead-deduplication.ts'
-import { ProcessingContext } from './types.ts'
-import { createOrUpdateLead } from './lead-creation.ts'
 
-export async function executeOpenAIStep1(context: ProcessingContext) {
-  console.log('Executing OpenAI Step 1: Recruitment detection analysis')
-  const step1Response = await executeStep1(context.openAIApiKey, context.post)
-  await updateStep1Results(context.supabaseClient, context.postId, step1Response.result, step1Response.data)
-  
-  // Log the actual response for debugging
-  console.log('Step 1 detailed response:', JSON.stringify(step1Response.result))
-  
-  return step1Response
-}
+import { ProcessingContext } from './types.ts';
+import { executeOpenAIStep1 } from './openai-step1.ts';
+import { executeOpenAIStep2 } from './openai-step2.ts';
+import { executeOpenAIStep3 } from './openai-step3.ts';
+import { executeUnipileScraping } from './unipile-scraper.ts';
+import { executeClientMatching } from './client-matching.ts';
+import { executeMessageGeneration } from './message-generation.ts';
+import { executeLeadDeduplication } from './lead-deduplication.ts';
+import { createOrUpdateLead } from './lead-creation.ts';
+import { executeCompanyInfoStep } from './company-info-step.ts';
 
-export async function executeOpenAIStep2(context: ProcessingContext) {
-  console.log('Starting OpenAI Step 2: Language and location analysis')
-  const step2Response = await executeStep2(context.openAIApiKey, context.post)
-  await updateStep2Results(context.supabaseClient, context.postId, step2Response.result, step2Response.data)
-  
-  // Log the actual response for debugging
-  console.log('Step 2 detailed response:', JSON.stringify(step2Response.result))
-  
-  return step2Response
-}
+// Export all the individual step execution functions
+export {
+  executeOpenAIStep1,
+  executeOpenAIStep2,
+  executeOpenAIStep3,
+  executeUnipileScraping,
+  executeClientMatching,
+  executeMessageGeneration,
+  executeLeadDeduplication,
+  executeCompanyInfoStep
+};
 
-export async function executeOpenAIStep3(context: ProcessingContext, step1Result: any) {
-  console.log('Starting OpenAI Step 3: Category and job analysis')
-  const step3Response = await executeStep3(context.openAIApiKey, context.post, step1Result)
-  await updateStep3Results(context.supabaseClient, context.postId, step3Response.result, step3Response.data)
-  
-  // Log the actual response for debugging
-  console.log('Step 3 detailed response:', JSON.stringify(step3Response.result))
-  
-  return step3Response
-}
-
-export async function executeUnipileScraping(context: ProcessingContext) {
-  console.log('Starting Unipile profile scraping')
-  const scrapingResult = await scrapLinkedInProfile(
-    context.unipileApiKey,
-    context.post.author_profile_id, // Utiliser author_profile_id au lieu de author_profile_url
-    'DdxglDwFT-mMZgxHeCGMdA', // Account ID fixe
-    context.supabaseClient
-  )
-  await updateUnipileResults(context.supabaseClient, context.postId, scrapingResult, { scrapingResult })
-  return scrapingResult
-}
-
-export async function executeClientMatching(context: ProcessingContext, scrapingResult: any) {
-  console.log('Starting client matching')
-  const clientMatch = await checkIfLeadIsFromClient(context.supabaseClient, scrapingResult.company_id)
-  await updateClientMatchResults(context.supabaseClient, context.postId, clientMatch)
-  return clientMatch
-}
-
-export async function executeMessageGeneration(context: ProcessingContext, step3Result: any, step2Result: any, clientMatch: any) {
-  if (!clientMatch.isClientLead) {
-    console.log('Lead is not a client, generating approach message with retry system')
-    
-    // Utiliser le nouveau système de retry
-    const messageResult = await generateApproachMessageWithRetry(
-      context.openAIApiKey,
-      context.post,
-      context.post.author_name,
-      step3Result.postes_selectionnes
-    )
-    
-    // Log détaillé du résultat
-    if (messageResult.usedDefaultTemplate) {
-      console.log(`⚠️ Used default template after ${messageResult.attempts} failed attempts`)
-    } else {
-      console.log(`✅ Successfully generated AI message on attempt ${messageResult.attempts}`)
-    }
-    
-    await updateApproachMessage(context.supabaseClient, context.postId, messageResult)
-    return messageResult
-  } else {
-    console.log('Lead is a client, skipping approach message generation')
-    return null
-  }
-}
-
-export async function executeLeadDeduplication(context: ProcessingContext) {
-  console.log('Starting lead deduplication')
-  const { fetchPost } = await import('./database-operations.ts')
-  const updatedPost = await fetchPost(context.supabaseClient, context.postId)
-  const deduplicationResult = await handleLeadDeduplication(context.supabaseClient, updatedPost)
-  console.log('Deduplication result:', deduplicationResult)
-  return deduplicationResult
-}
-
+// Execute lead creation with company info
 export async function executeLeadCreation(
   context: ProcessingContext,
   step3Result: any,
   scrapingResult: any,
   clientMatch: any,
   approachMessage?: string
-): Promise<any> {
-  console.log('🏗️ Executing Lead Creation with improved deduplication');
-  
+) {
   try {
-    // D'abord, vérifier la déduplication
-    const { handleLeadDeduplication } = await import('./lead-deduplication.ts');
-    const deduplicationResult = await handleLeadDeduplication(context.supabaseClient, context.post);
+    // First, execute company info step
+    console.log('🏢 Starting company info step...');
+    const companyInfoResult = await executeCompanyInfoStep(context, scrapingResult);
     
-    if (deduplicationResult.isExisting) {
-      console.log('✅ Lead updated via deduplication:', deduplicationResult.leadId);
-      return {
-        success: true,
-        leadId: deduplicationResult.leadId,
-        action: 'updated_via_deduplication'
-      };
+    if (!companyInfoResult.success) {
+      console.log('⚠️ Company info step failed, but continuing with lead creation:', companyInfoResult.error);
+    } else {
+      console.log('✅ Company info step completed successfully');
     }
-    
-    // Si pas de lead existant, en créer un nouveau
-    const { createOrUpdateLead } = await import('./lead-creation.ts');
-    
+
+    // Then create the lead with company reference
+    console.log('👤 Creating lead with company info...');
     const leadResult = await createOrUpdateLead(
       context.supabaseClient,
-      context.post,
+      {
+        ...context.post,
+        ...step3Result
+      },
       scrapingResult,
       clientMatch,
+      companyInfoResult,
       approachMessage
     );
 
-    console.log('🎯 Lead creation result:', leadResult);
     return leadResult;
-
   } catch (error: any) {
-    console.error('❌ Error in improved lead creation step:', error);
+    console.error('❌ Error in executeLeadCreation:', error);
     return {
       success: false,
       action: 'error',
-      error: error.message || 'Failed to create/update lead'
+      error: error.message || 'Unknown error during lead creation process'
     };
   }
 }

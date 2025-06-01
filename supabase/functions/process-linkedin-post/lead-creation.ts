@@ -2,6 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { UnipileScrapingResult } from './unipile-scraper.ts';
 import { ClientMatchResult } from './client-matching.ts';
+import { CompanyInfoResult } from './company-info-step.ts';
 
 export interface LeadCreationResult {
   success: boolean;
@@ -15,6 +16,7 @@ export async function createOrUpdateLead(
   post: any,
   scrapingResult: UnipileScrapingResult,
   clientMatch: ClientMatchResult,
+  companyInfo: CompanyInfoResult,
   approachMessage?: string
 ): Promise<LeadCreationResult> {
   try {
@@ -60,6 +62,9 @@ export async function createOrUpdateLead(
       unipile_position: scrapingResult.position || null,
       unipile_company_linkedin_id: scrapingResult.company_id || null,
       
+      // ✅ NOUVEAU : Référence à l'entreprise dans la table companies
+      company_id: companyInfo.success && companyInfo.companyId ? companyInfo.companyId : null,
+      
       // Message d'approche
       approach_message: approachMessage || null,
       approach_message_generated: !!approachMessage,
@@ -84,6 +89,7 @@ export async function createOrUpdateLead(
       profile_id: leadData.author_profile_id,
       name: leadData.author_name,
       company: leadData.company_name,
+      company_id: leadData.company_id,
       position: leadData.company_position,
       category: leadData.openai_step3_categorie,
       jobs: leadData.openai_step3_postes_selectionnes,

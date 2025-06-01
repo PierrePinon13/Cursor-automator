@@ -306,6 +306,51 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          company_size: string | null
+          created_at: string
+          description: string | null
+          follower_count: number | null
+          headquarters: string | null
+          id: string
+          industry: string | null
+          last_updated_at: string
+          linkedin_id: string
+          name: string | null
+          unipile_data: Json | null
+          website: string | null
+        }
+        Insert: {
+          company_size?: string | null
+          created_at?: string
+          description?: string | null
+          follower_count?: number | null
+          headquarters?: string | null
+          id?: string
+          industry?: string | null
+          last_updated_at?: string
+          linkedin_id: string
+          name?: string | null
+          unipile_data?: Json | null
+          website?: string | null
+        }
+        Update: {
+          company_size?: string | null
+          created_at?: string
+          description?: string | null
+          follower_count?: number | null
+          headquarters?: string | null
+          id?: string
+          industry?: string | null
+          last_updated_at?: string
+          linkedin_id?: string
+          name?: string | null
+          unipile_data?: Json | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       hr_providers: {
         Row: {
           company_linkedin_id: string | null
@@ -405,6 +450,7 @@ export type Database = {
           author_name: string | null
           author_profile_id: string
           author_profile_url: string | null
+          company_id: string | null
           company_linkedin_id: string | null
           company_name: string | null
           company_position: string | null
@@ -448,6 +494,7 @@ export type Database = {
           author_name?: string | null
           author_profile_id: string
           author_profile_url?: string | null
+          company_id?: string | null
           company_linkedin_id?: string | null
           company_name?: string | null
           company_position?: string | null
@@ -491,6 +538,7 @@ export type Database = {
           author_name?: string | null
           author_profile_id?: string
           author_profile_url?: string | null
+          company_id?: string | null
           company_linkedin_id?: string | null
           company_name?: string | null
           company_position?: string | null
@@ -527,6 +575,13 @@ export type Database = {
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_matched_client_id_fkey"
             columns: ["matched_client_id"]
