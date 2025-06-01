@@ -61,12 +61,15 @@ export const useLeads = () => {
     try {
       console.log('🔍 Fetching leads...');
       
+      // Requête simplifiée pour éviter l'ambiguïté des relations
       let query = supabase
         .from('leads')
         .select(`
           *,
-          assigned_user:lead_assignments(
-            user:profiles(
+          lead_assignments!inner(
+            user_id,
+            assigned_at,
+            profiles!fk_lead_assignments_assigned_user(
               id,
               full_name,
               email
@@ -92,8 +95,8 @@ export const useLeads = () => {
       // Transformer les données pour aplatir l'assignation
       const transformedLeads = (data || []).map(lead => ({
         ...lead,
-        assigned_user: Array.isArray(lead.assigned_user) && lead.assigned_user.length > 0 
-          ? lead.assigned_user[0]?.user || null 
+        assigned_user: Array.isArray(lead.lead_assignments) && lead.lead_assignments.length > 0 
+          ? lead.lead_assignments[0]?.profiles || null 
           : null
       }));
 
@@ -113,7 +116,7 @@ export const useLeads = () => {
 
   useEffect(() => {
     fetchLeads();
-  }, [user, isAdmin]); // Refetch when admin status changes
+  }, [user, isAdmin]);
 
   // Filtrage par date
   const filteredByDate = leads.filter(lead => {
