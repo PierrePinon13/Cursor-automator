@@ -15,11 +15,10 @@ export const useUserRole = () => {
         return;
       }
 
-      // Pour l'instant, déterminons le rôle admin basé sur l'email
-      // Cette logique peut être changée plus tard
+      // Configurer les emails admin
       const adminEmails = [
-        'admin@example.com', // Remplacez par les emails admin réels
-        // Ajoutez d'autres emails admin ici
+        'pierre.pinon@gmail.com',
+        'admin@example.com',
       ];
 
       setIsAdmin(adminEmails.includes(user.email || ''));
