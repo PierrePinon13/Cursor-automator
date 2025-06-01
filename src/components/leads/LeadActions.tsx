@@ -5,6 +5,10 @@ import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAler
 import { HrProviderSelector } from './HrProviderSelector';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
+import ReminderDialog from './ReminderDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Lead {
   id: string;
@@ -39,7 +43,10 @@ const LeadActions = ({
   onContactUpdate
 }: LeadActionsProps) => {
   const [showHrProviderSelector, setShowHrProviderSelector] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
+  const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleAction = (actionName: string) => {
     if (actionName === 'hr_provider') {
@@ -50,6 +57,14 @@ const LeadActions = ({
       handlePhoneRetrieval();
       return;
     }
+    if (actionName === 'reminder') {
+      setShowReminderDialog(true);
+      return;
+    }
+    if (actionName === 'mistargeted') {
+      handleMistargeted();
+      return;
+    }
     onAction(actionName);
   };
 
@@ -57,6 +72,40 @@ const LeadActions = ({
     const phoneNumber = await retrievePhone(lead.id);
     if (onPhoneRetrieved) {
       onPhoneRetrieved(phoneNumber);
+    }
+  };
+
+  const handleMistargeted = async () => {
+    if (!user) return;
+
+    try {
+      // Créer une entrée dans la table des publications mal ciblées
+      const { error } = await supabase
+        .from('mistargeted_posts')
+        .insert({
+          lead_id: lead.id,
+          reported_by_user_id: user.id,
+          reported_by_user_name: user.user_metadata?.full_name || user.email,
+          author_name: lead.author_name,
+          author_profile_url: lead.author_profile_url,
+          reason: 'Publication signalée comme mal ciblée par un utilisateur'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Publication signalée",
+        description: "Cette publication a été marquée comme mal ciblée et envoyée aux administrateurs.",
+      });
+
+      onAction('mistargeted_completed');
+    } catch (error) {
+      console.error('Error reporting mistargeted post:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de signaler cette publication.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -121,11 +170,6 @@ const LeadActions = ({
                 <span>Le message dépasse la limite de 300 caractères. Veuillez le raccourcir.</span>
               </div>
             )}
-            
-            <div className="text-xs text-gray-600 bg-white p-2 rounded border">
-              <strong>Note :</strong> Le système déterminera automatiquement s'il faut envoyer un message direct 
-              ou une demande de connexion selon votre degré de connexion avec ce profil.
-            </div>
             
             <Button
               onClick={onSendLinkedInMessage}
@@ -206,6 +250,13 @@ const LeadActions = ({
         onOpenChange={setShowHrProviderSelector}
         lead={lead}
         onHrProviderSelected={handleHrProviderSelected}
+      />
+
+      <ReminderDialog
+        open={showReminderDialog}
+        onOpenChange={setShowReminderDialog}
+        leadId={lead.id}
+        leadName={lead.author_name || 'Lead sans nom'}
       />
     </div>
   );

@@ -30,9 +30,9 @@ Deno.serve(async (req) => {
 
     console.log('Processing phone retrieval for lead:', lead_id);
 
-    // Récupérer les infos du lead
+    // Récupérer les infos du lead depuis la table leads
     const { data: lead, error: leadError } = await supabase
-      .from('linkedin_posts')
+      .from('leads')
       .select('author_profile_url, phone_number, phone_retrieved_at')
       .eq('id', lead_id)
       .single();
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       
       // Marquer comme traité même sans URL
       await supabase
-        .from('linkedin_posts')
+        .from('leads')
         .update({
           phone_number: null,
           phone_retrieved_at: new Date().toISOString()
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
 
     // Mettre à jour le lead avec le résultat (même si null)
     const { error: updateError } = await supabase
-      .from('linkedin_posts')
+      .from('leads')
       .update({
         phone_number: phoneNumber,
         phone_retrieved_at: new Date().toISOString()
