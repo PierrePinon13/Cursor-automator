@@ -1,15 +1,13 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getAvailableUnipileAccount } from './rate-limiter.ts'
+import { scrapeWithRateLimit } from './profile-scraper.ts'
+import { handleUnipileError, triggerLeadCreation } from './error-handler.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// Rate limiting per account
-const lastCallTimes = new Map<string, number>();
-const accountQueues = new Map<string, Array<() => Promise<any>>>();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
