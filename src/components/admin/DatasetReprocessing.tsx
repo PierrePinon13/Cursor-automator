@@ -163,7 +163,7 @@ export function DatasetReprocessing() {
               <li>💾 Utiliser des upserts pour éviter les conflits de duplicatas</li>
               <li>🎯 Appliquer la classification simplifiée (exclusion Company uniquement)</li>
               <li>📊 Fournir un rapport détaillé avec taux de récupération</li>
-              <li>🚨 Alerter en cas de perte significative d'items (< 80%)</li>
+              <li>🚨 Alerter en cas de perte significative d'items (&lt; 80%)</li>
             </ul>
           </div>
 
