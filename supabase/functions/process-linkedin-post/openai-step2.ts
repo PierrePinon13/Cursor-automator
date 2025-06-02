@@ -65,3 +65,36 @@ La réponse doit être fournie dans le format suivant (JSON) :
   console.log('Step 2 result:', result);
   return { result, data };
 }
+
+export async function executeOpenAIStep2(context: any): Promise<{ result: OpenAIStep2Result; data: any }> {
+  try {
+    console.log('🌍 Step 2: OpenAI language/location analysis starting...');
+    console.log('📝 Post ID:', context.postId);
+    
+    const response = await executeStep2(context.openAIApiKey, context.post);
+    
+    // Update the post with step 2 results
+    const { error: updateError } = await context.supabaseClient
+      .from('linkedin_posts')
+      .update({
+        openai_step2_reponse: response.result.reponse,
+        openai_step2_langue: response.result.langue,
+        openai_step2_localisation: response.result.localisation_detectee,
+        openai_step2_raison: response.result.raison,
+        openai_step2_response: response.data
+      })
+      .eq('id', context.postId);
+
+    if (updateError) {
+      console.error('❌ Error updating post with step 2 results:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Step 2 completed and saved:', response.result);
+    return response;
+
+  } catch (error: any) {
+    console.error('❌ Error in OpenAI Step 2 execution:', error);
+    throw error;
+  }
+}

@@ -117,3 +117,35 @@ Auteur : ${post.author_name}`
   
   return { result, data };
 }
+
+export async function executeOpenAIStep1(context: any): Promise<{ result: OpenAIStep1Result; data: any }> {
+  try {
+    console.log('🤖 Step 1: OpenAI recruitment detection starting...');
+    console.log('📝 Post ID:', context.postId);
+    console.log('👤 Author:', context.post.author_name);
+    
+    const response = await executeStep1(context.openAIApiKey, context.post);
+    
+    // Update the post with step 1 results
+    const { error: updateError } = await context.supabaseClient
+      .from('linkedin_posts')
+      .update({
+        openai_step1_recrute_poste: response.result.recrute_poste,
+        openai_step1_postes: response.result.postes,
+        openai_step1_response: response.data
+      })
+      .eq('id', context.postId);
+
+    if (updateError) {
+      console.error('❌ Error updating post with step 1 results:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Step 1 completed and saved:', response.result);
+    return response;
+
+  } catch (error: any) {
+    console.error('❌ Error in OpenAI Step 1 execution:', error);
+    throw error;
+  }
+}

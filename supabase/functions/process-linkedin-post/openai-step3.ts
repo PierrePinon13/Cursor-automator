@@ -103,3 +103,36 @@ Répondez dans le format JSON suivant :
   console.log('Step 3 result:', result);
   return { result, data };
 }
+
+export async function executeOpenAIStep3(context: any, step1Result: OpenAIStep1Result): Promise<{ result: OpenAIStep3Result; data: any }> {
+  try {
+    console.log('🏷️ Step 3: OpenAI job categorization starting...');
+    console.log('📝 Post ID:', context.postId);
+    console.log('📋 Step 1 positions:', step1Result.postes);
+    
+    const response = await executeStep3(context.openAIApiKey, context.post, step1Result);
+    
+    // Update the post with step 3 results
+    const { error: updateError } = await context.supabaseClient
+      .from('linkedin_posts')
+      .update({
+        openai_step3_categorie: response.result.categorie,
+        openai_step3_postes_selectionnes: response.result.postes_selectionnes,
+        openai_step3_justification: response.result.justification,
+        openai_step3_response: response.data
+      })
+      .eq('id', context.postId);
+
+    if (updateError) {
+      console.error('❌ Error updating post with step 3 results:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Step 3 completed and saved:', response.result);
+    return response;
+
+  } catch (error: any) {
+    console.error('❌ Error in OpenAI Step 3 execution:', error);
+    throw error;
+  }
+}
