@@ -38,9 +38,19 @@ export function JobOffersSection() {
     <div className="w-full">
       <div className="flex items-center justify-center mb-6">
         <Tabs defaultValue="job-offers" className="w-auto">
-          <TabsList className="grid w-auto grid-cols-2 h-9">
-            <TabsTrigger value="job-offers" className="px-4 py-1 text-sm">Offres d'emploi</TabsTrigger>
-            <TabsTrigger value="client-posts" className="px-4 py-1 text-sm">Publications LinkedIn</TabsTrigger>
+          <TabsList className="grid w-auto grid-cols-2 h-10 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-md">
+            <TabsTrigger 
+              value="job-offers" 
+              className="px-6 py-2 text-sm font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200"
+            >
+              Offres d'emploi
+            </TabsTrigger>
+            <TabsTrigger 
+              value="client-posts" 
+              className="px-6 py-2 text-sm font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200"
+            >
+              Publications LinkedIn
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="job-offers" className="space-y-6 mt-6">

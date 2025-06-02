@@ -32,6 +32,8 @@ export function VisualJobOffersFilters({
   filteredJobOffers,
   refreshJobOffers
 }: VisualJobOffersFiltersProps) {
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+
   const dateOptions = [
     { value: 'all', label: 'Toutes les dates' },
     { value: 'today', label: 'Aujourd\'hui' },
@@ -101,6 +103,7 @@ export function VisualJobOffersFilters({
     } else {
       setSelectedStatusFilter([...selectedStatusFilter, statusValue]);
     }
+    // Don't close the popover for multi-select
   };
 
   const FilterButton = ({ 
@@ -123,7 +126,10 @@ export function VisualJobOffersFilters({
     isMultiSelect?: boolean;
   }) => {
     return (
-      <Popover>
+      <Popover 
+        open={type === 'status' ? statusPopoverOpen : undefined}
+        onOpenChange={type === 'status' ? setStatusPopoverOpen : undefined}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="outline"
