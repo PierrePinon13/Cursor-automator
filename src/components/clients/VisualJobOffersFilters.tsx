@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Calendar, Users, UserCheck, Tag, Filter, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RefreshCw, Calendar, Users, UserCheck, Tag, Filter, X, ChevronDown } from 'lucide-react';
 
 interface VisualJobOffersFiltersProps {
   selectedDateFilter: string;
@@ -32,29 +33,29 @@ export function VisualJobOffersFilters({
   refreshJobOffers
 }: VisualJobOffersFiltersProps) {
   const dateOptions = [
-    { value: 'all', label: 'Toutes les dates', icon: Calendar },
-    { value: 'today', label: 'Aujourd\'hui', icon: Calendar },
-    { value: 'yesterday', label: 'Hier', icon: Calendar },
-    { value: 'last_48_hours', label: '48h', icon: Calendar },
-    { value: 'last_7_days', label: '7 jours', icon: Calendar },
-    { value: 'last_30_days', label: '30 jours', icon: Calendar },
+    { value: 'all', label: 'Toutes les dates' },
+    { value: 'today', label: 'Aujourd\'hui' },
+    { value: 'yesterday', label: 'Hier' },
+    { value: 'last_48_hours', label: '48h' },
+    { value: 'last_7_days', label: '7 jours' },
+    { value: 'last_30_days', label: '30 jours' },
   ];
 
   const assignmentOptions = [
-    { value: 'all', label: 'Toutes', icon: UserCheck },
-    { value: 'assigned', label: 'Assignées', icon: UserCheck },
-    { value: 'unassigned', label: 'Non assignées', icon: UserCheck },
+    { value: 'all', label: 'Toutes' },
+    { value: 'assigned', label: 'Assignées' },
+    { value: 'unassigned', label: 'Non assignées' },
   ];
 
   const statusOptions = [
-    { value: 'active', label: 'Actives', icon: Tag },
-    { value: 'all', label: 'Tous', icon: Tag },
-    { value: 'non_attribuee', label: 'Non attribuée', icon: Tag },
-    { value: 'en_attente', label: 'En attente', icon: Tag },
-    { value: 'a_relancer', label: 'À relancer', icon: Tag },
-    { value: 'negatif', label: 'Négatif', icon: Tag },
-    { value: 'positif', label: 'Positif', icon: Tag },
-    { value: 'archived', label: 'Archivées', icon: Tag },
+    { value: 'active', label: 'Actives' },
+    { value: 'all', label: 'Tous' },
+    { value: 'non_attribuee', label: 'Non attribuée' },
+    { value: 'en_attente', label: 'En attente' },
+    { value: 'a_relancer', label: 'À relancer' },
+    { value: 'negatif', label: 'Négatif' },
+    { value: 'positif', label: 'Positif' },
+    { value: 'archived', label: 'Archivées' },
   ];
 
   const getActiveFiltersCount = () => {
@@ -73,17 +74,89 @@ export function VisualJobOffersFilters({
     setSelectedStatusFilter('active');
   };
 
+  const getFilterDisplayValue = (type: string, value: string) => {
+    switch (type) {
+      case 'date':
+        return dateOptions.find(opt => opt.value === value)?.label || value;
+      case 'assignment':
+        return assignmentOptions.find(opt => opt.value === value)?.label || value;
+      case 'status':
+        return statusOptions.find(opt => opt.value === value)?.label || value;
+      case 'client':
+        if (value === 'all') return 'Tous les clients';
+        return availableClients.find(client => client.id === value)?.name || value;
+      default:
+        return value;
+    }
+  };
+
+  const FilterButton = ({ 
+    icon: Icon, 
+    label, 
+    value, 
+    color, 
+    options, 
+    onSelect, 
+    type 
+  }: {
+    icon: any;
+    label: string;
+    value: string;
+    color: string;
+    options: any[];
+    onSelect: (value: string) => void;
+    type: string;
+  }) => {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={`h-10 px-4 bg-white border-2 border-${color}-200 text-${color}-700 hover:bg-${color}-50 hover:border-${color}-300 transition-all duration-200 shadow-sm`}
+          >
+            <Icon className="h-4 w-4 mr-2" />
+            <span className="font-medium">{label}</span>
+            <div className={`ml-2 px-2 py-1 bg-${color}-100 text-${color}-800 rounded-md text-xs font-semibold`}>
+              {getFilterDisplayValue(type, value)}
+            </div>
+            <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start">
+          <div className="p-4">
+            <div className="text-sm font-semibold text-gray-900 mb-3">{label}</div>
+            <div className="space-y-1">
+              {options.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => onSelect(option.value)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                    value === option.value
+                      ? `bg-${color}-100 text-${color}-900 font-medium`
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
-    <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-3 rounded-xl shadow-lg">
-            <Filter className="h-6 w-6" />
+    <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
+      {/* Header compact */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-2 rounded-lg shadow-md">
+            <Filter className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Filtres des offres d'emploi</h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <h3 className="text-lg font-bold text-gray-900">Filtres</h3>
+            <p className="text-sm text-gray-600">
               {getActiveFiltersCount() > 0 ? (
                 <span className="text-blue-600 font-medium">
                   {getActiveFiltersCount()} filtre{getActiveFiltersCount() > 1 ? 's' : ''} personnalisé{getActiveFiltersCount() > 1 ? 's' : ''}
@@ -95,10 +168,10 @@ export function VisualJobOffersFilters({
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Badge 
             variant="outline" 
-            className="bg-white border-blue-300 text-blue-700 font-bold px-4 py-2 text-base shadow-sm"
+            className="bg-white border-blue-300 text-blue-700 font-bold px-3 py-1 text-sm shadow-sm"
           >
             {filteredJobOffers.length} offre{filteredJobOffers.length !== 1 ? 's' : ''}
           </Badge>
@@ -114,141 +187,64 @@ export function VisualJobOffersFilters({
         </div>
       </div>
 
-      {/* Filtres visuels */}
-      <div className="space-y-6">
-        {/* Filtre de période */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Calendar className="h-5 w-5 text-blue-600" />
-            <span className="font-semibold text-gray-800">Période de publication</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {dateOptions.map((option) => (
-              <Button
-                key={option.value}
-                variant={selectedDateFilter === option.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDateFilter(option.value)}
-                className={selectedDateFilter === option.value 
-                  ? "bg-blue-600 text-white shadow-md border-0" 
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
-                }
-              >
-                <option.icon className="h-4 w-4 mr-2" />
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+      {/* Filtres compacts en ligne */}
+      <div className="flex flex-wrap gap-3">
+        <FilterButton
+          icon={Calendar}
+          label="Période"
+          value={selectedDateFilter}
+          color="blue"
+          options={dateOptions}
+          onSelect={setSelectedDateFilter}
+          type="date"
+        />
 
-        {/* Filtre client */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-green-600" />
-            <span className="font-semibold text-gray-800">Client</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={selectedClientFilter === 'all' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedClientFilter('all')}
-              className={selectedClientFilter === 'all' 
-                ? "bg-green-600 text-white shadow-md border-0" 
-                : "bg-white border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300"
-              }
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Tous les clients
-            </Button>
-            {availableClients.map((client) => (
-              <Button
-                key={client.id}
-                variant={selectedClientFilter === client.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedClientFilter(client.id)}
-                className={selectedClientFilter === client.id 
-                  ? "bg-green-600 text-white shadow-md border-0" 
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300"
-                }
-              >
-                <Users className="h-4 w-4 mr-2" />
-                {client.name}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <FilterButton
+          icon={Users}
+          label="Client"
+          value={selectedClientFilter}
+          color="green"
+          options={[
+            { value: 'all', label: 'Tous les clients' },
+            ...availableClients.map(client => ({ value: client.id, label: client.name }))
+          ]}
+          onSelect={setSelectedClientFilter}
+          type="client"
+        />
 
-        {/* Filtre assignation */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <UserCheck className="h-5 w-5 text-orange-600" />
-            <span className="font-semibold text-gray-800">Assignation</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {assignmentOptions.map((option) => (
-              <Button
-                key={option.value}
-                variant={selectedAssignmentFilter === option.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedAssignmentFilter(option.value)}
-                className={selectedAssignmentFilter === option.value 
-                  ? "bg-orange-600 text-white shadow-md border-0" 
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
-                }
-              >
-                <option.icon className="h-4 w-4 mr-2" />
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <FilterButton
+          icon={UserCheck}
+          label="Assignation"
+          value={selectedAssignmentFilter}
+          color="orange"
+          options={assignmentOptions}
+          onSelect={setSelectedAssignmentFilter}
+          type="assignment"
+        />
 
-        {/* Filtre statut */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Tag className="h-5 w-5 text-purple-600" />
-            <span className="font-semibold text-gray-800">Statut</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {statusOptions.map((option) => (
-              <Button
-                key={option.value}
-                variant={selectedStatusFilter === option.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedStatusFilter(option.value)}
-                className={selectedStatusFilter === option.value 
-                  ? "bg-purple-600 text-white shadow-md border-0" 
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-purple-50 hover:border-purple-300"
-                }
-              >
-                <option.icon className="h-4 w-4 mr-2" />
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <FilterButton
+          icon={Tag}
+          label="Statut"
+          value={selectedStatusFilter}
+          color="purple"
+          options={statusOptions}
+          onSelect={setSelectedStatusFilter}
+          type="status"
+        />
+
+        {/* Reset button */}
+        {getActiveFiltersCount() > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-medium"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Réinitialiser
+          </Button>
+        )}
       </div>
-
-      {/* Actions et reset */}
-      {getActiveFiltersCount() > 0 && (
-        <div className="mt-6 pt-4 border-t border-blue-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-blue-700">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Filtres personnalisés actifs</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetFilters}
-              className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-medium"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Réinitialiser
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

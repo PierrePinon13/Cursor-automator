@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, MapPin, User, Archive, Users, Eye, EyeOff } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar, MapPin, User, Archive, Users, Eye, EyeOff, UserPlus, Check, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ClientJobOffer, User as UserType } from '@/hooks/useClientJobOffers';
@@ -101,6 +102,144 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
     return location.substring(0, 12) + '...';
   };
 
+  const AssignmentSelector = ({ offer }: { offer: ClientJobOffer }) => {
+    const assignedUser = getAssignedUser(offer.assigned_to_user_id);
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full h-10 justify-between bg-white border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 shadow-sm"
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {assignedUser ? (
+                <>
+                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                  <UserPlus className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  <span className="truncate text-sm font-medium text-blue-700">
+                    {assignedUser.full_name || assignedUser.email}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 bg-gray-300 rounded-full flex-shrink-0"></div>
+                  <UserPlus className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-sm text-gray-500">Assigner à...</span>
+                </>
+              )}
+            </div>
+            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start">
+          <div className="p-4">
+            <div className="text-sm font-semibold text-gray-900 mb-3">
+              Assigner à un collaborateur
+            </div>
+            
+            <div className="space-y-1">
+              <button
+                onClick={() => onAssignJobOffer(offer.id, null)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-3 ${
+                  !offer.assigned_to_user_id
+                    ? 'bg-blue-100 text-blue-900 font-medium'
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                <span>Non assigné</span>
+                {!offer.assigned_to_user_id && <Check className="h-4 w-4 ml-auto text-blue-600" />}
+              </button>
+              
+              {users.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => onAssignJobOffer(offer.id, user.id)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-3 ${
+                    offer.assigned_to_user_id === user.id
+                      ? 'bg-blue-100 text-blue-900 font-medium'
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <User className="h-4 w-4 text-blue-600" />
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate font-medium">
+                      {user.full_name || user.email}
+                    </div>
+                    {user.full_name && user.email && (
+                      <div className="text-xs text-gray-500 truncate">
+                        {user.email}
+                      </div>
+                    )}
+                  </div>
+                  {offer.assigned_to_user_id === user.id && <Check className="h-4 w-4 text-blue-600" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  const StatusSelector = ({ offer }: { offer: ClientJobOffer }) => {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full h-10 justify-between bg-white border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200 shadow-sm"
+          >
+            <Badge 
+              variant="outline" 
+              className={`text-xs font-medium border ${getStatusColor(offer.status)}`}
+            >
+              {getStatusLabel(offer.status)}
+            </Badge>
+            <ChevronDown className="h-4 w-4 text-gray-500 ml-2" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" align="start">
+          <div className="p-4">
+            <div className="text-sm font-semibold text-gray-900 mb-3">
+              Changer le statut
+            </div>
+            
+            <div className="space-y-1">
+              {[
+                { value: 'non_attribuee', label: 'Non attribuée' },
+                { value: 'en_attente', label: 'En attente' },
+                { value: 'a_relancer', label: 'À relancer' },
+                { value: 'negatif', label: 'Négatif' },
+                { value: 'positif', label: 'Positif' },
+                { value: 'archivee', label: 'Archivée' }
+              ].map((status) => (
+                <button
+                  key={status.value}
+                  onClick={() => onUpdateStatus(offer.id, status.value)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-3 ${
+                    offer.status === status.value
+                      ? 'bg-purple-100 text-purple-900 font-medium'
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs font-medium border ${getStatusColor(status.value)}`}
+                  >
+                    {status.label}
+                  </Badge>
+                  {offer.status === status.value && <Check className="h-4 w-4 ml-auto text-purple-600" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Contrôles de regroupement */}
@@ -165,7 +304,7 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
                 </Button>
               </TableHead>
               <TableHead className="font-semibold text-gray-900 w-48">Assignation</TableHead>
-              <TableHead className="font-semibold text-gray-900 w-40">Statut</TableHead>
+              <TableHead className="font-semibold text-gray-900 w-44">Statut</TableHead>
               <TableHead className="font-semibold text-gray-900 w-24">Archiver</TableHead>
             </TableRow>
           </TableHeader>
@@ -217,50 +356,9 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
                     </div>
                   </TableCell>
 
-                  {/* Assignation avec UX améliorée */}
+                  {/* Assignation avec nouvelle UX */}
                   <TableCell className="py-3">
-                    <Select
-                      value={offer.assigned_to_user_id || "unassigned"}
-                      onValueChange={(value) => 
-                        onAssignJobOffer(offer.id, value === "unassigned" ? null : value)
-                      }
-                    >
-                      <SelectTrigger className="w-full h-9 bg-white border-gray-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
-                        <SelectValue>
-                          {offer.assigned_to_user_id ? (
-                            <div className="flex items-center gap-2 truncate">
-                              <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                              <span className="truncate text-sm">
-                                {getAssignedUser(offer.assigned_to_user_id)?.full_name || 
-                                 getAssignedUser(offer.assigned_to_user_id)?.email || 
-                                 'Inconnu'}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 text-gray-500">
-                              <div className="w-2 h-2 bg-gray-300 rounded-full flex-shrink-0"></div>
-                              <span className="text-sm">Non assigné</span>
-                            </div>
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-gray-200">
-                        <SelectItem value="unassigned">
-                          <div className="flex items-center gap-2 text-gray-500">
-                            <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                            <span>Non assigné</span>
-                          </div>
-                        </SelectItem>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            <div className="flex items-center gap-2">
-                              <User className="h-3 w-3" />
-                              {user.full_name || user.email}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <AssignmentSelector offer={offer} />
                     {offer.assigned_at && (
                       <div className="text-xs text-gray-400 mt-1">
                         {format(new Date(offer.assigned_at), 'dd/MM HH:mm', { locale: fr })}
@@ -268,31 +366,9 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
                     )}
                   </TableCell>
 
-                  {/* Statut */}
+                  {/* Statut avec nouvelle UX */}
                   <TableCell className="py-3">
-                    <Select
-                      value={offer.status}
-                      onValueChange={(value) => onUpdateStatus(offer.id, value)}
-                    >
-                      <SelectTrigger className="w-full h-9 bg-white border-gray-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
-                        <SelectValue>
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs font-medium border ${getStatusColor(offer.status)}`}
-                          >
-                            {getStatusLabel(offer.status)}
-                          </Badge>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-gray-200">
-                        <SelectItem value="non_attribuee">Non attribuée</SelectItem>
-                        <SelectItem value="en_attente">En attente</SelectItem>
-                        <SelectItem value="a_relancer">À relancer</SelectItem>
-                        <SelectItem value="negatif">Négatif</SelectItem>
-                        <SelectItem value="positif">Positif</SelectItem>
-                        <SelectItem value="archivee">Archivée</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <StatusSelector offer={offer} />
                   </TableCell>
 
                   {/* Action Archiver */}
