@@ -4,7 +4,7 @@ import { useClientJobOffers } from '@/hooks/useClientJobOffers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClientLeadsView } from './ClientLeadsView';
 import { CompactJobOffersFilters } from './CompactJobOffersFilters';
-import { CompactJobOffersTable } from './CompactJobOffersTable';
+import { DraggableJobOffersTable } from './DraggableJobOffersTable';
 
 export function JobOffersSection() {
   const { 
@@ -50,7 +50,7 @@ export function JobOffersSection() {
           refreshJobOffers={refreshJobOffers}
         />
 
-        <CompactJobOffersTable 
+        <DraggableJobOffersTable 
           jobOffers={filteredJobOffers}
           users={users}
           onAssignJobOffer={assignJobOffer}

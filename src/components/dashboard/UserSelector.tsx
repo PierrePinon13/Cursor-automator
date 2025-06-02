@@ -91,86 +91,83 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Rechercher un utilisateur..." />
-          <CommandList>
-            <CommandGroup heading="Type de vue">
-              <CommandItem 
-                value="personal"
-                onSelect={() => handleTypeChange('personal')}
-                className="cursor-pointer"
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    selection.type === 'personal' ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <User className="mr-2 h-4 w-4" />
-                Mes statistiques
-              </CommandItem>
-              <CommandItem 
-                value="global"
-                onSelect={() => handleTypeChange('global')}
-                className="cursor-pointer"
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    selection.type === 'global' ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <Globe className="mr-2 h-4 w-4" />
-                Vue globale (tous)
-              </CommandItem>
-              <CommandItem 
-                value="specific"
-                onSelect={() => handleTypeChange('specific')}
-                className="cursor-pointer"
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    selection.type === 'specific' ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <Users className="mr-2 h-4 w-4" />
-                Sélection personnalisée
-              </CommandItem>
-            </CommandGroup>
+        <div className="p-1">
+          <div className="space-y-1">
+            <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">Type de vue</div>
+            
+            <button
+              onClick={() => handleTypeChange('personal')}
+              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+            >
+              <Check
+                className={cn(
+                  "h-4 w-4",
+                  selection.type === 'personal' ? "opacity-100" : "opacity-0"
+                )}
+              />
+              <User className="h-4 w-4" />
+              Mes statistiques
+            </button>
+            
+            <button
+              onClick={() => handleTypeChange('global')}
+              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+            >
+              <Check
+                className={cn(
+                  "h-4 w-4",
+                  selection.type === 'global' ? "opacity-100" : "opacity-0"
+                )}
+              />
+              <Globe className="h-4 w-4" />
+              Vue globale (tous)
+            </button>
+            
+            <button
+              onClick={() => handleTypeChange('specific')}
+              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+            >
+              <Check
+                className={cn(
+                  "h-4 w-4",
+                  selection.type === 'specific' ? "opacity-100" : "opacity-0"
+                )}
+              />
+              <Users className="h-4 w-4" />
+              Sélection personnalisée
+            </button>
 
-            {selection.type === 'specific' && (
-              <CommandGroup heading="Utilisateurs">
-                <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
+            {selection.type === 'specific' && users.length > 0 && (
+              <>
+                <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground mt-4">Utilisateurs</div>
                 {users.map((user) => (
-                  <CommandItem
+                  <button
                     key={user.id}
-                    value={user.email}
-                    onSelect={() => handleUserToggle(user.id)}
-                    className="cursor-pointer"
+                    onClick={() => handleUserToggle(user.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
+                        "h-4 w-4",
                         selection.userIds?.includes(user.id) ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <div className="flex flex-col">
+                    <div className="flex flex-col items-start">
                       <span className="font-medium">
                         {user.full_name || user.email}
                       </span>
                       {user.full_name && (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {user.email}
                         </span>
                       )}
                     </div>
-                  </CommandItem>
+                  </button>
                 ))}
-              </CommandGroup>
+              </>
             )}
-          </CommandList>
-        </Command>
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );

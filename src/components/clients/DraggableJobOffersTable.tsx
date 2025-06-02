@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ClientJobOffer, User as UserType } from '@/hooks/useClientJobOffers';
 
-interface CompactJobOffersTableProps {
+interface DraggableJobOffersTableProps {
   jobOffers: ClientJobOffer[];
   users: UserType[];
   onAssignJobOffer: (jobOfferId: string, userId: string | null) => void;
@@ -24,15 +24,15 @@ interface ColumnConfig {
 }
 
 const defaultColumns: ColumnConfig[] = [
-  { id: 'title', label: 'Titre du poste', width: 280, minWidth: 200, visible: true },
-  { id: 'company', label: 'Entreprise', width: 160, minWidth: 120, visible: true },
-  { id: 'location', label: 'Localisation', width: 120, minWidth: 100, visible: true },
-  { id: 'posted_at', label: 'Publication', width: 120, minWidth: 100, visible: true },
-  { id: 'assignment', label: 'Assignation', width: 160, minWidth: 140, visible: true },
-  { id: 'actions', label: 'Actions', width: 60, minWidth: 60, visible: true },
+  { id: 'title', label: 'Titre du poste', width: 300, minWidth: 200, visible: true },
+  { id: 'company', label: 'Entreprise', width: 200, minWidth: 150, visible: true },
+  { id: 'location', label: 'Localisation', width: 150, minWidth: 120, visible: true },
+  { id: 'posted_at', label: 'Date de publication', width: 150, minWidth: 130, visible: true },
+  { id: 'assignment', label: 'Assignation', width: 200, minWidth: 180, visible: true },
+  { id: 'actions', label: 'Actions', width: 80, minWidth: 80, visible: true },
 ];
 
-export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: CompactJobOffersTableProps) {
+export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: DraggableJobOffersTableProps) {
   const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
   const [resizing, setResizing] = useState<string | null>(null);
   const [startX, setStartX] = useState(0);
@@ -123,19 +123,19 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
   const visibleColumns = columns.filter(col => col.visible);
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-white">
+    <div className="border rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50 h-10">
+          <TableRow className="bg-gray-50">
             {visibleColumns.map((column, index) => (
               <TableHead 
                 key={column.id}
                 style={{ width: column.width, minWidth: column.minWidth, position: 'relative' }}
-                className="select-none py-2"
+                className="select-none"
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <GripVertical 
-                    className="h-3 w-3 cursor-move opacity-50 hover:opacity-100"
+                    className="h-4 w-4 cursor-move opacity-50 hover:opacity-100"
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', index.toString());
@@ -153,7 +153,7 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                                   column.id === 'company' ? handleSort('company_name') :
                                   column.id === 'location' ? handleSort('location') :
                                   column.id === 'posted_at' ? handleSort('posted_at') : undefined}
-                    className="h-auto p-0 font-medium text-xs"
+                    className="h-auto p-0 font-medium"
                   >
                     {column.label}
                   </Button>
@@ -168,19 +168,19 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
         </TableHeader>
         <TableBody>
           {sortedJobOffers.map((offer) => (
-            <TableRow key={offer.id} className="hover:bg-gray-50 h-12">
+            <TableRow key={offer.id} className="hover:bg-gray-50">
               {visibleColumns.map((column) => {
                 if (column.id === 'title') {
                   return (
-                    <TableCell key={column.id} className="py-2" style={{ width: column.width }}>
+                    <TableCell key={column.id} style={{ width: column.width }}>
                       <div className="space-y-1">
-                        <div className="font-medium text-xs line-clamp-1">
+                        <div className="font-medium text-sm line-clamp-2">
                           {offer.title || 'Titre non disponible'}
                         </div>
                         {offer.matched_client_name && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
-                            <Building className="h-2 w-2 mr-1" />
-                            {offer.matched_client_name}
+                          <Badge variant="outline" className="text-xs">
+                            <Building className="h-3 w-3 mr-1" />
+                            Client: {offer.matched_client_name}
                           </Badge>
                         )}
                       </div>
@@ -190,9 +190,9 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                 
                 if (column.id === 'company') {
                   return (
-                    <TableCell key={column.id} className="py-2" style={{ width: column.width }}>
-                      <div className="text-xs truncate">
-                        {offer.company_name || 'N/A'}
+                    <TableCell key={column.id} style={{ width: column.width }}>
+                      <div className="text-sm">
+                        {offer.company_name || 'Entreprise non renseignée'}
                       </div>
                     </TableCell>
                   );
@@ -200,10 +200,10 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                 
                 if (column.id === 'location') {
                   return (
-                    <TableCell key={column.id} className="py-2" style={{ width: column.width }}>
-                      <div className="flex items-center gap-1 text-xs text-gray-600">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{offer.location || 'N/A'}</span>
+                    <TableCell key={column.id} style={{ width: column.width }}>
+                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                        <MapPin className="h-3 w-3" />
+                        {offer.location || 'Non spécifié'}
                       </div>
                     </TableCell>
                   );
@@ -211,15 +211,16 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                 
                 if (column.id === 'posted_at') {
                   return (
-                    <TableCell key={column.id} className="py-2" style={{ width: column.width }}>
+                    <TableCell key={column.id} style={{ width: column.width }}>
                       <div className="space-y-1">
                         {offer.posted_at && (
-                          <div className="text-xs text-gray-600">
-                            {format(new Date(offer.posted_at), 'dd/MM/yy', { locale: fr })}
+                          <div className="flex items-center gap-1 text-sm text-gray-600">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(offer.posted_at), 'dd MMM yyyy', { locale: fr })}
                           </div>
                         )}
-                        <div className="text-[10px] text-gray-400">
-                          {format(new Date(offer.created_at), 'dd/MM HH:mm', { locale: fr })}
+                        <div className="text-xs text-gray-500">
+                          Ajouté: {format(new Date(offer.created_at), 'dd/MM HH:mm', { locale: fr })}
                         </div>
                       </div>
                     </TableCell>
@@ -228,26 +229,26 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                 
                 if (column.id === 'assignment') {
                   return (
-                    <TableCell key={column.id} className="py-2" style={{ width: column.width }}>
+                    <TableCell key={column.id} style={{ width: column.width }}>
                       <Select
                         value={offer.assigned_to_user_id || "unassigned"}
                         onValueChange={(value) => 
                           onAssignJobOffer(offer.id, value === "unassigned" ? null : value)
                         }
                       >
-                        <SelectTrigger className="w-full h-7 text-xs">
+                        <SelectTrigger className="w-full">
                           <SelectValue>
                             {offer.assigned_to_user_id ? (
-                              <div className="flex items-center gap-1 truncate">
-                                <User className="h-2 w-2 flex-shrink-0" />
-                                <span className="truncate">
+                              <div className="flex items-center gap-2">
+                                <User className="h-3 w-3" />
+                                <span className="text-sm">
                                   {getAssignedUser(offer.assigned_to_user_id)?.full_name || 
                                    getAssignedUser(offer.assigned_to_user_id)?.email || 
-                                   'Inconnu'}
+                                   'Utilisateur inconnu'}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-500">Non assigné</span>
+                              <span className="text-gray-500 text-sm">Non assigné</span>
                             )}
                           </SelectValue>
                         </SelectTrigger>
@@ -266,8 +267,8 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                         </SelectContent>
                       </Select>
                       {offer.assigned_at && (
-                        <div className="text-[10px] text-gray-400 mt-1">
-                          {format(new Date(offer.assigned_at), 'dd/MM HH:mm', { locale: fr })}
+                        <div className="text-xs text-gray-500 mt-1">
+                          Assigné: {format(new Date(offer.assigned_at), 'dd/MM HH:mm', { locale: fr })}
                         </div>
                       )}
                     </TableCell>
@@ -276,14 +277,15 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                 
                 if (column.id === 'actions') {
                   return (
-                    <TableCell key={column.id} className="py-2" style={{ width: column.width }}>
-                      <Button variant="ghost" size="sm" asChild className="h-6 w-6 p-0">
+                    <TableCell key={column.id} style={{ width: column.width }}>
+                      <Button variant="ghost" size="sm" asChild>
                         <a 
                           href={offer.url} 
                           target="_blank" 
                           rel="noopener noreferrer"
+                          className="flex items-center gap-1"
                         >
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className="h-4 w-4" />
                         </a>
                       </Button>
                     </TableCell>
