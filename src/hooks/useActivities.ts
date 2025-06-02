@@ -24,7 +24,7 @@ export interface Activity {
     matched_client_name: string | null;
     latest_post_urn: string | null;
     latest_post_url: string | null;
-  };
+  } | null;
 }
 
 export const useActivities = () => {
@@ -144,7 +144,7 @@ export const useActivities = () => {
         performed_at: item.performed_at,
         created_at: item.created_at,
         lead_id: item.lead_id,
-        lead: item.lead
+        lead: Array.isArray(item.lead) ? item.lead[0] : item.lead
       })) || [];
 
       setActivities(transformedActivities);

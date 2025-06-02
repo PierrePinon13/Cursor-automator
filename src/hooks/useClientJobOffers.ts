@@ -119,7 +119,7 @@ export function useClientJobOffers() {
     }, 500);
   };
 
-  const checkIfOfferWillDisappear = (offer: ClientJobOffer): boolean => {
+  const checkOfferWillDisappear = (offer: ClientJobOffer): boolean => {
     if (selectedAssignmentFilter === 'assigned' && !offer.assigned_to_user_id) return true;
     if (selectedAssignmentFilter === 'unassigned' && offer.assigned_to_user_id) return true;
 
@@ -158,7 +158,7 @@ export function useClientJobOffers() {
       let willDisappear = false;
       
       if (offer) {
-        willDisappear = checkIfOfferWillDisappear({
+        willDisappear = checkOfferWillDisappear({
           ...offer,
           ...updateData
         });
@@ -209,7 +209,7 @@ export function useClientJobOffers() {
       let willDisappear = false;
       
       if (offer) {
-        willDisappear = checkIfOfferWillDisappear({
+        willDisappear = checkOfferWillDisappear({
           ...offer,
           status: newStatus
         });
@@ -238,17 +238,6 @@ export function useClientJobOffers() {
         variant: "destructive",
       });
     }
-  };
-
-  const checkIfOfferWillDisappear = (offer: ClientJobOffer): boolean => {
-    if (selectedAssignmentFilter === 'assigned' && !offer.assigned_to_user_id) return true;
-    if (selectedAssignmentFilter === 'unassigned' && offer.assigned_to_user_id) return true;
-
-    if (selectedStatusFilter.includes('active') && offer.status === 'archivee') return true;
-    if (selectedStatusFilter.includes('archived') && offer.status !== 'archivee') return true;
-    if (!selectedStatusFilter.includes('active') && !selectedStatusFilter.includes('archived') && !selectedStatusFilter.includes(offer.status)) return true;
-
-    return false;
   };
 
   // Filtrage par date

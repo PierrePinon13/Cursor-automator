@@ -23,14 +23,14 @@ const PhoneContactStatus = ({
   const updateContactStatus = async (status: 'positive' | 'negative' | 'neutral') => {
     setUpdating(true);
     try {
-      await createActivity({
-        lead_id: leadId,
-        activity_type: 'phone_call',
-        activity_data: {
+      await createActivity(
+        leadId,
+        'phone_call',
+        {
           phone_number: phoneNumber
         },
-        outcome: status
-      });
+        status
+      );
 
       console.log(`Phone call status ${status} recorded for lead ${leadId}`);
       onStatusUpdate();
