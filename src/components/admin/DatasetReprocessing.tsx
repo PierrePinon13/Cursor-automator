@@ -71,7 +71,7 @@ export function DatasetReprocessing() {
       setResult(data);
       
       if (data.success) {
-        const retrievalRate = parseFloat(data.diagnostics.retrieval_rate_percent);
+        const retrievalRate = parseFloat(data.diagnostics?.retrieval_rate_percent || '0');
         if (retrievalRate < 80) {
           toast.warning(`Dataset retraité avec alertes! Taux de récupération: ${retrievalRate}%`);
         } else {
@@ -224,11 +224,11 @@ export function DatasetReprocessing() {
               </div>
               <div className="text-center">
                 <div className={`text-2xl font-bold ${
-                  parseFloat(result.diagnostics.retrieval_rate_percent) >= 80 
+                  result.diagnostics && parseFloat(result.diagnostics.retrieval_rate_percent) >= 80 
                     ? 'text-green-600' 
                     : 'text-red-600'
                 }`}>
-                  {result.diagnostics.retrieval_rate_percent}%
+                  {result.diagnostics?.retrieval_rate_percent || '0'}%
                 </div>
                 <div className="text-sm text-muted-foreground">Taux récupération</div>
               </div>
