@@ -60,6 +60,7 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
     } else {
       onSelectionChange({ type });
     }
+    setOpen(false);
   };
 
   const handleUserToggle = (userId: string) => {
@@ -89,12 +90,16 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0">
+      <PopoverContent className="w-80 p-0" align="start">
         <Command>
           <CommandInput placeholder="Rechercher un utilisateur..." />
           <CommandList>
             <CommandGroup heading="Type de vue">
-              <CommandItem onSelect={() => handleTypeChange('personal')}>
+              <CommandItem 
+                value="personal"
+                onSelect={() => handleTypeChange('personal')}
+                className="cursor-pointer"
+              >
                 <Check
                   className={cn(
                     "mr-2 h-4 w-4",
@@ -104,7 +109,11 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
                 <User className="mr-2 h-4 w-4" />
                 Mes statistiques
               </CommandItem>
-              <CommandItem onSelect={() => handleTypeChange('global')}>
+              <CommandItem 
+                value="global"
+                onSelect={() => handleTypeChange('global')}
+                className="cursor-pointer"
+              >
                 <Check
                   className={cn(
                     "mr-2 h-4 w-4",
@@ -114,7 +123,11 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
                 <Globe className="mr-2 h-4 w-4" />
                 Vue globale (tous)
               </CommandItem>
-              <CommandItem onSelect={() => handleTypeChange('specific')}>
+              <CommandItem 
+                value="specific"
+                onSelect={() => handleTypeChange('specific')}
+                className="cursor-pointer"
+              >
                 <Check
                   className={cn(
                     "mr-2 h-4 w-4",
@@ -132,7 +145,9 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
                 {users.map((user) => (
                   <CommandItem
                     key={user.id}
+                    value={user.email}
                     onSelect={() => handleUserToggle(user.id)}
+                    className="cursor-pointer"
                   >
                     <Check
                       className={cn(
