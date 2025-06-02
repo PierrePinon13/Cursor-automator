@@ -38,6 +38,17 @@ export interface DashboardData {
   }>;
 }
 
+interface UserStatRow {
+  user_id: string;
+  stat_date: string;
+  linkedin_messages_sent: number;
+  positive_calls: number;
+  negative_calls: number;
+  profiles?: {
+    email: string;
+  };
+}
+
 export const useDashboardStats = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -94,7 +105,7 @@ export const useDashboardStats = () => {
   };
 };
 
-function processRawData(rawData: any[], userSelection: UserSelection): DashboardData {
+function processRawData(rawData: UserStatRow[], userSelection: UserSelection): DashboardData {
   // Statistiques globales
   const totalStats = rawData.reduce(
     (acc, stat) => ({
