@@ -96,6 +96,22 @@ export function VisualJobOffersFilters({
     }
   };
 
+  const isDefaultValue = (type: string, value: string | string[]) => {
+    switch (type) {
+      case 'date':
+        return value === 'last_48_hours';
+      case 'assignment':
+        return value === 'unassigned';
+      case 'status':
+        const statusArray = Array.isArray(value) ? value : [value];
+        return statusArray.length === 1 && statusArray[0] === 'active';
+      case 'client':
+        return value === 'all';
+      default:
+        return false;
+    }
+  };
+
   const handleStatusToggle = (statusValue: string) => {
     if (selectedStatusFilter.includes(statusValue)) {
       const newFilters = selectedStatusFilter.filter(s => s !== statusValue);
@@ -124,6 +140,8 @@ export function VisualJobOffersFilters({
     type: string;
     isMultiSelect?: boolean;
   }) => {
+    const showLabel = isDefaultValue(type, value);
+    
     return (
       <Popover 
         open={type === 'status' ? statusPopoverOpen : undefined}
@@ -135,8 +153,8 @@ export function VisualJobOffersFilters({
             className={`h-10 px-4 bg-white border-2 border-${color}-200 text-${color}-700 hover:bg-${color}-50 hover:border-${color}-300 transition-all duration-200 shadow-sm`}
           >
             <Icon className="h-4 w-4 mr-2" />
-            <span className="font-medium">{label}</span>
-            <div className={`ml-2 px-2 py-1 bg-${color}-100 text-${color}-800 rounded-md text-xs font-semibold`}>
+            {showLabel && <span className="font-medium mr-2">{label}</span>}
+            <div className={`px-2 py-1 bg-${color}-100 text-${color}-800 rounded-md text-xs font-semibold`}>
               {getFilterDisplayValue(type, value)}
             </div>
             <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
@@ -184,28 +202,8 @@ export function VisualJobOffersFilters({
 
   return (
     <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
-      {/* Header avec compteur et actualiser alignés */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Badge 
-            variant="outline" 
-            className="bg-white border-blue-300 text-blue-700 font-bold px-3 py-1 text-sm shadow-sm"
-          >
-            {filteredJobOffers.length} offre{filteredJobOffers.length !== 1 ? 's' : ''}
-          </Badge>
-          <Button
-            onClick={refreshJobOffers}
-            variant="outline"
-            size="sm"
-            className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-200 shadow-sm h-8 w-8 p-0"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Filtres */}
-      <div className="flex flex-wrap gap-3">
+      {/* Filtres avec compteur et actualiser sur la même ligne */}
+      <div className="flex flex-wrap items-center gap-3">
         <FilterButton
           icon={Calendar}
           label="Période"
@@ -261,6 +259,24 @@ export function VisualJobOffersFilters({
             Réinitialiser
           </Button>
         )}
+
+        {/* Compteur et actualiser à droite */}
+        <div className="flex items-center gap-3 ml-auto">
+          <Badge 
+            variant="outline" 
+            className="bg-white border-blue-300 text-blue-700 font-bold px-3 py-1 text-sm shadow-sm"
+          >
+            {filteredJobOffers.length} offre{filteredJobOffers.length !== 1 ? 's' : ''}
+          </Badge>
+          <Button
+            onClick={refreshJobOffers}
+            variant="outline"
+            size="sm"
+            className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-200 shadow-sm h-8 w-8 p-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
 import { ClientManagement } from '@/components/clients/ClientManagement';
+import { ClientLeadsView } from '@/components/clients/ClientLeadsView';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 
 const Clients = () => {
   const { loading } = useClients();
   const [showManagement, setShowManagement] = useState(false);
+  const [activeTab, setActiveTab] = useState('job-offers');
 
   if (loading) {
     return (
@@ -25,18 +27,21 @@ const Clients = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Nouvelle barre de navigation unifiée */}
-      <div className="flex items-center justify-between px-3 py-4 bg-white border-b border-gray-100">
+      {/* Nouvelle barre de navigation unifiée sans bordure */}
+      <div className="flex items-center justify-between px-3 py-4 bg-white">
         <div className="flex items-center gap-6">
           <SidebarTrigger />
           
           {/* Navigation principale avec nouveau style */}
           <div className="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
             <button
-              onClick={() => setShowManagement(false)}
+              onClick={() => {
+                setShowManagement(false);
+                setActiveTab('job-offers');
+              }}
               className={`
                 px-6 py-2.5 rounded-md text-sm font-medium transition-all duration-200
-                ${!showManagement 
+                ${!showManagement && activeTab === 'job-offers'
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
                 }
@@ -45,10 +50,13 @@ const Clients = () => {
               Offres d'emploi
             </button>
             <button
-              onClick={() => setShowManagement(false)}
+              onClick={() => {
+                setShowManagement(false);
+                setActiveTab('client-posts');
+              }}
               className={`
                 px-6 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ml-1
-                ${false 
+                ${!showManagement && activeTab === 'client-posts'
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
                 }
@@ -77,8 +85,10 @@ const Clients = () => {
       <div className="p-4">
         {showManagement ? (
           <ClientManagement />
-        ) : (
+        ) : activeTab === 'job-offers' ? (
           <JobOffersSection />
+        ) : (
+          <ClientLeadsView />
         )}
       </div>
     </div>
