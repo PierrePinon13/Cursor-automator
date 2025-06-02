@@ -52,13 +52,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_activities_lead_id"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_activities_user"
             columns: ["performed_by_user_id"]
             isOneToOne: false

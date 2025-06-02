@@ -60,13 +60,13 @@ const HistoryDiagnostics = () => {
         error: leadsCountError?.message
       });
 
-      // Test 4: Join query (the problematic one)
-      console.log('🔍 Testing join query...');
+      // Test 4: Proper join query (après avoir nettoyé la base)
+      console.log('🔍 Testing proper join query...');
       const { data: joinData, error: joinError } = await supabase
         .from('activities')
         .select(`
           *,
-          lead:leads!activities_lead_id_fkey(
+          leads (
             id,
             author_name,
             company_position
@@ -75,31 +75,33 @@ const HistoryDiagnostics = () => {
         .limit(2);
 
       results.tests.push({
-        name: 'Activities-Leads Join',
+        name: 'Activities-Leads Join (After Cleanup)',
         status: joinError ? 'error' : 'success',
         result: joinData?.length || 0,
-        error: joinError?.message
+        error: joinError?.message,
+        sample: joinData?.[0]
       });
 
-      // Test 5: Alternative join query
-      console.log('🔍 Testing alternative join query...');
-      const { data: altJoinData, error: altJoinError } = await supabase
+      // Test 5: History types filter
+      console.log('🔍 Testing history types filter...');
+      const { data: historyData, error: historyError } = await supabase
         .from('activities')
         .select(`
           *,
-          leads(
+          leads (
             id,
             author_name,
             company_position
           )
         `)
-        .limit(2);
+        .in('activity_type', ['linkedin_message', 'phone_call'])
+        .limit(5);
 
       results.tests.push({
-        name: 'Alternative Activities-Leads Join',
-        status: altJoinError ? 'error' : 'success',
-        result: altJoinData?.length || 0,
-        error: altJoinError?.message
+        name: 'History Filter Query',
+        status: historyError ? 'error' : 'success',
+        result: historyData?.length || 0,
+        error: historyError?.message
       });
 
     } catch (error: any) {
