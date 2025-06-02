@@ -107,6 +107,7 @@ export function useClients() {
 
       if (error) throw error;
 
+      // Mettre à jour l'état local immédiatement
       setClients(prevClients => 
         prevClients.map(client => 
           client.id === id ? { ...client, ...clientData } : client
@@ -165,8 +166,9 @@ export function useClients() {
     return clients.filter(client => client.tracking_enabled);
   };
 
+  // Générer l'URL LinkedIn en temps réel basée sur l'état actuel des clients
   const generateLinkedInJobsUrl = () => {
-    const trackedClients = getTrackedClients();
+    const trackedClients = clients.filter(client => client.tracking_enabled);
     const linkedinIds = trackedClients
       .filter(client => client.company_linkedin_id)
       .map(client => client.company_linkedin_id)
