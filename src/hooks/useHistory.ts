@@ -39,11 +39,12 @@ export const useHistory = () => {
         console.error('❌ Error counting activities:', countError);
       }
 
+      // ✅ FIX: Use explicit relationship name to resolve ambiguity
       const { data: activitiesData, error } = await supabase
         .from('activities')
         .select(`
           *,
-          lead:leads(
+          lead:leads!activities_lead_id_fkey(
             id,
             author_name,
             author_headline,
@@ -61,6 +62,71 @@ export const useHistory = () => {
 
       if (error) {
         console.error('❌ Error fetching history:', error);
+        console.log('🔄 Trying fallback approach without lead join...');
+        
+        // Fallback: Get activities without lead join if the join fails
+        const { data: simpleActivitiesData, error: simpleError } = await supabase
+          .from('activities')
+          .select('*')
+          .in('activity_type', ['linkedin_message', 'phone_call'])
+          .order('performed_at', { ascending: false })
+          .limit(limit);
+
+        if (simpleError) {
+          console.error('❌ Even simple query failed:', simpleError);
+          setActivities([]);
+          return;
+        }
+
+        console.log('📋 Fallback activities data:', simpleActivitiesData);
+        
+        // Transform without lead data
+        const transformedFallback = simpleActivitiesData?.map((activity: any) => {
+          const activityData = activity.activity_data || {};
+          
+          let title = '';
+          let message = '';
+          
+          switch (activity.activity_type) {
+            case 'linkedin_message':
+              const messageType = activityData.message_type || 'direct_message';
+              
+              if (messageType === 'connection_request') {
+                title = 'Demande de connexion LinkedIn';
+                message = `Demande de connexion envoyée`;
+              } else {
+                title = 'Message LinkedIn';
+                message = `Message direct envoyé`;
+              }
+              break;
+              
+            case 'phone_call':
+              const statusText = activity.outcome === 'positive' ? 'positif' : 
+                                activity.outcome === 'negative' ? 'négatif' : 'neutre';
+              title = `Appel ${statusText}`;
+              message = `Appel ${statusText}`;
+              break;
+              
+            default:
+              title = 'Activité';
+              message = 'Activité non définie';
+          }
+
+          return {
+            id: activity.id,
+            type: activity.activity_type as 'linkedin_message' | 'phone_call',
+            title,
+            message,
+            created_at: activity.performed_at,
+            lead_data: null, // No lead data in fallback
+            sender_name: activity.performed_by_user_name || 'Utilisateur Inconnu',
+            message_type: activityData.message_type as 'connection_request' | 'direct_message',
+            message_content: activityData.message_content || null
+          };
+        }) || [];
+
+        console.log('✅ Using fallback data:', transformedFallback.length);
+        setActivities(transformedFallback);
         return;
       }
 
@@ -69,58 +135,6 @@ export const useHistory = () => {
 
       if (!activitiesData || activitiesData.length === 0) {
         console.log('⚠️ No activities found in activities table');
-        
-        // Fallback: check linkedin_messages table
-        console.log('🔄 Checking linkedin_messages table as fallback...');
-        const { data: linkedinMessagesData, error: linkedinError } = await supabase
-          .from('linkedin_messages')
-          .select(`
-            *,
-            lead:leads(
-              id,
-              author_name,
-              author_headline,
-              author_profile_url,
-              company_name,
-              company_position,
-              matched_client_name
-            )
-          `)
-          .order('sent_at', { ascending: false })
-          .limit(limit);
-
-        if (linkedinError) {
-          console.error('❌ Error fetching linkedin_messages:', linkedinError);
-          setActivities([]);
-          return;
-        }
-
-        console.log('📧 LinkedIn messages found:', linkedinMessagesData?.length || 0);
-
-        if (linkedinMessagesData && linkedinMessagesData.length > 0) {
-          const transformedFromLinkedIn = linkedinMessagesData.map((msg: any) => {
-            const lead = msg.lead || {};
-            const title = msg.message_type === 'connection_request' ? 'Demande de connexion LinkedIn' : 'Message LinkedIn';
-            const message = `${title} envoyé à ${lead.author_name || 'Lead inconnu'}`;
-            
-            return {
-              id: msg.id,
-              type: 'linkedin_message' as const,
-              title,
-              message,
-              created_at: msg.sent_at,
-              lead_data: lead,
-              sender_name: msg.sender_full_name || 'Utilisateur Inconnu',
-              message_type: msg.message_type as 'connection_request' | 'direct_message',
-              message_content: msg.message_content || null
-            };
-          });
-
-          console.log('✅ Using linkedin_messages as fallback data');
-          setActivities(transformedFromLinkedIn);
-          return;
-        }
-
         setActivities([]);
         return;
       }
