@@ -14,21 +14,18 @@ export interface UnipileScrapingResult {
 
 export async function scrapeLinkedInProfile(
   unipileApiKey: string,
-  profileUrl: string
+  profileId: string
 ): Promise<UnipileScrapingResult> {
-  console.log('🔍 Starting Unipile profile scraping for URL:', profileUrl);
+  console.log('🔍 Starting Unipile profile scraping for profile ID:', profileId);
   
   try {
-    const response = await fetch('https://api.unipile.com/api/v1/profiles/scrape', {
-      method: 'POST',
+    // ✅ CORRECTION : Utiliser la nouvelle API GET comme dans les workers spécialisés
+    const response = await fetch(`https://api9.unipile.com:13946/api/v1/users/${profileId}?linkedin_sections=experience`, {
+      method: 'GET',
       headers: {
         'X-API-KEY': unipileApiKey,
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        provider_id: 'LINKEDIN',
-        url: profileUrl
-      }),
+      }
     });
 
     if (!response.ok) {
@@ -44,10 +41,27 @@ export async function scrapeLinkedInProfile(
     console.log('✅ Unipile scraping successful');
     console.log('📊 Profile data keys:', Object.keys(data));
 
-    // Extract relevant information
-    const company = data.current_position?.company?.name || data.company?.name;
-    const position = data.current_position?.title || data.position;
-    const company_id = data.current_position?.company?.linkedin_id || data.company?.linkedin_id;
+    // Extract relevant information using the same logic as specialized workers
+    let company = null;
+    let position = null;
+    let company_id = null;
+    
+    // Extraire les informations depuis l'expérience
+    const experiences = data.work_experience || data.linkedin_profile?.experience || [];
+    
+    if (experiences.length > 0) {
+      // Trouver l'expérience actuelle
+      const currentExperience = experiences.find((exp: any) => 
+        !exp.end || exp.end === null || exp.end === ''
+      ) || experiences[0];
+
+      if (currentExperience) {
+        company = currentExperience.company || currentExperience.companyName || null;
+        position = currentExperience.position || currentExperience.title || null;
+        company_id = currentExperience.company_id || currentExperience.companyId || null;
+      }
+    }
+
     const phone = data.phone_numbers?.[0] || data.phone;
 
     console.log('📋 Extracted data:', {
@@ -81,11 +95,19 @@ export async function executeUnipileScraping(
   try {
     console.log('🔍 Step 4: Unipile profile scraping starting...');
     console.log('📝 Post ID:', context.postId);
-    console.log('👤 Profile URL:', context.post.author_profile_url);
+    console.log('👤 Profile ID:', context.post.author_profile_id);
+    
+    if (!context.post.author_profile_id) {
+      console.log('⚠️ No author_profile_id available for scraping');
+      return {
+        success: false,
+        error: 'No author_profile_id available for scraping'
+      };
+    }
     
     const scrapingResult = await scrapeLinkedInProfile(
       context.unipileApiKey,
-      context.post.author_profile_url
+      context.post.author_profile_id
     );
 
     // Update the post with scraping results

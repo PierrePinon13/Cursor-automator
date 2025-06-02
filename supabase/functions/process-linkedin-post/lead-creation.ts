@@ -21,6 +21,12 @@ export async function createOrUpdateLead(
 ): Promise<LeadCreationResult> {
   try {
     console.log('🏗️ Creating or updating lead for profile:', post.author_profile_id);
+    console.log('📊 Debug - Post data keys:', Object.keys(post));
+    console.log('📊 Debug - OpenAI step3 data in post:', {
+      categorie: post.openai_step3_categorie,
+      postes: post.openai_step3_postes_selectionnes,
+      justification: post.openai_step3_justification
+    });
     
     if (!post.author_profile_id) {
       console.log('❌ No author_profile_id found, cannot create lead');
@@ -28,6 +34,24 @@ export async function createOrUpdateLead(
         success: false,
         action: 'error',
         error: 'No LinkedIn profile ID available for lead creation'
+      };
+    }
+
+    // ✅ AMÉLIORATION : Vérifier d'abord si le lead existe pour implémenter un upsert
+    console.log('🔍 Checking if lead already exists for profile:', post.author_profile_id);
+    
+    const { data: existingLead, error: fetchError } = await supabaseClient
+      .from('leads')
+      .select('id, created_at, updated_at, author_name, latest_post_date')
+      .eq('author_profile_id', post.author_profile_id)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('❌ Error checking for existing lead:', fetchError);
+      return {
+        success: false,
+        action: 'error',
+        error: `Failed to check for existing lead: ${fetchError.message}`
       };
     }
 
@@ -48,7 +72,7 @@ export async function createOrUpdateLead(
       posted_at_iso: post.posted_at_iso,
       posted_at_timestamp: post.posted_at_timestamp,
       
-      // ✅ CORRECTION : S'assurer que les données OpenAI sont bien copiées
+      // ✅ CORRECTION : S'assurer que les données OpenAI step3 sont bien copiées
       openai_step2_localisation: post.openai_step2_localisation || null,
       openai_step3_categorie: post.openai_step3_categorie || null,
       openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes || null,
@@ -62,7 +86,7 @@ export async function createOrUpdateLead(
       unipile_position: scrapingResult.position || null,
       unipile_company_linkedin_id: scrapingResult.company_id || null,
       
-      // ✅ NOUVEAU : Référence à l'entreprise dans la table companies
+      // ✅ Référence à l'entreprise dans la table companies
       company_id: companyInfo.success && companyInfo.companyId ? companyInfo.companyId : null,
       
       // Message d'approche
@@ -97,27 +121,59 @@ export async function createOrUpdateLead(
       client_name: leadData.matched_client_name
     });
 
-    // Créer le nouveau lead
-    const { data: newLead, error: insertError } = await supabaseClient
-      .from('leads')
-      .insert(leadData)
-      .select('id')
-      .single();
+    let leadId: string;
+    let action: 'created' | 'updated';
 
-    if (insertError || !newLead) {
-      console.error('❌ Error creating new lead:', insertError);
-      return {
-        success: false,
-        action: 'error',
-        error: `Failed to create new lead: ${insertError?.message}`
-      };
+    if (existingLead) {
+      // ✅ MISE À JOUR : Lead existant trouvé, on le met à jour
+      console.log('📝 Updating existing lead:', existingLead.id);
+      
+      const { error: updateError } = await supabaseClient
+        .from('leads')
+        .update(leadData)
+        .eq('id', existingLead.id);
+
+      if (updateError) {
+        console.error('❌ Error updating existing lead:', updateError);
+        return {
+          success: false,
+          action: 'error',
+          error: `Failed to update existing lead: ${updateError.message}`
+        };
+      }
+
+      leadId = existingLead.id;
+      action = 'updated';
+      console.log('✅ Existing lead updated successfully:', leadId);
+    } else {
+      // ✅ CRÉATION : Nouveau lead
+      console.log('✨ Creating new lead');
+      
+      const { data: newLead, error: insertError } = await supabaseClient
+        .from('leads')
+        .insert(leadData)
+        .select('id')
+        .single();
+
+      if (insertError || !newLead) {
+        console.error('❌ Error creating new lead:', insertError);
+        return {
+          success: false,
+          action: 'error',
+          error: `Failed to create new lead: ${insertError?.message}`
+        };
+      }
+
+      leadId = newLead.id;
+      action = 'created';
+      console.log('✅ New lead created successfully:', leadId);
     }
 
-    // Lier le post actuel au nouveau lead
+    // Lier le post actuel au lead (nouveau ou existant)
     const { error: linkError } = await supabaseClient
       .from('linkedin_posts')
       .update({ 
-        lead_id: newLead.id,
+        lead_id: leadId,
         processing_status: 'completed',
         last_updated_at: new Date().toISOString()
       })
@@ -128,19 +184,18 @@ export async function createOrUpdateLead(
       // Ne pas considérer cela comme une erreur fatale
     }
 
-    console.log('✅ Lead created successfully:', newLead.id);
     return {
       success: true,
-      leadId: newLead.id,
-      action: 'created'
+      leadId: leadId,
+      action: action
     };
 
   } catch (error: any) {
-    console.error('❌ Error in lead creation:', error);
+    console.error('❌ Error in lead creation/update:', error);
     return {
       success: false,
       action: 'error',
-      error: error.message || 'Unknown error during lead creation'
+      error: error.message || 'Unknown error during lead creation/update'
     };
   }
 }

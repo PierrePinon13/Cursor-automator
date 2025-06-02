@@ -10,7 +10,6 @@ import {
   executeUnipileScraping,
   executeClientMatching,
   executeMessageGeneration,
-  executeLeadDeduplication,
   executeLeadCreation
 } from './processing-steps.ts'
 import { buildSuccessResponse, buildNotJobPostingResponse, buildFilteredOutResponse } from './response-builder.ts'
@@ -137,7 +136,7 @@ serve(async (req) => {
 
     console.log('✅ Post meets language/location criteria, continuing processing...')
 
-    // Step 3: OpenAI analysis for category and job selection - FIX: Pass step1Response.result
+    // Step 3: OpenAI analysis for category and job selection
     console.log('🏷️ Starting Step 3: OpenAI job categorization...')
     const step3Response = await executeOpenAIStep3(context, step1Response.result)
 
@@ -153,34 +152,26 @@ serve(async (req) => {
     console.log('💬 Starting Step 6: Message generation...')
     await executeMessageGeneration(context, step3Response.result, step2Response.result, clientMatch)
 
-    // Step 7: Create or update lead (now includes company info step)
-    console.log('👤 Starting Step 7: Lead creation...')
+    // ✅ CORRECTION : Étape 7 unifiée - Création/mise à jour de lead (fusion des anciennes étapes 7 et 8)
+    console.log('👤 Starting Step 7: Unified lead creation/update...')
     const leadResult = await executeLeadCreation(
       context, 
       step3Response.result, 
       scrapingResult, 
       clientMatch,
-      // Pass approach message only if it was generated successfully
       context.post.approach_message
     );
 
-    // Step 8: Handle lead deduplication
-    console.log('🔍 Starting Step 8: Lead deduplication...')
-    const deduplicationResult = await executeLeadDeduplication(context, context.post)
-
-    // Determine final status based on both lead creation and deduplication
+    // Determine final status based on lead creation result
     let finalStatus = 'completed'
     if (leadResult.action === 'error') {
       finalStatus = 'lead_creation_error'
-      console.log('❌ Lead creation failed')
-    } else if (deduplicationResult.action === 'error') {
-      finalStatus = 'deduplication_error'
-      console.log('❌ Lead deduplication failed')
-    } else if (deduplicationResult.isExisting) {
+      console.log('❌ Lead creation/update failed:', leadResult.error)
+    } else if (leadResult.action === 'updated') {
       finalStatus = 'duplicate'
-      console.log('ℹ️ Duplicate lead detected')
+      console.log('ℹ️ Existing lead updated:', leadResult.leadId)
     } else {
-      console.log('✅ New lead created successfully')
+      console.log('✅ New lead created successfully:', leadResult.leadId)
     }
 
     console.log('🔄 Updating final processing status to:', finalStatus)
@@ -201,9 +192,9 @@ serve(async (req) => {
       step3Response.result,
       scrapingResult,
       clientMatch,
-      deduplicationResult,
+      { isExisting: leadResult.action === 'updated', leadId: leadResult.leadId, action: leadResult.action },
       finalStatus,
-      leadResult // Add lead creation result
+      leadResult
     )
 
     return new Response(JSON.stringify(successResponse), { 
