@@ -1,5 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ProcessingContext } from './types.ts';
 
 export interface LeadDeduplicationResult {
   isExisting: boolean;
@@ -140,6 +141,38 @@ export async function handleLeadDeduplication(
       isExisting: false,
       action: 'error',
       error: error.message || 'Unknown error during deduplication'
+    };
+  }
+}
+
+export async function executeLeadDeduplication(
+  context: ProcessingContext,
+  post: any
+): Promise<LeadDeduplicationResult> {
+  try {
+    console.log('🔍 Step 6: Lead deduplication...');
+    
+    const deduplicationResult = await handleLeadDeduplication(
+      context.supabaseClient,
+      post
+    );
+
+    if (deduplicationResult.action === 'updated') {
+      console.log('✅ Lead deduplication completed - existing lead updated:', deduplicationResult.leadId);
+    } else if (deduplicationResult.action === 'created') {
+      console.log('✅ Lead deduplication completed - new lead will be created');
+    } else {
+      console.log('⚠️ Lead deduplication completed with error:', deduplicationResult.error);
+    }
+
+    return deduplicationResult;
+
+  } catch (error: any) {
+    console.error('❌ Error in lead deduplication step:', error);
+    return {
+      isExisting: false,
+      action: 'error',
+      error: error.message || 'Unknown error during lead deduplication'
     };
   }
 }
