@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -74,7 +75,8 @@ serve(async (req) => {
       console.log(`📥 Fetching batch ${totalAttempts + 1}: offset=${offset}, limit=${limit}`)
       
       try {
-        const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json&offset=${offset}&limit=${limit}`, {
+        // Use skipEmpty=true instead of clean=true and add desc=1
+        const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?skipEmpty=true&format=json&offset=${offset}&limit=${limit}&desc=1`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${apifyApiKey}`,
@@ -187,8 +189,8 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`💾 Raw storage complete: ${rawStoredCount} stored, ${rawErrorCount} errors`)
 
-    // PHASE 2: QUALIFICATION CORRIGÉE - Classification moins stricte
-    console.log('🎯 Phase 2: Fixed qualification - applying corrected classification...')
+    // PHASE 2: SIMPLIFIED QUALIFICATION - Only exclude companies
+    console.log('🎯 Phase 2: SIMPLIFIED qualification - only exclude companies...')
     
     let queuedCount = 0
     let qualificationErrors = 0
@@ -207,11 +209,11 @@ serve(async (req) => {
           continue
         }
 
-        // Classification CORRIGÉE pour décider si on traite ou non
-        const shouldProcess = classifyForProcessingFixed(item)
+        // SIMPLIFIED Classification - Only exclude companies
+        const shouldProcess = classifyForProcessingSimplified(item)
         
         if (!shouldProcess.process) {
-          console.log(`⏭️ Post classified as skip: ${item.urn} - Reason: ${shouldProcess.reason}`)
+          console.log(`⏭️ Post excluded: ${item.urn} - Reason: ${shouldProcess.reason}`)
           continue
         }
 
@@ -291,7 +293,7 @@ serve(async (req) => {
       console.error('⚠️ Error saving statistics:', statsError)
     }
 
-    console.log(`🎯 PROCESSING COMPLETE - Fixed Classification & Improved Pagination:
+    console.log(`🎯 PROCESSING COMPLETE - SIMPLIFIED Classification:
     📥 Total received: ${stats.total_received}
     💾 Stored raw (universal): ${stats.stored_raw}
     🎯 Queued for processing: ${stats.queued_for_processing}
@@ -300,15 +302,16 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      phase: 'Fixed Classification & Improved Pagination',
+      phase: 'SIMPLIFIED Classification - Only Exclude Companies',
       statistics: stats,
       datasetId: datasetId,
       improvements: [
         'Fixed pagination logic to retrieve ALL records',
-        'Corrected classification logic for better accuracy',
+        'SIMPLIFIED classification: only exclude Company authors',
         'Universal raw data storage (no data loss)',
         'Improved error handling and recovery',
-        'Enhanced monitoring and statistics'
+        'Enhanced monitoring and statistics',
+        'Used skipEmpty=true instead of clean=true'
       ]
     }), { 
       status: 200,
@@ -324,9 +327,9 @@ serve(async (req) => {
   }
 })
 
-// 🎯 CLASSIFICATION CORRIGÉE - Logique moins stricte mais exclut les companies
-function classifyForProcessingFixed(item: any) {
-  // Critères absolument obligatoires
+// SIMPLIFIED Classification function - Only exclude companies
+function classifyForProcessingSimplified(item: any) {
+  // Critical fields check
   if (!item.urn) {
     return { process: false, reason: 'Missing URN (critical)', priority: 0 }
   }
@@ -335,39 +338,11 @@ function classifyForProcessingFixed(item: any) {
     return { process: false, reason: 'Missing URL (critical)', priority: 0 }
   }
 
-  // Exclusions spécifiques
-  if (item.isRepost === true) {
-    return { process: false, reason: 'Is repost', priority: 0 }
-  }
-
-  // MAINTENIR l'exclusion des companies
+  // ONLY ONE FILTER: Exclude companies
   if (item.authorType === 'Company') {
     return { process: false, reason: 'Author is company (excluded)', priority: 0 }
   }
 
-  // Accepter tous les autres authorType (Person, etc.) ou si non défini
-  
-  // Priorité haute : Posts récents
-  if (item.postedAtTimestamp) {
-    const postAge = Date.now() - (item.postedAtTimestamp || 0)
-    const dayInMs = 24 * 60 * 60 * 1000
-    
-    if (postAge < dayInMs) {
-      return { process: true, reason: 'Recent post', priority: 1 }
-    }
-    
-    if (postAge < 7 * dayInMs) {
-      return { process: true, reason: 'Week-old post', priority: 2 }
-    }
-    
-    return { process: true, reason: 'Older post', priority: 3 }
-  }
-
-  // Priorité moyenne : Posts avec nom d'auteur
-  if (item.authorName) {
-    return { process: true, reason: 'Post with author name', priority: 4 }
-  }
-
-  // Priorité faible : Accepter presque tout le reste
-  return { process: true, reason: 'Generic post', priority: 5 }
+  // Accept everything else
+  return { process: true, reason: 'Accepted for processing', priority: 1 }
 }

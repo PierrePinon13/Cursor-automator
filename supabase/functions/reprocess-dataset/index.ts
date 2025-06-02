@@ -168,6 +168,18 @@ serve(async (req) => {
 
     for (const item of allDatasetItems) {
       try {
+        // Check if this post already exists in raw table (deduplication by URN)
+        const { data: existingRawPost } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .select('id')
+          .eq('urn', item.urn)
+          .maybeSingle()
+
+        if (existingRawPost) {
+          console.log(`🔄 Raw post already exists: ${item.urn} - skipping`)
+          continue
+        }
+
         const rawPostData = {
           apify_dataset_id: datasetId,
           urn: item.urn,
@@ -203,16 +215,29 @@ serve(async (req) => {
 
     stats.stored_raw = rawStoredCount
 
-    // Phase 4: Apply corrected classification and queue for processing
-    console.log('🎯 Applying corrected classification...')
+    // Phase 4: Apply SIMPLIFIED classification and queue for processing
+    console.log('🎯 Applying SIMPLIFIED classification (only exclude companies)...')
     let queuedCount = 0
 
     for (const item of allDatasetItems) {
       try {
-        const shouldProcess = classifyForProcessingFixed(item)
+        // Check if this post already exists in linkedin_posts
+        const { data: existingPost } = await supabaseClient
+          .from('linkedin_posts')
+          .select('id')
+          .eq('urn', item.urn)
+          .maybeSingle()
+
+        if (existingPost) {
+          console.log(`🔄 Post already in processing queue: ${item.urn} - skipping`)
+          continue
+        }
+
+        // SIMPLIFIED CLASSIFICATION: Only exclude companies
+        const shouldProcess = classifyForProcessingSimplified(item)
         
         if (!shouldProcess.process) {
-          console.log(`⏭️ Post classified as skip: ${item.urn} - Reason: ${shouldProcess.reason}`)
+          console.log(`⏭️ Post excluded: ${item.urn} - Reason: ${shouldProcess.reason}`)
           continue
         }
 
@@ -291,6 +316,7 @@ serve(async (req) => {
         'Added desc=1 for newest items first',
         'Fixed pagination to handle empty batches correctly',
         'Added dataset info retrieval for total count verification',
+        'SIMPLIFIED classification: only exclude Company authors',
         'Enhanced error handling and recovery mechanisms'
       ]
     }), { 
@@ -310,8 +336,9 @@ serve(async (req) => {
   }
 })
 
-// Classification function with corrected logic
-function classifyForProcessingFixed(item: any) {
+// SIMPLIFIED Classification function - Only exclude companies
+function classifyForProcessingSimplified(item: any) {
+  // Critical fields check
   if (!item.urn) {
     return { process: false, reason: 'Missing URN (critical)', priority: 0 }
   }
@@ -320,36 +347,11 @@ function classifyForProcessingFixed(item: any) {
     return { process: false, reason: 'Missing URL (critical)', priority: 0 }
   }
 
-  if (item.isRepost === true) {
-    return { process: false, reason: 'Is repost', priority: 0 }
-  }
-
-  // Maintenir l'exclusion des companies
+  // ONLY ONE FILTER: Exclude companies
   if (item.authorType === 'Company') {
     return { process: false, reason: 'Author is company (excluded)', priority: 0 }
   }
 
-  // Priorité haute : Posts récents
-  if (item.postedAtTimestamp) {
-    const postAge = Date.now() - (item.postedAtTimestamp || 0)
-    const dayInMs = 24 * 60 * 60 * 1000
-    
-    if (postAge < dayInMs) {
-      return { process: true, reason: 'Recent post', priority: 1 }
-    }
-    
-    if (postAge < 7 * dayInMs) {
-      return { process: true, reason: 'Week-old post', priority: 2 }
-    }
-    
-    return { process: true, reason: 'Older post', priority: 3 }
-  }
-
-  // Priorité moyenne : Posts avec nom d'auteur
-  if (item.authorName) {
-    return { process: true, reason: 'Post with author name', priority: 4 }
-  }
-
-  // Accepter presque tout le reste
-  return { process: true, reason: 'Generic post', priority: 5 }
+  // Accept everything else
+  return { process: true, reason: 'Accepted for processing', priority: 1 }
 }
