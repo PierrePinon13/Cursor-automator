@@ -155,16 +155,68 @@ serve(async (req) => {
     // Process and store job offers
     let processedCount = 0
     let skippedCount = 0
+    let rawStoredCount = 0
 
     for (const item of datasetItems) {
       try {
         // Log de debug pour voir la structure des données
         console.log('🔄 Processing item:', JSON.stringify(item, null, 2))
 
+        const companyName = item.companyName || item.company || null
+        const jobUrl = item.link || item.url || null
+
+        if (!jobUrl) {
+          console.log('⚠️ Skipping item without URL')
+          skippedCount++
+          continue
+        }
+
+        // Stocker d'abord dans la table raw
+        const rawJobOfferData = {
+          apify_dataset_id: datasetId,
+          url: jobUrl,
+          title: item.title || null,
+          company_name: companyName,
+          location: item.location || null,
+          job_type: item.employmentType || null,
+          salary: item.salary || null,
+          description: item.description || null,
+          posted_at: item.postedAt ? new Date(item.postedAt).toISOString() : (item.publishedAt ? new Date(item.publishedAt).toISOString() : null),
+          is_reposted: item.isReposted || false,
+          raw_data: item
+        }
+
+        // Vérifier si cette offre brute existe déjà
+        const { data: existingRawOffer } = await supabaseClient
+          .from('client_job_offers_raw')
+          .select('id')
+          .eq('url', jobUrl)
+          .single()
+
+        if (!existingRawOffer) {
+          const { error: rawInsertError } = await supabaseClient
+            .from('client_job_offers_raw')
+            .insert(rawJobOfferData)
+
+          if (rawInsertError) {
+            console.error('❌ Error inserting raw job offer:', rawInsertError)
+            skippedCount++
+            continue
+          }
+
+          rawStoredCount++
+          console.log('✅ Stored raw job offer:', item.title || jobUrl)
+        }
+
+        // Filtrer les reposts - ne traiter que les offres qui ne sont PAS des reposts
+        if (item.isReposted === true) {
+          console.log('⚠️ Skipping reposted job offer:', item.title || jobUrl)
+          skippedCount++
+          continue
+        }
+
         // Try to match with a client
         let matchedClient = null
-        const companyName = item.companyName || item.company || null
-        
         if (companyName && clients) {
           matchedClient = clients.find(client => {
             if (!client.company_name || !companyName) return false
@@ -173,12 +225,12 @@ serve(async (req) => {
           })
         }
 
-        // Prepare job offer data - utilisation des bons noms de champs
+        // Prepare job offer data pour la table principale
         const jobOfferData = {
           apify_dataset_id: datasetId,
           title: item.title || null,
           company_name: companyName,
-          url: item.link || item.url || null,
+          url: jobUrl,
           location: item.location || null,
           job_type: item.employmentType || null,
           salary: item.salary || null,
@@ -186,28 +238,26 @@ serve(async (req) => {
           posted_at: item.postedAt ? new Date(item.postedAt).toISOString() : (item.publishedAt ? new Date(item.publishedAt).toISOString() : null),
           matched_client_id: matchedClient?.id || null,
           matched_client_name: matchedClient?.company_name || null,
+          status: 'non_attribuee',
           raw_data: item
         }
 
         console.log('📋 Prepared job offer data:', JSON.stringify(jobOfferData, null, 2))
 
-        // Check if this job offer already exists (seulement si on a une URL)
-        const jobUrl = item.link || item.url
-        if (jobUrl) {
-          const { data: existingOffer } = await supabaseClient
-            .from('client_job_offers')
-            .select('id')
-            .eq('url', jobUrl)
-            .single()
+        // Check if this job offer already exists in main table
+        const { data: existingOffer } = await supabaseClient
+          .from('client_job_offers')
+          .select('id')
+          .eq('url', jobUrl)
+          .single()
 
-          if (existingOffer) {
-            console.log('⚠️ Job offer already exists, skipping:', item.title || jobUrl)
-            skippedCount++
-            continue
-          }
+        if (existingOffer) {
+          console.log('⚠️ Job offer already exists, skipping:', item.title || jobUrl)
+          skippedCount++
+          continue
         }
 
-        // Insert the job offer
+        // Insert the job offer in main table
         const { error: insertError } = await supabaseClient
           .from('client_job_offers')
           .insert(jobOfferData)
@@ -218,7 +268,7 @@ serve(async (req) => {
           continue
         }
 
-        console.log('✅ Inserted job offer:', item.title || jobUrl || 'No title/URL')
+        console.log('✅ Inserted job offer:', item.title || jobUrl)
         processedCount++
 
       } catch (error) {
@@ -227,7 +277,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🎯 Processing complete: ${processedCount} inserted, ${skippedCount} skipped`)
+    console.log(`🎯 Processing complete: ${rawStoredCount} stored in raw, ${processedCount} processed, ${skippedCount} skipped`)
     
     // Répondre avec un 200 pour confirmer la réception et le traitement
     return new Response(
@@ -236,6 +286,7 @@ serve(async (req) => {
         message: 'Dataset processed successfully',
         datasetId: datasetId,
         totalItems: datasetItems.length,
+        rawStoredCount,
         processedCount,
         skippedCount,
         processedAt: new Date().toISOString()

@@ -217,6 +217,7 @@ export type Database = {
           posted_at: string | null
           raw_data: Json
           salary: string | null
+          status: string | null
           title: string
           updated_at: string
           url: string
@@ -236,6 +237,7 @@ export type Database = {
           posted_at?: string | null
           raw_data: Json
           salary?: string | null
+          status?: string | null
           title: string
           updated_at?: string
           url: string
@@ -255,6 +257,7 @@ export type Database = {
           posted_at?: string | null
           raw_data?: Json
           salary?: string | null
+          status?: string | null
           title?: string
           updated_at?: string
           url?: string
@@ -275,6 +278,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      client_job_offers_raw: {
+        Row: {
+          apify_dataset_id: string
+          company_name: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_reposted: boolean | null
+          job_type: string | null
+          location: string | null
+          posted_at: string | null
+          raw_data: Json
+          salary: string | null
+          title: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          apify_dataset_id: string
+          company_name?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_reposted?: boolean | null
+          job_type?: string | null
+          location?: string | null
+          posted_at?: string | null
+          raw_data: Json
+          salary?: string | null
+          title?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          apify_dataset_id?: string
+          company_name?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_reposted?: boolean | null
+          job_type?: string | null
+          location?: string | null
+          posted_at?: string | null
+          raw_data?: Json
+          salary?: string | null
+          title?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
       }
       clients: {
         Row: {

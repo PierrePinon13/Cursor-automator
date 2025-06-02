@@ -1,10 +1,9 @@
 
 import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ExternalLink, Calendar, MapPin, Building, User, GripVertical } from 'lucide-react';
+import { Calendar, MapPin, User, GripVertical, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ClientJobOffer, User as UserType } from '@/hooks/useClientJobOffers';
@@ -13,6 +12,7 @@ interface DraggableJobOffersTableProps {
   jobOffers: ClientJobOffer[];
   users: UserType[];
   onAssignJobOffer: (jobOfferId: string, userId: string | null) => void;
+  onUpdateStatus?: (jobOfferId: string, status: string) => void;
 }
 
 interface ColumnConfig {
@@ -26,13 +26,14 @@ interface ColumnConfig {
 const defaultColumns: ColumnConfig[] = [
   { id: 'title', label: 'Titre du poste', width: 300, minWidth: 200, visible: true },
   { id: 'company', label: 'Entreprise', width: 200, minWidth: 150, visible: true },
-  { id: 'location', label: 'Localisation', width: 150, minWidth: 120, visible: true },
+  { id: 'location', label: 'Localisation', width: 120, minWidth: 100, visible: true },
   { id: 'posted_at', label: 'Date de publication', width: 150, minWidth: 130, visible: true },
+  { id: 'status', label: 'Statut', width: 140, minWidth: 120, visible: true },
   { id: 'assignment', label: 'Assignation', width: 200, minWidth: 180, visible: true },
   { id: 'actions', label: 'Actions', width: 80, minWidth: 80, visible: true },
 ];
 
-export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: DraggableJobOffersTableProps) {
+export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer, onUpdateStatus }: DraggableJobOffersTableProps) {
   const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
   const [resizing, setResizing] = useState<string | null>(null);
   const [startX, setStartX] = useState(0);
@@ -70,6 +71,47 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
   const getAssignedUser = (userId: string | null) => {
     if (!userId) return null;
     return users.find(user => user.id === userId);
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'non_attribuee': return 'Non attribuée';
+      case 'en_attente': return 'En attente';
+      case 'a_relancer': return 'À relancer';
+      case 'negatif': return 'Négatif';
+      case 'positif': return 'Positif';
+      case 'archivee': return 'Archivée';
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'non_attribuee': return 'bg-gray-100 text-gray-800';
+      case 'en_attente': return 'bg-blue-100 text-blue-800';
+      case 'a_relancer': return 'bg-orange-100 text-orange-800';
+      case 'negatif': return 'bg-red-100 text-red-800';
+      case 'positif': return 'bg-green-100 text-green-800';
+      case 'archivee': return 'bg-gray-200 text-gray-600';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatLocation = (location: string | null) => {
+    if (!location) return 'Non spécifié';
+    
+    // Raccourcir la localisation pour économiser l'espace
+    const parts = location.split(',');
+    if (parts.length > 1) {
+      // Prendre la première partie (ville) si elle existe
+      return parts[0].trim();
+    }
+    
+    // Si c'est déjà court, le retourner tel quel
+    if (location.length <= 20) return location;
+    
+    // Sinon, le tronquer
+    return location.substring(0, 17) + '...';
   };
 
   const handleMouseDown = (e: React.MouseEvent, columnId: string) => {
@@ -154,7 +196,8 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                     onClick={() => column.id === 'title' ? handleSort('title') : 
                                   column.id === 'company' ? handleSort('company_name') :
                                   column.id === 'location' ? handleSort('location') :
-                                  column.id === 'posted_at' ? handleSort('posted_at') : undefined}
+                                  column.id === 'posted_at' ? handleSort('posted_at') :
+                                  column.id === 'status' ? handleSort('status') : undefined}
                     className="h-auto p-0 font-medium"
                   >
                     {column.label}
@@ -175,17 +218,14 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                 if (column.id === 'title') {
                   return (
                     <TableCell key={column.id} style={{ width: column.width }}>
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm line-clamp-2">
-                          {offer.title || 'Titre non disponible'}
-                        </div>
-                        {offer.matched_client_name && (
-                          <Badge variant="outline" className="text-xs">
-                            <Building className="h-3 w-3 mr-1" />
-                            Client: {offer.matched_client_name}
-                          </Badge>
-                        )}
-                      </div>
+                      <a 
+                        href={offer.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-medium text-sm line-clamp-2 text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {offer.title || 'Titre non disponible'}
+                      </a>
                     </TableCell>
                   );
                 }
@@ -205,7 +245,7 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                     <TableCell key={column.id} style={{ width: column.width }}>
                       <div className="flex items-center gap-1 text-sm text-gray-600">
                         <MapPin className="h-3 w-3" />
-                        {offer.location || 'Non spécifié'}
+                        {formatLocation(offer.location)}
                       </div>
                     </TableCell>
                   );
@@ -214,17 +254,45 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                 if (column.id === 'posted_at') {
                   return (
                     <TableCell key={column.id} style={{ width: column.width }}>
-                      <div className="space-y-1">
-                        {offer.posted_at && (
-                          <div className="flex items-center gap-1 text-sm text-gray-600">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(offer.posted_at), 'dd MMM yyyy', { locale: fr })}
-                          </div>
-                        )}
-                        <div className="text-xs text-gray-500">
-                          Ajouté: {format(new Date(offer.created_at), 'dd/MM HH:mm', { locale: fr })}
+                      {offer.posted_at && (
+                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(offer.posted_at), 'dd MMM yyyy', { locale: fr })}
                         </div>
-                      </div>
+                      )}
+                    </TableCell>
+                  );
+                }
+
+                if (column.id === 'status') {
+                  return (
+                    <TableCell key={column.id} style={{ width: column.width }}>
+                      {onUpdateStatus ? (
+                        <Select
+                          value={offer.status}
+                          onValueChange={(value) => onUpdateStatus(offer.id, value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue>
+                              <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(offer.status)}`}>
+                                {getStatusLabel(offer.status)}
+                              </span>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="non_attribuee">Non attribuée</SelectItem>
+                            <SelectItem value="en_attente">En attente</SelectItem>
+                            <SelectItem value="a_relancer">À relancer</SelectItem>
+                            <SelectItem value="negatif">Négatif</SelectItem>
+                            <SelectItem value="positif">Positif</SelectItem>
+                            <SelectItem value="archivee">Archivée</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(offer.status)}`}>
+                          {getStatusLabel(offer.status)}
+                        </span>
+                      )}
                     </TableCell>
                   );
                 }
@@ -280,16 +348,16 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                 if (column.id === 'actions') {
                   return (
                     <TableCell key={column.id} style={{ width: column.width }}>
-                      <Button variant="ghost" size="sm" asChild>
-                        <a 
-                          href={offer.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1"
+                      {onUpdateStatus && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => onUpdateStatus(offer.id, 'archivee')}
+                          title="Archiver cette offre"
                         >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   );
                 }

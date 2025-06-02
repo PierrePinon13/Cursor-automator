@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -16,6 +17,7 @@ export interface ClientJobOffer {
   matched_client_name: string | null;
   assigned_to_user_id: string | null;
   assigned_at: string | null;
+  status: string;
   created_at: string;
   updated_at: string;
   raw_data: any;
@@ -31,9 +33,10 @@ export function useClientJobOffers() {
   const [jobOffers, setJobOffers] = useState<ClientJobOffer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('last_48_hours');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
-  const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('all');
+  const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('unassigned');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('active'); // Nouveau filtre
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,20 +74,11 @@ export function useClientJobOffers() {
       console.log(`✅ Successfully fetched ${data?.length || 0} job offers from query`);
       console.log('📊 Sample data:', data?.slice(0, 2));
       
-      // Vérifions les données récentes (dernières 24h)
-      const last24Hours = new Date();
-      last24Hours.setHours(last24Hours.getHours() - 24);
-      const recentOffers = data?.filter(offer => new Date(offer.created_at) > last24Hours) || [];
-      console.log(`⏰ Job offers from last 24 hours: ${recentOffers.length}`);
-      
-      if (recentOffers.length > 0) {
-        console.log('🕐 Recent offers created_at times:', recentOffers.map(offer => ({
-          id: offer.id,
-          title: offer.title,
-          created_at: offer.created_at,
-          company_name: offer.company_name
-        })));
-      }
+      // Vérifions les données récentes (dernières 48h)
+      const last48Hours = new Date();
+      last48Hours.setHours(last48Hours.getHours() - 48);
+      const recentOffers = data?.filter(offer => new Date(offer.created_at) > last48Hours) || [];
+      console.log(`⏰ Job offers from last 48 hours: ${recentOffers.length}`);
 
       setJobOffers(data || []);
     } catch (error) {
@@ -116,13 +110,22 @@ export function useClientJobOffers() {
 
   const assignJobOffer = async (jobOfferId: string, userId: string | null) => {
     try {
+      const updateData: any = {
+        assigned_to_user_id: userId,
+        assigned_at: userId ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString()
+      };
+
+      // Si on assigne à quelqu'un, changer le statut à "en_attente"
+      if (userId) {
+        updateData.status = 'en_attente';
+      } else {
+        updateData.status = 'non_attribuee';
+      }
+
       const { error } = await supabase
         .from('client_job_offers')
-        .update({
-          assigned_to_user_id: userId,
-          assigned_at: userId ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', jobOfferId);
 
       if (error) throw error;
@@ -143,11 +146,39 @@ export function useClientJobOffers() {
     }
   };
 
+  const updateJobOfferStatus = async (jobOfferId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('client_job_offers')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobOfferId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Succès",
+        description: "Statut mis à jour avec succès.",
+      });
+
+      await fetchJobOffers();
+    } catch (error: any) {
+      console.error('Error updating job offer status:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le statut.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Filtrage par date
   const filteredByDate = jobOffers.filter(jobOffer => {
     if (selectedDateFilter === 'all') return true;
     
-    const jobOfferDate = new Date(jobOffer.created_at);
+    const jobOfferDate = new Date(jobOffer.posted_at || jobOffer.created_at);
     const now = new Date();
     
     switch (selectedDateFilter) {
@@ -157,6 +188,10 @@ export function useClientJobOffers() {
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
         return jobOfferDate.toDateString() === yesterday.toDateString();
+      case 'last_48_hours':
+        const fortyEightHoursAgo = new Date(now);
+        fortyEightHoursAgo.setHours(fortyEightHoursAgo.getHours() - 48);
+        return jobOfferDate >= fortyEightHoursAgo;
       case 'last_7_days':
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -189,6 +224,20 @@ export function useClientJobOffers() {
     }
   });
 
+  // Filtrage par statut
+  const filteredByStatus = filteredByAssignment.filter(jobOffer => {
+    switch (selectedStatusFilter) {
+      case 'active':
+        return jobOffer.status !== 'archivee';
+      case 'archived':
+        return jobOffer.status === 'archivee';
+      case 'all':
+        return true;
+      default:
+        return jobOffer.status === selectedStatusFilter;
+    }
+  });
+
   // Clients disponibles pour le filtre
   const availableClients = Array.from(
     new Map(
@@ -200,7 +249,7 @@ export function useClientJobOffers() {
 
   return {
     jobOffers,
-    filteredJobOffers: filteredByAssignment,
+    filteredJobOffers: filteredByStatus,
     users,
     loading,
     selectedDateFilter,
@@ -209,8 +258,11 @@ export function useClientJobOffers() {
     setSelectedClientFilter,
     selectedAssignmentFilter,
     setSelectedAssignmentFilter,
+    selectedStatusFilter,
+    setSelectedStatusFilter,
     availableClients,
     assignJobOffer,
+    updateJobOfferStatus,
     refreshJobOffers: fetchJobOffers
   };
 }

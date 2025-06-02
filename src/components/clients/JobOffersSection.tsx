@@ -4,7 +4,7 @@ import { useClientJobOffers } from '@/hooks/useClientJobOffers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClientLeadsView } from './ClientLeadsView';
 import { CompactJobOffersFilters } from './CompactJobOffersFilters';
-import { DraggableJobOffersTable } from './DraggableJobOffersTable';
+import { CompactJobOffersTable } from './CompactJobOffersTable';
 
 export function JobOffersSection() {
   const { 
@@ -18,8 +18,11 @@ export function JobOffersSection() {
     setSelectedClientFilter,
     selectedAssignmentFilter,
     setSelectedAssignmentFilter,
+    selectedStatusFilter,
+    setSelectedStatusFilter,
     availableClients,
-    assignJobOffer
+    assignJobOffer,
+    updateJobOfferStatus
   } = useClientJobOffers();
 
   if (loading) {
@@ -45,15 +48,18 @@ export function JobOffersSection() {
           setSelectedClientFilter={setSelectedClientFilter}
           selectedAssignmentFilter={selectedAssignmentFilter}
           setSelectedAssignmentFilter={setSelectedAssignmentFilter}
+          selectedStatusFilter={selectedStatusFilter}
+          setSelectedStatusFilter={setSelectedStatusFilter}
           availableClients={availableClients}
           filteredJobOffers={filteredJobOffers}
           refreshJobOffers={refreshJobOffers}
         />
 
-        <DraggableJobOffersTable 
+        <CompactJobOffersTable 
           jobOffers={filteredJobOffers}
           users={users}
           onAssignJobOffer={assignJobOffer}
+          onUpdateStatus={updateJobOfferStatus}
         />
       </TabsContent>
       
