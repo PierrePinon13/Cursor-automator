@@ -1,5 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ProcessingContext } from './types.ts';
 
 export interface MessageGenerationResult {
   success: boolean;
@@ -240,4 +241,91 @@ J'ai vu que vous recherchiez un ${position}.
 Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps.
 
 Bonne journée`;
+}
+
+export async function executeMessageGeneration(
+  context: ProcessingContext,
+  step3Result: any,
+  step2Result: any,
+  clientMatch: any
+): Promise<void> {
+  try {
+    console.log('💬 Step 6: Message generation...');
+    
+    // Skip message generation for client leads
+    if (clientMatch.isClientLead) {
+      console.log('🏢 Skipping message generation for client lead');
+      
+      // Update post with indication that message generation was skipped
+      await context.supabaseClient
+        .from('linkedin_posts')
+        .update({
+          approach_message: null,
+          approach_message_generated: false
+        })
+        .eq('id', context.postId);
+      
+      return;
+    }
+
+    console.log('🤖 Generating approach message for non-client lead...');
+    
+    // Extract author name for personalization
+    const authorName = context.post.author_name || 'Professionnel';
+    const selectedPositions = step3Result.postes_selectionnes || ['profil'];
+    
+    // Generate approach message with retry logic
+    const messageResult = await generateApproachMessageWithRetry(
+      context.openAIApiKey,
+      context.post,
+      authorName,
+      selectedPositions
+    );
+
+    if (messageResult.success && messageResult.message) {
+      console.log('✅ Approach message generated successfully');
+      
+      // Update the post with the generated message
+      const { error: updateError } = await context.supabaseClient
+        .from('linkedin_posts')
+        .update({
+          approach_message: messageResult.message,
+          approach_message_generated: true
+        })
+        .eq('id', context.postId);
+
+      if (updateError) {
+        console.error('❌ Error updating post with approach message:', updateError);
+      } else {
+        console.log('💾 Approach message saved to database');
+        
+        // Also update the context post object for later use
+        context.post.approach_message = messageResult.message;
+        context.post.approach_message_generated = true;
+      }
+    } else {
+      console.error('❌ Failed to generate approach message:', messageResult.error);
+      
+      // Update post to indicate generation failed
+      await context.supabaseClient
+        .from('linkedin_posts')
+        .update({
+          approach_message: null,
+          approach_message_generated: false
+        })
+        .eq('id', context.postId);
+    }
+
+  } catch (error: any) {
+    console.error('❌ Error in message generation step:', error);
+    
+    // Update post to indicate generation failed
+    await context.supabaseClient
+      .from('linkedin_posts')
+      .update({
+        approach_message: null,
+        approach_message_generated: false
+      })
+      .eq('id', context.postId);
+  }
 }
