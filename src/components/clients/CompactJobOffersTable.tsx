@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,7 +134,7 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                 className="select-none py-2"
               >
                 <div className="flex items-center gap-1">
-                  <GripVertical 
+                  <div
                     className="h-3 w-3 cursor-move opacity-50 hover:opacity-100"
                     draggable
                     onDragStart={(e) => {
@@ -146,7 +146,9 @@ export function CompactJobOffersTable({ jobOffers, users, onAssignJobOffer }: Co
                       const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
                       moveColumn(fromIndex, index);
                     }}
-                  />
+                  >
+                    <GripVertical className="h-3 w-3" />
+                  </div>
                   <Button 
                     variant="ghost" 
                     onClick={() => column.id === 'title' ? handleSort('title') : 

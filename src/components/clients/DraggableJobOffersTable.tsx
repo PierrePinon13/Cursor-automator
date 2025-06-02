@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,7 +134,7 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                 className="select-none"
               >
                 <div className="flex items-center gap-2">
-                  <GripVertical 
+                  <div
                     className="h-4 w-4 cursor-move opacity-50 hover:opacity-100"
                     draggable
                     onDragStart={(e) => {
@@ -146,7 +146,9 @@ export function DraggableJobOffersTable({ jobOffers, users, onAssignJobOffer }: 
                       const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
                       moveColumn(fromIndex, index);
                     }}
-                  />
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </div>
                   <Button 
                     variant="ghost" 
                     onClick={() => column.id === 'title' ? handleSort('title') : 
