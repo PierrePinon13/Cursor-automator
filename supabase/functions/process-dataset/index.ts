@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -195,33 +194,39 @@ serve(async (req) => {
       }
     }
 
-    // ✅ OPTIMISATION MAJEURE: Phase 3 - Stockage des données brutes en BATCH
-    console.log('💾 Storing raw data with BATCH processing...')
+    // ✅ OPTIMISATION MAJEURE: Phase 3 - Stockage des données brutes en BATCH avec déduplication
+    console.log('💾 Storing raw data with BATCH processing and deduplication...')
     let rawStoredCount = 0
-    const BATCH_SIZE = 100 // Traiter par chunks de 100
+    const BATCH_SIZE = 100
 
-    // Filtrer et préparer les données avant le stockage
+    // ✅ CORRECTION: Déduplication avant stockage pour éviter les conflits ON CONFLICT
     const validRawData = allDatasetItems
       .filter(item => item && item.urn)
-      .map(item => ({
-        apify_dataset_id: datasetId,
-        urn: item.urn,
-        text: item.text || null,
-        title: item.title || null,
-        url: item.url,
-        posted_at_timestamp: item.postedAtTimestamp || null,
-        posted_at_iso: item.postedAt || null,
-        author_type: item.authorType || null,
-        author_profile_url: item.authorProfileUrl || null,
-        author_profile_id: item.authorProfileId || null,
-        author_name: item.authorName || null,
-        author_headline: item.authorHeadline || null,
-        is_repost: item.isRepost || false,
-        raw_data: item,
-        updated_at: new Date().toISOString()
-      }))
+      .reduce((acc, item) => {
+        // Déduplication par URN dans le même batch
+        if (!acc.find(existing => existing.urn === item.urn)) {
+          acc.push({
+            apify_dataset_id: datasetId,
+            urn: item.urn,
+            text: item.text || null,
+            title: item.title || null,
+            url: item.url,
+            posted_at_timestamp: item.postedAtTimestamp || null,
+            posted_at_iso: item.postedAt || null,
+            author_type: item.authorType || null,
+            author_profile_url: item.authorProfileUrl || null,
+            author_profile_id: item.authorProfileId || null,
+            author_name: item.authorName || null,
+            author_headline: item.authorHeadline || null,
+            is_repost: item.isRepost || false,
+            raw_data: item,
+            updated_at: new Date().toISOString()
+          })
+        }
+        return acc
+      }, [] as any[])
 
-    console.log(`📦 Processing ${validRawData.length} valid records in batches of ${BATCH_SIZE}`)
+    console.log(`📦 Processing ${validRawData.length} deduplicated records in batches of ${BATCH_SIZE}`)
 
     // Traitement par batch pour éviter les timeouts
     for (let i = 0; i < validRawData.length; i += BATCH_SIZE) {
@@ -261,21 +266,26 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
 
-    // ✅ CORRECTION CRITIQUE: Phase 4 - Classification et mise en queue avec le bon statut
-    console.log('🎯 Applying classification and queuing...')
+    // ✅ CORRECTION CRITIQUE: Phase 4 - Classification avec statut correct et déduplication
+    console.log('🎯 Applying classification and queuing with deduplication...')
     let queuedCount = 0
     let excludedByAuthorType = 0
     let excludedByMissingFields = 0
     let alreadyQueued = 0
 
-    for (const item of allDatasetItems) {
-      try {
-        if (!item.urn) {
-          excludedByMissingFields++
-          continue
-        }
+    // Déduplication des items par URN avant traitement
+    const uniqueItems = allDatasetItems.reduce((acc, item) => {
+      if (item && item.urn && !acc.find(existing => existing.urn === item.urn)) {
+        acc.push(item)
+      }
+      return acc
+    }, [] as any[])
 
-        if (!item.url) {
+    console.log(`📊 Processing ${uniqueItems.length} unique items (deduplicated from ${allDatasetItems.length})`)
+
+    for (const item of uniqueItems) {
+      try {
+        if (!item.urn || !item.url) {
           excludedByMissingFields++
           continue
         }
@@ -311,7 +321,7 @@ serve(async (req) => {
           author_profile_id: item.authorProfileId || null,
           author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
-          processing_status: 'queued', // ✅ CORRECTION: utilisation de 'queued' au lieu de 'pending'
+          processing_status: 'pending', // ✅ CORRECTION: utilisation de 'pending' au lieu de 'queued'
           raw_data: item
         }
 
@@ -391,8 +401,9 @@ serve(async (req) => {
         }
       },
       improvements: [
+        '✅ FIXED STATUS: Changed processing_status from "queued" to "pending"',
+        '✅ FIXED DUPLICATES: Added deduplication before batch processing',
         '✅ BATCH PROCESSING: Raw data stored in chunks of 100 to prevent timeouts',
-        '✅ CORRECTED STATUS: Fixed processing_status from "pending" to "queued"',
         '✅ ENHANCED LOGGING: Better progress tracking and error handling',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
