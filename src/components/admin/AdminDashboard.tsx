@@ -1,16 +1,16 @@
 
 import React from 'react';
-import { StatsCards } from './StatsCards';
-import { ProcessingFunnel } from './ProcessingFunnel';
-import { ApifyWebhookStats } from './ApifyWebhookStats';
-import { DataProcessingDiagnostics } from './DataProcessingDiagnostics';
-import { DeepDataAnalysis } from './DeepDataAnalysis';
-import { MistargetedPostsSection } from './MistargetedPostsSection';
+import StatsCards from '@/components/dashboard/StatsCards';
+import ProcessingFunnel from './ProcessingFunnel';
+import ApifyWebhookStats from './ApifyWebhookStats';
+import DataProcessingDiagnostics from './DataProcessingDiagnostics';
+import DeepDataAnalysis from './DeepDataAnalysis';
+import MistargetedPostsSection from './MistargetedPostsSection';
 import { HrProvidersManagement } from './HrProvidersManagement';
 import { DatasetAudit } from './DatasetAudit';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export function AdminDashboard() {
+export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -29,7 +29,12 @@ export function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <StatsCards />
+          <StatsCards 
+            linkedinMessages={0}
+            positiveCalls={0} 
+            negativeCalls={0}
+            successRate={0}
+          />
           <HrProvidersManagement />
         </TabsContent>
 

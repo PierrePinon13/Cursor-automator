@@ -12,7 +12,7 @@ interface DatasetStats {
   dataset_id: string;
   total_received: number;
   stored_raw: number;
-  queued_for_processing: number;
+  queued_for_processing?: number;
   processing_errors: number;
   started_at: string;
   completed_at?: string;
@@ -74,6 +74,17 @@ export function DatasetAudit() {
       console.log(`📊 Dataset trouvé: ${foundDataset.dataset_id} avec ${foundDataset.total_received} records`);
       setDatasetId(foundDataset.dataset_id);
 
+      // Create compatible DatasetStats object
+      const datasetStats: DatasetStats = {
+        dataset_id: foundDataset.dataset_id,
+        total_received: foundDataset.total_received,
+        stored_raw: foundDataset.stored_raw || foundDataset.total_received,
+        queued_for_processing: foundDataset.queued_for_processing || foundDataset.after_required_fields_filter || 0,
+        processing_errors: foundDataset.processing_errors || 0,
+        started_at: foundDataset.started_at,
+        completed_at: foundDataset.completed_at
+      };
+
       // 2. Analyser les posts LinkedIn de ce dataset
       const { data: posts } = await supabase
         .from('linkedin_posts')
@@ -134,10 +145,10 @@ export function DatasetAudit() {
       })) || [];
 
       // 7. Générer des recommandations
-      const recommendations = generateRecommendations(foundDataset, processingStats, rawPosts?.length || 0);
+      const recommendations = generateRecommendations(datasetStats, processingStats, rawPosts?.length || 0);
 
       setAuditData({
-        webhookStats: foundDataset,
+        webhookStats: datasetStats,
         processingStats,
         timelineData,
         errorDetails,
@@ -161,7 +172,7 @@ export function DatasetAudit() {
     }
     
     // Analyse du processing
-    const processingRate = webhook.queued_for_processing / webhook.total_received;
+    const processingRate = (webhook.queued_for_processing || 0) / webhook.total_received;
     if (processingRate < 0.7) {
       recommendations.push(`📉 FAIBLE TAUX DE PROCESSING: Seulement ${(processingRate * 100).toFixed(1)}% des posts traités (${webhook.queued_for_processing}/${webhook.total_received})`);
     }
@@ -446,7 +457,7 @@ export function DatasetAudit() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="font-medium text-sm">{error.author_name || 'Auteur inconnu'}</div>
-                            <Badge className={getStatusColor(error.status)} size="sm">
+                            <Badge className={getStatusColor(error.status)}>
                               {error.status}
                             </Badge>
                             {error.retry_count > 0 && (
