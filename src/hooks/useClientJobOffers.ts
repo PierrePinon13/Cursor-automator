@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -108,15 +107,6 @@ export function useClientJobOffers() {
 
   const animateItemRemoval = (itemId: string) => {
     setAnimatingItems(prev => new Set(prev).add(itemId));
-    
-    // Retirer l'animation après un délai
-    setTimeout(() => {
-      setAnimatingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(itemId);
-        return newSet;
-      });
-    }, 500);
   };
 
   const checkOfferWillDisappear = (offer: ClientJobOffer): boolean => {
@@ -173,9 +163,18 @@ export function useClientJobOffers() {
         description: userId ? "Offre assignée avec succès." : "Assignation supprimée avec succès.",
       });
 
+      // Délai plus long pour voir l'animation
       setTimeout(() => {
         fetchJobOffers();
-      }, willDisappear ? 300 : 0);
+        // Nettoyer l'animation après le refresh
+        setTimeout(() => {
+          setAnimatingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(jobOfferId);
+            return newSet;
+          });
+        }, 100);
+      }, willDisappear ? 1000 : 300);
     } catch (error: any) {
       console.error('Error assigning job offer:', error);
       toast({
@@ -220,16 +219,25 @@ export function useClientJobOffers() {
       }
 
       const actionText = newStatus === 'archivee' ? 'archivée' : 
-                        newStatus === 'active' ? 'désarchivée' : 'mise à jour';
+                        newStatus === 'non_attribuee' ? 'désarchivée' : 'mise à jour';
 
       toast({
         title: "Succès",
         description: `Offre ${actionText} avec succès.`,
       });
 
+      // Délai plus long pour voir l'animation avant le refresh
       setTimeout(() => {
         fetchJobOffers();
-      }, willDisappear ? 300 : 0);
+        // Nettoyer l'animation après le refresh
+        setTimeout(() => {
+          setAnimatingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(jobOfferId);
+            return newSet;
+          });
+        }, 100);
+      }, willDisappear ? 1000 : 300);
     } catch (error: any) {
       console.error('Error updating job offer status:', error);
       toast({

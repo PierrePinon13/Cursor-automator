@@ -35,39 +35,43 @@ export function JobOffersSection() {
   }
 
   return (
-    <Tabs defaultValue="job-offers" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
-        <TabsTrigger value="client-posts">Publications LinkedIn</TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="job-offers" className="space-y-6">
-        <VisualJobOffersFilters 
-          selectedDateFilter={selectedDateFilter}
-          setSelectedDateFilter={setSelectedDateFilter}
-          selectedClientFilter={selectedClientFilter}
-          setSelectedClientFilter={setSelectedClientFilter}
-          selectedAssignmentFilter={selectedAssignmentFilter}
-          setSelectedAssignmentFilter={setSelectedAssignmentFilter}
-          selectedStatusFilter={selectedStatusFilter}
-          setSelectedStatusFilter={setSelectedStatusFilter}
-          availableClients={availableClients}
-          filteredJobOffers={filteredJobOffers}
-          refreshJobOffers={refreshJobOffers}
-        />
+    <div className="w-full">
+      <div className="flex items-center justify-center mb-6">
+        <Tabs defaultValue="job-offers" className="w-auto">
+          <TabsList className="grid w-auto grid-cols-2 h-9">
+            <TabsTrigger value="job-offers" className="px-4 py-1 text-sm">Offres d'emploi</TabsTrigger>
+            <TabsTrigger value="client-posts" className="px-4 py-1 text-sm">Publications LinkedIn</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="job-offers" className="space-y-6 mt-6">
+            <VisualJobOffersFilters 
+              selectedDateFilter={selectedDateFilter}
+              setSelectedDateFilter={setSelectedDateFilter}
+              selectedClientFilter={selectedClientFilter}
+              setSelectedClientFilter={setSelectedClientFilter}
+              selectedAssignmentFilter={selectedAssignmentFilter}
+              setSelectedAssignmentFilter={setSelectedAssignmentFilter}
+              selectedStatusFilter={selectedStatusFilter}
+              setSelectedStatusFilter={setSelectedStatusFilter}
+              availableClients={availableClients}
+              filteredJobOffers={filteredJobOffers}
+              refreshJobOffers={refreshJobOffers}
+            />
 
-        <GroupedJobOffersTable 
-          jobOffers={filteredJobOffers}
-          users={users}
-          onAssignJobOffer={assignJobOffer}
-          onUpdateStatus={updateJobOfferStatus}
-          animatingItems={animatingItems}
-        />
-      </TabsContent>
-      
-      <TabsContent value="client-posts" className="space-y-4">
-        <ClientLeadsView />
-      </TabsContent>
-    </Tabs>
+            <GroupedJobOffersTable 
+              jobOffers={filteredJobOffers}
+              users={users}
+              onAssignJobOffer={assignJobOffer}
+              onUpdateStatus={updateJobOfferStatus}
+              animatingItems={animatingItems}
+            />
+          </TabsContent>
+          
+          <TabsContent value="client-posts" className="space-y-4 mt-6">
+            <ClientLeadsView />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
   );
 }

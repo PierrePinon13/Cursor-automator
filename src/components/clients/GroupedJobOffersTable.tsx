@@ -114,12 +114,14 @@ export function GroupedJobOffersTable({
   };
 
   const handleStatusClick = (offer: ClientJobOffer, newStatus: string) => {
-    // Si l'offre est archivée et qu'on clique sur archivée, on la désarchive
-    if (offer.status === 'archivee' && newStatus === 'archivee') {
-      onUpdateStatus(offer.id, 'non_attribuee');
-    } else {
-      onUpdateStatus(offer.id, newStatus);
-    }
+    onUpdateStatus(offer.id, newStatus);
+  };
+
+  const handleArchiveToggle = (offer: ClientJobOffer) => {
+    // Si l'offre est archivée, on la désarchive vers 'non_attribuee'
+    // Sinon on l'archive
+    const newStatus = offer.status === 'archivee' ? 'non_attribuee' : 'archivee';
+    onUpdateStatus(offer.id, newStatus);
   };
 
   const AssignmentSelector = ({ offer }: { offer: ClientJobOffer }) => {
@@ -213,13 +215,7 @@ export function GroupedJobOffersTable({
           >
             <Badge 
               variant="outline" 
-              className={`text-xs font-medium border ${getStatusColor(offer.status)} ${
-                offer.status === 'archivee' ? 'cursor-pointer hover:bg-gray-300' : ''
-              }`}
-              onClick={offer.status === 'archivee' ? (e) => {
-                e.stopPropagation();
-                handleStatusClick(offer, 'archivee');
-              } : undefined}
+              className={`text-xs font-medium border ${getStatusColor(offer.status)}`}
             >
               {offer.status === 'archivee' && (
                 <ArchiveRestore className="h-3 w-3 mr-1" />
@@ -314,7 +310,7 @@ export function GroupedJobOffersTable({
               </TableHead>
               <TableHead className="font-semibold text-gray-900 w-48">Assignation</TableHead>
               <TableHead className="font-semibold text-gray-900 w-52">Statut</TableHead>
-              <TableHead className="font-semibold text-gray-900 w-24">Archiver</TableHead>
+              <TableHead className="font-semibold text-gray-900 w-24">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -322,13 +318,13 @@ export function GroupedJobOffersTable({
               offers.map((offer, index) => (
                 <TableRow 
                   key={offer.id} 
-                  className={`hover:bg-blue-50/50 transition-all duration-300 ${
+                  className={`hover:bg-blue-50/50 transition-all duration-500 ease-out ${
                     animatingItems.has(offer.id) 
-                      ? 'animate-[slideUp_0.5s_ease-in-out_forwards] opacity-0 transform translate-y-[-20px]' 
-                      : 'opacity-100'
+                      ? 'animate-[fadeOutSlideUp_0.8s_ease-out_forwards] opacity-100 transform translate-y-0' 
+                      : 'opacity-100 transform translate-y-0'
                   }`}
                   style={{
-                    animationDelay: animatingItems.has(offer.id) ? `${index * 50}ms` : '0ms'
+                    animationDelay: animatingItems.has(offer.id) ? `${index * 100}ms` : '0ms'
                   }}
                 >
                   {/* Entreprise - fusionnée visuellement pour le regroupement */}
@@ -405,16 +401,24 @@ export function GroupedJobOffersTable({
                     <StatusSelector offer={offer} />
                   </TableCell>
 
-                  {/* Action Archiver */}
+                  {/* Action Archiver/Désarchiver */}
                   <TableCell className="py-3">
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 transition-colors"
-                      onClick={() => onUpdateStatus(offer.id, 'archivee')}
-                      title="Archiver cette offre"
+                      className={`h-8 w-8 p-0 transition-colors ${
+                        offer.status === 'archivee' 
+                          ? 'hover:bg-green-50 hover:text-green-600' 
+                          : 'hover:bg-red-50 hover:text-red-600'
+                      }`}
+                      onClick={() => handleArchiveToggle(offer)}
+                      title={offer.status === 'archivee' ? 'Désarchiver cette offre' : 'Archiver cette offre'}
                     >
-                      <Archive className="h-4 w-4" />
+                      {offer.status === 'archivee' ? (
+                        <ArchiveRestore className="h-4 w-4" />
+                      ) : (
+                        <Archive className="h-4 w-4" />
+                      )}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -434,6 +438,29 @@ export function GroupedJobOffersTable({
           </TableBody>
         </Table>
       </div>
+      
+      <style jsx>{`
+        @keyframes fadeOutSlideUp {
+          0% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            max-height: 200px;
+          }
+          50% {
+            opacity: 0.3;
+            transform: translateY(-10px) scale(0.98);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-30px) scale(0.95);
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
