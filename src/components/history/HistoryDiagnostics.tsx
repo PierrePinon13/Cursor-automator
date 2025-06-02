@@ -81,17 +81,25 @@ const HistoryDiagnostics = () => {
         error: joinError?.message
       });
 
-      // Test 5: Check foreign key constraints
-      console.log('🔍 Testing foreign key info...');
-      const { data: fkData, error: fkError } = await supabase
-        .rpc('get_foreign_keys', { table_name: 'activities' })
-        .single();
+      // Test 5: Alternative join query
+      console.log('🔍 Testing alternative join query...');
+      const { data: altJoinData, error: altJoinError } = await supabase
+        .from('activities')
+        .select(`
+          *,
+          leads(
+            id,
+            author_name,
+            company_position
+          )
+        `)
+        .limit(2);
 
       results.tests.push({
-        name: 'Foreign Key Constraints',
-        status: fkError ? 'error' : 'success',
-        result: fkData,
-        error: fkError?.message
+        name: 'Alternative Activities-Leads Join',
+        status: altJoinError ? 'error' : 'success',
+        result: altJoinData?.length || 0,
+        error: altJoinError?.message
       });
 
     } catch (error: any) {
