@@ -20,7 +20,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { datasetId, cleanupExisting = false } = await req.json()
+    const { datasetId, cleanupExisting = false, webhook_triggered = false } = await req.json()
     
     if (!datasetId) {
       return new Response('Dataset ID is required', { 
@@ -29,7 +29,7 @@ serve(async (req) => {
       })
     }
 
-    console.log('📊 Reprocessing dataset:', datasetId)
+    console.log(`📊 ${webhook_triggered ? 'WEBHOOK' : 'MANUAL'} processing for dataset:`, datasetId)
 
     // Get the Apify API key
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
@@ -43,6 +43,7 @@ serve(async (req) => {
     const stats = {
       dataset_id: datasetId,
       started_at: new Date().toISOString(),
+      webhook_triggered,
       cleaned_existing: 0,
       total_fetched: 0,
       stored_raw: 0,
@@ -50,68 +51,40 @@ serve(async (req) => {
       processing_errors: 0
     }
 
-    // Phase 0: Get dataset info to know total count
-    console.log('📊 Getting dataset information...')
-    try {
-      const datasetInfoResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apifyApiKey}`,
-          'Accept': 'application/json',
-        },
-      })
-
-      if (datasetInfoResponse.ok) {
-        const datasetInfo = await datasetInfoResponse.json()
-        const totalItems = datasetInfo.data?.itemCount || 0
-        console.log(`📊 Dataset contains ${totalItems} total items`)
-      }
-    } catch (error) {
-      console.log('⚠️ Could not fetch dataset info, continuing anyway:', error)
-    }
-
     // Phase 1: Cleanup existing data if requested
     if (cleanupExisting) {
       console.log('🧹 Cleaning up existing data for dataset:', datasetId)
       
-      // Delete from linkedin_posts
       const { error: deletePostsError } = await supabaseClient
         .from('linkedin_posts')
         .delete()
         .eq('apify_dataset_id', datasetId)
 
-      if (deletePostsError) {
-        console.error('Error deleting existing posts:', deletePostsError)
-      }
-
-      // Delete from linkedin_posts_raw
       const { error: deleteRawError } = await supabaseClient
         .from('linkedin_posts_raw')
         .delete()
         .eq('apify_dataset_id', datasetId)
 
-      if (deleteRawError) {
-        console.error('Error deleting existing raw posts:', deleteRawError)
+      if (deletePostsError || deleteRawError) {
+        console.error('Cleanup errors:', { deletePostsError, deleteRawError })
       }
 
       console.log('✅ Cleanup completed')
     }
 
-    // Phase 2: Fetch ALL data with improved pagination
-    console.log('📥 Starting comprehensive data retrieval with improved pagination...')
+    // Phase 2: CORRECTED PAGINATION - Fetch ALL data following ChatGPT recommendations
+    console.log('📥 Starting data retrieval with CORRECTED pagination...')
     let allDatasetItems: any[] = []
-    let offset = 0
-    const limit = 1000
-    let consecutiveEmptyBatches = 0
-    const maxConsecutiveEmpty = 3 // Stop only after multiple consecutive empty responses
+    const limit = 1000  // Fixed limit as recommended
+    let offset = 0      // Start at 0
 
-    while (consecutiveEmptyBatches < maxConsecutiveEmpty) {
+    while (true) {
       const batchNumber = Math.floor(offset / limit) + 1
       console.log(`📥 Fetching batch ${batchNumber}: offset=${offset}, limit=${limit}`)
       
       try {
-        // Improved API call with better parameters
-        const apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?format=json&offset=${offset}&limit=${limit}&skipEmpty=true&desc=1`
+        // Use ChatGPT's recommended URL pattern
+        const apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&skipEmpty=true&desc=1`
         
         const apifyResponse = await fetch(apiUrl, {
           method: 'GET',
@@ -135,19 +108,23 @@ serve(async (req) => {
         const batchItems = await apifyResponse.json()
         console.log(`📊 Retrieved ${batchItems.length} items in batch ${batchNumber}`)
         
-        if (batchItems.length === 0) {
-          consecutiveEmptyBatches++
-          console.log(`📄 Empty batch ${consecutiveEmptyBatches}/${maxConsecutiveEmpty}`)
-          offset += limit // Continue to next offset even with empty batch
-          continue
+        // CORRECTED LOGIC: Stop if no data returned (as recommended by ChatGPT)
+        if (!batchItems || batchItems.length === 0) {
+          console.log('📄 No more items, pagination complete')
+          break
         }
 
-        // Reset empty batch counter when we get data
-        consecutiveEmptyBatches = 0
         allDatasetItems = allDatasetItems.concat(batchItems)
-        offset += batchItems.length // Use actual returned length instead of limit
+        
+        // CORRECTED LOGIC: Always increment by limit (not by actual returned items)
+        offset += limit
         
         console.log(`📊 Total items collected so far: ${allDatasetItems.length}`)
+
+        // Optional: Add small delay to be respectful to Apify API
+        if (batchItems.length === limit) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
 
       } catch (error) {
         console.error('❌ Error fetching batch:', error)
@@ -215,8 +192,8 @@ serve(async (req) => {
 
     stats.stored_raw = rawStoredCount
 
-    // Phase 4: Apply SIMPLIFIED classification and queue for processing
-    console.log('🎯 Applying SIMPLIFIED classification (only exclude companies)...')
+    // Phase 4: SIMPLIFIED qualification - Only exclude companies
+    console.log('🎯 Applying SIMPLIFIED qualification (only exclude companies)...')
     let queuedCount = 0
 
     for (const item of allDatasetItems) {
@@ -233,7 +210,7 @@ serve(async (req) => {
           continue
         }
 
-        // SIMPLIFIED CLASSIFICATION: Only exclude companies
+        // SIMPLIFIED Classification - Only exclude companies
         const shouldProcess = classifyForProcessingSimplified(item)
         
         if (!shouldProcess.process) {
@@ -287,35 +264,35 @@ serve(async (req) => {
     stats.queued_for_processing = queuedCount
     stats.completed_at = new Date().toISOString()
 
-    // Store reprocessing statistics
+    // Store processing statistics
     await supabaseClient
       .from('apify_webhook_stats')
       .insert({
         ...stats,
-        reprocessing: true,
+        reprocessing: !webhook_triggered,
         classification_success_rate: stats.total_fetched > 0 ? 
           ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(2) : 0,
         storage_success_rate: stats.total_fetched > 0 ? 
           ((stats.stored_raw / stats.total_fetched) * 100).toFixed(2) : 0
       })
 
-    console.log(`🎯 REPROCESSING COMPLETE:
+    console.log(`🎯 PROCESSING COMPLETE:
     📊 Dataset ID: ${datasetId}
     📥 Total fetched: ${stats.total_fetched}
     💾 Stored raw: ${stats.stored_raw}
-    🎯 Queued for processing: ${stats.queued_for_processing}`)
+    🎯 Queued for processing: ${stats.queued_for_processing}
+    ${webhook_triggered ? '🔔 Triggered by webhook' : '🔧 Manual reprocessing'}`)
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'dataset_reprocessing',
+      action: webhook_triggered ? 'webhook_dataset_processing' : 'dataset_reprocessing',
       dataset_id: datasetId,
       statistics: stats,
       improvements: [
-        'Complete dataset re-fetch with improved pagination logic',
-        'Removed clean=true filter and used skipEmpty=true instead',
-        'Added desc=1 for newest items first',
-        'Fixed pagination to handle empty batches correctly',
-        'Added dataset info retrieval for total count verification',
+        'CORRECTED pagination following ChatGPT recommendations',
+        'Always increment offset by limit (not by returned items)',
+        'Stop when no data returned (not after consecutive empty batches)',
+        webhook_triggered ? 'Fast webhook response architecture' : 'Manual reprocessing',
         'SIMPLIFIED classification: only exclude Company authors',
         'Enhanced error handling and recovery mechanisms'
       ]
