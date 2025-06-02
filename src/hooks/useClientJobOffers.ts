@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -105,19 +106,14 @@ export function useClientJobOffers() {
     }
   };
 
-  const animateItemRemoval = (itemId: string) => {
-    setAnimatingItems(prev => new Set(prev).add(itemId));
-  };
-
-  const checkOfferWillDisappear = (offer: ClientJobOffer): boolean => {
-    if (selectedAssignmentFilter === 'assigned' && !offer.assigned_to_user_id) return true;
-    if (selectedAssignmentFilter === 'unassigned' && offer.assigned_to_user_id) return true;
-
-    if (selectedStatusFilter.includes('active') && offer.status === 'archivee') return true;
-    if (selectedStatusFilter.includes('archived') && offer.status !== 'archivee') return true;
-    if (!selectedStatusFilter.includes('active') && !selectedStatusFilter.includes('archived') && !selectedStatusFilter.includes(offer.status)) return true;
-
-    return false;
+  const updateJobOfferOptimistically = (jobOfferId: string, updates: Partial<ClientJobOffer>) => {
+    setJobOffers(prevOffers => 
+      prevOffers.map(offer => 
+        offer.id === jobOfferId 
+          ? { ...offer, ...updates, updated_at: new Date().toISOString() }
+          : offer
+      )
+    );
   };
 
   const assignJobOffer = async (jobOfferId: string, userId: string | null) => {
@@ -134,6 +130,9 @@ export function useClientJobOffers() {
         updateData.status = 'non_attribuee';
       }
 
+      // Mise à jour optimiste
+      updateJobOfferOptimistically(jobOfferId, updateData);
+
       const { error } = await supabase
         .from('client_job_offers')
         .update(updateData)
@@ -141,40 +140,15 @@ export function useClientJobOffers() {
 
       if (error) {
         console.error('❌ Error in assignJobOffer:', error);
+        // Revert optimistic update on error
+        fetchJobOffers();
         throw error;
-      }
-
-      const offer = jobOffers.find(o => o.id === jobOfferId);
-      let willDisappear = false;
-      
-      if (offer) {
-        willDisappear = checkOfferWillDisappear({
-          ...offer,
-          ...updateData
-        });
-
-        if (willDisappear) {
-          animateItemRemoval(jobOfferId);
-        }
       }
 
       toast({
         title: "Succès",
         description: userId ? "Offre assignée avec succès." : "Assignation supprimée avec succès.",
       });
-
-      // Délai plus long pour voir l'animation
-      setTimeout(() => {
-        fetchJobOffers();
-        // Nettoyer l'animation après le refresh
-        setTimeout(() => {
-          setAnimatingItems(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(jobOfferId);
-            return newSet;
-          });
-        }, 100);
-      }, willDisappear ? 1000 : 300);
     } catch (error: any) {
       console.error('Error assigning job offer:', error);
       toast({
@@ -189,6 +163,9 @@ export function useClientJobOffers() {
     try {
       console.log('🔄 Updating job offer status:', { jobOfferId, newStatus });
       
+      // Mise à jour optimiste
+      updateJobOfferOptimistically(jobOfferId, { status: newStatus });
+
       const { error } = await supabase
         .from('client_job_offers')
         .update({
@@ -199,24 +176,12 @@ export function useClientJobOffers() {
 
       if (error) {
         console.error('❌ Error updating job offer status:', error);
+        // Revert optimistic update on error
+        fetchJobOffers();
         throw error;
       }
 
       console.log('✅ Job offer status updated successfully');
-
-      const offer = jobOffers.find(o => o.id === jobOfferId);
-      let willDisappear = false;
-      
-      if (offer) {
-        willDisappear = checkOfferWillDisappear({
-          ...offer,
-          status: newStatus
-        });
-
-        if (willDisappear) {
-          animateItemRemoval(jobOfferId);
-        }
-      }
 
       const actionText = newStatus === 'archivee' ? 'archivée' : 
                         newStatus === 'non_attribuee' ? 'désarchivée' : 'mise à jour';
@@ -225,19 +190,6 @@ export function useClientJobOffers() {
         title: "Succès",
         description: `Offre ${actionText} avec succès.`,
       });
-
-      // Délai plus long pour voir l'animation avant le refresh
-      setTimeout(() => {
-        fetchJobOffers();
-        // Nettoyer l'animation après le refresh
-        setTimeout(() => {
-          setAnimatingItems(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(jobOfferId);
-            return newSet;
-          });
-        }, 100);
-      }, willDisappear ? 1000 : 300);
     } catch (error: any) {
       console.error('Error updating job offer status:', error);
       toast({

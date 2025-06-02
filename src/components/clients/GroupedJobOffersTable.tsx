@@ -112,6 +112,14 @@ export function GroupedJobOffersTable({
     });
   };
 
+  const handleUnarchiveAllForCompany = (companyOffers: ClientJobOffer[]) => {
+    companyOffers.forEach(offer => {
+      if (offer.status === 'archivee') {
+        onUpdateStatus(offer.id, 'non_attribuee');
+      }
+    });
+  };
+
   const handleStatusClick = (offer: ClientJobOffer, newStatus: string) => {
     onUpdateStatus(offer.id, newStatus);
   };
@@ -317,7 +325,7 @@ export function GroupedJobOffersTable({
               offers.map((offer, index) => (
                 <TableRow 
                   key={offer.id} 
-                  className={`hover:bg-blue-50/50 transition-all duration-500 ease-out ${
+                  className={`hover:bg-blue-50/50 transition-colors ${
                     animatingItems.has(offer.id) 
                       ? 'animate-[fadeOutSlideUp_0.8s_ease-out_forwards] opacity-100 transform translate-y-0' 
                       : 'opacity-100 transform translate-y-0'
@@ -341,15 +349,30 @@ export function GroupedJobOffersTable({
                           )}
                         </div>
                         {offers.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleArchiveAllForCompany(offers)}
-                            className="h-8 px-2 text-red-600 hover:text-red-800 hover:bg-red-50"
-                            title={`Archiver toutes les offres de ${companyName}`}
-                          >
-                            <ArchiveX className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            {offers.some(o => o.status === 'archivee') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnarchiveAllForCompany(offers)}
+                                className="h-8 px-2 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                title={`Désarchiver toutes les offres de ${companyName}`}
+                              >
+                                <ArchiveRestore className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {offers.some(o => o.status !== 'archivee') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleArchiveAllForCompany(offers)}
+                                className="h-8 px-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                title={`Archiver toutes les offres de ${companyName}`}
+                              >
+                                <ArchiveX className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ) : null}
