@@ -140,8 +140,10 @@ export function useClientJobOffers() {
       if (error) throw error;
 
       const offer = jobOffers.find(o => o.id === jobOfferId);
+      let willDisappear = false;
+      
       if (offer) {
-        const willDisappear = checkIfOfferWillDisappear({
+        willDisappear = checkIfOfferWillDisappear({
           ...offer,
           ...updateData
         });
@@ -182,8 +184,10 @@ export function useClientJobOffers() {
       if (error) throw error;
 
       const offer = jobOffers.find(o => o.id === jobOfferId);
+      let willDisappear = false;
+      
       if (offer) {
-        const willDisappear = checkIfOfferWillDisappear({
+        willDisappear = checkIfOfferWillDisappear({
           ...offer,
           status: newStatus
         });
