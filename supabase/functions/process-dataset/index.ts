@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -246,7 +247,7 @@ serve(async (req) => {
 
     stats.stored_raw = rawStoredCount
 
-    // Phase 4: Classification et mise en queue avec diagnostic
+    // Phase 4: Classification et mise en queue avec diagnostic (SANS processing_priority)
     console.log('🎯 Applying classification and queuing...')
     let queuedCount = 0
     let excludedByAuthorType = 0
@@ -297,8 +298,8 @@ serve(async (req) => {
           author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
           processing_status: 'queued',
-          raw_data: item,
-          processing_priority: 1
+          raw_data: item
+          // SUPPRIMÉ : processing_priority qui n'existe plus
         }
 
         const { data: insertedPost, error: insertError } = await supabaseClient
