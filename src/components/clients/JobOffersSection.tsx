@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useClientJobOffers } from '@/hooks/useClientJobOffers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClientLeadsView } from './ClientLeadsView';
-import { CompactJobOffersFilters } from './CompactJobOffersFilters';
-import { CompactJobOffersTable } from './CompactJobOffersTable';
+import { VisualJobOffersFilters } from './VisualJobOffersFilters';
+import { GroupedJobOffersTable } from './GroupedJobOffersTable';
 
 export function JobOffersSection() {
   const { 
@@ -40,8 +40,8 @@ export function JobOffersSection() {
         <TabsTrigger value="client-posts">Publications LinkedIn</TabsTrigger>
       </TabsList>
       
-      <TabsContent value="job-offers" className="space-y-4">
-        <CompactJobOffersFilters 
+      <TabsContent value="job-offers" className="space-y-6">
+        <VisualJobOffersFilters 
           selectedDateFilter={selectedDateFilter}
           setSelectedDateFilter={setSelectedDateFilter}
           selectedClientFilter={selectedClientFilter}
@@ -55,7 +55,7 @@ export function JobOffersSection() {
           refreshJobOffers={refreshJobOffers}
         />
 
-        <CompactJobOffersTable 
+        <GroupedJobOffersTable 
           jobOffers={filteredJobOffers}
           users={users}
           onAssignJobOffer={assignJobOffer}
