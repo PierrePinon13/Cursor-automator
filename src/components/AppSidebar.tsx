@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { BarChart3, Users, User, Briefcase, Building2, UserCheck, Settings, History } from 'lucide-react';
+import { BarChart3, Users, Briefcase, Building2, UserCheck, Settings, History, CheckSquare } from 'lucide-react';
 
 const AppSidebar = () => {
   const { user } = useAuth();
@@ -30,9 +30,9 @@ const AppSidebar = () => {
       icon: Building2,
     },
     {
-      title: "Prestataires RH",
-      url: "/hr-providers",
-      icon: UserCheck,
+      title: "Tasks",
+      url: "/tasks",
+      icon: CheckSquare,
     },
     {
       title: "Historique",
@@ -49,11 +49,6 @@ const AppSidebar = () => {
       url: "/admin",
       icon: Settings,
     }] : []),
-    {
-      title: "Profil",
-      url: "/profile",
-      icon: User,
-    },
   ];
 
   return (

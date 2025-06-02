@@ -5,6 +5,7 @@ import ApifyWebhookStats from './ApifyWebhookStats';
 import MistargetedPostsSection from './MistargetedPostsSection';
 import DataProcessingDiagnostics from './DataProcessingDiagnostics';
 import DeepDataAnalysis from './DeepDataAnalysis';
+import { HrProvidersManagement } from './HrProvidersManagement';
 
 export default function AdminDashboard() {
   return (
@@ -15,12 +16,13 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="deep-analysis" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="deep-analysis">Analyse Approfondie</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostic Standard</TabsTrigger>
           <TabsTrigger value="funnel">Funnel de traitement</TabsTrigger>
           <TabsTrigger value="webhooks">Statistiques Apify</TabsTrigger>
           <TabsTrigger value="mistargeted">Publications mal ciblées</TabsTrigger>
+          <TabsTrigger value="hr-providers">Prestataires RH</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deep-analysis" className="space-y-6">
@@ -41,6 +43,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="mistargeted" className="space-y-6">
           <MistargetedPostsSection />
+        </TabsContent>
+
+        <TabsContent value="hr-providers" className="space-y-6">
+          <HrProvidersManagement />
         </TabsContent>
       </Tabs>
     </div>
