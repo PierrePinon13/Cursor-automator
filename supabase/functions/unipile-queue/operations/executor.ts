@@ -2,6 +2,7 @@
 import { checkRateLimit, updateLastCallTime, getRetryDelay, sleep } from '../utils/rate-limiter.ts';
 import { isClientError, isRetryableError } from '../utils/error-handler.ts';
 import { scrapeProfile } from './profile-scraper.ts';
+import { scrapeCompany } from './company-scraper.ts';
 import { sendMessage } from './message-sender.ts';
 import { sendInvitation } from './invitation-sender.ts';
 
@@ -32,6 +33,9 @@ export async function executeWithRateLimit(
       switch (operation) {
         case 'scrape_profile':
           result = await scrapeProfile(unipileApiKey, accountId, payload);
+          break;
+        case 'scrape_company':
+          result = await scrapeCompany(unipileApiKey, accountId, payload);
           break;
         case 'send_message':
           result = await sendMessage(unipileApiKey, accountId, payload);
