@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -13,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Dataset reprocessing started')
+    console.log('🔄 Dataset processing started')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -391,7 +390,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in reprocess-dataset function:', error)
+    console.error('❌ Error in process-dataset function:', error)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error.message 

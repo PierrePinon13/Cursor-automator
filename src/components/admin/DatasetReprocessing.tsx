@@ -51,9 +51,9 @@ export function DatasetReprocessing() {
     setResult(null);
 
     try {
-      console.log('🔄 Starting enhanced dataset reprocessing...');
+      console.log('🔄 Starting enhanced dataset processing...');
       
-      const { data, error } = await supabase.functions.invoke('reprocess-dataset', {
+      const { data, error } = await supabase.functions.invoke('process-dataset', {
         body: {
           datasetId: datasetId.trim(),
           cleanupExisting,
