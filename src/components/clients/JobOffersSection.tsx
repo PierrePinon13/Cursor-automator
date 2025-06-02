@@ -36,56 +36,52 @@ export function JobOffersSection() {
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-6">
-        <div className="w-8"></div> {/* Spacer for alignment */}
-        
-        <Tabs defaultValue="job-offers" className="w-auto">
-          <TabsList className="grid grid-cols-2 h-9 bg-white border border-gray-200 p-1">
+      <Tabs defaultValue="job-offers" className="w-full">
+        <div className="flex items-center justify-between mb-6">
+          <TabsList className="bg-gray-50/50 border border-gray-200/60 p-1 rounded-lg shadow-sm">
             <TabsTrigger 
               value="job-offers" 
-              className="px-4 py-1 text-sm font-medium data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 transition-all duration-200"
+              className="relative px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-gray-200 text-gray-600 hover:text-gray-800"
             >
               Offres d'emploi
             </TabsTrigger>
             <TabsTrigger 
               value="client-posts" 
-              className="px-4 py-1 text-sm font-medium data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 transition-all duration-200"
+              className="relative px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-gray-200 text-gray-600 hover:text-gray-800"
             >
               Publications LinkedIn
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="job-offers" className="space-y-6 mt-6">
-            <VisualJobOffersFilters 
-              selectedDateFilter={selectedDateFilter}
-              setSelectedDateFilter={setSelectedDateFilter}
-              selectedClientFilter={selectedClientFilter}
-              setSelectedClientFilter={setSelectedClientFilter}
-              selectedAssignmentFilter={selectedAssignmentFilter}
-              setSelectedAssignmentFilter={setSelectedAssignmentFilter}
-              selectedStatusFilter={selectedStatusFilter}
-              setSelectedStatusFilter={setSelectedStatusFilter}
-              availableClients={availableClients}
-              filteredJobOffers={filteredJobOffers}
-              refreshJobOffers={refreshJobOffers}
-            />
-
-            <GroupedJobOffersTable 
-              jobOffers={filteredJobOffers}
-              users={users}
-              onAssignJobOffer={assignJobOffer}
-              onUpdateStatus={updateJobOfferStatus}
-              animatingItems={animatingItems}
-            />
-          </TabsContent>
-          
-          <TabsContent value="client-posts" className="space-y-4 mt-6">
-            <ClientLeadsView />
-          </TabsContent>
-        </Tabs>
+        </div>
         
-        <div className="w-8"></div> {/* Spacer for alignment */}
-      </div>
+        <TabsContent value="job-offers" className="space-y-6 mt-6">
+          <VisualJobOffersFilters 
+            selectedDateFilter={selectedDateFilter}
+            setSelectedDateFilter={setSelectedDateFilter}
+            selectedClientFilter={selectedClientFilter}
+            setSelectedClientFilter={setSelectedClientFilter}
+            selectedAssignmentFilter={selectedAssignmentFilter}
+            setSelectedAssignmentFilter={setSelectedAssignmentFilter}
+            selectedStatusFilter={selectedStatusFilter}
+            setSelectedStatusFilter={setSelectedStatusFilter}
+            availableClients={availableClients}
+            filteredJobOffers={filteredJobOffers}
+            refreshJobOffers={refreshJobOffers}
+          />
+
+          <GroupedJobOffersTable 
+            jobOffers={filteredJobOffers}
+            users={users}
+            onAssignJobOffer={assignJobOffer}
+            onUpdateStatus={updateJobOfferStatus}
+            animatingItems={animatingItems}
+          />
+        </TabsContent>
+        
+        <TabsContent value="client-posts" className="space-y-4 mt-6">
+          <ClientLeadsView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

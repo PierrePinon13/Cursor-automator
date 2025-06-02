@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RefreshCw, Calendar, Users, UserCheck, Tag, Filter, X, ChevronDown, Check } from 'lucide-react';
+import { RefreshCw, Calendar, Users, UserCheck, Tag, X, ChevronDown, Check } from 'lucide-react';
 
 interface VisualJobOffersFiltersProps {
   selectedDateFilter: string;
@@ -185,26 +184,8 @@ export function VisualJobOffersFilters({
 
   return (
     <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
-      {/* Header compact */}
+      {/* Header simplifié sans icône ni texte descriptif */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-2 rounded-lg shadow-md">
-            <Filter className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">Filtres</h3>
-            <p className="text-sm text-gray-600">
-              {getActiveFiltersCount() > 0 ? (
-                <span className="text-blue-600 font-medium">
-                  {getActiveFiltersCount()} filtre{getActiveFiltersCount() > 1 ? 's' : ''} personnalisé{getActiveFiltersCount() > 1 ? 's' : ''}
-                </span>
-              ) : (
-                "Filtres par défaut actifs"
-              )}
-            </p>
-          </div>
-        </div>
-        
         <div className="flex items-center gap-3">
           <Badge 
             variant="outline" 
