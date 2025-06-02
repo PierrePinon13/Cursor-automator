@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
-import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
@@ -24,45 +24,39 @@ const Clients = () => {
   }
 
   return (
-    <SidebarInset>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <h1 className="text-xl font-bold text-gray-900">
-                {showManagement ? 'Gestion des clients' : 'Clients'}
-              </h1>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => setShowManagement(!showManagement)}
-                variant={showManagement ? "default" : "outline"}
-                className="flex items-center gap-2"
-                size="sm"
-              >
-                <Settings className="h-4 w-4" />
-                {showManagement ? 'Voir les offres' : 'Gestion'}
-              </Button>
-              <UserActionsDropdown />
-            </div>
-          </div>
+    <div className="min-h-screen bg-white">
+      {/* Header minimal avec juste les boutons de navigation */}
+      <div className="flex items-center justify-between px-3 py-2 bg-white border-b">
+        <div className="flex items-center gap-4">
+          <SidebarTrigger />
+          <h1 className="text-xl font-bold text-gray-900">
+            {showManagement ? 'Gestion des clients' : 'Clients'}
+          </h1>
         </div>
-
-        {/* Contenu en bord à bord */}
-        <div className="bg-white">
-          {showManagement ? (
-            <div className="px-6 py-6">
-              <ClientManagement />
-            </div>
-          ) : (
-            <JobOffersSection />
-          )}
+        
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setShowManagement(!showManagement)}
+            variant={showManagement ? "default" : "outline"}
+            className="flex items-center gap-2"
+            size="sm"
+          >
+            <Settings className="h-4 w-4" />
+            {showManagement ? 'Voir les offres' : 'Gestion'}
+          </Button>
+          <UserActionsDropdown />
         </div>
       </div>
-    </SidebarInset>
+
+      {/* Contenu avec padding */}
+      <div className="p-6">
+        {showManagement ? (
+          <ClientManagement />
+        ) : (
+          <JobOffersSection />
+        )}
+      </div>
+    </div>
   );
 };
 
