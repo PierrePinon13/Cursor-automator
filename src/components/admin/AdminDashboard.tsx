@@ -1,36 +1,36 @@
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ProcessingFunnel from './ProcessingFunnel';
-import ApifyWebhookStats from './ApifyWebhookStats';
-import MistargetedPostsSection from './MistargetedPostsSection';
-import DataProcessingDiagnostics from './DataProcessingDiagnostics';
-import DeepDataAnalysis from './DeepDataAnalysis';
+import React from 'react';
+import { StatsCards } from './StatsCards';
+import { ProcessingFunnel } from './ProcessingFunnel';
+import { ApifyWebhookStats } from './ApifyWebhookStats';
+import { DataProcessingDiagnostics } from './DataProcessingDiagnostics';
+import { DeepDataAnalysis } from './DeepDataAnalysis';
+import { MistargetedPostsSection } from './MistargetedPostsSection';
 import { HrProvidersManagement } from './HrProvidersManagement';
+import { DatasetAudit } from './DatasetAudit';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export default function AdminDashboard() {
+export function AdminDashboard() {
   return (
     <div className="space-y-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Administration</h1>
-        <p className="mt-2 text-gray-600">Gestion et monitoring du système</p>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Administration</h1>
       </div>
 
-      <Tabs defaultValue="deep-analysis" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="deep-analysis">Analyse Approfondie</TabsTrigger>
-          <TabsTrigger value="diagnostics">Diagnostic Standard</TabsTrigger>
-          <TabsTrigger value="funnel">Funnel de traitement</TabsTrigger>
-          <TabsTrigger value="webhooks">Statistiques Apify</TabsTrigger>
-          <TabsTrigger value="mistargeted">Publications mal ciblées</TabsTrigger>
-          <TabsTrigger value="hr-providers">Prestataires RH</TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="funnel">Funnel</TabsTrigger>
+          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+          <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+          <TabsTrigger value="analysis">Analyse</TabsTrigger>
+          <TabsTrigger value="audit">Audit Dataset</TabsTrigger>
+          <TabsTrigger value="mistargeted">Posts mal ciblés</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="deep-analysis" className="space-y-6">
-          <DeepDataAnalysis />
-        </TabsContent>
-
-        <TabsContent value="diagnostics" className="space-y-6">
-          <DataProcessingDiagnostics />
+        <TabsContent value="overview" className="space-y-6">
+          <StatsCards />
+          <HrProvidersManagement />
         </TabsContent>
 
         <TabsContent value="funnel" className="space-y-6">
@@ -41,12 +41,20 @@ export default function AdminDashboard() {
           <ApifyWebhookStats />
         </TabsContent>
 
-        <TabsContent value="mistargeted" className="space-y-6">
-          <MistargetedPostsSection />
+        <TabsContent value="diagnostics" className="space-y-6">
+          <DataProcessingDiagnostics />
         </TabsContent>
 
-        <TabsContent value="hr-providers" className="space-y-6">
-          <HrProvidersManagement />
+        <TabsContent value="analysis" className="space-y-6">
+          <DeepDataAnalysis />
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-6">
+          <DatasetAudit />
+        </TabsContent>
+
+        <TabsContent value="mistargeted" className="space-y-6">
+          <MistargetedPostsSection />
         </TabsContent>
       </Tabs>
     </div>
