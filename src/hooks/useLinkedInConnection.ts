@@ -57,7 +57,7 @@ export function useLinkedInConnection() {
 
     setLoading(true);
     try {
-      console.log('Calling linkedin-connect function...');
+      console.log('Calling linkedin-connect function for user:', user.id, 'email:', user.email);
       
       // Call our edge function to initiate the hosted auth flow
       const { data, error } = await supabase.functions.invoke('linkedin-connect', {
@@ -95,23 +95,33 @@ export function useLinkedInConnection() {
           description: "Une nouvelle fenêtre s'est ouverte pour connecter votre compte LinkedIn.",
         });
 
-        // Poll for connection success
+        // Poll for connection success with more frequent checks
         const pollConnection = () => {
           const checkInterval = setInterval(async () => {
             if (popup.closed) {
               clearInterval(checkInterval);
-              await fetchUnipileAccountId();
+              console.log('Popup closed, checking for connection update...');
+              
+              // Wait a moment for webhook to process
+              setTimeout(async () => {
+                await fetchUnipileAccountId();
+              }, 2000);
               return;
             }
 
-            // Check if connection is now successful
-            await fetchUnipileAccountId();
-          }, 2000);
+            // Check if connection is now successful more frequently
+            try {
+              await fetchUnipileAccountId();
+            } catch (error) {
+              console.log('Error during polling check:', error);
+            }
+          }, 3000); // Check every 3 seconds
 
-          // Stop polling after 5 minutes
+          // Stop polling after 10 minutes
           setTimeout(() => {
             clearInterval(checkInterval);
-          }, 300000);
+            console.log('Stopped polling for LinkedIn connection');
+          }, 600000);
         };
 
         pollConnection();

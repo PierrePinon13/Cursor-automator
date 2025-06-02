@@ -77,10 +77,12 @@ serve(async (req) => {
         expiresOn: expiresOn,
         api_url: 'https://api9.unipile.com:13946',
         notify_url: webhookUrl,
-        name: user.email || user_id, // Required field
+        name: user.email || user_id, // Required field - use email which will help with fallback lookup
         metadata: {
           user_id: user_id,
-          email: user.email
+          email: user.email,
+          // Add additional metadata for better tracking
+          created_at: new Date().toISOString()
         }
       }),
     })

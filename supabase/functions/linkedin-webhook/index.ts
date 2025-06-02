@@ -23,7 +23,7 @@ serve(async (req) => {
     const webhookData = await req.json()
     console.log('LinkedIn webhook received:', JSON.stringify(webhookData, null, 2))
 
-    const { account_id, status, metadata, error: unipileError } = webhookData
+    const { account_id, status, metadata, error: unipileError, name } = webhookData
 
     if (!account_id) {
       console.error('No account_id in webhook data')
@@ -32,11 +32,40 @@ serve(async (req) => {
 
     console.log('Processing webhook for account_id:', account_id, 'with status:', status)
 
-    // Get user_id from metadata
-    const user_id = metadata?.user_id
+    // Get user_id from metadata first, then try to find by email from name field
+    let user_id = metadata?.user_id
+    
+    if (!user_id && name) {
+      console.log('No user_id in metadata, trying to find user by email:', name)
+      
+      // Try to find the user by email (name field often contains the email)
+      const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('email', name)
+        .single()
+      
+      if (profile && !profileError) {
+        user_id = profile.id
+        console.log('Found user by email:', user_id)
+      } else {
+        console.error('Could not find user by email:', name, profileError)
+      }
+    }
+    
     if (!user_id) {
-      console.error('No user_id in webhook metadata')
-      return new Response('Missing user_id in metadata', { status: 400 })
+      console.error('No user_id found in webhook metadata or by email lookup')
+      
+      // Log all available information for debugging
+      console.log('Available webhook data:', {
+        account_id,
+        status,
+        metadata,
+        name,
+        allKeys: Object.keys(webhookData)
+      })
+      
+      return new Response('Missing user_id in metadata and could not find user by email', { status: 400 })
     }
 
     console.log('Updating profile for user:', user_id, 'with account_id:', account_id)
@@ -58,6 +87,9 @@ serve(async (req) => {
       }
 
       console.log('Profile updated successfully for user:', user_id, 'with account_id:', account_id)
+      console.log('Updated profile data:', data)
+    } else if (status === 'CREATION_FAILED' || status === 'ERROR') {
+      console.log('Connection failed with status:', status, 'Error:', unipileError)
     } else {
       console.log('Status was not success, not updating profile. Status:', status)
     }
