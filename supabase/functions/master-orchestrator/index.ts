@@ -181,7 +181,7 @@ async function runHealthCheck(supabaseClient: any) {
     overall_status: 'healthy'
   };
 
-  // Vérifier la queue
+  // Vérifier la queue (sans processing_priority)
   try {
     const { data: queueStats } = await supabaseClient
       .from('linkedin_posts')

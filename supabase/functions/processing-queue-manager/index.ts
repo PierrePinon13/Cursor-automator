@@ -11,7 +11,6 @@ const corsHeaders = {
 interface ProcessingTask {
   id: string;
   type: 'openai_analysis' | 'unipile_scraping' | 'lead_creation' | 'requalification';
-  priority: number;
   data: any;
   retry_count: number;
   next_retry_at?: string;
@@ -75,13 +74,12 @@ serve(async (req) => {
 async function queuePendingPosts(supabaseClient: any) {
   console.log('📥 Queuing pending posts for processing...');
   
-  // Récupérer les posts en attente de traitement
+  // Récupérer les posts en attente de traitement (sans processing_priority)
   const { data: pendingPosts, error } = await supabaseClient
     .from('linkedin_posts')
     .select('*')
     .eq('processing_status', 'queued')
-    .order('processing_priority', { ascending: true })
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: true }) // Ordre par date de création
     .limit(100);
 
   if (error) {
@@ -146,7 +144,7 @@ async function processNextBatch(supabaseClient: any, taskType: string) {
   }
   
   const { data: posts, error } = await query
-    .order('processing_priority', { ascending: true })
+    .order('created_at', { ascending: true }) // Remplacé processing_priority par created_at
     .limit(batchSize);
 
   if (error) {
@@ -196,12 +194,11 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
   let requeuedCount = 0;
   for (const post of failedPosts) {
     try {
-      // Remettre en queue avec priorité plus faible
+      // Remettre en queue (sans processing_priority)
       await supabaseClient
         .from('linkedin_posts')
         .update({ 
           processing_status: 'queued',
-          processing_priority: Math.min(post.processing_priority + 1, 5),
           retry_count: (post.retry_count || 0) + 1,
           last_retry_at: new Date().toISOString()
         })
@@ -225,12 +222,11 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
 async function forceReprocessPost(supabaseClient: any, postId: string) {
   console.log(`🔄 Force reprocessing post: ${postId}`);
   
-  // Réinitialiser le post pour retraitement complet
+  // Réinitialiser le post pour retraitement complet (sans processing_priority)
   await supabaseClient
     .from('linkedin_posts')
     .update({
       processing_status: 'queued',
-      processing_priority: 1, // Haute priorité
       retry_count: 0,
       openai_step1_recrute_poste: null,
       openai_step2_reponse: null,
