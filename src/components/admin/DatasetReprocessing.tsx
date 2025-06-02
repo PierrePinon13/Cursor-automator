@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ReprocessingResult {
@@ -19,6 +19,17 @@ interface ReprocessingResult {
     queued_for_processing: number;
     started_at: string;
     completed_at: string;
+    apify_item_count: number;
+    apify_clean_item_count: number;
+  };
+  diagnostics: {
+    retrieval_rate_percent: string;
+    qualification_rate_percent: string;
+    excluded_breakdown: {
+      companies: number;
+      missing_fields: number;
+      already_processed: number;
+    };
   };
   improvements: string[];
 }
@@ -26,6 +37,7 @@ interface ReprocessingResult {
 export function DatasetReprocessing() {
   const [datasetId, setDatasetId] = useState('');
   const [cleanupExisting, setCleanupExisting] = useState(false);
+  const [forceAll, setForceAll] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ReprocessingResult | null>(null);
 
@@ -39,12 +51,13 @@ export function DatasetReprocessing() {
     setResult(null);
 
     try {
-      console.log('🔄 Starting dataset reprocessing...');
+      console.log('🔄 Starting enhanced dataset reprocessing...');
       
       const { data, error } = await supabase.functions.invoke('reprocess-dataset', {
         body: {
           datasetId: datasetId.trim(),
-          cleanupExisting
+          cleanupExisting,
+          forceAll
         }
       });
 
@@ -58,7 +71,12 @@ export function DatasetReprocessing() {
       setResult(data);
       
       if (data.success) {
-        toast.success(`Dataset retraité avec succès! ${data.statistics.queued_for_processing} posts en queue`);
+        const retrievalRate = parseFloat(data.diagnostics.retrieval_rate_percent);
+        if (retrievalRate < 80) {
+          toast.warning(`Dataset retraité avec alertes! Taux de récupération: ${retrievalRate}%`);
+        } else {
+          toast.success(`Dataset retraité avec succès! ${data.statistics.queued_for_processing} posts en queue`);
+        }
       } else {
         toast.error('Le retraitement a échoué');
       }
@@ -77,29 +95,43 @@ export function DatasetReprocessing() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5" />
-            Retraitement complet de Dataset
+            Retraitement avancé de Dataset
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
+          <div className="space-y-4">
+            <div>
               <label className="text-sm font-medium">Dataset ID Apify:</label>
               <Input
                 value={datasetId}
                 onChange={(e) => setDatasetId(e.target.value)}
-                placeholder="ex: L9PmHGJJwdAqjgqDI"
+                placeholder="ex: fLb3igSu5dgsM3de8"
                 className="mt-1"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="cleanup"
-                checked={cleanupExisting}
-                onCheckedChange={setCleanupExisting}
-              />
-              <label htmlFor="cleanup" className="text-sm font-medium">
-                Nettoyer les données existantes
-              </label>
+
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="cleanup"
+                  checked={cleanupExisting}
+                  onCheckedChange={setCleanupExisting}
+                />
+                <label htmlFor="cleanup" className="text-sm font-medium">
+                  Nettoyer les données existantes
+                </label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="forceAll"
+                  checked={forceAll}
+                  onCheckedChange={setForceAll}
+                />
+                <label htmlFor="forceAll" className="text-sm font-medium">
+                  Mode forceAll (récupérer tous les items)
+                </label>
+              </div>
             </div>
           </div>
 
@@ -113,14 +145,25 @@ export function DatasetReprocessing() {
             </div>
           )}
 
+          {forceAll && (
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <Search className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <div className="font-medium">Mode diagnostic avancé</div>
+                <div>Récupère TOUS les items Apify (même vides) pour diagnostiquer les pertes de données.</div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="font-medium">Ce processus va :</div>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Récupérer TOUTES les données du dataset avec la pagination corrigée</li>
-              <li>Appliquer la logique de classification moins stricte</li>
-              <li>Stocker tous les records bruts (universal storage)</li>
-              <li>Mettre en queue les posts qualifiés pour traitement</li>
-              <li>Déclencher le traitement asynchrone de chaque post</li>
+              <li>🔍 Vérifier les métadonnées Apify (itemCount vs cleanItemCount)</li>
+              <li>📥 Récupérer les données avec diagnostic de perte</li>
+              <li>💾 Utiliser des upserts pour éviter les conflits de duplicatas</li>
+              <li>🎯 Appliquer la classification simplifiée (exclusion Company uniquement)</li>
+              <li>📊 Fournir un rapport détaillé avec taux de récupération</li>
+              <li>🚨 Alerter en cas de perte significative d'items (< 80%)</li>
             </ul>
           </div>
 
@@ -137,7 +180,7 @@ export function DatasetReprocessing() {
             ) : (
               <>
                 <Database className="h-4 w-4 mr-2" />
-                Lancer le retraitement complet
+                Lancer le retraitement avancé
               </>
             )}
           </Button>
@@ -153,7 +196,7 @@ export function DatasetReprocessing() {
               ) : (
                 <XCircle className="h-5 w-5 text-red-600" />
               )}
-              Résultat du retraitement
+              Résultat du retraitement avancé
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -162,7 +205,10 @@ export function DatasetReprocessing() {
                 <div className="text-2xl font-bold text-blue-600">
                   {result.statistics.total_fetched}
                 </div>
-                <div className="text-sm text-muted-foreground">Records récupérés</div>
+                <div className="text-sm text-muted-foreground">Récupérés</div>
+                <div className="text-xs text-gray-500">
+                  / {result.statistics.apify_item_count} attendus
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
@@ -177,14 +223,43 @@ export function DatasetReprocessing() {
                 <div className="text-sm text-muted-foreground">En queue</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {result.statistics.queued_for_processing > 0 
-                    ? Math.round((result.statistics.queued_for_processing / result.statistics.total_fetched) * 100)
-                    : 0}%
+                <div className={`text-2xl font-bold ${
+                  parseFloat(result.diagnostics.retrieval_rate_percent) >= 80 
+                    ? 'text-green-600' 
+                    : 'text-red-600'
+                }`}>
+                  {result.diagnostics.retrieval_rate_percent}%
                 </div>
-                <div className="text-sm text-muted-foreground">Taux qualification</div>
+                <div className="text-sm text-muted-foreground">Taux récupération</div>
               </div>
             </div>
+
+            {result.diagnostics && (
+              <div className="space-y-3">
+                <div className="font-medium">Diagnostic détaillé:</div>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Taux de qualification:</span>
+                    <Badge variant="outline">{result.diagnostics.qualification_rate_percent}%</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-medium text-xs text-gray-600">Exclusions:</div>
+                    <div className="flex justify-between text-xs">
+                      <span>🏢 Entreprises:</span>
+                      <span>{result.diagnostics.excluded_breakdown.companies}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span>❌ Champs manquants:</span>
+                      <span>{result.diagnostics.excluded_breakdown.missing_fields}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span>🔄 Déjà traités:</span>
+                      <span>{result.diagnostics.excluded_breakdown.already_processed}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="font-medium">Améliorations appliquées:</div>

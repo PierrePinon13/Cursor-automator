@@ -20,7 +20,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { datasetId, cleanupExisting = false, webhook_triggered = false } = await req.json()
+    const { datasetId, cleanupExisting = false, webhook_triggered = false, forceAll = false } = await req.json()
     
     if (!datasetId) {
       return new Response('Dataset ID is required', { 
@@ -31,7 +31,6 @@ serve(async (req) => {
 
     console.log(`📊 ${webhook_triggered ? 'WEBHOOK' : 'MANUAL'} processing for dataset:`, datasetId)
 
-    // Get the Apify API key
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
     if (!apifyApiKey) {
       return new Response('Apify API key not configured', { 
@@ -48,43 +47,80 @@ serve(async (req) => {
       total_fetched: 0,
       stored_raw: 0,
       queued_for_processing: 0,
-      processing_errors: 0
+      processing_errors: 0,
+      apify_item_count: 0,
+      apify_clean_item_count: 0,
+      force_all_mode: forceAll
+    }
+
+    // ÉTAPE 0: Vérifier les métadonnées du dataset Apify
+    console.log('🔍 Checking Apify dataset metadata...')
+    try {
+      const metadataResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}`, {
+        headers: { 'Authorization': `Bearer ${apifyApiKey}` }
+      })
+      
+      if (metadataResponse.ok) {
+        const metadata = await metadataResponse.json()
+        stats.apify_item_count = metadata.itemCount || 0
+        stats.apify_clean_item_count = metadata.cleanItemCount || 0
+        
+        console.log(`📋 Dataset metadata:`)
+        console.log(`   📊 Total items: ${stats.apify_item_count}`)
+        console.log(`   🧹 Clean items: ${stats.apify_clean_item_count}`)
+        console.log(`   📅 Created: ${metadata.createdAt}`)
+        console.log(`   🔄 Modified: ${metadata.modifiedAt}`)
+        
+        if (stats.apify_item_count !== stats.apify_clean_item_count) {
+          console.log(`⚠️ WARNING: ${stats.apify_item_count - stats.apify_clean_item_count} items are empty/invalid`)
+        }
+      } else {
+        console.log('⚠️ Could not fetch dataset metadata')
+      }
+    } catch (error) {
+      console.log('❌ Error fetching metadata:', error.message)
     }
 
     // Phase 1: Cleanup existing data if requested
     if (cleanupExisting) {
       console.log('🧹 Cleaning up existing data for dataset:', datasetId)
       
-      const { error: deletePostsError } = await supabaseClient
+      const { count: deletedPosts } = await supabaseClient
         .from('linkedin_posts')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('apify_dataset_id', datasetId)
 
-      const { error: deleteRawError } = await supabaseClient
+      const { count: deletedRaw } = await supabaseClient
         .from('linkedin_posts_raw')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('apify_dataset_id', datasetId)
 
-      if (deletePostsError || deleteRawError) {
-        console.error('Cleanup errors:', { deletePostsError, deleteRawError })
-      }
-
-      console.log('✅ Cleanup completed')
+      stats.cleaned_existing = (deletedPosts || 0) + (deletedRaw || 0)
+      console.log(`✅ Cleanup completed: ${stats.cleaned_existing} records deleted`)
     }
 
-    // Phase 2: CORRECTED PAGINATION - Fetch ALL data following ChatGPT recommendations
-    console.log('📥 Starting data retrieval with CORRECTED pagination...')
+    // Phase 2: Récupération des données avec diagnostic avancé
+    console.log('📥 Starting data retrieval with enhanced diagnostics...')
     let allDatasetItems: any[] = []
-    const limit = 1000  // Fixed limit as recommended
-    let offset = 0      // Start at 0
+    const limit = 1000
+    let offset = 0
+    let batchCount = 0
+    let emptyBatchCount = 0
 
     while (true) {
-      const batchNumber = Math.floor(offset / limit) + 1
-      console.log(`📥 Fetching batch ${batchNumber}: offset=${offset}, limit=${limit}`)
+      batchCount++
+      console.log(`📥 Fetching batch ${batchCount}: offset=${offset}, limit=${limit}`)
       
       try {
-        // Use ChatGPT's recommended URL pattern
-        const apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&skipEmpty=true&desc=1`
+        // URL avec options de filtrage conditionnelles
+        let apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&desc=1`
+        
+        // En mode forceAll, on désactive tous les filtres Apify
+        if (!forceAll) {
+          apiUrl += '&skipEmpty=true'
+        } else {
+          console.log('🚫 forceAll mode: retrieving ALL items including empty ones')
+        }
         
         const apifyResponse = await fetch(apiUrl, {
           method: 'GET',
@@ -106,30 +142,37 @@ serve(async (req) => {
         }
 
         const batchItems = await apifyResponse.json()
-        console.log(`📊 Retrieved ${batchItems.length} items in batch ${batchNumber}`)
+        console.log(`📊 Batch ${batchCount}: ${batchItems.length} items retrieved`)
         
-        // CORRECTED LOGIC: Stop if no data returned (as recommended by ChatGPT)
+        // Stop si aucun item retourné
         if (!batchItems || batchItems.length === 0) {
-          console.log('📄 No more items, pagination complete')
+          emptyBatchCount++
+          console.log(`📄 Empty batch #${emptyBatchCount} - stopping pagination`)
           break
         }
 
-        allDatasetItems = allDatasetItems.concat(batchItems)
+        // Diagnostic des items vides/invalides
+        const validItems = batchItems.filter((item: any) => item && item.urn)
+        const invalidItems = batchItems.length - validItems.length
         
-        // CORRECTED LOGIC: Always increment by limit (not by actual returned items)
+        if (invalidItems > 0) {
+          console.log(`⚠️ Batch ${batchCount}: ${invalidItems} invalid items detected (no URN)`)
+        }
+
+        allDatasetItems = allDatasetItems.concat(batchItems)
         offset += limit
         
-        console.log(`📊 Total items collected so far: ${allDatasetItems.length}`)
+        console.log(`📊 Total items collected: ${allDatasetItems.length}`)
 
-        // Optional: Add small delay to be respectful to Apify API
+        // Délai respectueux pour l'API Apify
         if (batchItems.length === limit) {
           await new Promise(resolve => setTimeout(resolve, 100))
         }
 
       } catch (error) {
-        console.error('❌ Error fetching batch:', error)
+        console.error(`❌ Error fetching batch ${batchCount}:`, error)
         if (allDatasetItems.length > 0) {
-          console.log('⚠️ Error occurred but we have some data, stopping...')
+          console.log('⚠️ Error but we have some data, stopping...')
           break
         }
         throw error
@@ -137,23 +180,30 @@ serve(async (req) => {
     }
 
     stats.total_fetched = allDatasetItems.length
-    console.log(`📊 FINAL: Total dataset items fetched: ${stats.total_fetched}`)
+    console.log(`📊 FINAL RETRIEVAL SUMMARY:`)
+    console.log(`   📥 Total fetched: ${stats.total_fetched}`)
+    console.log(`   📊 Expected (Apify): ${stats.apify_item_count}`)
+    console.log(`   🧹 Expected clean: ${stats.apify_clean_item_count}`)
+    
+    // Alerte si perte significative d'items
+    if (stats.apify_item_count > 0) {
+      const retrievalRate = (stats.total_fetched / stats.apify_item_count) * 100
+      console.log(`   📈 Retrieval rate: ${retrievalRate.toFixed(1)}%`)
+      
+      if (retrievalRate < 80) {
+        console.log(`🚨 WARNING: Low retrieval rate (${retrievalRate.toFixed(1)}%) - significant data loss detected!`)
+      }
+    }
 
-    // Phase 3: Store raw data (universal storage)
-    console.log('💾 Storing raw data...')
+    // Phase 3: Stockage des données brutes avec upsert
+    console.log('💾 Storing raw data with upsert logic...')
     let rawStoredCount = 0
+    let rawSkippedCount = 0
 
     for (const item of allDatasetItems) {
       try {
-        // Check if this post already exists in raw table (deduplication by URN)
-        const { data: existingRawPost } = await supabaseClient
-          .from('linkedin_posts_raw')
-          .select('id')
-          .eq('urn', item.urn)
-          .maybeSingle()
-
-        if (existingRawPost) {
-          console.log(`🔄 Raw post already exists: ${item.urn} - skipping`)
+        if (!item.urn) {
+          console.log('⚠️ Skipping item without URN')
           continue
         }
 
@@ -171,15 +221,20 @@ serve(async (req) => {
           author_name: item.authorName || null,
           author_headline: item.authorHeadline || null,
           is_repost: item.isRepost || false,
-          raw_data: item
+          raw_data: item,
+          updated_at: new Date().toISOString()
         }
 
-        const { error: rawInsertError } = await supabaseClient
+        // Upsert avec gestion des conflits URN
+        const { error: upsertError } = await supabaseClient
           .from('linkedin_posts_raw')
-          .insert(rawPostData)
+          .upsert(rawPostData, { 
+            onConflict: 'urn',
+            ignoreDuplicates: false 
+          })
 
-        if (rawInsertError) {
-          console.error('❌ Error inserting raw post:', rawInsertError)
+        if (upsertError) {
+          console.error('❌ Error upserting raw post:', upsertError)
           continue
         }
 
@@ -192,13 +247,26 @@ serve(async (req) => {
 
     stats.stored_raw = rawStoredCount
 
-    // Phase 4: SIMPLIFIED qualification - Only exclude companies
-    console.log('🎯 Applying SIMPLIFIED qualification (only exclude companies)...')
+    // Phase 4: Classification et mise en queue avec diagnostic
+    console.log('🎯 Applying classification and queuing...')
     let queuedCount = 0
+    let excludedByAuthorType = 0
+    let excludedByMissingFields = 0
+    let alreadyQueued = 0
 
     for (const item of allDatasetItems) {
       try {
-        // Check if this post already exists in linkedin_posts
+        if (!item.urn) {
+          excludedByMissingFields++
+          continue
+        }
+
+        if (!item.url) {
+          excludedByMissingFields++
+          continue
+        }
+
+        // Vérifier si déjà en queue
         const { data: existingPost } = await supabaseClient
           .from('linkedin_posts')
           .select('id')
@@ -206,15 +274,13 @@ serve(async (req) => {
           .maybeSingle()
 
         if (existingPost) {
-          console.log(`🔄 Post already in processing queue: ${item.urn} - skipping`)
+          alreadyQueued++
           continue
         }
 
-        // SIMPLIFIED Classification - Only exclude companies
-        const shouldProcess = classifyForProcessingSimplified(item)
-        
-        if (!shouldProcess.process) {
-          console.log(`⏭️ Post excluded: ${item.urn} - Reason: ${shouldProcess.reason}`)
+        // Classification simplifiée
+        if (item.authorType === 'Company') {
+          excludedByAuthorType++
           continue
         }
 
@@ -233,7 +299,7 @@ serve(async (req) => {
           author_headline: item.authorHeadline || null,
           processing_status: 'queued',
           raw_data: item,
-          processing_priority: shouldProcess.priority
+          processing_priority: 1
         }
 
         const { data: insertedPost, error: insertError } = await supabaseClient
@@ -249,7 +315,7 @@ serve(async (req) => {
 
         queuedCount++
 
-        // Trigger processing asynchronously
+        // Déclencher le traitement asynchrone
         supabaseClient.functions.invoke('process-linkedin-post', {
           body: { postId: insertedPost.id, datasetId: datasetId }
         }).catch(err => {
@@ -257,14 +323,23 @@ serve(async (req) => {
         })
 
       } catch (error) {
-        console.error('❌ Error during qualification:', error)
+        console.error('❌ Error during classification:', error)
       }
     }
 
     stats.queued_for_processing = queuedCount
     stats.completed_at = new Date().toISOString()
 
-    // Store processing statistics
+    // Diagnostic détaillé
+    console.log(`🎯 CLASSIFICATION SUMMARY:`)
+    console.log(`   📥 Items processed: ${allDatasetItems.length}`)
+    console.log(`   ✅ Successfully queued: ${queuedCount}`)
+    console.log(`   🏢 Excluded (Company): ${excludedByAuthorType}`)
+    console.log(`   ❌ Excluded (Missing fields): ${excludedByMissingFields}`)
+    console.log(`   🔄 Already queued: ${alreadyQueued}`)
+    console.log(`   📊 Qualification rate: ${allDatasetItems.length > 0 ? ((queuedCount / allDatasetItems.length) * 100).toFixed(1) : 0}%`)
+
+    // Stocker les statistiques étendues
     await supabaseClient
       .from('apify_webhook_stats')
       .insert({
@@ -273,28 +348,42 @@ serve(async (req) => {
         classification_success_rate: stats.total_fetched > 0 ? 
           ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(2) : 0,
         storage_success_rate: stats.total_fetched > 0 ? 
-          ((stats.stored_raw / stats.total_fetched) * 100).toFixed(2) : 0
+          ((stats.stored_raw / stats.total_fetched) * 100).toFixed(2) : 0,
+        excluded_by_author_type: excludedByAuthorType,
+        excluded_by_missing_fields: excludedByMissingFields,
+        already_queued: alreadyQueued
       })
 
-    console.log(`🎯 PROCESSING COMPLETE:
-    📊 Dataset ID: ${datasetId}
-    📥 Total fetched: ${stats.total_fetched}
-    💾 Stored raw: ${stats.stored_raw}
-    🎯 Queued for processing: ${stats.queued_for_processing}
-    ${webhook_triggered ? '🔔 Triggered by webhook' : '🔧 Manual reprocessing'}`)
+    console.log(`🎯 PROCESSING COMPLETE:`)
+    console.log(`📊 Dataset ID: ${datasetId}`)
+    console.log(`📥 Total fetched: ${stats.total_fetched} / ${stats.apify_item_count} expected`)
+    console.log(`💾 Stored raw: ${stats.stored_raw}`)
+    console.log(`🎯 Queued for processing: ${stats.queued_for_processing}`)
+    console.log(`${webhook_triggered ? '🔔 Triggered by webhook' : '🔧 Manual reprocessing'}`)
 
     return new Response(JSON.stringify({ 
       success: true,
       action: webhook_triggered ? 'webhook_dataset_processing' : 'dataset_reprocessing',
       dataset_id: datasetId,
       statistics: stats,
+      diagnostics: {
+        retrieval_rate_percent: stats.apify_item_count > 0 ? 
+          ((stats.total_fetched / stats.apify_item_count) * 100).toFixed(1) : 0,
+        qualification_rate_percent: stats.total_fetched > 0 ? 
+          ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(1) : 0,
+        excluded_breakdown: {
+          companies: excludedByAuthorType,
+          missing_fields: excludedByMissingFields,
+          already_processed: alreadyQueued
+        }
+      },
       improvements: [
-        'CORRECTED pagination following ChatGPT recommendations',
-        'Always increment offset by limit (not by returned items)',
-        'Stop when no data returned (not after consecutive empty batches)',
-        webhook_triggered ? 'Fast webhook response architecture' : 'Manual reprocessing',
-        'SIMPLIFIED classification: only exclude Company authors',
-        'Enhanced error handling and recovery mechanisms'
+        'Enhanced diagnostic with Apify metadata verification',
+        'Upsert logic for raw data to handle duplicates',
+        'Detailed classification breakdown and exclusion tracking',
+        'Automatic alert system for data loss detection',
+        'Support for forceAll mode to bypass Apify filtering',
+        webhook_triggered ? 'Fast webhook response architecture' : 'Manual reprocessing with full diagnostics'
       ]
     }), { 
       status: 200,
@@ -312,23 +401,3 @@ serve(async (req) => {
     })
   }
 })
-
-// SIMPLIFIED Classification function - Only exclude companies
-function classifyForProcessingSimplified(item: any) {
-  // Critical fields check
-  if (!item.urn) {
-    return { process: false, reason: 'Missing URN (critical)', priority: 0 }
-  }
-
-  if (!item.url) {
-    return { process: false, reason: 'Missing URL (critical)', priority: 0 }
-  }
-
-  // ONLY ONE FILTER: Exclude companies
-  if (item.authorType === 'Company') {
-    return { process: false, reason: 'Author is company (excluded)', priority: 0 }
-  }
-
-  // Accept everything else
-  return { process: true, reason: 'Accepted for processing', priority: 1 }
-}
