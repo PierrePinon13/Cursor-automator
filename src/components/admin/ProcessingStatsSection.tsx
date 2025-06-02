@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -281,7 +280,7 @@ const ProcessingStatsSection = () => {
         </Card>
       )}
 
-      {viewMode === 'dataset' && (
+      {viewMode === 'dataset' && !selectedDataset && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -294,9 +293,7 @@ const ProcessingStatsSection = () => {
               {datasets.map((dataset) => (
                 <div 
                   key={dataset.dataset_id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                    selectedDataset === dataset.dataset_id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
-                  }`}
+                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 hover:border-blue-200"
                   onClick={() => setSelectedDataset(dataset.dataset_id)}
                 >
                   <div className="flex items-center justify-between">
@@ -323,7 +320,7 @@ const ProcessingStatsSection = () => {
         </Card>
       )}
 
-      {selectedDataset && viewMode === 'dataset' && (
+      {viewMode === 'dataset' && selectedDataset && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -340,52 +337,56 @@ const ProcessingStatsSection = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Reçus</TableHead>
-                  <TableHead>Stockés Raw</TableHead>
-                  <TableHead>Insérés</TableHead>
-                  <TableHead>Taux succès</TableHead>
-                  <TableHead>Erreurs</TableHead>
-                  <TableHead>Durée</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStats.map((stat) => (
-                  <TableRow key={stat.id}>
-                    <TableCell>
-                      {format(new Date(stat.created_at), 'dd/MM HH:mm', { locale: fr })}
-                    </TableCell>
-                    <TableCell className="font-medium">{stat.total_received}</TableCell>
-                    <TableCell className="text-purple-600">{stat.stored_raw}</TableCell>
-                    <TableCell className="text-green-600 font-medium">{stat.successfully_inserted}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        stat.total_received > 0 && 
-                        (stat.successfully_inserted / stat.total_received) > 0.8 ? "default" : "secondary"
-                      }>
-                        {stat.total_received > 0 ? 
-                          ((stat.successfully_inserted / stat.total_received) * 100).toFixed(1) : 0}%
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {stat.processing_errors > 0 && (
-                        <Badge variant="destructive">{stat.processing_errors}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {stat.completed_at && (
-                        <span className="text-sm text-gray-600">
-                          {Math.round((new Date(stat.completed_at).getTime() - new Date(stat.started_at).getTime()) / 1000)}s
-                        </span>
-                      )}
-                    </TableCell>
+            {filteredStats.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Aucune exécution trouvée pour ce dataset</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Reçus</TableHead>
+                    <TableHead>Stockés Raw</TableHead>
+                    <TableHead>Insérés</TableHead>
+                    <TableHead>Taux succès</TableHead>
+                    <TableHead>Erreurs</TableHead>
+                    <TableHead>Durée</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredStats.map((stat) => (
+                    <TableRow key={stat.id}>
+                      <TableCell>
+                        {format(new Date(stat.created_at), 'dd/MM HH:mm', { locale: fr })}
+                      </TableCell>
+                      <TableCell className="font-medium">{stat.total_received}</TableCell>
+                      <TableCell className="text-purple-600">{stat.stored_raw}</TableCell>
+                      <TableCell className="text-green-600 font-medium">{stat.successfully_inserted}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          stat.total_received > 0 && 
+                          (stat.successfully_inserted / stat.total_received) > 0.8 ? "default" : "secondary"
+                        }>
+                          {stat.total_received > 0 ? 
+                            ((stat.successfully_inserted / stat.total_received) * 100).toFixed(1) : 0}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {stat.processing_errors > 0 && (
+                          <Badge variant="destructive">{stat.processing_errors}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {stat.completed_at && (
+                          <span className="text-sm text-gray-600">
+                            {Math.round((new Date(stat.completed_at).getTime() - new Date(stat.started_at).getTime()) / 1000)}s
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}
