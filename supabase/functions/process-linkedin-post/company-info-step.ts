@@ -27,8 +27,12 @@ export async function executeCompanyInfoStep(
 
     console.log('🏢 Starting company info step for LinkedIn ID:', companyLinkedInId);
 
+    // ✅ CORRECTION : Utiliser l'URL complète avec le bon DSN
+    const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-company-info`;
+    console.log('🌐 Calling company info function:', functionUrl);
+
     // Call the fetch-company-info function
-    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-company-info`, {
+    const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -44,7 +48,7 @@ export async function executeCompanyInfoStep(
       console.error('❌ Error calling fetch-company-info function:', response.status, errorText);
       return {
         success: false,
-        error: `Failed to fetch company info: ${response.status}`
+        error: `Failed to fetch company info: ${response.status} - ${errorText}`
       };
     }
 
@@ -59,6 +63,12 @@ export async function executeCompanyInfoStep(
     }
 
     console.log('✅ Company info step completed successfully');
+    console.log('🏢 Company info retrieved:', {
+      id: result.company.id,
+      name: result.company.name,
+      industry: result.company.industry
+    });
+
     return {
       success: true,
       companyId: result.company.id,

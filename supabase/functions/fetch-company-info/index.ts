@@ -75,12 +75,12 @@ serve(async (req) => {
       }
     }
 
-    // Add random delay between 2-8 seconds
+    // Add random delay between 2-8 seconds for rate limiting
     const delay = Math.floor(Math.random() * 6000) + 2000;
-    console.log(`⏱️ Adding ${delay}ms delay before Unipile call`);
+    console.log(`⏱️ Adding ${delay}ms delay before Unipile company call`);
     await new Promise(resolve => setTimeout(resolve, delay));
 
-    // Fetch from Unipile API
+    // Fetch from Unipile API with correct DSN
     const unipileApiKey = Deno.env.get('UNIPILE_API_KEY');
     if (!unipileApiKey) {
       console.error('❌ UNIPILE_API_KEY not found');
@@ -90,8 +90,9 @@ serve(async (req) => {
       });
     }
 
-    console.log('🔗 Calling Unipile API for company:', companyLinkedInId);
+    console.log('🔗 Calling Unipile company API for:', companyLinkedInId);
     
+    // ✅ CORRECTION : Utiliser le bon DSN api9.unipile.com:13946
     const unipileResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/company/${companyLinkedInId}`, {
       method: 'GET',
       headers: {
@@ -101,7 +102,8 @@ serve(async (req) => {
     });
 
     if (!unipileResponse.ok) {
-      console.error('❌ Unipile API error:', unipileResponse.status, unipileResponse.statusText);
+      const errorText = await unipileResponse.text();
+      console.error('❌ Unipile company API error:', unipileResponse.status, unipileResponse.statusText, errorText);
       return new Response(JSON.stringify({ 
         error: 'Failed to fetch company info from Unipile',
         status: unipileResponse.status 
@@ -113,6 +115,7 @@ serve(async (req) => {
 
     const unipileData = await unipileResponse.json();
     console.log('✅ Successfully fetched company data from Unipile');
+    console.log('🏢 Company data keys:', Object.keys(unipileData));
 
     // Extract relevant information
     const companyInfo: CompanyInfo = {
