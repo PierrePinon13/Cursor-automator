@@ -8,6 +8,7 @@ import DeepDataAnalysis from './DeepDataAnalysis';
 import MistargetedPostsSection from './MistargetedPostsSection';
 import { HrProvidersManagement } from './HrProvidersManagement';
 import { DatasetAudit } from './DatasetAudit';
+import { DatasetReprocessing } from './DatasetReprocessing';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AdminDashboard() {
@@ -18,13 +19,14 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
           <TabsTrigger value="funnel">Funnel</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="analysis">Analyse</TabsTrigger>
           <TabsTrigger value="audit">Audit Dataset</TabsTrigger>
+          <TabsTrigger value="reprocessing">Retraitement</TabsTrigger>
           <TabsTrigger value="mistargeted">Posts mal ciblés</TabsTrigger>
         </TabsList>
 
@@ -56,6 +58,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="audit" className="space-y-6">
           <DatasetAudit />
+        </TabsContent>
+
+        <TabsContent value="reprocessing" className="space-y-6">
+          <DatasetReprocessing />
         </TabsContent>
 
         <TabsContent value="mistargeted" className="space-y-6">
