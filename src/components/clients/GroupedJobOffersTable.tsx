@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar, MapPin, User, Archive, Eye, EyeOff, UserPlus, Check, ChevronDown, ArchiveX } from 'lucide-react';
+import { Calendar, MapPin, User, Archive, Eye, EyeOff, UserPlus, Check, ChevronDown, ArchiveX, ArchiveRestore } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ClientJobOffer, User as UserType } from '@/hooks/useClientJobOffers';
@@ -14,9 +14,16 @@ interface GroupedJobOffersTableProps {
   users: UserType[];
   onAssignJobOffer: (jobOfferId: string, userId: string | null) => void;
   onUpdateStatus: (jobOfferId: string, status: string) => void;
+  animatingItems?: Set<string>;
 }
 
-export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUpdateStatus }: GroupedJobOffersTableProps) {
+export function GroupedJobOffersTable({ 
+  jobOffers, 
+  users, 
+  onAssignJobOffer, 
+  onUpdateStatus,
+  animatingItems = new Set()
+}: GroupedJobOffersTableProps) {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ClientJobOffer;
     direction: 'asc' | 'desc';
@@ -104,6 +111,15 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
         onUpdateStatus(offer.id, 'archivee');
       }
     });
+  };
+
+  const handleStatusClick = (offer: ClientJobOffer, newStatus: string) => {
+    // Si l'offre est archivée et qu'on clique sur archivée, on la désarchive
+    if (offer.status === 'archivee' && newStatus === 'archivee') {
+      onUpdateStatus(offer.id, 'non_attribuee');
+    } else {
+      onUpdateStatus(offer.id, newStatus);
+    }
   };
 
   const AssignmentSelector = ({ offer }: { offer: ClientJobOffer }) => {
@@ -197,8 +213,17 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
           >
             <Badge 
               variant="outline" 
-              className={`text-xs font-medium border ${getStatusColor(offer.status)}`}
+              className={`text-xs font-medium border ${getStatusColor(offer.status)} ${
+                offer.status === 'archivee' ? 'cursor-pointer hover:bg-gray-300' : ''
+              }`}
+              onClick={offer.status === 'archivee' ? (e) => {
+                e.stopPropagation();
+                handleStatusClick(offer, 'archivee');
+              } : undefined}
             >
+              {offer.status === 'archivee' && (
+                <ArchiveRestore className="h-3 w-3 mr-1" />
+              )}
               {getStatusLabel(offer.status)}
             </Badge>
             <ChevronDown className="h-4 w-4 text-gray-500 ml-2" />
@@ -221,7 +246,7 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
               ].map((status) => (
                 <button
                   key={status.value}
-                  onClick={() => onUpdateStatus(offer.id, status.value)}
+                  onClick={() => handleStatusClick(offer, status.value)}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-3 ${
                     offer.status === status.value
                       ? 'bg-purple-100 text-purple-900 font-medium'
@@ -288,14 +313,24 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
                 </Button>
               </TableHead>
               <TableHead className="font-semibold text-gray-900 w-48">Assignation</TableHead>
-              <TableHead className="font-semibold text-gray-900 w-48">Statut</TableHead>
+              <TableHead className="font-semibold text-gray-900 w-52">Statut</TableHead>
               <TableHead className="font-semibold text-gray-900 w-24">Archiver</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {Object.entries(groupedOffers).map(([companyName, offers]) => 
               offers.map((offer, index) => (
-                <TableRow key={offer.id} className="hover:bg-blue-50/50 transition-colors">
+                <TableRow 
+                  key={offer.id} 
+                  className={`hover:bg-blue-50/50 transition-all duration-300 ${
+                    animatingItems.has(offer.id) 
+                      ? 'animate-[slideUp_0.5s_ease-in-out_forwards] opacity-0 transform translate-y-[-20px]' 
+                      : 'opacity-100'
+                  }`}
+                  style={{
+                    animationDelay: animatingItems.has(offer.id) ? `${index * 50}ms` : '0ms'
+                  }}
+                >
                   {/* Entreprise - fusionnée visuellement pour le regroupement */}
                   <TableCell className="py-3">
                     {index === 0 ? (

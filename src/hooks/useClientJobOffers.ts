@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -36,7 +35,8 @@ export function useClientJobOffers() {
   const [selectedDateFilter, setSelectedDateFilter] = useState('last_48_hours');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('unassigned');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState(['active']); // Maintenant un tableau
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(['active']);
+  const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,7 +49,6 @@ export function useClientJobOffers() {
       setLoading(true);
       console.log('📋 Fetching client job offers...');
       
-      // D'abord, comptons le total dans la table
       const { count, error: countError } = await supabase
         .from('client_job_offers')
         .select('*', { count: 'exact', head: true });
@@ -60,7 +59,6 @@ export function useClientJobOffers() {
         console.log(`🔢 Total job offers in database: ${count}`);
       }
 
-      // Maintenant récupérons les données
       const { data, error } = await supabase
         .from('client_job_offers')
         .select('*')
@@ -74,7 +72,6 @@ export function useClientJobOffers() {
       console.log(`✅ Successfully fetched ${data?.length || 0} job offers from query`);
       console.log('📊 Sample data:', data?.slice(0, 2));
       
-      // Vérifions les données récentes (dernières 48h)
       const last48Hours = new Date();
       last48Hours.setHours(last48Hours.getHours() - 48);
       const recentOffers = data?.filter(offer => new Date(offer.created_at) > last48Hours) || [];
@@ -108,6 +105,19 @@ export function useClientJobOffers() {
     }
   };
 
+  const animateItemRemoval = (itemId: string) => {
+    setAnimatingItems(prev => new Set(prev).add(itemId));
+    
+    // Retirer l'animation après un délai
+    setTimeout(() => {
+      setAnimatingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }, 500);
+  };
+
   const assignJobOffer = async (jobOfferId: string, userId: string | null) => {
     try {
       const updateData: any = {
@@ -116,7 +126,6 @@ export function useClientJobOffers() {
         updated_at: new Date().toISOString()
       };
 
-      // Si on assigne à quelqu'un, changer le statut à "en_attente"
       if (userId) {
         updateData.status = 'en_attente';
       } else {
@@ -130,12 +139,26 @@ export function useClientJobOffers() {
 
       if (error) throw error;
 
+      const offer = jobOffers.find(o => o.id === jobOfferId);
+      if (offer) {
+        const willDisappear = checkIfOfferWillDisappear({
+          ...offer,
+          ...updateData
+        });
+
+        if (willDisappear) {
+          animateItemRemoval(jobOfferId);
+        }
+      }
+
       toast({
         title: "Succès",
         description: userId ? "Offre assignée avec succès." : "Assignation supprimée avec succès.",
       });
 
-      await fetchJobOffers();
+      setTimeout(() => {
+        fetchJobOffers();
+      }, willDisappear ? 300 : 0);
     } catch (error: any) {
       console.error('Error assigning job offer:', error);
       toast({
@@ -158,12 +181,26 @@ export function useClientJobOffers() {
 
       if (error) throw error;
 
+      const offer = jobOffers.find(o => o.id === jobOfferId);
+      if (offer) {
+        const willDisappear = checkIfOfferWillDisappear({
+          ...offer,
+          status: newStatus
+        });
+
+        if (willDisappear) {
+          animateItemRemoval(jobOfferId);
+        }
+      }
+
       toast({
         title: "Succès",
-        description: "Statut mis à jour avec succès.",
+        description: newStatus === 'archivee' ? "Offre archivée avec succès." : "Statut mis à jour avec succès.",
       });
 
-      await fetchJobOffers();
+      setTimeout(() => {
+        fetchJobOffers();
+      }, willDisappear ? 300 : 0);
     } catch (error: any) {
       console.error('Error updating job offer status:', error);
       toast({
@@ -172,6 +209,17 @@ export function useClientJobOffers() {
         variant: "destructive",
       });
     }
+  };
+
+  const checkIfOfferWillDisappear = (offer: ClientJobOffer): boolean => {
+    if (selectedAssignmentFilter === 'assigned' && !offer.assigned_to_user_id) return true;
+    if (selectedAssignmentFilter === 'unassigned' && offer.assigned_to_user_id) return true;
+
+    if (selectedStatusFilter.includes('active') && offer.status === 'archivee') return true;
+    if (selectedStatusFilter.includes('archived') && offer.status !== 'archivee') return true;
+    if (!selectedStatusFilter.includes('active') && !selectedStatusFilter.includes('archived') && !selectedStatusFilter.includes(offer.status)) return true;
+
+    return false;
   };
 
   // Filtrage par date
@@ -229,16 +277,13 @@ export function useClientJobOffers() {
     if (selectedStatusFilter.includes('all')) return true;
     
     if (selectedStatusFilter.includes('active')) {
-      // Si "active" est sélectionné, inclure tous les statuts non archivés
       if (jobOffer.status !== 'archivee') return true;
     }
     
     if (selectedStatusFilter.includes('archived')) {
-      // Si "archived" est sélectionné, inclure les archivés
       if (jobOffer.status === 'archivee') return true;
     }
     
-    // Vérifier si le statut exact est dans la sélection
     return selectedStatusFilter.includes(jobOffer.status);
   });
 
@@ -267,6 +312,7 @@ export function useClientJobOffers() {
     availableClients,
     assignJobOffer,
     updateJobOfferStatus,
-    refreshJobOffers: fetchJobOffers
+    refreshJobOffers: fetchJobOffers,
+    animatingItems
   };
 }

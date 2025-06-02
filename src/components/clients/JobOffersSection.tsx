@@ -22,7 +22,8 @@ export function JobOffersSection() {
     setSelectedStatusFilter,
     availableClients,
     assignJobOffer,
-    updateJobOfferStatus
+    updateJobOfferStatus,
+    animatingItems
   } = useClientJobOffers();
 
   if (loading) {
@@ -60,6 +61,7 @@ export function JobOffersSection() {
           users={users}
           onAssignJobOffer={assignJobOffer}
           onUpdateStatus={updateJobOfferStatus}
+          animatingItems={animatingItems}
         />
       </TabsContent>
       
