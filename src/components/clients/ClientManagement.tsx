@@ -130,7 +130,7 @@ export function ClientManagement() {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow border">
         <ResizableTable 
           clients={clients}
           users={users}
