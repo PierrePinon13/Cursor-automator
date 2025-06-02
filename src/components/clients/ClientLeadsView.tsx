@@ -48,10 +48,9 @@ export function ClientLeadsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header avec titre et statistiques */}
+      {/* Header avec statistiques et boutons d'action */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold">Publications LinkedIn</h2>
           <Badge variant="secondary" className="text-sm">
             {filteredLeads.length} publication{filteredLeads.length > 1 ? 's' : ''}
           </Badge>

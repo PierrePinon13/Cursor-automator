@@ -26,12 +26,9 @@ const Clients = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Header minimal avec juste les boutons de navigation */}
-      <div className="flex items-center justify-between px-3 py-2 bg-white border-b">
+      <div className="flex items-center justify-between px-3 py-2 bg-white">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold text-gray-900">
-            {showManagement ? 'Gestion des clients' : 'Clients'}
-          </h1>
         </div>
         
         <div className="flex items-center gap-3">
