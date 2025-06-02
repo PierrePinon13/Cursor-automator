@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tables } from '@/integrations/supabase/types';
+import CompanyHoverCard from './CompanyHoverCard';
 
 type Lead = Tables<'leads'>;
 
@@ -20,6 +21,31 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
 
   return (
     <div className="flex flex-col h-full space-y-4">
+      {/* Informations entreprise */}
+      {lead.company_name && (
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-shrink-0">
+          <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            Entreprise
+          </h4>
+          <CompanyHoverCard 
+            companyId={lead.company_id || undefined} 
+            companyName={lead.company_name}
+          >
+            <div className="cursor-help">
+              <p className="font-medium text-gray-900 hover:text-blue-600 transition-colors">
+                {lead.company_name}
+              </p>
+              {lead.company_position && (
+                <p className="text-sm text-gray-600 mt-1">
+                  {lead.company_position}
+                </p>
+              )}
+            </div>
+          </CompanyHoverCard>
+        </div>
+      )}
+
       {/* Poste recherché */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-shrink-0">
         <h4 className="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2">
