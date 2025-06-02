@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -102,7 +103,6 @@ export function VisualJobOffersFilters({
     } else {
       setSelectedStatusFilter([...selectedStatusFilter, statusValue]);
     }
-    // Don't close the popover for multi-select
   };
 
   const FilterButton = ({ 
@@ -184,7 +184,7 @@ export function VisualJobOffersFilters({
 
   return (
     <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
-      {/* Header simplifié sans icône ni texte descriptif */}
+      {/* Header avec compteur et actualiser alignés */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Badge 
@@ -197,15 +197,14 @@ export function VisualJobOffersFilters({
             onClick={refreshJobOffers}
             variant="outline"
             size="sm"
-            className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-200 shadow-sm"
+            className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-200 shadow-sm h-8 w-8 p-0"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualiser
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Filtres compacts en ligne */}
+      {/* Filtres */}
       <div className="flex flex-wrap gap-3">
         <FilterButton
           icon={Calendar}
@@ -246,12 +245,11 @@ export function VisualJobOffersFilters({
           value={selectedStatusFilter}
           color="purple"
           options={statusOptions}
-          onSelect={() => {}} // Not used for multi-select
+          onSelect={() => {}}
           type="status"
           isMultiSelect={true}
         />
 
-        {/* Reset button */}
         {getActiveFiltersCount() > 0 && (
           <Button
             variant="ghost"

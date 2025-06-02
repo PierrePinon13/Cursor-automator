@@ -25,10 +25,38 @@ const Clients = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header minimal avec juste les boutons de navigation */}
-      <div className="flex items-center justify-between px-3 py-2 bg-white">
-        <div className="flex items-center gap-4">
+      {/* Nouvelle barre de navigation unifiée */}
+      <div className="flex items-center justify-between px-3 py-4 bg-white border-b border-gray-100">
+        <div className="flex items-center gap-6">
           <SidebarTrigger />
+          
+          {/* Navigation principale avec nouveau style */}
+          <div className="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
+            <button
+              onClick={() => setShowManagement(false)}
+              className={`
+                px-6 py-2.5 rounded-md text-sm font-medium transition-all duration-200
+                ${!showManagement 
+                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
+                }
+              `}
+            >
+              Offres d'emploi
+            </button>
+            <button
+              onClick={() => setShowManagement(false)}
+              className={`
+                px-6 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ml-1
+                ${false 
+                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
+                }
+              `}
+            >
+              Publications LinkedIn
+            </button>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -39,14 +67,14 @@ const Clients = () => {
             size="sm"
           >
             <Settings className="h-4 w-4" />
-            {showManagement ? 'Voir les offres' : 'Gestion'}
+            Gestion
           </Button>
           <UserActionsDropdown />
         </div>
       </div>
 
-      {/* Contenu avec padding */}
-      <div className="p-6">
+      {/* Contenu avec padding réduit */}
+      <div className="p-4">
         {showManagement ? (
           <ClientManagement />
         ) : (
