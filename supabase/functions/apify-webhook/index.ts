@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -325,7 +324,7 @@ serve(async (req) => {
   }
 })
 
-// 🎯 CLASSIFICATION CORRIGÉE - Logique moins stricte et plus permissive
+// 🎯 CLASSIFICATION CORRIGÉE - Logique moins stricte mais exclut les companies
 function classifyForProcessingFixed(item: any) {
   // Critères absolument obligatoires
   if (!item.urn) {
@@ -336,16 +335,17 @@ function classifyForProcessingFixed(item: any) {
     return { process: false, reason: 'Missing URL (critical)', priority: 0 }
   }
 
-  // ❌ SUPPRIMÉ: La vérification stricte sur authorProfileUrl car elle rejette trop
-  // ❌ SUPPRIMÉ: La vérification sur text/title car title peut être null
-  
-  // Exclusions spécifiques (uniquement les cas vraiment problématiques)
+  // Exclusions spécifiques
   if (item.isRepost === true) {
     return { process: false, reason: 'Is repost', priority: 0 }
   }
 
-  // Accepter tous les authorType ou si non défini
-  // ❌ SUPPRIMÉ: La restriction sur authorType !== 'Person'
+  // MAINTENIR l'exclusion des companies
+  if (item.authorType === 'Company') {
+    return { process: false, reason: 'Author is company (excluded)', priority: 0 }
+  }
+
+  // Accepter tous les autres authorType (Person, etc.) ou si non défini
   
   // Priorité haute : Posts récents
   if (item.postedAtTimestamp) {
