@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -71,14 +72,13 @@ serve(async (req) => {
       console.error('❌ Background processing error:', err)
     })
 
-    // Log webhook reception for monitoring - CORRECTION: Suppression du champ inexistant
+    // Log webhook reception for monitoring - CORRECTION: Suppression du champ webhook_payload inexistant
     try {
       const { error: logError } = await supabaseClient
         .from('apify_webhook_stats')
         .insert({
           dataset_id: datasetId,
-          webhook_received_at: new Date().toISOString(),
-          webhook_payload: webhookData
+          started_at: new Date().toISOString()
         })
       
       if (logError) {
