@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, Database, FileText, Target, CheckCircle, AlertCircle } from 'lucide-react';
+import { RefreshCw, Database, Calendar, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -21,57 +22,153 @@ interface ProcessingStat {
   created_at: string;
 }
 
-interface DatasetStats {
+interface DatasetInfo {
   dataset_id: string;
-  executions: ProcessingStat[];
-  total_posts: number;
-  success_rate: number;
-  latest_execution: string;
+  first_execution: string;
+  last_execution: string;
+  total_executions: number;
+  total_posts_processed: number;
+  avg_success_rate: number;
 }
+
+interface GlobalStats {
+  period: string;
+  total_executions: number;
+  total_posts: number;
+  total_success: number;
+  avg_success_rate: number;
+  total_errors: number;
+}
+
+type ViewMode = 'global' | 'dataset';
+type TimePeriod = '24h' | '7d' | '30d' | 'all';
 
 const ProcessingStatsSection = () => {
   const [stats, setStats] = useState<ProcessingStat[]>([]);
-  const [datasetStats, setDatasetStats] = useState<DatasetStats[]>([]);
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
+  const [globalStats, setGlobalStats] = useState<GlobalStats[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('global');
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('7d');
   const [loading, setLoading] = useState(true);
+
+  const getDateFilter = (period: TimePeriod) => {
+    const now = new Date();
+    switch (period) {
+      case '24h':
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      default:
+        return null;
+    }
+  };
 
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('apify_webhook_stats')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: false });
 
+      const dateFilter = getDateFilter(timePeriod);
+      if (dateFilter) {
+        query = query.gte('created_at', dateFilter);
+      }
+
+      const { data, error } = await query.limit(500);
       if (error) throw error;
+      
       setStats(data || []);
 
-      // Group by dataset
-      const grouped = (data || []).reduce((acc, stat) => {
-        if (!acc[stat.dataset_id]) {
-          acc[stat.dataset_id] = [];
+      // Calculer les datasets
+      const datasetMap = new Map<string, DatasetInfo>();
+      (data || []).forEach(stat => {
+        if (!datasetMap.has(stat.dataset_id)) {
+          datasetMap.set(stat.dataset_id, {
+            dataset_id: stat.dataset_id,
+            first_execution: stat.created_at,
+            last_execution: stat.created_at,
+            total_executions: 0,
+            total_posts_processed: 0,
+            avg_success_rate: 0
+          });
         }
-        acc[stat.dataset_id].push(stat);
-        return acc;
-      }, {} as Record<string, ProcessingStat[]>);
+        
+        const info = datasetMap.get(stat.dataset_id)!;
+        info.total_executions++;
+        info.total_posts_processed += stat.total_received;
+        
+        if (stat.created_at < info.first_execution) {
+          info.first_execution = stat.created_at;
+        }
+        if (stat.created_at > info.last_execution) {
+          info.last_execution = stat.created_at;
+        }
+      });
 
-      const datasetSummary = Object.entries(grouped).map(([datasetId, executions]) => {
-        const totalPosts = executions.reduce((sum, exec) => sum + exec.total_received, 0);
-        const totalSuccess = executions.reduce((sum, exec) => sum + exec.successfully_inserted, 0);
-        const successRate = totalPosts > 0 ? (totalSuccess / totalPosts) * 100 : 0;
-        const latestExecution = executions[0]?.created_at || '';
+      // Calculer les taux de succès
+      datasetMap.forEach((info, datasetId) => {
+        const datasetStats = (data || []).filter(s => s.dataset_id === datasetId);
+        const totalReceived = datasetStats.reduce((sum, s) => sum + s.total_received, 0);
+        const totalSuccess = datasetStats.reduce((sum, s) => sum + s.successfully_inserted, 0);
+        info.avg_success_rate = totalReceived > 0 ? (totalSuccess / totalReceived) * 100 : 0;
+      });
 
-        return {
-          dataset_id: datasetId,
-          executions: executions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-          total_posts: totalPosts,
-          success_rate: successRate,
-          latest_execution: latestExecution
-        };
-      }).sort((a, b) => new Date(b.latest_execution).getTime() - new Date(a.latest_execution).getTime());
+      setDatasets(Array.from(datasetMap.values()).sort((a, b) => 
+        new Date(b.last_execution).getTime() - new Date(a.last_execution).getTime()
+      ));
 
-      setDatasetStats(datasetSummary);
+      // Calculer les stats globales par période
+      if (viewMode === 'global') {
+        const periodGroups = new Map<string, ProcessingStat[]>();
+        
+        (data || []).forEach(stat => {
+          let periodKey: string;
+          const date = new Date(stat.created_at);
+          
+          switch (timePeriod) {
+            case '24h':
+              periodKey = format(date, 'HH:mm', { locale: fr });
+              break;
+            case '7d':
+              periodKey = format(date, 'dd/MM', { locale: fr });
+              break;
+            case '30d':
+              periodKey = format(date, 'dd/MM', { locale: fr });
+              break;
+            default:
+              periodKey = format(date, 'MM/yyyy', { locale: fr });
+              break;
+          }
+          
+          if (!periodGroups.has(periodKey)) {
+            periodGroups.set(periodKey, []);
+          }
+          periodGroups.get(periodKey)!.push(stat);
+        });
+
+        const globalStatsData: GlobalStats[] = Array.from(periodGroups.entries()).map(([period, stats]) => {
+          const totalPosts = stats.reduce((sum, s) => sum + s.total_received, 0);
+          const totalSuccess = stats.reduce((sum, s) => sum + s.successfully_inserted, 0);
+          const totalErrors = stats.reduce((sum, s) => sum + s.processing_errors, 0);
+          
+          return {
+            period,
+            total_executions: stats.length,
+            total_posts: totalPosts,
+            total_success: totalSuccess,
+            avg_success_rate: totalPosts > 0 ? (totalSuccess / totalPosts) * 100 : 0,
+            total_errors: totalErrors
+          };
+        }).sort((a, b) => a.period.localeCompare(b.period));
+
+        setGlobalStats(globalStatsData);
+      }
+
     } catch (error) {
       console.error('Error fetching processing stats:', error);
     } finally {
@@ -81,16 +178,11 @@ const ProcessingStatsSection = () => {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [viewMode, timePeriod, selectedDataset]);
 
-  const filteredStats = selectedDataset 
+  const filteredStats = selectedDataset && viewMode === 'dataset'
     ? stats.filter(stat => stat.dataset_id === selectedDataset)
     : stats;
-
-  const calculateFilteringRate = (before: number, after: number) => {
-    if (before === 0) return 0;
-    return Math.round(((before - after) / before) * 100);
-  };
 
   if (loading) {
     return (
@@ -106,22 +198,33 @@ const ProcessingStatsSection = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Statistiques de traitement</h3>
-          <p className="text-sm text-muted-foreground">
-            {selectedDataset ? `Dataset: ${selectedDataset.substring(0, 8)}...` : 'Tous les datasets'}
-          </p>
-        </div>
+        <h3 className="text-lg font-semibold">Statistiques d'exécutions</h3>
         <div className="flex gap-2">
-          {selectedDataset && (
-            <Button 
-              onClick={() => setSelectedDataset(null)} 
-              variant="outline" 
-              size="sm"
-            >
-              Voir tous
-            </Button>
-          )}
+          <Select value={viewMode} onValueChange={(value: ViewMode) => {
+            setViewMode(value);
+            if (value === 'global') setSelectedDataset(null);
+          }}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="global">Vue globale</SelectItem>
+              <SelectItem value="dataset">Par dataset</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={timePeriod} onValueChange={(value: TimePeriod) => setTimePeriod(value)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="24h">24h</SelectItem>
+              <SelectItem value="7d">7 jours</SelectItem>
+              <SelectItem value="30d">30 jours</SelectItem>
+              <SelectItem value="all">Tout</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Button onClick={fetchStats} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualiser
@@ -129,20 +232,71 @@ const ProcessingStatsSection = () => {
         </div>
       </div>
 
-      {!selectedDataset && (
+      {viewMode === 'global' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-500" />
+              Statistiques globales par période
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {globalStats.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Aucune donnée disponible</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Période</TableHead>
+                    <TableHead>Exécutions</TableHead>
+                    <TableHead>Posts traités</TableHead>
+                    <TableHead>Succès</TableHead>
+                    <TableHead>Taux de succès</TableHead>
+                    <TableHead>Erreurs</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {globalStats.map((stat, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{stat.period}</TableCell>
+                      <TableCell>{stat.total_executions}</TableCell>
+                      <TableCell className="font-medium">{stat.total_posts}</TableCell>
+                      <TableCell className="text-green-600 font-medium">{stat.total_success}</TableCell>
+                      <TableCell>
+                        <Badge variant={stat.avg_success_rate > 80 ? "default" : "secondary"}>
+                          {stat.avg_success_rate.toFixed(1)}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {stat.total_errors > 0 && (
+                          <Badge variant="destructive">{stat.total_errors}</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {viewMode === 'dataset' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Database className="h-5 w-5 text-blue-500" />
-              Résumé par Dataset
+              Datasets disponibles
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              {datasetStats.map((dataset) => (
+              {datasets.map((dataset) => (
                 <div 
                   key={dataset.dataset_id}
-                  className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    selectedDataset === dataset.dataset_id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+                  }`}
                   onClick={() => setSelectedDataset(dataset.dataset_id)}
                 >
                   <div className="flex items-center justify-between">
@@ -151,17 +305,16 @@ const ProcessingStatsSection = () => {
                         Dataset: {dataset.dataset_id.substring(0, 12)}...
                       </h4>
                       <p className="text-sm text-gray-600">
-                        {dataset.executions.length} exécutions • {dataset.total_posts} posts traités
+                        {dataset.total_executions} exécutions • {dataset.total_posts_processed} posts
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Première: {format(new Date(dataset.first_execution), 'dd/MM/yyyy HH:mm', { locale: fr })} • 
+                        Dernière: {format(new Date(dataset.last_execution), 'dd/MM/yyyy HH:mm', { locale: fr })}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={dataset.success_rate > 80 ? "default" : "secondary"}>
-                        {dataset.success_rate.toFixed(1)}% succès
-                      </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Dernière: {format(new Date(dataset.latest_execution), 'dd/MM HH:mm', { locale: fr })}
-                      </p>
-                    </div>
+                    <Badge variant={dataset.avg_success_rate > 80 ? "default" : "secondary"}>
+                      {dataset.avg_success_rate.toFixed(1)}% succès
+                    </Badge>
                   </div>
                 </div>
               ))}
@@ -170,33 +323,31 @@ const ProcessingStatsSection = () => {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            Historique des exécutions
-            {selectedDataset && (
-              <Badge variant="outline" className="ml-2">
-                {selectedDataset.substring(0, 8)}...
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredStats.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">
-              Aucune statistique disponible
-            </p>
-          ) : (
+      {selectedDataset && viewMode === 'dataset' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Historique des exécutions - {selectedDataset.substring(0, 8)}...
+              <Button
+                onClick={() => setSelectedDataset(null)}
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+              >
+                Retour à la liste
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Dataset ID</TableHead>
                   <TableHead>Reçus</TableHead>
                   <TableHead>Stockés Raw</TableHead>
                   <TableHead>Insérés</TableHead>
-                  <TableHead>Taux Rejet</TableHead>
+                  <TableHead>Taux succès</TableHead>
                   <TableHead>Erreurs</TableHead>
                   <TableHead>Durée</TableHead>
                 </TableRow>
@@ -207,17 +358,16 @@ const ProcessingStatsSection = () => {
                     <TableCell>
                       {format(new Date(stat.created_at), 'dd/MM HH:mm', { locale: fr })}
                     </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-gray-100 px-1 rounded">
-                        {stat.dataset_id.substring(0, 8)}...
-                      </code>
-                    </TableCell>
                     <TableCell className="font-medium">{stat.total_received}</TableCell>
-                    <TableCell className="font-medium text-purple-600">{stat.stored_raw}</TableCell>
-                    <TableCell className="font-medium text-green-600">{stat.successfully_inserted}</TableCell>
+                    <TableCell className="text-purple-600">{stat.stored_raw}</TableCell>
+                    <TableCell className="text-green-600 font-medium">{stat.successfully_inserted}</TableCell>
                     <TableCell>
-                      <Badge variant={calculateFilteringRate(stat.total_received, stat.successfully_inserted) > 50 ? "destructive" : "outline"}>
-                        {calculateFilteringRate(stat.total_received, stat.successfully_inserted)}%
+                      <Badge variant={
+                        stat.total_received > 0 && 
+                        (stat.successfully_inserted / stat.total_received) > 0.8 ? "default" : "secondary"
+                      }>
+                        {stat.total_received > 0 ? 
+                          ((stat.successfully_inserted / stat.total_received) * 100).toFixed(1) : 0}%
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -236,9 +386,9 @@ const ProcessingStatsSection = () => {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
