@@ -22,7 +22,7 @@ serve(async (req) => {
 
     const webhookData = await req.json()
     console.log('=== LinkedIn webhook received ===')
-    console.log('Full webhook data:', JSON.stringify(webhookData, null, 2))
+    console.log('LinkedIn webhook received:', JSON.stringify(webhookData, null, 2))
 
     const { account_id, status, metadata, error: unipileError, name } = webhookData
 
@@ -42,7 +42,7 @@ serve(async (req) => {
         success: true
       })
 
-    // Get user_id from metadata first, then try to find by email from name field
+    // Try to get user_id from metadata first, then by email from name field
     let user_id = metadata?.user_id
     
     if (!user_id && name) {
@@ -53,18 +53,31 @@ serve(async (req) => {
         .from('profiles')
         .select('id')
         .eq('email', name)
-        .single()
+        .maybeSingle()
       
       if (profile && !profileError) {
         user_id = profile.id
         console.log('Found user by email:', user_id)
       } else {
-        console.error('Could not find user by email:', name, profileError)
+        console.log('Could not find user by email, error:', profileError)
+        
+        // If not found by email, try to find by unipile_account_id (in case of reconnection)
+        console.log('Trying to find user by existing unipile_account_id:', account_id)
+        const { data: existingProfile, error: existingError } = await supabaseClient
+          .from('profiles')
+          .select('id, email')
+          .eq('unipile_account_id', account_id)
+          .maybeSingle()
+          
+        if (existingProfile && !existingError) {
+          user_id = existingProfile.id
+          console.log('Found user by existing unipile_account_id:', user_id, 'email:', existingProfile.email)
+        }
       }
     }
     
     if (!user_id) {
-      console.error('No user_id found in webhook metadata or by email lookup')
+      console.error('No user_id found - tried metadata, email lookup, and account_id lookup')
       
       // Log all available information for debugging
       console.log('Available webhook data:', {
@@ -88,10 +101,10 @@ serve(async (req) => {
             error: 'Could not identify user from webhook data'
           },
           success: false,
-          error_message: 'Missing user_id in metadata and could not find user by email'
+          error_message: 'Missing user_id in metadata and could not find user by email or account_id'
         })
       
-      return new Response('Missing user_id in metadata and could not find user by email', { status: 400 })
+      return new Response('Could not identify user from webhook data', { status: 400 })
     }
 
     console.log('Updating profile for user:', user_id, 'with account_id:', account_id)
