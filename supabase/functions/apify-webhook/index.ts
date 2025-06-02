@@ -59,6 +59,7 @@ serve(async (req) => {
       stored_raw: 0,
       after_person_filter: 0,
       after_repost_filter: 0,
+      after_required_fields_filter: 0,
       after_deduplication: 0,
       successfully_inserted: 0,
       processing_errors: 0,
@@ -217,10 +218,23 @@ serve(async (req) => {
     stats.after_repost_filter = filteredItems.length
     console.log(`✅ After Repost filter: ${stats.after_repost_filter}/${stats.after_person_filter} (${((stats.after_repost_filter/stats.after_person_filter)*100).toFixed(1)}%)`)
 
+    // Filter 3: Only keep items with required fields (text, url, urn, authorProfileUrl)
+    filteredItems = filteredItems.filter(item => {
+      const hasRequiredFields = item.text && item.url && item.urn && item.authorProfileUrl
+      if (!hasRequiredFields) {
+        console.log(`❌ Filtered out item missing required fields: ${item.urn} - text: ${!!item.text}, url: ${!!item.url}, authorProfileUrl: ${!!item.authorProfileUrl}`)
+      }
+      return hasRequiredFields
+    })
+    stats.after_required_fields_filter = filteredItems.length
+    console.log(`✅ After Required fields filter: ${stats.after_required_fields_filter}/${stats.after_repost_filter} (${((stats.after_required_fields_filter/stats.after_repost_filter)*100).toFixed(1)}%)`)
+
     // Process remaining items for linkedin_posts table
     let insertedCount = 0
     let deduplicatedCount = 0
     let errorCount = 0
+
+    console.log(`🔄 Processing ${filteredItems.length} items for linkedin_posts insertion...`)
 
     for (const item of filteredItems) {
       try {
@@ -229,7 +243,7 @@ serve(async (req) => {
           .from('linkedin_posts')
           .select('id')
           .eq('urn', item.urn)
-          .single()
+          .maybeSingle()
 
         if (existingPost) {
           console.log(`🔄 Duplicate URN found in linkedin_posts: ${item.urn} - skipping`)
@@ -255,6 +269,8 @@ serve(async (req) => {
           raw_data: item
         }
 
+        console.log(`📝 Inserting post: ${item.urn}`)
+
         // Insert into linkedin_posts
         const { data: insertedPost, error: insertError } = await supabaseClient
           .from('linkedin_posts')
@@ -264,6 +280,7 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('❌ Error inserting post in linkedin_posts:', insertError)
+          console.error('❌ Post data that failed:', JSON.stringify(postData, null, 2))
           errorCount++
           continue
         }
@@ -273,21 +290,24 @@ serve(async (req) => {
 
         // Trigger OpenAI processing (async)
         try {
+          console.log(`🚀 Triggering OpenAI processing for post: ${insertedPost.id}`)
           await supabaseClient.functions.invoke('process-linkedin-post', {
             body: { postId: insertedPost.id }
           })
+          console.log(`✅ OpenAI processing triggered for post: ${insertedPost.id}`)
         } catch (processingError) {
           console.error('⚠️ Error triggering post processing:', processingError)
         }
 
       } catch (error) {
         console.error('❌ Error processing item for linkedin_posts:', error)
+        console.error('❌ Item that caused error:', JSON.stringify(item, null, 2))
         errorCount++
       }
     }
 
     // Update final statistics
-    stats.after_deduplication = stats.after_repost_filter - deduplicatedCount
+    stats.after_deduplication = stats.after_required_fields_filter - deduplicatedCount
     stats.successfully_inserted = insertedCount
     stats.processing_errors = errorCount
     stats.completed_at = new Date().toISOString()
@@ -307,6 +327,7 @@ serve(async (req) => {
     💾 Stored raw: ${stats.stored_raw}
     👤 After Person filter: ${stats.after_person_filter}
     🔁 After Repost filter: ${stats.after_repost_filter}
+    📋 After Required fields filter: ${stats.after_required_fields_filter}
     🔍 After Deduplication: ${stats.after_deduplication}
     ✅ Successfully inserted in linkedin_posts: ${stats.successfully_inserted}
     ❌ Processing errors: ${stats.processing_errors}`)
@@ -319,6 +340,7 @@ serve(async (req) => {
         'ALL data stored in linkedin_posts_raw',
         'authorType = Person (for linkedin_posts)',
         'isRepost = false (for linkedin_posts)',
+        'Required fields validation (text, url, urn, authorProfileUrl)',
         'URN deduplication'
       ]
     }), { 

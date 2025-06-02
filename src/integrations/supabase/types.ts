@@ -115,6 +115,7 @@ export type Database = {
           id: string
           processing_errors: number
           started_at: string
+          stored_raw: number
           successfully_inserted: number
           total_received: number
         }
@@ -129,6 +130,7 @@ export type Database = {
           id?: string
           processing_errors?: number
           started_at: string
+          stored_raw?: number
           successfully_inserted?: number
           total_received?: number
         }
@@ -143,6 +145,7 @@ export type Database = {
           id?: string
           processing_errors?: number
           started_at?: string
+          stored_raw?: number
           successfully_inserted?: number
           total_received?: number
         }

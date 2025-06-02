@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, Download, TrendingDown, Filter, Database } from 'lucide-react';
+import { RefreshCw, Download, TrendingDown, Filter, Database, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -13,6 +13,7 @@ interface ApifyWebhookStat {
   id: string;
   dataset_id: string;
   total_received: number;
+  stored_raw: number;
   after_person_filter: number;
   after_repost_filter: number;
   after_required_fields_filter: number;
@@ -85,15 +86,28 @@ export default function ApifyWebhookStats() {
       </div>
 
       {latestStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <Database className="h-4 w-4 text-blue-500" />
                 <div>
-                  <p className="text-sm text-gray-600">Dernière exécution</p>
+                  <p className="text-sm text-gray-600">Reçus</p>
                   <p className="text-lg font-semibold">{latestStats.total_received}</p>
-                  <p className="text-xs text-gray-500">records reçus</p>
+                  <p className="text-xs text-gray-500">total Apify</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-purple-500" />
+                <div>
+                  <p className="text-sm text-gray-600">Stockés Raw</p>
+                  <p className="text-lg font-semibold">{latestStats.stored_raw}</p>
+                  <p className="text-xs text-gray-500">en raw table</p>
                 </div>
               </div>
             </CardContent>
@@ -105,8 +119,8 @@ export default function ApifyWebhookStats() {
                 <Filter className="h-4 w-4 text-orange-500" />
                 <div>
                   <p className="text-sm text-gray-600">Après filtres</p>
-                  <p className="text-lg font-semibold">{latestStats.after_deduplication}</p>
-                  <p className="text-xs text-gray-500">records traités</p>
+                  <p className="text-lg font-semibold">{latestStats.after_required_fields_filter}</p>
+                  <p className="text-xs text-gray-500">validés</p>
                 </div>
               </div>
             </CardContent>
@@ -117,11 +131,11 @@ export default function ApifyWebhookStats() {
               <div className="flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-red-500" />
                 <div>
-                  <p className="text-sm text-gray-600">Taux de filtrage</p>
+                  <p className="text-sm text-gray-600">Taux rejet</p>
                   <p className="text-lg font-semibold">
                     {calculateFilteringRate(latestStats.total_received, latestStats.successfully_inserted)}%
                   </p>
-                  <p className="text-xs text-gray-500">données filtrées</p>
+                  <p className="text-xs text-gray-500">données rejetées</p>
                 </div>
               </div>
             </CardContent>
@@ -158,6 +172,7 @@ export default function ApifyWebhookStats() {
                   <TableHead>Date</TableHead>
                   <TableHead>Dataset ID</TableHead>
                   <TableHead>Reçus</TableHead>
+                  <TableHead>Raw</TableHead>
                   <TableHead>Person</TableHead>
                   <TableHead>Repost</TableHead>
                   <TableHead>Champs</TableHead>
@@ -178,6 +193,7 @@ export default function ApifyWebhookStats() {
                       </code>
                     </TableCell>
                     <TableCell className="font-medium">{stat.total_received}</TableCell>
+                    <TableCell className="font-medium text-purple-600">{stat.stored_raw}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {stat.after_person_filter}
