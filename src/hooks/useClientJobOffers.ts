@@ -36,7 +36,7 @@ export function useClientJobOffers() {
   const [selectedDateFilter, setSelectedDateFilter] = useState('last_48_hours');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('unassigned');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('active'); // Nouveau filtre
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(['active']); // Maintenant un tableau
   const { toast } = useToast();
 
   useEffect(() => {
@@ -224,18 +224,22 @@ export function useClientJobOffers() {
     }
   });
 
-  // Filtrage par statut
+  // Filtrage par statut (maintenant multi-select)
   const filteredByStatus = filteredByAssignment.filter(jobOffer => {
-    switch (selectedStatusFilter) {
-      case 'active':
-        return jobOffer.status !== 'archivee';
-      case 'archived':
-        return jobOffer.status === 'archivee';
-      case 'all':
-        return true;
-      default:
-        return jobOffer.status === selectedStatusFilter;
+    if (selectedStatusFilter.includes('all')) return true;
+    
+    if (selectedStatusFilter.includes('active')) {
+      // Si "active" est sélectionné, inclure tous les statuts non archivés
+      if (jobOffer.status !== 'archivee') return true;
     }
+    
+    if (selectedStatusFilter.includes('archived')) {
+      // Si "archived" est sélectionné, inclure les archivés
+      if (jobOffer.status === 'archivee') return true;
+    }
+    
+    // Vérifier si le statut exact est dans la sélection
+    return selectedStatusFilter.includes(jobOffer.status);
   });
 
   // Clients disponibles pour le filtre

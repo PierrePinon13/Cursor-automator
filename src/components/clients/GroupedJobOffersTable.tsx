@@ -2,9 +2,8 @@
 import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar, MapPin, User, Archive, Users, Eye, EyeOff, UserPlus, Check, ChevronDown } from 'lucide-react';
+import { Calendar, MapPin, User, Archive, Eye, EyeOff, UserPlus, Check, ChevronDown, ArchiveX } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ClientJobOffer, User as UserType } from '@/hooks/useClientJobOffers';
@@ -18,7 +17,6 @@ interface GroupedJobOffersTableProps {
 }
 
 export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUpdateStatus }: GroupedJobOffersTableProps) {
-  const [groupByCompany, setGroupByCompany] = useState(true);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ClientJobOffer;
     direction: 'asc' | 'desc';
@@ -49,17 +47,15 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
     return 0;
   });
 
-  // Grouper par entreprise si l'option est activée
-  const groupedOffers = groupByCompany 
-    ? sortedJobOffers.reduce((acc, offer) => {
-        const companyName = offer.company_name || 'Entreprise non renseignée';
-        if (!acc[companyName]) {
-          acc[companyName] = [];
-        }
-        acc[companyName].push(offer);
-        return acc;
-      }, {} as Record<string, ClientJobOffer[]>)
-    : { 'all': sortedJobOffers };
+  // Grouper par entreprise par défaut
+  const groupedOffers = sortedJobOffers.reduce((acc, offer) => {
+    const companyName = offer.company_name || 'Entreprise non renseignée';
+    if (!acc[companyName]) {
+      acc[companyName] = [];
+    }
+    acc[companyName].push(offer);
+    return acc;
+  }, {} as Record<string, ClientJobOffer[]>);
 
   const getAssignedUser = (userId: string | null) => {
     if (!userId) return null;
@@ -100,6 +96,14 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
     
     if (location.length <= 15) return location;
     return location.substring(0, 12) + '...';
+  };
+
+  const handleArchiveAllForCompany = (companyOffers: ClientJobOffer[]) => {
+    companyOffers.forEach(offer => {
+      if (offer.status !== 'archivee') {
+        onUpdateStatus(offer.id, 'archivee');
+      }
+    });
   };
 
   const AssignmentSelector = ({ offer }: { offer: ClientJobOffer }) => {
@@ -242,26 +246,6 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
 
   return (
     <div className="space-y-4">
-      {/* Contrôles de regroupement */}
-      <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
-        <div className="flex items-center gap-3">
-          <Users className="h-5 w-5 text-blue-600" />
-          <span className="font-medium text-gray-700">Affichage</span>
-        </div>
-        <Button
-          variant={groupByCompany ? "default" : "outline"}
-          size="sm"
-          onClick={() => setGroupByCompany(!groupByCompany)}
-          className={groupByCompany 
-            ? "bg-blue-600 text-white" 
-            : "border-gray-300 text-gray-700 hover:bg-blue-50"
-          }
-        >
-          {groupByCompany ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
-          {groupByCompany ? 'Groupé par entreprise' : 'Vue simple'}
-        </Button>
-      </div>
-
       {/* Tableau */}
       <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
         <Table>
@@ -304,7 +288,7 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
                 </Button>
               </TableHead>
               <TableHead className="font-semibold text-gray-900 w-48">Assignation</TableHead>
-              <TableHead className="font-semibold text-gray-900 w-44">Statut</TableHead>
+              <TableHead className="font-semibold text-gray-900 w-48">Statut</TableHead>
               <TableHead className="font-semibold text-gray-900 w-24">Archiver</TableHead>
             </TableRow>
           </TableHeader>
@@ -314,13 +298,28 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
                 <TableRow key={offer.id} className="hover:bg-blue-50/50 transition-colors">
                   {/* Entreprise - fusionnée visuellement pour le regroupement */}
                   <TableCell className="py-3">
-                    {(groupByCompany && index === 0) || !groupByCompany ? (
-                      <div className="font-medium text-gray-900">
-                        {companyName}
-                        {groupByCompany && offers.length > 1 && (
-                          <Badge variant="secondary" className="ml-2 text-xs">
-                            {offers.length} offres
-                          </Badge>
+                    {index === 0 ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {companyName}
+                          </div>
+                          {offers.length > 1 && (
+                            <Badge variant="secondary" className="mt-1 text-xs">
+                              {offers.length} offres
+                            </Badge>
+                          )}
+                        </div>
+                        {offers.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleArchiveAllForCompany(offers)}
+                            className="h-8 px-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                            title={`Archiver toutes les offres de ${companyName}`}
+                          >
+                            <ArchiveX className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     ) : null}
@@ -391,7 +390,7 @@ export function GroupedJobOffersTable({ jobOffers, users, onAssignJobOffer, onUp
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-gray-500">
                   <div className="flex flex-col items-center gap-2">
-                    <Users className="h-8 w-8 text-gray-300" />
+                    <Eye className="h-8 w-8 text-gray-300" />
                     <span>Aucune offre d'emploi trouvée</span>
                   </div>
                 </TableCell>

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RefreshCw, Calendar, Users, UserCheck, Tag, Filter, X, ChevronDown } from 'lucide-react';
+import { RefreshCw, Calendar, Users, UserCheck, Tag, Filter, X, ChevronDown, Check } from 'lucide-react';
 
 interface VisualJobOffersFiltersProps {
   selectedDateFilter: string;
@@ -12,8 +12,8 @@ interface VisualJobOffersFiltersProps {
   setSelectedClientFilter: (filter: string) => void;
   selectedAssignmentFilter: string;
   setSelectedAssignmentFilter: (filter: string) => void;
-  selectedStatusFilter: string;
-  setSelectedStatusFilter: (filter: string) => void;
+  selectedStatusFilter: string[];
+  setSelectedStatusFilter: (filters: string[]) => void;
   availableClients: Array<{ id: string; name: string }>;
   filteredJobOffers: any[];
   refreshJobOffers: () => void;
@@ -63,7 +63,7 @@ export function VisualJobOffersFilters({
     if (selectedDateFilter !== 'last_48_hours') count++;
     if (selectedClientFilter !== 'all') count++;
     if (selectedAssignmentFilter !== 'unassigned') count++;
-    if (selectedStatusFilter !== 'active') count++;
+    if (selectedStatusFilter.length !== 1 || selectedStatusFilter[0] !== 'active') count++;
     return count;
   };
 
@@ -71,22 +71,35 @@ export function VisualJobOffersFilters({
     setSelectedDateFilter('last_48_hours');
     setSelectedClientFilter('all');
     setSelectedAssignmentFilter('unassigned');
-    setSelectedStatusFilter('active');
+    setSelectedStatusFilter(['active']);
   };
 
-  const getFilterDisplayValue = (type: string, value: string) => {
+  const getFilterDisplayValue = (type: string, value: string | string[]) => {
     switch (type) {
       case 'date':
         return dateOptions.find(opt => opt.value === value)?.label || value;
       case 'assignment':
         return assignmentOptions.find(opt => opt.value === value)?.label || value;
       case 'status':
-        return statusOptions.find(opt => opt.value === value)?.label || value;
+        const statusArray = Array.isArray(value) ? value : [value];
+        if (statusArray.length === 1) {
+          return statusOptions.find(opt => opt.value === statusArray[0])?.label || statusArray[0];
+        }
+        return `${statusArray.length} sélectionnés`;
       case 'client':
         if (value === 'all') return 'Tous les clients';
         return availableClients.find(client => client.id === value)?.name || value;
       default:
         return value;
+    }
+  };
+
+  const handleStatusToggle = (statusValue: string) => {
+    if (selectedStatusFilter.includes(statusValue)) {
+      const newFilters = selectedStatusFilter.filter(s => s !== statusValue);
+      setSelectedStatusFilter(newFilters.length > 0 ? newFilters : ['active']);
+    } else {
+      setSelectedStatusFilter([...selectedStatusFilter, statusValue]);
     }
   };
 
@@ -97,15 +110,17 @@ export function VisualJobOffersFilters({
     color, 
     options, 
     onSelect, 
-    type 
+    type,
+    isMultiSelect = false
   }: {
     icon: any;
     label: string;
-    value: string;
+    value: string | string[];
     color: string;
     options: any[];
     onSelect: (value: string) => void;
     type: string;
+    isMultiSelect?: boolean;
   }) => {
     return (
       <Popover>
@@ -122,21 +137,37 @@ export function VisualJobOffersFilters({
             <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="start">
+        <PopoverContent className={`w-80 p-0 ${type === 'client' ? 'h-80' : ''}`} align="start">
           <div className="p-4">
             <div className="text-sm font-semibold text-gray-900 mb-3">{label}</div>
-            <div className="space-y-1">
+            <div className={`space-y-1 ${type === 'client' ? 'max-h-64 overflow-y-auto' : ''}`}>
               {options.map((option) => (
                 <button
                   key={option.value}
-                  onClick={() => onSelect(option.value)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                    value === option.value
-                      ? `bg-${color}-100 text-${color}-900 font-medium`
-                      : 'hover:bg-gray-100 text-gray-700'
+                  onClick={() => {
+                    if (isMultiSelect && type === 'status') {
+                      handleStatusToggle(option.value);
+                    } else {
+                      onSelect(option.value);
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-3 ${
+                    (isMultiSelect && Array.isArray(value)) 
+                      ? (value.includes(option.value)
+                          ? `bg-${color}-100 text-${color}-900 font-medium`
+                          : 'hover:bg-gray-100 text-gray-700')
+                      : (value === option.value
+                          ? `bg-${color}-100 text-${color}-900 font-medium`
+                          : 'hover:bg-gray-100 text-gray-700')
                   }`}
                 >
-                  {option.label}
+                  <span className="flex-1">{option.label}</span>
+                  {isMultiSelect && Array.isArray(value) && value.includes(option.value) && (
+                    <Check className="h-4 w-4 text-blue-600" />
+                  )}
+                  {!isMultiSelect && value === option.value && (
+                    <Check className="h-4 w-4 text-blue-600" />
+                  )}
                 </button>
               ))}
             </div>
@@ -228,8 +259,9 @@ export function VisualJobOffersFilters({
           value={selectedStatusFilter}
           color="purple"
           options={statusOptions}
-          onSelect={setSelectedStatusFilter}
+          onSelect={() => {}} // Not used for multi-select
           type="status"
+          isMultiSelect={true}
         />
 
         {/* Reset button */}
