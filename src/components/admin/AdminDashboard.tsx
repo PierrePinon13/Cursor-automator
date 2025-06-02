@@ -6,6 +6,7 @@ import ApifyWebhookStats from './ApifyWebhookStats';
 import DataProcessingDiagnostics from './DataProcessingDiagnostics';
 import DeepDataAnalysis from './DeepDataAnalysis';
 import MistargetedPostsSection from './MistargetedPostsSection';
+import ProcessingStatsSection from './ProcessingStatsSection';
 import { HrProvidersManagement } from './HrProvidersManagement';
 import { DatasetAudit } from './DatasetAudit';
 import { DatasetReprocessing } from './DatasetReprocessing';
@@ -19,15 +20,16 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="hr-providers">Prestataires RH</TabsTrigger>
+          <TabsTrigger value="mistargeted">Posts mal ciblés</TabsTrigger>
+          <TabsTrigger value="processing-stats">Stats traitement</TabsTrigger>
           <TabsTrigger value="funnel">Funnel</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="analysis">Analyse</TabsTrigger>
           <TabsTrigger value="audit">Audit Dataset</TabsTrigger>
-          <TabsTrigger value="reprocessing">Retraitement</TabsTrigger>
-          <TabsTrigger value="mistargeted">Posts mal ciblés</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -37,7 +39,18 @@ export default function AdminDashboard() {
             negativeCalls={0}
             successRate={0}
           />
+        </TabsContent>
+
+        <TabsContent value="hr-providers" className="space-y-6">
           <HrProvidersManagement />
+        </TabsContent>
+
+        <TabsContent value="mistargeted" className="space-y-6">
+          <MistargetedPostsSection />
+        </TabsContent>
+
+        <TabsContent value="processing-stats" className="space-y-6">
+          <ProcessingStatsSection />
         </TabsContent>
 
         <TabsContent value="funnel" className="space-y-6">
@@ -58,14 +71,6 @@ export default function AdminDashboard() {
 
         <TabsContent value="audit" className="space-y-6">
           <DatasetAudit />
-        </TabsContent>
-
-        <TabsContent value="reprocessing" className="space-y-6">
-          <DatasetReprocessing />
-        </TabsContent>
-
-        <TabsContent value="mistargeted" className="space-y-6">
-          <MistargetedPostsSection />
         </TabsContent>
       </Tabs>
     </div>
