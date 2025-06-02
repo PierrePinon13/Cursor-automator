@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -40,7 +39,7 @@ const AppSidebar = () => {
       icon: History,
     },
     {
-      title: "Tableau de bord",
+      title: "Dashboard",
       url: "/dashboard", 
       icon: BarChart3,
     },
