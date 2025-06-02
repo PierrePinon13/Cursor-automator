@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -321,7 +322,7 @@ serve(async (req) => {
           author_profile_id: item.authorProfileId || null,
           author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
-          processing_status: 'pending', // ✅ CORRECTION: utilisation de 'pending' au lieu de 'queued'
+          processing_status: 'pending', // ✅ CORRECTION: utiliser 'pending' partout
           raw_data: item
         }
 
@@ -333,6 +334,7 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('❌ Error queuing post:', insertError)
+          stats.processing_errors++
           continue
         }
 
@@ -347,6 +349,7 @@ serve(async (req) => {
 
       } catch (error) {
         console.error('❌ Error during classification:', error)
+        stats.processing_errors++
       }
     }
 
@@ -405,6 +408,7 @@ serve(async (req) => {
         '✅ FIXED DUPLICATES: Added deduplication before batch processing',
         '✅ BATCH PROCESSING: Raw data stored in chunks of 100 to prevent timeouts',
         '✅ ENHANCED LOGGING: Better progress tracking and error handling',
+        '✅ IMPROVED ERROR HANDLING: Better tracking of insertion errors',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',

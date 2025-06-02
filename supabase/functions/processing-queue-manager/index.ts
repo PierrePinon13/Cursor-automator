@@ -74,11 +74,11 @@ serve(async (req) => {
 async function queuePendingPosts(supabaseClient: any) {
   console.log('📥 Queuing pending posts for processing...');
   
-  // Récupérer les posts en attente de traitement (sans processing_priority)
+  // ✅ CORRECTION: Utiliser 'pending' au lieu de 'queued'
   const { data: pendingPosts, error } = await supabaseClient
     .from('linkedin_posts')
     .select('*')
-    .eq('processing_status', 'queued')
+    .eq('processing_status', 'pending')
     .order('created_at', { ascending: true }) // Ordre par date de création
     .limit(100);
 
@@ -194,11 +194,11 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
   let requeuedCount = 0;
   for (const post of failedPosts) {
     try {
-      // Remettre en queue (sans processing_priority)
+      // ✅ CORRECTION: Utiliser 'pending' au lieu de 'queued'
       await supabaseClient
         .from('linkedin_posts')
         .update({ 
-          processing_status: 'queued',
+          processing_status: 'pending',
           retry_count: (post.retry_count || 0) + 1,
           last_retry_at: new Date().toISOString()
         })
@@ -222,11 +222,11 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
 async function forceReprocessPost(supabaseClient: any, postId: string) {
   console.log(`🔄 Force reprocessing post: ${postId}`);
   
-  // Réinitialiser le post pour retraitement complet (sans processing_priority)
+  // ✅ CORRECTION: Utiliser 'pending' au lieu de 'queued'
   await supabaseClient
     .from('linkedin_posts')
     .update({
-      processing_status: 'queued',
+      processing_status: 'pending',
       retry_count: 0,
       openai_step1_recrute_poste: null,
       openai_step2_reponse: null,
