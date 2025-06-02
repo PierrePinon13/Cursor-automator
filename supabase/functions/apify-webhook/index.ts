@@ -72,16 +72,23 @@ serve(async (req) => {
       console.error('❌ Background processing error:', err)
     })
 
-    // Log webhook reception for monitoring
-    supabaseClient
-      .from('apify_webhook_stats')
-      .insert({
-        dataset_id: datasetId,
-        webhook_received_at: new Date().toISOString(),
-        processing_status: 'background_triggered',
-        webhook_payload: webhookData
-      })
-      .catch(err => console.error('⚠️ Logging error:', err))
+    // Log webhook reception for monitoring - CORRECTION DE LA SYNTAXE
+    try {
+      const { error: logError } = await supabaseClient
+        .from('apify_webhook_stats')
+        .insert({
+          dataset_id: datasetId,
+          webhook_received_at: new Date().toISOString(),
+          processing_status: 'background_triggered',
+          webhook_payload: webhookData
+        })
+      
+      if (logError) {
+        console.error('⚠️ Logging error:', logError)
+      }
+    } catch (err) {
+      console.error('⚠️ Logging exception:', err)
+    }
 
     console.log('✅ Webhook processed, background task started')
 
