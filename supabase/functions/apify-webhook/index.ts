@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -40,7 +41,7 @@ serve(async (req) => {
       })
     }
 
-    console.log('Dataset ID found:', datasetId)
+    console.log('📊 Processing dataset ID:', datasetId)
 
     // Get the Apify API key from environment
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
@@ -57,11 +58,7 @@ serve(async (req) => {
       dataset_id: datasetId,
       total_received: 0,
       stored_raw: 0,
-      after_person_filter: 0,
-      after_repost_filter: 0,
-      after_required_fields_filter: 0,
-      after_deduplication: 0,
-      successfully_inserted: 0,
+      queued_for_processing: 0,
       processing_errors: 0,
       started_at: new Date().toISOString()
     }
@@ -133,8 +130,8 @@ serve(async (req) => {
     stats.total_received = allDatasetItems.length
     console.log(`📊 TOTAL dataset items retrieved: ${stats.total_received}`)
 
-    // NOUVEAU: Stocker TOUTES les données brutes dans linkedin_posts_raw
-    console.log('💾 Storing all raw data in linkedin_posts_raw table...')
+    // PHASE 1: STOCKAGE UNIVERSEL - Stocker TOUT sans filtrage
+    console.log('💾 Phase 1: Universal storage - storing ALL data without filtering...')
     let rawStoredCount = 0
     let rawErrorCount = 0
 
@@ -145,7 +142,7 @@ serve(async (req) => {
           .from('linkedin_posts_raw')
           .select('id')
           .eq('urn', item.urn)
-          .single()
+          .maybeSingle()
 
         if (existingRawPost) {
           console.log(`🔄 Raw post already exists: ${item.urn} - skipping`)
@@ -193,52 +190,15 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`💾 Raw storage complete: ${rawStoredCount} stored, ${rawErrorCount} errors`)
 
-    // Continuer avec le traitement existant (avec filtres)
-    console.log('🔍 Starting filtering process for linkedin_posts table...')
+    // PHASE 1: QUALIFICATION INTELLIGENTE - Marquer pour traitement
+    console.log('🎯 Phase 1: Intelligent qualification - marking posts for processing...')
+    
+    let queuedCount = 0
+    let qualificationErrors = 0
 
-    // Filter 1: Only keep authorType = "Person"
-    let filteredItems = allDatasetItems.filter(item => {
-      const isPersonType = item.authorType === 'Person'
-      if (!isPersonType) {
-        console.log(`❌ Filtered out authorType: ${item.authorType} for post: ${item.urn}`)
-      }
-      return isPersonType
-    })
-    stats.after_person_filter = filteredItems.length
-    console.log(`✅ After Person filter: ${stats.after_person_filter}/${stats.total_received} (${((stats.after_person_filter/stats.total_received)*100).toFixed(1)}%)`)
-
-    // Filter 2: Only keep isRepost = false
-    filteredItems = filteredItems.filter(item => {
-      const isNotRepost = item.isRepost !== true
-      if (!isNotRepost) {
-        console.log(`❌ Filtered out repost: ${item.urn}`)
-      }
-      return isNotRepost
-    })
-    stats.after_repost_filter = filteredItems.length
-    console.log(`✅ After Repost filter: ${stats.after_repost_filter}/${stats.after_person_filter} (${((stats.after_repost_filter/stats.after_person_filter)*100).toFixed(1)}%)`)
-
-    // Filter 3: Only keep items with required fields (text, url, urn, authorProfileUrl)
-    filteredItems = filteredItems.filter(item => {
-      const hasRequiredFields = item.text && item.url && item.urn && item.authorProfileUrl
-      if (!hasRequiredFields) {
-        console.log(`❌ Filtered out item missing required fields: ${item.urn} - text: ${!!item.text}, url: ${!!item.url}, authorProfileUrl: ${!!item.authorProfileUrl}`)
-      }
-      return hasRequiredFields
-    })
-    stats.after_required_fields_filter = filteredItems.length
-    console.log(`✅ After Required fields filter: ${stats.after_required_fields_filter}/${stats.after_repost_filter} (${((stats.after_required_fields_filter/stats.after_repost_filter)*100).toFixed(1)}%)`)
-
-    // Process remaining items for linkedin_posts table
-    let insertedCount = 0
-    let deduplicatedCount = 0
-    let errorCount = 0
-
-    console.log(`🔄 Processing ${filteredItems.length} items for linkedin_posts insertion...`)
-
-    for (const item of filteredItems) {
+    for (const item of allDatasetItems) {
       try {
-        // Check if this post already exists in linkedin_posts (deduplication by urn)
+        // Vérifier si ce post existe déjà dans linkedin_posts
         const { data: existingPost } = await supabaseClient
           .from('linkedin_posts')
           .select('id')
@@ -246,16 +206,23 @@ serve(async (req) => {
           .maybeSingle()
 
         if (existingPost) {
-          console.log(`🔄 Duplicate URN found in linkedin_posts: ${item.urn} - skipping`)
-          deduplicatedCount++
+          console.log(`🔄 Post already in processing queue: ${item.urn} - skipping`)
           continue
         }
 
-        // Prepare the data for insertion in linkedin_posts
+        // Classification intelligente pour décider si on traite ou non
+        const shouldProcess = classifyForProcessing(item)
+        
+        if (!shouldProcess.process) {
+          console.log(`⏭️ Post classified as skip: ${item.urn} - Reason: ${shouldProcess.reason}`)
+          continue
+        }
+
+        // Préparer les données pour l'insertion dans linkedin_posts avec dataset tracking
         const postData = {
-          apify_dataset_id: datasetId,
+          apify_dataset_id: datasetId, // 🎯 DATASET TRACKING
           urn: item.urn,
-          text: item.text || 'No content',
+          text: item.text || 'Content unavailable',
           title: item.title || null,
           url: item.url,
           posted_at_timestamp: item.postedAtTimestamp || null,
@@ -265,13 +232,14 @@ serve(async (req) => {
           author_profile_id: item.authorProfileId || null,
           author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
-          processing_status: 'pending',
-          raw_data: item
+          processing_status: 'queued', // Nouveau statut pour la queue
+          raw_data: item,
+          processing_priority: shouldProcess.priority // Priorité de traitement
         }
 
-        console.log(`📝 Inserting post: ${item.urn}`)
+        console.log(`📝 Queuing post for processing: ${item.urn} (Priority: ${shouldProcess.priority})`)
 
-        // Insert into linkedin_posts
+        // Insérer dans linkedin_posts pour traitement
         const { data: insertedPost, error: insertError } = await supabaseClient
           .from('linkedin_posts')
           .insert(postData)
@@ -279,69 +247,73 @@ serve(async (req) => {
           .single()
 
         if (insertError) {
-          console.error('❌ Error inserting post in linkedin_posts:', insertError)
-          console.error('❌ Post data that failed:', JSON.stringify(postData, null, 2))
-          errorCount++
+          console.error('❌ Error queuing post for processing:', insertError)
+          qualificationErrors++
           continue
         }
 
-        console.log('✅ Post inserted in linkedin_posts successfully:', insertedPost.id)
-        insertedCount++
+        console.log('✅ Post queued for processing:', insertedPost.id)
+        queuedCount++
 
-        // Trigger OpenAI processing (async)
+        // Trigger processing asynchronously (non-blocking)
         try {
-          console.log(`🚀 Triggering OpenAI processing for post: ${insertedPost.id}`)
-          await supabaseClient.functions.invoke('process-linkedin-post', {
-            body: { postId: insertedPost.id }
+          console.log(`🚀 Triggering async processing for post: ${insertedPost.id}`)
+          // Note: On ne bloque pas sur cette opération
+          supabaseClient.functions.invoke('process-linkedin-post', {
+            body: { postId: insertedPost.id, datasetId: datasetId } // 🎯 Passing dataset ID
+          }).catch(err => {
+            console.error('⚠️ Error triggering async processing:', err)
           })
-          console.log(`✅ OpenAI processing triggered for post: ${insertedPost.id}`)
         } catch (processingError) {
           console.error('⚠️ Error triggering post processing:', processingError)
         }
 
       } catch (error) {
-        console.error('❌ Error processing item for linkedin_posts:', error)
-        console.error('❌ Item that caused error:', JSON.stringify(item, null, 2))
-        errorCount++
+        console.error('❌ Error during qualification:', error)
+        qualificationErrors++
       }
     }
 
     // Update final statistics
-    stats.after_deduplication = stats.after_required_fields_filter - deduplicatedCount
-    stats.successfully_inserted = insertedCount
-    stats.processing_errors = errorCount
+    stats.queued_for_processing = queuedCount
+    stats.processing_errors = qualificationErrors
     stats.completed_at = new Date().toISOString()
 
-    // Store statistics in database
+    // Store enhanced statistics in database
     try {
       await supabaseClient
         .from('apify_webhook_stats')
-        .insert(stats)
-      console.log('📊 Statistics saved to database')
+        .insert({
+          ...stats,
+          // Nouvelles métriques pour Phase 1
+          classification_success_rate: stats.total_received > 0 ? 
+            ((stats.queued_for_processing / stats.total_received) * 100).toFixed(2) : 0,
+          storage_success_rate: stats.total_received > 0 ? 
+            ((stats.stored_raw / stats.total_received) * 100).toFixed(2) : 0
+        })
+      console.log('📊 Enhanced statistics saved to database')
     } catch (statsError) {
       console.error('⚠️ Error saving statistics:', statsError)
     }
 
-    console.log(`🎯 Processing complete:
+    console.log(`🎯 PHASE 1 COMPLETE - Universal Storage & Intelligent Queuing:
     📥 Total received: ${stats.total_received}
-    💾 Stored raw: ${stats.stored_raw}
-    👤 After Person filter: ${stats.after_person_filter}
-    🔁 After Repost filter: ${stats.after_repost_filter}
-    📋 After Required fields filter: ${stats.after_required_fields_filter}
-    🔍 After Deduplication: ${stats.after_deduplication}
-    ✅ Successfully inserted in linkedin_posts: ${stats.successfully_inserted}
-    ❌ Processing errors: ${stats.processing_errors}`)
+    💾 Stored raw (universal): ${stats.stored_raw}
+    🎯 Queued for processing: ${stats.queued_for_processing}
+    ❌ Processing errors: ${stats.processing_errors}
+    📊 Dataset ID: ${datasetId}`)
 
     return new Response(JSON.stringify({ 
       success: true, 
+      phase: 'Phase 1 - Universal Storage & Intelligent Queuing',
       statistics: stats,
-      rawDataStored: true,
-      filtersApplied: [
-        'ALL data stored in linkedin_posts_raw',
-        'authorType = Person (for linkedin_posts)',
-        'isRepost = false (for linkedin_posts)',
-        'Required fields validation (text, url, urn, authorProfileUrl)',
-        'URN deduplication'
+      datasetId: datasetId,
+      improvements: [
+        'Universal raw data storage (no data loss)',
+        'Intelligent classification for processing',
+        'Dataset tracking throughout pipeline',
+        'Async processing queue',
+        'Enhanced monitoring and statistics'
       ]
     }), { 
       status: 200,
@@ -356,3 +328,54 @@ serve(async (req) => {
     })
   }
 })
+
+// 🎯 CLASSIFICATION INTELLIGENTE - Décide quels posts traiter
+function classifyForProcessing(item: any) {
+  // Critères de base obligatoires
+  if (!item.urn) {
+    return { process: false, reason: 'Missing URN', priority: 0 }
+  }
+
+  if (!item.url) {
+    return { process: false, reason: 'Missing URL', priority: 0 }
+  }
+
+  // Posts manifestement non pertinents
+  if (item.isRepost === true) {
+    return { process: false, reason: 'Is repost', priority: 0 }
+  }
+
+  // Posts de compagnies (pas de personnes)
+  if (item.authorType && item.authorType !== 'Person') {
+    return { process: false, reason: 'Not a person', priority: 0 }
+  }
+
+  // Priorité haute : Posts récents avec contenu
+  if (item.text && item.authorProfileUrl && item.postedAtTimestamp) {
+    const postAge = Date.now() - (item.postedAtTimestamp || 0)
+    const dayInMs = 24 * 60 * 60 * 1000
+    
+    if (postAge < dayInMs) {
+      return { process: true, reason: 'Recent post with content', priority: 1 }
+    }
+    
+    if (postAge < 7 * dayInMs) {
+      return { process: true, reason: 'Week-old post with content', priority: 2 }
+    }
+    
+    return { process: true, reason: 'Older post with content', priority: 3 }
+  }
+
+  // Priorité moyenne : Posts avec contenu partiel
+  if (item.text || item.title) {
+    return { process: true, reason: 'Post with partial content', priority: 4 }
+  }
+
+  // Priorité faible : Posts sans contenu mais avec profil auteur
+  if (item.authorProfileUrl) {
+    return { process: true, reason: 'Post with author profile only', priority: 5 }
+  }
+
+  // Rejeter les posts sans aucune information utile
+  return { process: false, reason: 'Insufficient data', priority: 0 }
+}
