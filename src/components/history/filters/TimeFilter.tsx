@@ -33,17 +33,6 @@ const TimeFilter = ({
     onTimeFilterChange(value);
   };
 
-  const getDisplayLabel = () => {
-    const selected = timeOptions.find(opt => opt.value === timeFilter);
-    if (timeFilter === 'custom' && customDateRange?.from) {
-      if (customDateRange.to) {
-        return `${format(customDateRange.from, 'dd/MM', { locale: fr })} - ${format(customDateRange.to, 'dd/MM', { locale: fr })}`;
-      }
-      return `Depuis ${format(customDateRange.from, 'dd/MM', { locale: fr })}`;
-    }
-    return selected?.label || 'Tout';
-  };
-
   return (
     <div className="flex items-center gap-0.5">
       <Popover>
@@ -58,10 +47,7 @@ const TimeFilter = ({
                 : 'bg-white border-gray-300 text-gray-600'
             )}
           >
-            <div className="flex items-center gap-1">
-              <Calendar className={cn('h-3 w-3', timeFilter !== 'all' ? 'text-purple-700' : 'text-gray-400')} />
-              <span className="truncate max-w-20">{getDisplayLabel()}</span>
-            </div>
+            <Calendar className={cn('h-3 w-3', timeFilter !== 'all' ? 'text-purple-700' : 'text-gray-400')} />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-2" align="start">

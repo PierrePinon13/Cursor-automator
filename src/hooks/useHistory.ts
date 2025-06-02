@@ -26,7 +26,19 @@ export const useHistory = () => {
     setLoading(true);
     try {
       console.log('🔍 Fetching history from activities table...');
+      console.log('👤 Current user:', user.id);
       
+      // First, let's check if we have any activities at all
+      const { count, error: countError } = await supabase
+        .from('activities')
+        .select('*', { count: 'exact', head: true });
+
+      console.log('📊 Total activities in database:', count);
+      
+      if (countError) {
+        console.error('❌ Error counting activities:', countError);
+      }
+
       const { data: activitiesData, error } = await supabase
         .from('activities')
         .select(`
@@ -52,15 +64,68 @@ export const useHistory = () => {
         return;
       }
 
-      console.log('📋 History data:', activitiesData);
+      console.log('📋 Raw activities data:', activitiesData);
+      console.log('📊 Activities count from query:', activitiesData?.length || 0);
 
       if (!activitiesData || activitiesData.length === 0) {
-        console.log('⚠️ No history found');
+        console.log('⚠️ No activities found in activities table');
+        
+        // Fallback: check linkedin_messages table
+        console.log('🔄 Checking linkedin_messages table as fallback...');
+        const { data: linkedinMessagesData, error: linkedinError } = await supabase
+          .from('linkedin_messages')
+          .select(`
+            *,
+            lead:leads(
+              id,
+              author_name,
+              author_headline,
+              author_profile_url,
+              company_name,
+              company_position,
+              matched_client_name
+            )
+          `)
+          .order('sent_at', { ascending: false })
+          .limit(limit);
+
+        if (linkedinError) {
+          console.error('❌ Error fetching linkedin_messages:', linkedinError);
+          setActivities([]);
+          return;
+        }
+
+        console.log('📧 LinkedIn messages found:', linkedinMessagesData?.length || 0);
+
+        if (linkedinMessagesData && linkedinMessagesData.length > 0) {
+          const transformedFromLinkedIn = linkedinMessagesData.map((msg: any) => {
+            const lead = msg.lead || {};
+            const title = msg.message_type === 'connection_request' ? 'Demande de connexion LinkedIn' : 'Message LinkedIn';
+            const message = `${title} envoyé à ${lead.author_name || 'Lead inconnu'}`;
+            
+            return {
+              id: msg.id,
+              type: 'linkedin_message' as const,
+              title,
+              message,
+              created_at: msg.sent_at,
+              lead_data: lead,
+              sender_name: msg.sender_full_name || 'Utilisateur Inconnu',
+              message_type: msg.message_type as 'connection_request' | 'direct_message',
+              message_content: msg.message_content || null
+            };
+          });
+
+          console.log('✅ Using linkedin_messages as fallback data');
+          setActivities(transformedFromLinkedIn);
+          return;
+        }
+
         setActivities([]);
         return;
       }
 
-      // Transformer les données pour correspondre à l'interface HistoryActivity
+      // Transform activities data
       const transformedActivities = activitiesData.map((activity: any) => {
         const lead = activity.lead || {};
         const activityData = activity.activity_data || {};
@@ -107,11 +172,11 @@ export const useHistory = () => {
         };
       });
 
-      console.log('✅ Transformed history activities:', transformedActivities.length);
+      console.log('✅ Final transformed activities:', transformedActivities.length);
       setActivities(transformedActivities);
 
     } catch (error) {
-      console.error('💥 Error fetching history:', error);
+      console.error('💥 Unexpected error fetching history:', error);
       setActivities([]);
     } finally {
       setLoading(false);
