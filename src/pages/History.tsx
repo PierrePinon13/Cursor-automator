@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import ActivityDetail from '@/components/history/ActivityDetail';
 import HistoryFilters from '@/components/history/HistoryFilters';
+import HistoryDiagnostics from '@/components/history/HistoryDiagnostics';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useHistory } from '@/hooks/useHistory';
@@ -43,9 +44,6 @@ const History = () => {
       );
     }
 
-    // Filtrer par utilisateur (mine vs all)
-    // Note: cette logique pourrait être améliorée en ajoutant un filtre dans useHistory
-    
     return filtered;
   }, [activities, activityTypes, searchQuery]);
 
@@ -72,6 +70,8 @@ const History = () => {
         {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
         <div className="w-1/4 bg-white border-r flex flex-col">
           <div className="p-2 border-b">
+            <HistoryDiagnostics />
+            
             <HistoryFilters
               filterBy={filterBy}
               onFilterByChange={setFilterBy}
@@ -90,14 +90,26 @@ const History = () => {
           <div className="flex-1 overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Chargement des activités...</p>
+                </div>
               </div>
-            ) : filteredActivities.length === 0 ? (
+            ) : activities.length === 0 ? (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
                   <p className="text-lg">Aucune activité trouvée</p>
                   <p className="text-sm mt-2">
-                    Essayez de modifier vos filtres ou d'effectuer quelques actions pour voir l'historique
+                    Vérifiez les diagnostics ci-dessus pour identifier les problèmes
+                  </p>
+                </div>
+              </div>
+            ) : filteredActivities.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <p className="text-lg">Aucune activité pour ces filtres</p>
+                  <p className="text-sm mt-2">
+                    {activities.length} activité{activities.length > 1 ? 's' : ''} au total, modifiez vos filtres
                   </p>
                 </div>
               </div>
