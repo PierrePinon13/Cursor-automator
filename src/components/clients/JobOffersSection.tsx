@@ -1,14 +1,10 @@
 
 import { useState } from 'react';
 import { useClientJobOffers } from '@/hooks/useClientJobOffers';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Filter } from 'lucide-react';
 import { ClientLeadsView } from './ClientLeadsView';
-import { JobOffersTable } from './JobOffersTable';
+import { CompactJobOffersFilters } from './CompactJobOffersFilters';
+import { CompactJobOffersTable } from './CompactJobOffersTable';
 
 export function JobOffersSection() {
   const { 
@@ -42,86 +38,19 @@ export function JobOffersSection() {
       </TabsList>
       
       <TabsContent value="job-offers" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Offres d'emploi des clients</h3>
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary">
-              {filteredJobOffers.length} offres
-            </Badge>
-            <Button
-              onClick={refreshJobOffers}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Actualiser
-            </Button>
-          </div>
-        </div>
+        <CompactJobOffersFilters 
+          selectedDateFilter={selectedDateFilter}
+          setSelectedDateFilter={setSelectedDateFilter}
+          selectedClientFilter={selectedClientFilter}
+          setSelectedClientFilter={setSelectedClientFilter}
+          selectedAssignmentFilter={selectedAssignmentFilter}
+          setSelectedAssignmentFilter={setSelectedAssignmentFilter}
+          availableClients={availableClients}
+          filteredJobOffers={filteredJobOffers}
+          refreshJobOffers={refreshJobOffers}
+        />
 
-        {/* Filtres */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filtres
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Période</label>
-                <Select value={selectedDateFilter} onValueChange={setSelectedDateFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les périodes</SelectItem>
-                    <SelectItem value="today">Aujourd'hui</SelectItem>
-                    <SelectItem value="yesterday">Hier</SelectItem>
-                    <SelectItem value="last_7_days">7 derniers jours</SelectItem>
-                    <SelectItem value="last_30_days">30 derniers jours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Client</label>
-                <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les clients</SelectItem>
-                    {availableClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Assignation</label>
-                <Select value={selectedAssignmentFilter} onValueChange={setSelectedAssignmentFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes</SelectItem>
-                    <SelectItem value="assigned">Assignées</SelectItem>
-                    <SelectItem value="unassigned">Non assignées</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tableau des offres */}
-        <JobOffersTable 
+        <CompactJobOffersTable 
           jobOffers={filteredJobOffers}
           users={users}
           onAssignJobOffer={assignJobOffer}

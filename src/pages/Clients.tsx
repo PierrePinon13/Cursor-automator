@@ -24,11 +24,11 @@ const Clients = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-xl font-bold text-gray-900">
             {showManagement ? 'Gestion des clients' : 'Clients'}
           </h1>
         </div>
@@ -38,6 +38,7 @@ const Clients = () => {
             onClick={() => setShowManagement(!showManagement)}
             variant={showManagement ? "default" : "outline"}
             className="flex items-center gap-2"
+            size="sm"
           >
             <Settings className="h-4 w-4" />
             {showManagement ? 'Voir les offres' : 'Gestion'}
@@ -46,13 +47,15 @@ const Clients = () => {
         </div>
       </div>
 
-      {showManagement ? (
-        <ClientManagement />
-      ) : (
-        <div className="bg-white rounded-lg shadow p-6">
+      <div className="p-4">
+        {showManagement ? (
+          <div className="bg-white rounded-lg shadow">
+            <ClientManagement />
+          </div>
+        ) : (
           <JobOffersSection />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
