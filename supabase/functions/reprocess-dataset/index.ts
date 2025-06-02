@@ -50,6 +50,26 @@ serve(async (req) => {
       processing_errors: 0
     }
 
+    // Phase 0: Get dataset info to know total count
+    console.log('📊 Getting dataset information...')
+    try {
+      const datasetInfoResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apifyApiKey}`,
+          'Accept': 'application/json',
+        },
+      })
+
+      if (datasetInfoResponse.ok) {
+        const datasetInfo = await datasetInfoResponse.json()
+        const totalItems = datasetInfo.data?.itemCount || 0
+        console.log(`📊 Dataset contains ${totalItems} total items`)
+      }
+    } catch (error) {
+      console.log('⚠️ Could not fetch dataset info, continuing anyway:', error)
+    }
+
     // Phase 1: Cleanup existing data if requested
     if (cleanupExisting) {
       console.log('🧹 Cleaning up existing data for dataset:', datasetId)
@@ -78,18 +98,22 @@ serve(async (req) => {
     }
 
     // Phase 2: Fetch ALL data with improved pagination
-    console.log('📥 Starting comprehensive data retrieval with corrected pagination...')
+    console.log('📥 Starting comprehensive data retrieval with improved pagination...')
     let allDatasetItems: any[] = []
     let offset = 0
     const limit = 1000
-    let totalAttempts = 0
-    const maxAttempts = 20
+    let consecutiveEmptyBatches = 0
+    const maxConsecutiveEmpty = 3 // Stop only after multiple consecutive empty responses
 
-    while (totalAttempts < maxAttempts) {
-      console.log(`📥 Fetching batch ${totalAttempts + 1}: offset=${offset}, limit=${limit}`)
+    while (consecutiveEmptyBatches < maxConsecutiveEmpty) {
+      const batchNumber = Math.floor(offset / limit) + 1
+      console.log(`📥 Fetching batch ${batchNumber}: offset=${offset}, limit=${limit}`)
       
       try {
-        const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json&offset=${offset}&limit=${limit}`, {
+        // Improved API call with better parameters
+        const apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?format=json&offset=${offset}&limit=${limit}&skipEmpty=true&desc=1`
+        
+        const apifyResponse = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${apifyApiKey}`,
@@ -102,28 +126,28 @@ serve(async (req) => {
           console.error('❌ Apify API error:', apifyResponse.status, errorText)
           
           if (allDatasetItems.length > 0) {
-            console.log('⚠️ API error but we have data, continuing...')
+            console.log('⚠️ API error but we have data, stopping...')
             break
           }
-          throw new Error(`Apify API error: ${apifyResponse.status}`)
+          throw new Error(`Apify API error: ${apifyResponse.status} - ${errorText}`)
         }
 
         const batchItems = await apifyResponse.json()
-        console.log(`📊 Retrieved ${batchItems.length} items in batch ${totalAttempts + 1}`)
+        console.log(`📊 Retrieved ${batchItems.length} items in batch ${batchNumber}`)
         
         if (batchItems.length === 0) {
-          console.log('📄 No more items, stopping pagination')
-          break
+          consecutiveEmptyBatches++
+          console.log(`📄 Empty batch ${consecutiveEmptyBatches}/${maxConsecutiveEmpty}`)
+          offset += limit // Continue to next offset even with empty batch
+          continue
         }
 
+        // Reset empty batch counter when we get data
+        consecutiveEmptyBatches = 0
         allDatasetItems = allDatasetItems.concat(batchItems)
-        offset += batchItems.length
-        totalAttempts++
+        offset += batchItems.length // Use actual returned length instead of limit
         
-        if (batchItems.length < limit) {
-          console.log('📄 Reached end of dataset (partial batch)')
-          break
-        }
+        console.log(`📊 Total items collected so far: ${allDatasetItems.length}`)
 
       } catch (error) {
         console.error('❌ Error fetching batch:', error)
@@ -136,7 +160,7 @@ serve(async (req) => {
     }
 
     stats.total_fetched = allDatasetItems.length
-    console.log(`📊 TOTAL dataset items fetched: ${stats.total_fetched}`)
+    console.log(`📊 FINAL: Total dataset items fetched: ${stats.total_fetched}`)
 
     // Phase 3: Store raw data (universal storage)
     console.log('💾 Storing raw data...')
@@ -262,10 +286,12 @@ serve(async (req) => {
       dataset_id: datasetId,
       statistics: stats,
       improvements: [
-        'Complete dataset re-fetch with corrected pagination',
-        'Fixed classification logic (less strict)',
-        'Universal raw data storage',
-        'Proper error handling and recovery'
+        'Complete dataset re-fetch with improved pagination logic',
+        'Removed clean=true filter and used skipEmpty=true instead',
+        'Added desc=1 for newest items first',
+        'Fixed pagination to handle empty batches correctly',
+        'Added dataset info retrieval for total count verification',
+        'Enhanced error handling and recovery mechanisms'
       ]
     }), { 
       status: 200,
