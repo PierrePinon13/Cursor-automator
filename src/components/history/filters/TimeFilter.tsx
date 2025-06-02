@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Calendar, CalendarDays } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface TimeFilterProps {
   timeFilter: string;
@@ -18,155 +18,92 @@ interface TimeFilterProps {
 const TimeFilter = ({ 
   timeFilter, 
   onTimeFilterChange, 
-  customDateRange, 
+  customDateRange,
   onCustomDateRangeChange 
 }: TimeFilterProps) => {
-  const [timeMenuOpen, setTimeMenuOpen] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [selectingDateRange, setSelectingDateRange] = useState(false);
-
-  const timeFilterOptions = [
-    { value: '1h', label: '1h' },
-    { value: 'today', label: "Aujourd'hui" },
-    { value: 'yesterday', label: 'Hier' },
-    { value: 'this_week', label: 'Cette semaine' },
-    { value: 'last_week', label: 'Semaine dernière' },
-    { value: 'this_month', label: 'Ce mois-ci' },
-    { value: 'last_month', label: 'Mois dernier' },
-    { value: 'custom', label: 'Période personnalisée' }
+  const timeOptions = [
+    { value: 'all', label: 'Tout' },
+    { value: 'today', label: 'Aujourd\'hui' },
+    { value: 'this-week', label: 'Cette semaine' },
+    { value: 'this-month', label: 'Ce mois' },
+    { value: 'custom', label: 'Personnalisé' }
   ];
 
-  const handleTimeFilterSelect = (value: string) => {
-    if (value === 'custom') {
-      setSelectingDateRange(true);
-      setShowCalendar(true);
-    } else {
-      onTimeFilterChange(value);
-      setTimeMenuOpen(false);
-    }
+  const handleTimeFilterClick = (value: string) => {
+    onTimeFilterChange(value);
   };
 
-  const handleDateSelect = (date: Date | undefined) => {
-    if (!date) return;
-    
-    if (!customDateRange?.from || customDateRange.to) {
-      // Première date sélectionnée
-      onCustomDateRangeChange({ from: date, to: undefined });
-    } else {
-      // Deuxième date sélectionnée
-      const newRange = { 
-        from: customDateRange.from, 
-        to: date.getTime() >= customDateRange.from.getTime() ? date : customDateRange.from 
-      };
-      if (date.getTime() < customDateRange.from.getTime()) {
-        newRange.from = date;
-        newRange.to = customDateRange.from;
+  const getDisplayLabel = () => {
+    const selected = timeOptions.find(opt => opt.value === timeFilter);
+    if (timeFilter === 'custom' && customDateRange?.from) {
+      if (customDateRange.to) {
+        return `${format(customDateRange.from, 'dd/MM', { locale: fr })} - ${format(customDateRange.to, 'dd/MM', { locale: fr })}`;
       }
-      onCustomDateRangeChange(newRange);
-      onTimeFilterChange('custom');
-      setShowCalendar(false);
-      setSelectingDateRange(false);
-      setTimeMenuOpen(false);
+      return `Depuis ${format(customDateRange.from, 'dd/MM', { locale: fr })}`;
     }
+    return selected?.label || 'Tout';
   };
 
   return (
-    <Popover open={timeMenuOpen} onOpenChange={setTimeMenuOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            'h-6 px-2 rounded-md border text-xs',
-            timeFilter !== 'all'
-              ? 'bg-blue-100 border-blue-300 text-blue-700'
-              : 'bg-white border-gray-300 text-gray-600'
-          )}
-        >
-          <Clock className={cn(
-            'h-3 w-3',
-            timeFilter !== 'all' ? 'text-blue-700' : 'text-gray-400'
-          )} />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 z-50" align="start">
-        <div className="bg-white border rounded-lg shadow-lg">
-          {!showCalendar ? (
-            <div className="p-2">
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {timeFilterOptions.slice(0, 6).map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={timeFilter === option.value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleTimeFilterSelect(option.value)}
-                    className="h-8 text-xs"
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
+    <div className="flex items-center gap-0.5">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              'h-6 px-2 border text-xs rounded-md',
+              timeFilter !== 'all' 
+                ? 'bg-purple-100 border-purple-300 text-purple-700' 
+                : 'bg-white border-gray-300 text-gray-600'
+            )}
+          >
+            <div className="flex items-center gap-1">
+              <Calendar className={cn('h-3 w-3', timeFilter !== 'all' ? 'text-purple-700' : 'text-gray-400')} />
+              <span className="truncate max-w-20">{getDisplayLabel()}</span>
+            </div>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2" align="start">
+          <div className="space-y-1">
+            {timeOptions.map((option) => (
               <Button
-                variant="outline"
+                key={option.value}
+                variant="ghost"
                 size="sm"
-                onClick={() => handleTimeFilterSelect('custom')}
-                className="w-full h-8 text-xs"
-              >
-                Période personnalisée
-              </Button>
-            </div>
-          ) : (
-            <div className="p-3">
-              <Calendar
-                mode="single"
-                selected={customDateRange?.from}
-                onSelect={handleDateSelect}
-                initialFocus
-                locale={fr}
-                className="rounded-md border-0"
-              />
-              <div className="mt-3 text-xs text-gray-500 text-center">
-                {!customDateRange?.from && "Cliquez une fois pour une date, deux fois pour une période"}
-                {customDateRange?.from && !customDateRange.to && 
-                  `Début: ${format(customDateRange.from, 'dd/MM/yyyy', { locale: fr })} - Sélectionnez la fin`
-                }
-                {customDateRange?.from && customDateRange.to && 
-                  `Du ${format(customDateRange.from, 'dd/MM/yyyy', { locale: fr })} au ${format(customDateRange.to, 'dd/MM/yyyy', { locale: fr })}`
-                }
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowCalendar(false);
-                    setSelectingDateRange(false);
-                    onCustomDateRangeChange({});
-                  }}
-                  className="flex-1 h-8 text-xs"
-                >
-                  Annuler
-                </Button>
-                {customDateRange?.from && (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      onTimeFilterChange('custom');
-                      setShowCalendar(false);
-                      setSelectingDateRange(false);
-                      setTimeMenuOpen(false);
-                    }}
-                    className="flex-1 h-8 text-xs"
-                  >
-                    Valider
-                  </Button>
+                onClick={() => handleTimeFilterClick(option.value)}
+                className={cn(
+                  'w-full justify-start text-xs',
+                  timeFilter === option.value ? 'bg-purple-100 text-purple-900' : ''
                 )}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          
+          {timeFilter === 'custom' && (
+            <>
+              <div className="border-t mt-2 pt-2">
+                <div className="text-xs font-medium mb-2">Période personnalisée</div>
+                <CalendarComponent
+                  mode="range"
+                  selected={{ from: customDateRange?.from, to: customDateRange?.to }}
+                  onSelect={(range) => {
+                    onCustomDateRangeChange({
+                      from: range?.from,
+                      to: range?.to
+                    });
+                  }}
+                  locale={fr}
+                  className="rounded-md border"
+                />
               </div>
-            </div>
+            </>
           )}
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 };
 

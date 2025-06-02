@@ -53,7 +53,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-between px-3 py-2 bg-white border-b">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold text-gray-900">Tableau de bord</h1>
+          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
         </div>
         <UserActionsDropdown />
       </div>

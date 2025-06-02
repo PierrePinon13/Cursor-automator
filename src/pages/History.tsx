@@ -12,7 +12,7 @@ const History = () => {
   const [selectedActivity, setSelectedActivity] = useState<HistoryActivity | null>(null);
   const [filterBy, setFilterBy] = useState<'all' | 'mine'>('all');
   const [activityTypes, setActivityTypes] = useState<string[]>(['linkedin_message', 'phone_call']);
-  const [timeFilter, setTimeFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState('this-week');
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -38,6 +38,8 @@ const History = () => {
 
   // Transformer les données d'activités pour correspondre au format HistoryActivity une seule fois
   const transformedActivities: HistoryActivity[] = useMemo(() => {
+    console.log('🔄 Transforming activities:', activities.length);
+    
     return activities.map((activity) => {
       const lead = activity.lead;
       const activityData = activity.activity_data || {};
@@ -84,7 +86,12 @@ const History = () => {
     });
   }, [activities]);
 
-  console.log('📊 History - Transformed activities:', transformedActivities.length, transformedActivities);
+  console.log('📊 History - Transformed activities:', {
+    rawCount: activities.length,
+    transformedCount: transformedActivities.length,
+    filters: fetchParams,
+    loading
+  });
 
   // Filtrer les activités selon la recherche
   const filteredActivities = useMemo(() => {
@@ -104,7 +111,8 @@ const History = () => {
     searchQuery,
     filteredCount: filteredActivities.length,
     totalCount: transformedActivities.length,
-    loading
+    loading,
+    sampleActivity: filteredActivities[0]
   });
 
   const handleSelectActivity = (activity: HistoryActivity) => {
@@ -149,6 +157,9 @@ const History = () => {
                   <p className="text-lg">Aucune activité trouvée</p>
                   <p className="text-sm mt-2">
                     Filtres actifs: {filterBy}, {activityTypes.join('+')}, {timeFilter}
+                  </p>
+                  <p className="text-xs mt-1 text-gray-400">
+                    Activités brutes: {activities.length} | Transformées: {transformedActivities.length}
                   </p>
                 </div>
               </div>
