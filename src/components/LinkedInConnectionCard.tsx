@@ -2,11 +2,21 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Linkedin, Unlink, RefreshCw, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { Linkedin, Unlink, RefreshCw, CheckCircle, RotateCcw, Bug } from 'lucide-react';
 import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 const LinkedInConnectionCard = () => {
-  const { unipileAccountId, isConnected, loading, syncing, connectLinkedIn, disconnectLinkedIn, syncAccounts, refreshConnection } = useLinkedInConnection();
+  const { 
+    unipileAccountId, 
+    isConnected, 
+    loading, 
+    syncing, 
+    connectLinkedIn, 
+    disconnectLinkedIn, 
+    syncAccounts, 
+    refreshConnection,
+    forceRefresh 
+  } = useLinkedInConnection();
 
   return (
     <Card>
@@ -32,6 +42,14 @@ const LinkedInConnectionCard = () => {
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={forceRefresh}
+              title="Force refresh (debug)"
+            >
+              <Bug className="h-4 w-4" />
+            </Button>
           </div>
         </CardTitle>
         <CardDescription>
@@ -54,6 +72,9 @@ const LinkedInConnectionCard = () => {
                 {syncing ? 'Synchronisation...' : 'Synchroniser'}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Astuce : Si la connexion ne fonctionne pas, essayez le bouton "Synchroniser"
+            </p>
           </div>
         ) : (
           <div className="space-y-3">

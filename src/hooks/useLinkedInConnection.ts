@@ -95,33 +95,58 @@ export function useLinkedInConnection() {
           description: "Une nouvelle fenêtre s'est ouverte pour connecter votre compte LinkedIn.",
         });
 
-        // Poll for connection success with more frequent checks
+        // Enhanced polling for connection success
         const pollConnection = () => {
+          let checkCount = 0;
+          const maxChecks = 200; // 10 minutes max (200 * 3 seconds)
+          
           const checkInterval = setInterval(async () => {
+            checkCount++;
+            
             if (popup.closed) {
               clearInterval(checkInterval);
               console.log('Popup closed, checking for connection update...');
               
-              // Wait a moment for webhook to process
+              // Wait a moment for webhook to process, then check multiple times
               setTimeout(async () => {
-                await fetchUnipileAccountId();
+                for (let i = 0; i < 5; i++) {
+                  await fetchUnipileAccountId();
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
               }, 2000);
               return;
             }
 
-            // Check if connection is now successful more frequently
+            // Stop polling after max attempts
+            if (checkCount >= maxChecks) {
+              clearInterval(checkInterval);
+              console.log('Stopped polling for LinkedIn connection - timeout');
+              return;
+            }
+
+            // Check if connection is now successful
             try {
-              await fetchUnipileAccountId();
+              const { data: currentProfile } = await supabase
+                .from('profiles')
+                .select('unipile_account_id')
+                .eq('id', user.id)
+                .single();
+
+              if (currentProfile?.unipile_account_id && currentProfile.unipile_account_id !== unipileAccountId) {
+                console.log('New connection detected:', currentProfile.unipile_account_id);
+                setUnipileAccountId(currentProfile.unipile_account_id);
+                clearInterval(checkInterval);
+                popup.close();
+                
+                toast({
+                  title: "Connexion réussie",
+                  description: "Votre compte LinkedIn a été connecté avec succès.",
+                });
+              }
             } catch (error) {
               console.log('Error during polling check:', error);
             }
           }, 3000); // Check every 3 seconds
-
-          // Stop polling after 10 minutes
-          setTimeout(() => {
-            clearInterval(checkInterval);
-            console.log('Stopped polling for LinkedIn connection');
-          }, 600000);
         };
 
         pollConnection();
@@ -182,10 +207,11 @@ export function useLinkedInConnection() {
       }
 
       if (data && data.success) {
+        // Force refresh after sync
         await fetchUnipileAccountId();
         toast({
           title: "Synchronisation réussie",
-          description: "Compte LinkedIn synchronisé avec succès",
+          description: data.message || "Compte LinkedIn synchronisé avec succès",
         });
       } else {
         throw new Error(data?.error || 'Réponse invalide du serveur');
@@ -202,6 +228,12 @@ export function useLinkedInConnection() {
     }
   };
 
+  // Force refresh function for manual testing
+  const forceRefresh = async () => {
+    console.log('Force refreshing connection status...');
+    await fetchUnipileAccountId();
+  };
+
   return {
     unipileAccountId,
     isConnected: !!unipileAccountId,
@@ -211,5 +243,6 @@ export function useLinkedInConnection() {
     disconnectLinkedIn,
     syncAccounts,
     refreshConnection: fetchUnipileAccountId,
+    forceRefresh,
   };
 }

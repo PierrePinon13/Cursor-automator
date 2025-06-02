@@ -21,7 +21,8 @@ serve(async (req) => {
     )
 
     const webhookData = await req.json()
-    console.log('LinkedIn webhook received:', JSON.stringify(webhookData, null, 2))
+    console.log('=== LinkedIn webhook received ===')
+    console.log('Full webhook data:', JSON.stringify(webhookData, null, 2))
 
     const { account_id, status, metadata, error: unipileError, name } = webhookData
 
@@ -31,6 +32,15 @@ serve(async (req) => {
     }
 
     console.log('Processing webhook for account_id:', account_id, 'with status:', status)
+
+    // Log webhook reception for debugging
+    await supabaseClient
+      .from('admin_actions_log')
+      .insert({
+        action_type: 'linkedin_webhook_received',
+        action_details: webhookData,
+        success: true
+      })
 
     // Get user_id from metadata first, then try to find by email from name field
     let user_id = metadata?.user_id
@@ -64,6 +74,22 @@ serve(async (req) => {
         name,
         allKeys: Object.keys(webhookData)
       })
+
+      // Log this failure for admin review
+      await supabaseClient
+        .from('admin_actions_log')
+        .insert({
+          action_type: 'linkedin_webhook_user_not_found',
+          action_details: {
+            account_id,
+            status,
+            metadata,
+            name,
+            error: 'Could not identify user from webhook data'
+          },
+          success: false,
+          error_message: 'Missing user_id in metadata and could not find user by email'
+        })
       
       return new Response('Missing user_id in metadata and could not find user by email', { status: 400 })
     }
@@ -83,13 +109,57 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error updating profile:', error)
+        
+        // Log the database error
+        await supabaseClient
+          .from('admin_actions_log')
+          .insert({
+            action_type: 'linkedin_webhook_profile_update_error',
+            action_details: {
+              user_id,
+              account_id,
+              error: error.message
+            },
+            success: false,
+            error_message: error.message
+          })
+
         return new Response('Database error', { status: 500 })
       }
 
       console.log('Profile updated successfully for user:', user_id, 'with account_id:', account_id)
       console.log('Updated profile data:', data)
+
+      // Log successful update
+      await supabaseClient
+        .from('admin_actions_log')
+        .insert({
+          action_type: 'linkedin_webhook_profile_updated',
+          action_details: {
+            user_id,
+            account_id,
+            updated_profile: data[0]
+          },
+          success: true
+        })
+
     } else if (status === 'CREATION_FAILED' || status === 'ERROR') {
       console.log('Connection failed with status:', status, 'Error:', unipileError)
+      
+      // Log connection failure
+      await supabaseClient
+        .from('admin_actions_log')
+        .insert({
+          action_type: 'linkedin_webhook_connection_failed',
+          action_details: {
+            user_id,
+            account_id,
+            status,
+            error: unipileError
+          },
+          success: false,
+          error_message: `Connection failed: ${status}`
+        })
     } else {
       console.log('Status was not success, not updating profile. Status:', status)
     }
