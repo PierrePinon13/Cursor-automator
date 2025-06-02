@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -194,59 +195,73 @@ serve(async (req) => {
       }
     }
 
-    // Phase 3: Stockage des données brutes avec upsert
-    console.log('💾 Storing raw data with upsert logic...')
+    // ✅ OPTIMISATION MAJEURE: Phase 3 - Stockage des données brutes en BATCH
+    console.log('💾 Storing raw data with BATCH processing...')
     let rawStoredCount = 0
-    let rawSkippedCount = 0
+    const BATCH_SIZE = 100 // Traiter par chunks de 100
 
-    for (const item of allDatasetItems) {
+    // Filtrer et préparer les données avant le stockage
+    const validRawData = allDatasetItems
+      .filter(item => item && item.urn)
+      .map(item => ({
+        apify_dataset_id: datasetId,
+        urn: item.urn,
+        text: item.text || null,
+        title: item.title || null,
+        url: item.url,
+        posted_at_timestamp: item.postedAtTimestamp || null,
+        posted_at_iso: item.postedAt || null,
+        author_type: item.authorType || null,
+        author_profile_url: item.authorProfileUrl || null,
+        author_profile_id: item.authorProfileId || null,
+        author_name: item.authorName || null,
+        author_headline: item.authorHeadline || null,
+        is_repost: item.isRepost || false,
+        raw_data: item,
+        updated_at: new Date().toISOString()
+      }))
+
+    console.log(`📦 Processing ${validRawData.length} valid records in batches of ${BATCH_SIZE}`)
+
+    // Traitement par batch pour éviter les timeouts
+    for (let i = 0; i < validRawData.length; i += BATCH_SIZE) {
+      const batch = validRawData.slice(i, i + BATCH_SIZE)
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(validRawData.length / BATCH_SIZE)
+      
+      console.log(`💾 Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`)
+      
       try {
-        if (!item.urn) {
-          console.log('⚠️ Skipping item without URN')
-          continue
-        }
-
-        const rawPostData = {
-          apify_dataset_id: datasetId,
-          urn: item.urn,
-          text: item.text || null,
-          title: item.title || null,
-          url: item.url,
-          posted_at_timestamp: item.postedAtTimestamp || null,
-          posted_at_iso: item.postedAt || null,
-          author_type: item.authorType || null,
-          author_profile_url: item.authorProfileUrl || null,
-          author_profile_id: item.authorProfileId || null,
-          author_name: item.authorName || null,
-          author_headline: item.authorHeadline || null,
-          is_repost: item.isRepost || false,
-          raw_data: item,
-          updated_at: new Date().toISOString()
-        }
-
-        // Upsert avec gestion des conflits URN
-        const { error: upsertError } = await supabaseClient
+        const { error: batchError } = await supabaseClient
           .from('linkedin_posts_raw')
-          .upsert(rawPostData, { 
+          .upsert(batch, { 
             onConflict: 'urn',
             ignoreDuplicates: false 
           })
 
-        if (upsertError) {
-          console.error('❌ Error upserting raw post:', upsertError)
-          continue
+        if (batchError) {
+          console.error(`❌ Error in batch ${batchNumber}:`, batchError)
+          stats.processing_errors += batch.length
+        } else {
+          rawStoredCount += batch.length
+          console.log(`✅ Batch ${batchNumber} stored successfully (${batch.length} records)`)
         }
 
-        rawStoredCount++
+        // Pause courte entre les batches pour éviter la surcharge
+        if (i + BATCH_SIZE < validRawData.length) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
 
       } catch (error) {
-        console.error('❌ Error processing raw item:', error)
+        console.error(`❌ Exception in batch ${batchNumber}:`, error)
+        stats.processing_errors += batch.length
       }
     }
 
     stats.stored_raw = rawStoredCount
+    console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
 
-    // Phase 4: Classification et mise en queue avec diagnostic (UTILISATION de 'pending' au lieu de 'queued')
+    // ✅ CORRECTION CRITIQUE: Phase 4 - Classification et mise en queue avec le bon statut
     console.log('🎯 Applying classification and queuing...')
     let queuedCount = 0
     let excludedByAuthorType = 0
@@ -296,7 +311,7 @@ serve(async (req) => {
           author_profile_id: item.authorProfileId || null,
           author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
-          processing_status: 'pending', // CORRECTION: utilisation de 'pending' au lieu de 'queued'
+          processing_status: 'queued', // ✅ CORRECTION: utilisation de 'queued' au lieu de 'pending'
           raw_data: item
         }
 
@@ -376,6 +391,9 @@ serve(async (req) => {
         }
       },
       improvements: [
+        '✅ BATCH PROCESSING: Raw data stored in chunks of 100 to prevent timeouts',
+        '✅ CORRECTED STATUS: Fixed processing_status from "pending" to "queued"',
+        '✅ ENHANCED LOGGING: Better progress tracking and error handling',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
