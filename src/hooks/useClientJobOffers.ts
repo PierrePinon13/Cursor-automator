@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -116,8 +115,49 @@ export function useClientJobOffers() {
     );
   };
 
+  const assignUserToClient = async (userId: string, clientId: string) => {
+    try {
+      console.log('🔗 Assigning user to client automatically:', { userId, clientId });
+      
+      // Vérifier si l'utilisateur est déjà assigné à ce client
+      const { data: existingCollaborator, error: checkError } = await supabase
+        .from('client_collaborators')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('client_id', clientId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ Error checking existing collaborator:', checkError);
+        return;
+      }
+
+      // Si l'utilisateur n'est pas déjà collaborateur, l'ajouter
+      if (!existingCollaborator) {
+        const { error: insertError } = await supabase
+          .from('client_collaborators')
+          .insert({
+            user_id: userId,
+            client_id: clientId
+          });
+
+        if (insertError) {
+          console.error('❌ Error adding user as client collaborator:', insertError);
+        } else {
+          console.log('✅ User automatically added as client collaborator');
+        }
+      } else {
+        console.log('ℹ️ User is already a collaborator for this client');
+      }
+    } catch (error) {
+      console.error('❌ Error in assignUserToClient:', error);
+    }
+  };
+
   const assignJobOffer = async (jobOfferId: string, userId: string | null) => {
     try {
+      const jobOffer = jobOffers.find(offer => offer.id === jobOfferId);
+      
       const updateData: any = {
         assigned_to_user_id: userId,
         assigned_at: userId ? new Date().toISOString() : null,
@@ -126,6 +166,11 @@ export function useClientJobOffers() {
 
       if (userId) {
         updateData.status = 'en_attente';
+        
+        // Si l'offre a un client associé, assigner automatiquement l'utilisateur à ce client
+        if (jobOffer?.matched_client_id) {
+          await assignUserToClient(userId, jobOffer.matched_client_id);
+        }
       } else {
         updateData.status = 'non_attribuee';
       }

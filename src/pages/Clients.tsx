@@ -27,23 +27,25 @@ const Clients = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Nouvelle barre de navigation unifiée sans bordure */}
-      <div className="flex items-center justify-between px-3 py-4 bg-white">
+      {/* Barre de navigation principale */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white">
         <div className="flex items-center gap-6">
           <SidebarTrigger />
-          
-          {/* Navigation principale avec nouveau style */}
-          <div className="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
+        </div>
+        
+        {/* Navigation centrée et élargie */}
+        <div className="flex items-center justify-center flex-1">
+          <div className="flex items-center bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-1.5 border border-blue-200/60 shadow-sm">
             <button
               onClick={() => {
                 setShowManagement(false);
                 setActiveTab('job-offers');
               }}
               className={`
-                px-6 py-2.5 rounded-md text-sm font-medium transition-all duration-200
+                px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 min-w-[160px]
                 ${!showManagement && activeTab === 'job-offers'
-                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105' 
+                  : 'text-blue-700 hover:text-blue-800 hover:bg-blue-100/70'
                 }
               `}
             >
@@ -55,10 +57,10 @@ const Clients = () => {
                 setActiveTab('client-posts');
               }}
               className={`
-                px-6 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ml-1
+                px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 ml-2 min-w-[160px]
                 ${!showManagement && activeTab === 'client-posts'
-                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
+                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md transform scale-105' 
+                  : 'text-purple-700 hover:text-purple-800 hover:bg-purple-100/70'
                 }
               `}
             >
@@ -81,7 +83,7 @@ const Clients = () => {
         </div>
       </div>
 
-      {/* Contenu avec padding réduit */}
+      {/* Contenu */}
       <div className="p-4">
         {showManagement ? (
           <ClientManagement />

@@ -54,6 +54,7 @@ export function VisualJobOffersFilters({
     { value: 'all', label: 'Tous' },
     { value: 'non_attribuee', label: 'Non attribuée' },
     { value: 'en_attente', label: 'En attente' },
+    { value: 'pre_assignee', label: 'Pré-assignée' },
     { value: 'a_relancer', label: 'À relancer' },
     { value: 'negatif', label: 'Négatif' },
     { value: 'positif', label: 'Positif' },
@@ -202,7 +203,6 @@ export function VisualJobOffersFilters({
 
   return (
     <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
-      {/* Filtres avec compteur et actualiser sur la même ligne */}
       <div className="flex flex-wrap items-center gap-3">
         <FilterButton
           icon={Calendar}
@@ -260,7 +260,6 @@ export function VisualJobOffersFilters({
           </Button>
         )}
 
-        {/* Compteur et actualiser à droite */}
         <div className="flex items-center gap-3 ml-auto">
           <Badge 
             variant="outline" 
