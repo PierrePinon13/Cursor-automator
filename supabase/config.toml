@@ -10,8 +10,17 @@ verify_jwt = false
 [functions.apify-webhook]
 verify_jwt = false
 
+[functions.process-dataset]
+verify_jwt = false
+
 [functions.process-linkedin-post]
 verify_jwt = false
 
 [functions.apify-client-jobs-webhook]
+verify_jwt = false
+
+[functions.processing-queue-manager]
+verify_jwt = false
+
+[functions.master-orchestrator]
 verify_jwt = false
