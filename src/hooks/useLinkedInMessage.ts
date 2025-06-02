@@ -2,29 +2,21 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useToast } from './use-toast';
+import { useLeadInteractions } from './useLeadInteractions';
 
 export function useLinkedInMessage() {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { showSuccessToast } = useLeadInteractions();
 
-  const sendMessage = async (leadId: string, message: string) => {
+  const sendMessage = async (leadId: string, message: string, leadData?: { author_name?: string; author_profile_url?: string }) => {
     if (!user) {
-      toast({
-        title: "Erreur",
-        description: "Vous devez être connecté pour envoyer un message.",
-        variant: "destructive",
-      });
+      showSuccessToast("Vous devez être connecté pour envoyer un message.");
       return false;
     }
 
     if (!message.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Le message ne peut pas être vide.",
-        variant: "destructive",
-      });
+      showSuccessToast("Le message ne peut pas être vide.");
       return false;
     }
 
@@ -49,23 +41,18 @@ export function useLinkedInMessage() {
       }
 
       if (data && data.success) {
-        const actionType = data.messageType === 'direct_message' ? 'Message LinkedIn' : 'Demande de connexion LinkedIn';
+        const actionType = data.messageType === 'direct_message' ? 'Message LinkedIn envoyé' : 'Demande de connexion LinkedIn envoyée';
         const networkInfo = data.networkDistance ? ` (distance réseau: ${data.networkDistance})` : '';
         
-        toast({
-          title: "Succès",
-          description: `${actionType} envoyé avec succès${networkInfo}`,
-        });
+        showSuccessToast(
+          `${actionType} avec succès${networkInfo}`,
+          leadData?.author_profile_url,
+          leadData?.author_name
+        );
         return true;
       } else {
         const errorMessage = data?.error || 'Échec de l\'envoi du message';
-        
-        toast({
-          title: "Erreur",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        
+        showSuccessToast(errorMessage);
         throw new Error(errorMessage);
       }
     } catch (error: any) {
@@ -86,11 +73,7 @@ export function useLinkedInMessage() {
         errorMessage = error.message;
       }
       
-      toast({
-        title: "Erreur",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      showSuccessToast(errorMessage);
       return false;
     } finally {
       setLoading(false);

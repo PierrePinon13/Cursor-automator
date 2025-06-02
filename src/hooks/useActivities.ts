@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useToast } from './use-toast';
 
 export interface Activity {
   id: string;
@@ -30,6 +31,7 @@ export const useActivities = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const fetchActivities = async (
     filterBy: 'all' | 'mine' = 'all',
@@ -68,7 +70,7 @@ export const useActivities = () => {
             latest_post_url
           )
         `)
-        .in('activity_type', activityTypes)
+        .in('activity_type', activityTypes as ('linkedin_message' | 'phone_call')[])
         .order('performed_at', { ascending: false });
 
       // Filtre par utilisateur
@@ -131,12 +133,72 @@ export const useActivities = () => {
         console.log('📊 Sample activity:', data[0]);
       }
 
-      setActivities(data || []);
+      // Transformer les données pour correspondre au type Activity
+      const transformedActivities: Activity[] = data?.map(item => ({
+        id: item.id,
+        activity_type: item.activity_type as 'linkedin_message' | 'phone_call',
+        activity_data: item.activity_data,
+        outcome: item.outcome,
+        performed_by_user_id: item.performed_by_user_id,
+        performed_by_user_name: item.performed_by_user_name,
+        performed_at: item.performed_at,
+        created_at: item.created_at,
+        lead_id: item.lead_id,
+        lead: item.lead
+      })) || [];
+
+      setActivities(transformedActivities);
     } catch (error) {
       console.error('💥 Error in fetchActivities:', error);
       setActivities([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createActivity = async (
+    leadId: string,
+    activityType: 'linkedin_message' | 'phone_call',
+    activityData: any,
+    outcome?: string
+  ) => {
+    if (!user) {
+      console.log('❌ No user found, cannot create activity');
+      return false;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('activities')
+        .insert({
+          lead_id: leadId,
+          activity_type: activityType,
+          activity_data: activityData,
+          outcome: outcome || null,
+          performed_by_user_id: user.id,
+          performed_by_user_name: user.user_metadata?.full_name || user.email,
+          performed_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('❌ Error creating activity:', error);
+        throw error;
+      }
+
+      console.log('✅ Activity created successfully');
+      
+      // Rafraîchir les activités
+      await fetchActivities();
+      
+      return true;
+    } catch (error) {
+      console.error('💥 Error in createActivity:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer l'activité.",
+        variant: "destructive",
+      });
+      return false;
     }
   };
 
@@ -150,6 +212,7 @@ export const useActivities = () => {
   return {
     activities,
     loading,
-    fetchActivities
+    fetchActivities,
+    createActivity
   };
 };

@@ -8,6 +8,7 @@ import ReminderDialog from './ReminderDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useLeadInteractions } from '@/hooks/useLeadInteractions';
 
 interface Lead {
   id: string;
@@ -46,6 +47,7 @@ const LeadActions = ({
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { slidingLeadId, slideToNextLead } = useLeadInteractions();
 
   const handleAction = (actionName: string) => {
     if (actionName === 'hr_provider') {
@@ -119,6 +121,15 @@ const LeadActions = ({
     }
   };
 
+  const handleLinkedInMessage = () => {
+    if (onSendLinkedInMessage) {
+      // Animation de glissement
+      slideToNextLead(lead.id, () => {
+        onSendLinkedInMessage();
+      });
+    }
+  };
+
   const canSendMessage = onSendLinkedInMessage && message.trim().length > 0 && message.length <= 300;
   const messageIsTooLong = message.length > 300;
 
@@ -133,8 +144,10 @@ const LeadActions = ({
     });
   };
 
+  const isSliding = slidingLeadId === lead.id;
+
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 transition-transform duration-300 ${isSliding ? 'transform -translate-x-full opacity-0' : ''}`}>
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Actions disponibles</h3>
       
       {/* Last Contact Info */}
@@ -170,7 +183,7 @@ const LeadActions = ({
             )}
             
             <Button
-              onClick={onSendLinkedInMessage}
+              onClick={handleLinkedInMessage}
               disabled={!canSendMessage || messageSending}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
               size="lg"

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -118,6 +119,17 @@ export function useClientJobOffers() {
     }, 500);
   };
 
+  const checkIfOfferWillDisappear = (offer: ClientJobOffer): boolean => {
+    if (selectedAssignmentFilter === 'assigned' && !offer.assigned_to_user_id) return true;
+    if (selectedAssignmentFilter === 'unassigned' && offer.assigned_to_user_id) return true;
+
+    if (selectedStatusFilter.includes('active') && offer.status === 'archivee') return true;
+    if (selectedStatusFilter.includes('archived') && offer.status !== 'archivee') return true;
+    if (!selectedStatusFilter.includes('active') && !selectedStatusFilter.includes('archived') && !selectedStatusFilter.includes(offer.status)) return true;
+
+    return false;
+  };
+
   const assignJobOffer = async (jobOfferId: string, userId: string | null) => {
     try {
       const updateData: any = {
@@ -137,7 +149,10 @@ export function useClientJobOffers() {
         .update(updateData)
         .eq('id', jobOfferId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error in assignJobOffer:', error);
+        throw error;
+      }
 
       const offer = jobOffers.find(o => o.id === jobOfferId);
       let willDisappear = false;
@@ -173,6 +188,8 @@ export function useClientJobOffers() {
 
   const updateJobOfferStatus = async (jobOfferId: string, newStatus: string) => {
     try {
+      console.log('🔄 Updating job offer status:', { jobOfferId, newStatus });
+      
       const { error } = await supabase
         .from('client_job_offers')
         .update({
@@ -181,7 +198,12 @@ export function useClientJobOffers() {
         })
         .eq('id', jobOfferId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error updating job offer status:', error);
+        throw error;
+      }
+
+      console.log('✅ Job offer status updated successfully');
 
       const offer = jobOffers.find(o => o.id === jobOfferId);
       let willDisappear = false;
@@ -197,9 +219,12 @@ export function useClientJobOffers() {
         }
       }
 
+      const actionText = newStatus === 'archivee' ? 'archivée' : 
+                        newStatus === 'active' ? 'désarchivée' : 'mise à jour';
+
       toast({
         title: "Succès",
-        description: newStatus === 'archivee' ? "Offre archivée avec succès." : "Statut mis à jour avec succès.",
+        description: `Offre ${actionText} avec succès.`,
       });
 
       setTimeout(() => {
