@@ -14,17 +14,34 @@ export interface UnipileScrapingResult {
 
 export async function scrapeLinkedInProfile(
   unipileApiKey: string,
-  profileId: string
+  profileId: string,
+  accountId?: string
 ): Promise<UnipileScrapingResult> {
   console.log('🔍 Starting Unipile profile scraping for profile ID:', profileId);
+  console.log('🔑 Using account ID:', accountId || 'not provided');
   
   try {
-    // ✅ CORRECTION : Utiliser la nouvelle API GET comme dans les workers spécialisés
-    const response = await fetch(`https://api9.unipile.com:13946/api/v1/users/${profileId}?linkedin_sections=experience`, {
+    // ✅ CORRECTION : Utiliser l'URL exacte avec les paramètres requis
+    let apiUrl = `https://api9.unipile.com:13946/api/v1/users/${profileId}`;
+    const queryParams = new URLSearchParams();
+    
+    // Ajouter les paramètres de requête
+    if (accountId) {
+      queryParams.append('account_id', accountId);
+    }
+    queryParams.append('linkedin_sections', 'experience');
+    
+    if (queryParams.toString()) {
+      apiUrl += `?${queryParams.toString()}`;
+    }
+    
+    console.log('🌐 API URL:', apiUrl);
+
+    const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'X-API-KEY': unipileApiKey,
-        'Content-Type': 'application/json',
+        'accept': 'application/json'
       }
     });
 
@@ -89,6 +106,31 @@ export async function scrapeLinkedInProfile(
   }
 }
 
+async function getAvailableUnipileAccount(supabaseClient: any): Promise<string | null> {
+  console.log('🔍 Fetching available Unipile accounts...');
+  
+  const { data: accounts, error } = await supabaseClient
+    .from('profiles')
+    .select('unipile_account_id')
+    .not('unipile_account_id', 'is', null);
+
+  if (error) {
+    console.error('❌ Error fetching Unipile accounts:', error);
+    return null;
+  }
+
+  if (!accounts || accounts.length === 0) {
+    console.error('❌ No Unipile accounts found');
+    return null;
+  }
+
+  // Pour l'instant, prendre le premier compte disponible
+  const selectedAccount = accounts[0].unipile_account_id;
+  console.log('✅ Selected Unipile account:', selectedAccount);
+  
+  return selectedAccount;
+}
+
 export async function executeUnipileScraping(
   context: ProcessingContext
 ): Promise<UnipileScrapingResult> {
@@ -105,9 +147,20 @@ export async function executeUnipileScraping(
       };
     }
     
+    // ✅ NOUVEAU : Récupérer un compte Unipile disponible
+    const accountId = await getAvailableUnipileAccount(context.supabaseClient);
+    if (!accountId) {
+      console.error('❌ No Unipile account available for scraping');
+      return {
+        success: false,
+        error: 'No Unipile account available for scraping'
+      };
+    }
+    
     const scrapingResult = await scrapeLinkedInProfile(
       context.unipileApiKey,
-      context.post.author_profile_id
+      context.post.author_profile_id,
+      accountId
     );
 
     // Update the post with scraping results
@@ -126,6 +179,14 @@ export async function executeUnipileScraping(
         updateData.phone_number = scrapingResult.phone;
         updateData.phone_retrieved_at = new Date().toISOString();
       }
+      
+      console.log('💾 Saving Unipile data to post:', {
+        company: scrapingResult.company,
+        position: scrapingResult.position,
+        company_id: scrapingResult.company_id
+      });
+    } else {
+      console.log('⚠️ Unipile scraping failed, saving null values');
     }
 
     const { error: updateError } = await context.supabaseClient
@@ -136,7 +197,7 @@ export async function executeUnipileScraping(
     if (updateError) {
       console.error('❌ Error updating post with scraping results:', updateError);
     } else {
-      console.log('💾 Unipile scraping results saved to database');
+      console.log('✅ Unipile scraping results saved to database');
     }
 
     if (scrapingResult.success) {
