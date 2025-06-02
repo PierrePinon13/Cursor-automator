@@ -44,9 +44,9 @@ interface UserStatRow {
   linkedin_messages_sent: number;
   positive_calls: number;
   negative_calls: number;
-  profiles?: {
-    email: string;
-  };
+  created_at?: string;
+  id?: string;
+  updated_at?: string;
 }
 
 export const useDashboardStats = () => {
@@ -67,7 +67,7 @@ export const useDashboardStats = () => {
       // Construire la requête de base
       let query = supabase
         .from('user_stats')
-        .select('*, profiles(email)');
+        .select('*');
 
       // Filtre temporel
       const startDate = timeRange.start.toISOString().split('T')[0];
@@ -87,8 +87,23 @@ export const useDashboardStats = () => {
 
       if (error) throw error;
 
+      // Récupérer les emails des utilisateurs séparément
+      const userIds = [...new Set(rawData?.map(stat => stat.user_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
+
+      const emailMap = new Map(profilesData?.map(profile => [profile.id, profile.email]) || []);
+
+      // Ajouter les emails aux données
+      const enrichedData = rawData?.map(stat => ({
+        ...stat,
+        user_email: emailMap.get(stat.user_id) || 'Utilisateur inconnu'
+      })) || [];
+
       // Traitement des données
-      const processedData = processRawData(rawData || [], userSelection);
+      const processedData = processRawData(enrichedData, userSelection);
       setData(processedData);
 
     } catch (error) {
@@ -105,7 +120,7 @@ export const useDashboardStats = () => {
   };
 };
 
-function processRawData(rawData: UserStatRow[], userSelection: UserSelection): DashboardData {
+function processRawData(rawData: (UserStatRow & { user_email?: string })[], userSelection: UserSelection): DashboardData {
   // Statistiques globales
   const totalStats = rawData.reduce(
     (acc, stat) => ({
@@ -161,7 +176,7 @@ function processRawData(rawData: UserStatRow[], userSelection: UserSelection): D
       if (!acc[userId]) {
         acc[userId] = {
           user_id: userId,
-          user_email: stat.profiles?.email || 'Inconnu',
+          user_email: stat.user_email || 'Inconnu',
           linkedin_messages: 0,
           positive_calls: 0,
           negative_calls: 0,

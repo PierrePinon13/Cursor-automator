@@ -115,7 +115,7 @@ const Dashboard = () => {
             {data && (
               <DashboardCharts
                 viewType={userSelection.type === 'specific' ? 'comparison' : 'global'}
-                timeFilter="all"
+                timeFilter="this-week"
                 stats={data.evolution.map(e => ({
                   user_id: 'system',
                   user_email: 'System',
