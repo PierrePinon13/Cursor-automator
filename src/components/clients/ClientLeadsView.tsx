@@ -40,7 +40,7 @@ export function ClientLeadsView() {
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Chargement des publications clients...</p>
+          <p className="mt-2 text-muted-foreground">Chargement des publications LinkedIn...</p>
         </div>
       </div>
     );
@@ -51,7 +51,7 @@ export function ClientLeadsView() {
       {/* Header avec titre et statistiques */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold">Publications clients</h2>
+          <h2 className="text-2xl font-bold">Publications LinkedIn</h2>
           <Badge variant="secondary" className="text-sm">
             {filteredLeads.length} publication{filteredLeads.length > 1 ? 's' : ''}
           </Badge>
@@ -116,7 +116,7 @@ export function ClientLeadsView() {
       {filteredLeads.length === 0 && (
         <div className="text-center py-12">
           <div className="text-muted-foreground">
-            <p className="text-lg mb-2">Aucune publication client trouvée</p>
+            <p className="text-lg mb-2">Aucune publication LinkedIn trouvée</p>
             <p className="text-sm">
               Ajustez vos filtres ou vérifiez que des clients ont publié récemment
             </p>

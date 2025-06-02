@@ -3,7 +3,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 
-type Lead = Tables<'leads'>;
+type Lead = Tables<'leads'> & {
+  client?: {
+    id: string;
+    company_name: string;
+    tier: string | null;
+  };
+  apify_dataset_id?: string;
+};
 
 export const useClientLeadsNew = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -38,11 +45,18 @@ export const useClientLeadsNew = () => {
 
   const fetchClientLeads = async () => {
     try {
-      console.log('🔍 Fetching client leads...');
+      console.log('🔍 Fetching client leads with enriched data...');
       
       const { data: clientLeads, error } = await supabase
         .from('leads')
-        .select('*')
+        .select(`
+          *,
+          client:clients!leads_matched_client_id_fkey (
+            id,
+            company_name,
+            tier
+          )
+        `)
         .eq('is_client_lead', true)
         .order('latest_post_date', { ascending: false });
 
@@ -50,9 +64,30 @@ export const useClientLeadsNew = () => {
         console.error('❌ Error fetching client leads:', error);
         throw error;
       }
+
+      // Enrichir avec les données du dataset depuis linkedin_posts si disponible
+      const enrichedLeads = await Promise.all(
+        (clientLeads || []).map(async (lead) => {
+          try {
+            const { data: linkedinPost } = await supabase
+              .from('linkedin_posts')
+              .select('apify_dataset_id')
+              .eq('lead_id', lead.id)
+              .single();
+
+            return {
+              ...lead,
+              apify_dataset_id: linkedinPost?.apify_dataset_id
+            };
+          } catch (error) {
+            console.warn(`Could not fetch dataset info for lead ${lead.id}`);
+            return lead;
+          }
+        })
+      );
       
-      console.log(`📋 Fetched ${clientLeads?.length || 0} client leads`);
-      setLeads(clientLeads || []);
+      console.log(`📋 Fetched ${enrichedLeads.length} enriched client leads`);
+      setLeads(enrichedLeads);
     } catch (error) {
       console.error('💥 Error fetching client leads:', error);
       setLeads([]);
@@ -106,6 +141,7 @@ export const useClientLeadsNew = () => {
         lead.author_name?.toLowerCase().includes(query) ||
         lead.text?.toLowerCase().includes(query) ||
         lead.matched_client_name?.toLowerCase().includes(query) ||
+        lead.client?.company_name?.toLowerCase().includes(query) ||
         lead.unipile_company?.toLowerCase().includes(query) ||
         lead.openai_step3_postes_selectionnes?.some(poste => 
           poste.toLowerCase().includes(query)

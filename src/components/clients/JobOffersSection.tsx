@@ -38,7 +38,7 @@ export function JobOffersSection() {
     <Tabs defaultValue="job-offers" className="w-full">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
-        <TabsTrigger value="client-posts">Publications clients</TabsTrigger>
+        <TabsTrigger value="client-posts">Publications LinkedIn</TabsTrigger>
       </TabsList>
       
       <TabsContent value="job-offers" className="space-y-4">
