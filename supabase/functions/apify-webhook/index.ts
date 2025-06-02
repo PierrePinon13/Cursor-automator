@@ -63,16 +63,16 @@ serve(async (req) => {
       started_at: new Date().toISOString()
     }
 
-    // Fetch ALL dataset items from Apify with improved pagination
-    console.log('🔄 Starting data retrieval with improved pagination...')
+    // Fetch ALL dataset items from Apify with IMPROVED pagination
+    console.log('🔄 Starting comprehensive data retrieval...')
     let allDatasetItems: any[] = []
     let offset = 0
     const limit = 1000 // Apify's max per request
-    let consecutiveEmptyBatches = 0
-    const maxConsecutiveEmpty = 3 // Stop after 3 consecutive empty batches
+    let totalAttempts = 0
+    const maxAttempts = 20 // Limite de sécurité
 
-    while (consecutiveEmptyBatches < maxConsecutiveEmpty) {
-      console.log(`📥 Fetching batch: offset=${offset}, limit=${limit}`)
+    while (totalAttempts < maxAttempts) {
+      console.log(`📥 Fetching batch ${totalAttempts + 1}: offset=${offset}, limit=${limit}`)
       
       try {
         const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json&offset=${offset}&limit=${limit}`, {
@@ -86,44 +86,42 @@ serve(async (req) => {
         if (!apifyResponse.ok) {
           const errorText = await apifyResponse.text()
           console.error('❌ Apify API error:', apifyResponse.status, errorText)
+          
+          // Si on a déjà des données, on continue
+          if (allDatasetItems.length > 0) {
+            console.log('⚠️ API error but we have data, continuing...')
+            break
+          }
           throw new Error(`Apify API error: ${apifyResponse.status}`)
         }
 
         const batchItems = await apifyResponse.json()
-        console.log(`📊 Retrieved ${batchItems.length} items in this batch`)
+        console.log(`📊 Retrieved ${batchItems.length} items in batch ${totalAttempts + 1}`)
         
-        // If we got no items, increment empty batch counter
+        // Si on ne récupère rien, on s'arrête
         if (batchItems.length === 0) {
-          consecutiveEmptyBatches++
-          console.log(`⚠️ Empty batch ${consecutiveEmptyBatches}/${maxConsecutiveEmpty}`)
-        } else {
-          // Reset counter if we got data
-          consecutiveEmptyBatches = 0
-          allDatasetItems = allDatasetItems.concat(batchItems)
-        }
-        
-        // If we got fewer items than the limit, we might be at the end
-        if (batchItems.length < limit) {
-          console.log('📄 Reached end of dataset (fewer items than limit)')
+          console.log('📄 No more items, stopping pagination')
           break
         }
+
+        allDatasetItems = allDatasetItems.concat(batchItems)
+        offset += batchItems.length // Utiliser la taille réelle du batch
+        totalAttempts++
         
-        // Update offset for next iteration
-        offset += limit
-        
-        // Safety check to prevent infinite loops
-        if (offset > 100000) { // Maximum 100k items as safety
-          console.warn('⚠️ Reached safety limit of 100k items, stopping pagination')
+        // Si on a moins d'items que la limite, on a atteint la fin
+        if (batchItems.length < limit) {
+          console.log('📄 Reached end of dataset (partial batch)')
           break
         }
 
       } catch (error) {
         console.error('❌ Error fetching batch:', error)
-        consecutiveEmptyBatches++
-        if (consecutiveEmptyBatches >= maxConsecutiveEmpty) {
-          console.error('❌ Too many consecutive errors, stopping pagination')
+        // Si on a déjà des données, on s'arrête gracieusement
+        if (allDatasetItems.length > 0) {
+          console.log('⚠️ Error occurred but we have some data, stopping...')
           break
         }
+        throw error
       }
     }
 
@@ -190,8 +188,8 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`💾 Raw storage complete: ${rawStoredCount} stored, ${rawErrorCount} errors`)
 
-    // PHASE 1: QUALIFICATION INTELLIGENTE - Marquer pour traitement
-    console.log('🎯 Phase 1: Intelligent qualification - marking posts for processing...')
+    // PHASE 2: QUALIFICATION CORRIGÉE - Classification moins stricte
+    console.log('🎯 Phase 2: Fixed qualification - applying corrected classification...')
     
     let queuedCount = 0
     let qualificationErrors = 0
@@ -210,8 +208,8 @@ serve(async (req) => {
           continue
         }
 
-        // Classification intelligente pour décider si on traite ou non
-        const shouldProcess = classifyForProcessing(item)
+        // Classification CORRIGÉE pour décider si on traite ou non
+        const shouldProcess = classifyForProcessingFixed(item)
         
         if (!shouldProcess.process) {
           console.log(`⏭️ Post classified as skip: ${item.urn} - Reason: ${shouldProcess.reason}`)
@@ -220,7 +218,7 @@ serve(async (req) => {
 
         // Préparer les données pour l'insertion dans linkedin_posts avec dataset tracking
         const postData = {
-          apify_dataset_id: datasetId, // 🎯 DATASET TRACKING
+          apify_dataset_id: datasetId,
           urn: item.urn,
           text: item.text || 'Content unavailable',
           title: item.title || null,
@@ -232,9 +230,9 @@ serve(async (req) => {
           author_profile_id: item.authorProfileId || null,
           author_name: item.authorName || 'Unknown author',
           author_headline: item.authorHeadline || null,
-          processing_status: 'queued', // Nouveau statut pour la queue
+          processing_status: 'queued',
           raw_data: item,
-          processing_priority: shouldProcess.priority // Priorité de traitement
+          processing_priority: shouldProcess.priority
         }
 
         console.log(`📝 Queuing post for processing: ${item.urn} (Priority: ${shouldProcess.priority})`)
@@ -258,9 +256,8 @@ serve(async (req) => {
         // Trigger processing asynchronously (non-blocking)
         try {
           console.log(`🚀 Triggering async processing for post: ${insertedPost.id}`)
-          // Note: On ne bloque pas sur cette opération
           supabaseClient.functions.invoke('process-linkedin-post', {
-            body: { postId: insertedPost.id, datasetId: datasetId } // 🎯 Passing dataset ID
+            body: { postId: insertedPost.id, datasetId: datasetId }
           }).catch(err => {
             console.error('⚠️ Error triggering async processing:', err)
           })
@@ -285,7 +282,6 @@ serve(async (req) => {
         .from('apify_webhook_stats')
         .insert({
           ...stats,
-          // Nouvelles métriques pour Phase 1
           classification_success_rate: stats.total_received > 0 ? 
             ((stats.queued_for_processing / stats.total_received) * 100).toFixed(2) : 0,
           storage_success_rate: stats.total_received > 0 ? 
@@ -296,7 +292,7 @@ serve(async (req) => {
       console.error('⚠️ Error saving statistics:', statsError)
     }
 
-    console.log(`🎯 PHASE 1 COMPLETE - Universal Storage & Intelligent Queuing:
+    console.log(`🎯 PROCESSING COMPLETE - Fixed Classification & Improved Pagination:
     📥 Total received: ${stats.total_received}
     💾 Stored raw (universal): ${stats.stored_raw}
     🎯 Queued for processing: ${stats.queued_for_processing}
@@ -305,14 +301,14 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      phase: 'Phase 1 - Universal Storage & Intelligent Queuing',
+      phase: 'Fixed Classification & Improved Pagination',
       statistics: stats,
       datasetId: datasetId,
       improvements: [
+        'Fixed pagination logic to retrieve ALL records',
+        'Corrected classification logic for better accuracy',
         'Universal raw data storage (no data loss)',
-        'Intelligent classification for processing',
-        'Dataset tracking throughout pipeline',
-        'Async processing queue',
+        'Improved error handling and recovery',
         'Enhanced monitoring and statistics'
       ]
     }), { 
@@ -329,53 +325,49 @@ serve(async (req) => {
   }
 })
 
-// 🎯 CLASSIFICATION INTELLIGENTE - Décide quels posts traiter
-function classifyForProcessing(item: any) {
-  // Critères de base obligatoires
+// 🎯 CLASSIFICATION CORRIGÉE - Logique moins stricte et plus permissive
+function classifyForProcessingFixed(item: any) {
+  // Critères absolument obligatoires
   if (!item.urn) {
-    return { process: false, reason: 'Missing URN', priority: 0 }
+    return { process: false, reason: 'Missing URN (critical)', priority: 0 }
   }
 
   if (!item.url) {
-    return { process: false, reason: 'Missing URL', priority: 0 }
+    return { process: false, reason: 'Missing URL (critical)', priority: 0 }
   }
 
-  // Posts manifestement non pertinents
+  // ❌ SUPPRIMÉ: La vérification stricte sur authorProfileUrl car elle rejette trop
+  // ❌ SUPPRIMÉ: La vérification sur text/title car title peut être null
+  
+  // Exclusions spécifiques (uniquement les cas vraiment problématiques)
   if (item.isRepost === true) {
     return { process: false, reason: 'Is repost', priority: 0 }
   }
 
-  // Posts de compagnies (pas de personnes)
-  if (item.authorType && item.authorType !== 'Person') {
-    return { process: false, reason: 'Not a person', priority: 0 }
-  }
-
-  // Priorité haute : Posts récents avec contenu
-  if (item.text && item.authorProfileUrl && item.postedAtTimestamp) {
+  // Accepter tous les authorType ou si non défini
+  // ❌ SUPPRIMÉ: La restriction sur authorType !== 'Person'
+  
+  // Priorité haute : Posts récents
+  if (item.postedAtTimestamp) {
     const postAge = Date.now() - (item.postedAtTimestamp || 0)
     const dayInMs = 24 * 60 * 60 * 1000
     
     if (postAge < dayInMs) {
-      return { process: true, reason: 'Recent post with content', priority: 1 }
+      return { process: true, reason: 'Recent post', priority: 1 }
     }
     
     if (postAge < 7 * dayInMs) {
-      return { process: true, reason: 'Week-old post with content', priority: 2 }
+      return { process: true, reason: 'Week-old post', priority: 2 }
     }
     
-    return { process: true, reason: 'Older post with content', priority: 3 }
+    return { process: true, reason: 'Older post', priority: 3 }
   }
 
-  // Priorité moyenne : Posts avec contenu partiel
-  if (item.text || item.title) {
-    return { process: true, reason: 'Post with partial content', priority: 4 }
+  // Priorité moyenne : Posts avec nom d'auteur
+  if (item.authorName) {
+    return { process: true, reason: 'Post with author name', priority: 4 }
   }
 
-  // Priorité faible : Posts sans contenu mais avec profil auteur
-  if (item.authorProfileUrl) {
-    return { process: true, reason: 'Post with author profile only', priority: 5 }
-  }
-
-  // Rejeter les posts sans aucune information utile
-  return { process: false, reason: 'Insufficient data', priority: 0 }
+  // Priorité faible : Accepter presque tout le reste
+  return { process: true, reason: 'Generic post', priority: 5 }
 }

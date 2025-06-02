@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -79,7 +78,7 @@ export function DatasetAudit() {
         dataset_id: foundDataset.dataset_id,
         total_received: foundDataset.total_received,
         stored_raw: foundDataset.stored_raw || foundDataset.total_received,
-        queued_for_processing: foundDataset.queued_for_processing || foundDataset.after_required_fields_filter || 0,
+        queued_for_processing: foundDataset.after_required_fields_filter || 0,
         processing_errors: foundDataset.processing_errors || 0,
         started_at: foundDataset.started_at,
         completed_at: foundDataset.completed_at
