@@ -26,15 +26,21 @@ serve(async (req) => {
     const webhookData = await req.json()
     console.log('📨 Webhook payload:', JSON.stringify(webhookData, null, 2))
 
-    // Extract the dataset ID from the webhook data
+    // Extract the dataset ID from the webhook data with enhanced detection
     const datasetId = webhookData.datasetId || 
                      webhookData.dataset_id || 
                      webhookData.id ||
                      webhookData.payload?.datasetId ||
-                     webhookData.eventData?.datasetId
+                     webhookData.eventData?.datasetId ||
+                     webhookData.resource?.defaultDatasetId ||  // AJOUT: Support pour les webhooks ACTOR.RUN.SUCCEEDED
+                     webhookData.resource?.datasetId
     
     if (!datasetId) {
       console.log('⚠️ No dataset ID found - responding OK for test webhook')
+      console.log('📋 Available fields in webhook:', Object.keys(webhookData))
+      if (webhookData.resource) {
+        console.log('📋 Available fields in resource:', Object.keys(webhookData.resource))
+      }
       return new Response(JSON.stringify({ status: 'received', message: 'Test webhook processed' }), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -42,6 +48,15 @@ serve(async (req) => {
     }
 
     console.log('✅ Dataset ID extracted:', datasetId)
+    console.log('🔍 Dataset ID source:', 
+      webhookData.datasetId ? 'webhookData.datasetId' :
+      webhookData.dataset_id ? 'webhookData.dataset_id' :
+      webhookData.id ? 'webhookData.id' :
+      webhookData.payload?.datasetId ? 'webhookData.payload.datasetId' :
+      webhookData.eventData?.datasetId ? 'webhookData.eventData.datasetId' :
+      webhookData.resource?.defaultDatasetId ? 'webhookData.resource.defaultDatasetId' :
+      webhookData.resource?.datasetId ? 'webhookData.resource.datasetId' : 'unknown'
+    )
 
     // IMMEDIATE RESPONSE (< 10 seconds as required by Apify)
     // Start background processing without waiting
