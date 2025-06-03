@@ -37,52 +37,105 @@ serve(async (req) => {
     const profileId = profileIdMatch[1];
     console.log('👤 Profile ID extracted:', profileId);
 
-    // Call Unipile API to scrape profile
-    const unipileResponse = await fetch('https://api9.unipile.com:13946/api/v1/users/' + profileId, {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': Deno.env.get('UNIPILE_API_KEY') ?? '',
-        'Content-Type': 'application/json'
+    // Get available Unipile account
+    const { data: accounts, error: accountsError } = await supabase
+      .from('profiles')
+      .select('unipile_account_id')
+      .not('unipile_account_id', 'is', null)
+      .limit(1);
+
+    if (accountsError || !accounts || accounts.length === 0) {
+      console.error('❌ No Unipile accounts available:', accountsError);
+      throw new Error('No Unipile accounts available for scraping');
+    }
+
+    const accountId = accounts[0].unipile_account_id;
+    console.log('✅ Using Unipile account:', accountId);
+
+    // Call unipile-queue for profile scraping
+    console.log('🌐 Calling unipile-queue for profile scraping...');
+    const { data: queueResult, error: queueError } = await supabase.functions.invoke('unipile-queue', {
+      body: {
+        action: 'execute',
+        account_id: accountId,
+        operation: 'scrape_profile',
+        payload: {
+          authorProfileId: profileId
+        },
+        priority: false
       }
     });
 
-    if (!unipileResponse.ok) {
-      const errorText = await unipileResponse.text();
-      throw new Error(`Unipile API error: ${unipileResponse.status} - ${errorText}`);
+    if (queueError || !queueResult?.success) {
+      console.error('❌ Error calling unipile-queue:', queueError || queueResult?.error);
+      throw new Error(`Failed to scrape profile: ${queueError?.message || queueResult?.error || 'Unknown error'}`);
     }
 
-    const unipileData = await unipileResponse.json();
-    console.log('✅ Unipile data received:', JSON.stringify(unipileData, null, 2));
+    const unipileData = queueResult.result;
+    console.log('✅ Unipile scraping successful');
+    console.log('📊 Profile data keys:', Object.keys(unipileData));
 
     // Extract relevant information from Unipile response
+    let firstName = '';
+    let lastName = '';
+    let email = '';
+    let phone = '';
+    let position = '';
+
+    // Extract name
+    if (unipileData.first_name) {
+      firstName = unipileData.first_name;
+    }
+    if (unipileData.last_name) {
+      lastName = unipileData.last_name;
+    }
+
+    // Extract email
+    if (unipileData.email) {
+      email = unipileData.email;
+    }
+
+    // Extract phone
+    if (unipileData.phone_numbers && unipileData.phone_numbers.length > 0) {
+      phone = unipileData.phone_numbers[0];
+    }
+
+    // Extract position/headline
+    if (unipileData.headline) {
+      position = unipileData.headline;
+    }
+
+    console.log('📋 Extracted data:', {
+      firstName,
+      lastName,
+      email: email ? 'Found' : 'Not found',
+      phone: phone ? 'Found' : 'Not found',
+      position
+    });
+
+    // Prepare extracted data
     const extractedData = {
       linkedin_profile_id: profileId,
       unipile_data: unipileData,
-      unipile_extracted_at: new Date().toISOString()
+      unipile_extracted_at: new Date().toISOString(),
+      first_name: firstName,
+      last_name: lastName,
+      email: email || null,
+      phone: phone || null,
+      position: position || null
     };
 
     // Si on a un vrai contact_id (pas "temp"), on met à jour en base
     if (contact_id !== 'temp') {
-      // Update contact with additional info if available
-      const updates: any = { ...extractedData };
+      console.log('💾 Updating contact in database...');
       
-      if (unipileData.first_name && !updates.first_name) {
-        updates.first_name = unipileData.first_name;
-      }
-      if (unipileData.last_name && !updates.last_name) {
-        updates.last_name = unipileData.last_name;
-      }
-      if (unipileData.headline && !updates.position) {
-        updates.position = unipileData.headline;
-      }
-
-      // Update the contact in database
       const { error: updateError } = await supabase
         .from('client_contacts')
-        .update(updates)
+        .update(extractedData)
         .eq('id', contact_id);
 
       if (updateError) {
+        console.error('❌ Error updating contact:', updateError);
         throw updateError;
       }
 
