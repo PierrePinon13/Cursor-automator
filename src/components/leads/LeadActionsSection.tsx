@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -103,98 +102,78 @@ const LeadActionsSection = ({
   const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Send className="h-5 w-5 text-blue-600" />
-            Actions LinkedIn
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button
-            onClick={onSendLinkedInMessage}
-            disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
-            className="w-full"
-            size="lg"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {messageSending ? 'Envoi en cours...' : 
-             hasLinkedInMessage ? 'Message déjà envoyé' : 
-             'Envoyer le message LinkedIn'}
-          </Button>
-          
-          {hasLinkedInMessage && (
-            <div className="text-sm text-green-600 text-center">
-              Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      {/* Actions LinkedIn */}
+      <div className="space-y-2">
+        <Button
+          onClick={onSendLinkedInMessage}
+          disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
+          className="w-full"
+          size="sm"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {messageSending ? 'Envoi en cours...' : 
+           hasLinkedInMessage ? 'Message déjà envoyé' : 
+           'Envoyer le message LinkedIn'}
+        </Button>
+        
+        {hasLinkedInMessage && (
+          <div className="text-xs text-green-600 text-center">
+            Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
+          </div>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Phone className="h-5 w-5 text-green-600" />
-            Contact téléphonique
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {!lead.phone_number ? (
-            <Button
-              onClick={handleRetrievePhone}
-              disabled={phoneLoading}
-              variant="outline"
-              className="w-full"
-              size="lg"
-            >
-              <Phone className="h-4 w-4 mr-2" />
-              {phoneLoading ? 'Recherche...' : 'Récupérer le téléphone'}
-            </Button>
-          ) : (
-            <PhoneContactStatus
-              leadId={lead.id}
-              phoneNumber={lead.phone_number}
-              currentStatus={lead.phone_contact_status}
-              onStatusUpdate={() => onContactUpdate?.()}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock className="h-5 w-5 text-purple-600" />
-            Suivi
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Contact téléphonique */}
+      <div className="space-y-2">
+        {!lead.phone_number ? (
           <Button
-            onClick={() => setReminderDialogOpen(true)}
+            onClick={handleRetrievePhone}
+            disabled={phoneLoading}
             variant="outline"
             className="w-full"
-            size="lg"
+            size="sm"
           >
-            <Clock className="h-4 w-4 mr-2" />
-            Planifier un rappel
+            <Phone className="h-4 w-4 mr-2" />
+            {phoneLoading ? 'Recherche...' : 'Récupérer le téléphone'}
           </Button>
-        </CardContent>
-      </Card>
+        ) : (
+          <PhoneContactStatus
+            leadId={lead.id}
+            phoneNumber={lead.phone_number}
+            currentStatus={lead.phone_contact_status}
+            onStatusUpdate={() => onContactUpdate?.()}
+          />
+        )}
+      </div>
 
+      {/* Suivi */}
+      <div className="space-y-2">
+        <Button
+          onClick={() => setReminderDialogOpen(true)}
+          variant="outline"
+          className="w-full"
+          size="sm"
+        >
+          <Clock className="h-4 w-4 mr-2" />
+          Planifier un rappel
+        </Button>
+      </div>
+
+      {/* Signalement */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <AlertTriangle className="h-5 w-5 text-orange-600" />
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
             Signalement
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           <Button
             onClick={handleMistargetedPost}
             variant="outline"
             className="w-full"
-            size="lg"
+            size="sm"
           >
             <AlertTriangle className="h-4 w-4 mr-2" />
             Publication mal ciblée
@@ -204,7 +183,7 @@ const LeadActionsSection = ({
             onClick={() => onAction('hr_provider')}
             variant="outline"
             className="w-full"
-            size="lg"
+            size="sm"
           >
             <Building2 className="h-4 w-4 mr-2" />
             Prestataire RH

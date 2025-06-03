@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Building, Users, MapPin, Globe, Calendar } from 'lucide-react';
+import { Building, Users, MapPin, Globe, Calendar, ExternalLink } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
@@ -34,15 +34,24 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
     enabled: !!companyId
   });
 
+  const handleCompanyClick = () => {
+    if (company?.linkedin_id) {
+      const linkedinUrl = `https://www.linkedin.com/company/${company.linkedin_id}`;
+      window.open(linkedinUrl, '_blank');
+    }
+  };
+
   // Si pas de companyId, afficher juste le nom sans hover
   if (!companyId) {
-    return <>{children}</>;
+    return <div onClick={handleCompanyClick}>{children}</div>;
   }
 
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        {children}
+        <div onClick={handleCompanyClick}>
+          {children}
+        </div>
       </HoverCardTrigger>
       <HoverCardContent className="w-80 p-4">
         {isLoading ? (
@@ -54,6 +63,9 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
             <div className="flex items-center gap-2">
               <Building className="h-4 w-4 text-blue-600" />
               <h4 className="font-semibold text-sm">{company.name || companyName}</h4>
+              {company.linkedin_id && (
+                <ExternalLink className="h-3 w-3 text-blue-600 ml-auto" />
+              )}
             </div>
             
             {company.description && (
@@ -93,6 +105,7 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline truncate"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {company.website}
                   </a>
