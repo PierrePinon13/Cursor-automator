@@ -17,9 +17,11 @@ interface DashboardHeaderProps {
   title?: string;
   subtitle?: string;
   children?: React.ReactNode;
+  rightActions?: React.ReactNode;
+  centerContent?: React.ReactNode;
 }
 
-const DashboardHeader = ({ title, subtitle, children }: DashboardHeaderProps = {}) => {
+const DashboardHeader = ({ title, subtitle, children, rightActions, centerContent }: DashboardHeaderProps = {}) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -48,7 +50,15 @@ const DashboardHeader = ({ title, subtitle, children }: DashboardHeaderProps = {
           )}
         </div>
         
+        {/* Center content */}
+        <div className="flex-1 flex justify-center">
+          {centerContent}
+        </div>
+        
         <div className="flex items-center gap-4">
+          {/* Right actions */}
+          {rightActions}
+          
           {/* Notification Button */}
           <NotificationButton />
           

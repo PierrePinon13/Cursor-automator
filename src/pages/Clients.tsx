@@ -60,22 +60,25 @@ const Clients = () => {
 
   return (
     <div className="space-y-6">
-      <DashboardHeader>
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-auto">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
-            <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        
-        <Button
-          onClick={() => setShowManagement(true)}
-          className="flex items-center gap-2 ml-4"
-        >
-          <Users className="h-4 w-4" />
-          Gestion clients
-        </Button>
-      </DashboardHeader>
+      <DashboardHeader
+        centerContent={
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-auto">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
+              <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+        rightActions={
+          <Button
+            onClick={() => setShowManagement(true)}
+            className="flex items-center gap-2"
+          >
+            <Users className="h-4 w-4" />
+            Gestion clients
+          </Button>
+        }
+      />
       
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
