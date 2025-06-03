@@ -108,11 +108,11 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
           return (
             <div 
               key={lead.id} 
-              className={`${colors.card} rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer transform hover:-translate-y-0.5 overflow-hidden`}
+              className={`${colors.card} rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer transform hover:-translate-y-0.5 overflow-hidden flex flex-col h-64`}
               onClick={(event) => handleCardClick(index, event)}
             >
               {/* En-tête avec hauteur fixe et postes centrés */}
-              <div className={`${colors.header} p-3 border-b h-20 flex items-center justify-between`}>
+              <div className={`${colors.header} p-3 border-b h-20 flex items-center justify-between flex-shrink-0`}>
                 <div className="flex-1 flex items-center min-h-0">
                   <div className="space-y-1 flex-1">
                     {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
@@ -141,8 +141,8 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                 </div>
               </div>
 
-              {/* Section centrale - Lead */}
-              <div className="p-3 space-y-2">
+              {/* Section centrale - Lead - avec flex-1 pour prendre l'espace restant */}
+              <div className="p-3 space-y-2 flex-1">
                 {/* Nom du lead avec LinkedIn */}
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-gray-900 text-sm">
@@ -188,8 +188,8 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                 )}
               </div>
 
-              {/* Footer avec détails */}
-              <div className="bg-white/50 px-3 py-2 border-t border-gray-200/50">
+              {/* Footer avec détails - toujours en bas */}
+              <div className="bg-white/50 px-3 py-2 border-t border-gray-200/50 flex-shrink-0">
                 <div className="flex items-center justify-between text-xs text-gray-600">
                   <span>
                     Posté {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
