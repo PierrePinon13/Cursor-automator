@@ -39,7 +39,7 @@ export function useContactUserAssociations(contactId?: string) {
         .from('contact_user_associations')
         .select(`
           *,
-          profiles (
+          profiles!user_id (
             id,
             email,
             full_name
@@ -85,7 +85,7 @@ export function useContactUserAssociations(contactId?: string) {
         }])
         .select(`
           *,
-          profiles (
+          profiles!user_id (
             id,
             email,
             full_name
