@@ -13,14 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🚀 Starting automatic dataset reprocessing for 6evrf10c9cmQqX7TP');
+    console.log('🚀 Starting automatic dataset reprocessing for xgdQ1dvEqt6bpn0mV');
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const datasetId = '6evrf10c9cmQqX7TP';
+    const datasetId = 'xgdQ1dvEqt6bpn0mV';
 
     // Étape 1: Nettoyage complet des données existantes
     console.log('🧹 Step 1: Cleaning existing data for dataset:', datasetId);
@@ -37,8 +37,8 @@ serve(async (req) => {
 
     console.log(`✅ Cleanup completed: ${(deletedPosts || 0)} processed posts + ${(deletedRaw || 0)} raw posts deleted`);
 
-    // Étape 2: Déclencher le retraitement via process-dataset
-    console.log('🔄 Step 2: Triggering dataset reprocessing...');
+    // Étape 2: Déclencher le retraitement via process-dataset avec la nouvelle architecture
+    console.log('🔄 Step 2: Triggering optimized dataset processing...');
     
     const { data: reprocessingResult, error: reprocessingError } = await supabaseClient.functions.invoke('process-dataset', {
       body: {
@@ -53,7 +53,7 @@ serve(async (req) => {
       throw new Error(`Reprocessing failed: ${reprocessingError.message}`);
     }
 
-    console.log('✅ Reprocessing completed successfully:', reprocessingResult);
+    console.log('✅ Optimized reprocessing completed successfully:', reprocessingResult);
 
     // Étape 3: Vérification des résultats
     console.log('📊 Step 3: Verifying results...');
@@ -79,22 +79,9 @@ serve(async (req) => {
     console.log(`   🎯 Queued for processing: ${processedCount || 0}`);
     console.log(`   ⏳ Currently pending: ${pendingCount || 0}`);
 
-    // Étape 4: Déclencher le traitement des posts en attente
-    if (pendingCount && pendingCount > 0) {
-      console.log('🎯 Step 4: Triggering pending posts processing...');
-      
-      supabaseClient.functions.invoke('processing-queue-manager', {
-        body: {
-          action: 'queue_posts'
-        }
-      }).catch((err: any) => {
-        console.error('⚠️ Error triggering queue processing:', err);
-      });
-    }
-
     const response = {
       success: true,
-      action: 'dataset_reprocessed',
+      action: 'dataset_reprocessed_optimized',
       dataset_id: datasetId,
       cleanup: {
         deleted_posts: deletedPosts || 0,
@@ -106,10 +93,11 @@ serve(async (req) => {
         queued_posts: processedCount || 0,
         pending_posts: pendingCount || 0
       },
-      message: `Dataset ${datasetId} successfully reprocessed with ${processedCount || 0} posts queued for processing`
+      architecture: 'optimized_fast_ingestion_with_specialized_processing',
+      message: `Dataset ${datasetId} successfully reprocessed with optimized architecture: ${processedCount || 0} posts queued for specialized processing`
     };
 
-    console.log('🎉 Automatic reprocessing completed successfully');
+    console.log('🎉 Optimized automatic reprocessing completed successfully');
     
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -119,7 +107,7 @@ serve(async (req) => {
     console.error('❌ Error in execute-dataset-reprocessing:', error);
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message || 'Unknown error during reprocessing'
+      error: error.message || 'Unknown error during optimized reprocessing'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
