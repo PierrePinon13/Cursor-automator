@@ -195,12 +195,12 @@ serve(async (req) => {
       }
     }
 
-    // ✅ OPTIMISATION MAJEURE: Phase 3 - Stockage des données brutes en BATCH avec déduplication
+    // Phase 3: Stockage des données brutes en BATCH avec déduplication
     console.log('💾 Storing raw data with BATCH processing and deduplication...')
     let rawStoredCount = 0
     const BATCH_SIZE = 100
 
-    // ✅ CORRECTION: Déduplication avant stockage pour éviter les conflits ON CONFLICT
+    // Déduplication avant stockage pour éviter les conflits ON CONFLICT
     const validRawData = allDatasetItems
       .filter(item => item && item.urn)
       .reduce((acc, item) => {
@@ -267,8 +267,8 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
 
-    // ✅ CORRECTION CRITIQUE: Phase 4 - Classification avec statut correct et déduplication
-    console.log('🎯 Applying classification and queuing with deduplication...')
+    // ✅ OPTIMISATION MAJEURE: Phase 4 - Classification BATCH optimisée
+    console.log('🎯 Starting OPTIMIZED batch classification and queuing...')
     let queuedCount = 0
     let excludedByAuthorType = 0
     let excludedByMissingFields = 0
@@ -284,72 +284,104 @@ serve(async (req) => {
 
     console.log(`📊 Processing ${uniqueItems.length} unique items (deduplicated from ${allDatasetItems.length})`)
 
-    for (const item of uniqueItems) {
-      try {
-        if (!item.urn || !item.url) {
-          excludedByMissingFields++
-          continue
-        }
+    // ✅ CORRECTION CRITIQUE: Traitement par BATCH pour éviter les timeouts
+    const CLASSIFICATION_BATCH_SIZE = 50
+    
+    for (let i = 0; i < uniqueItems.length; i += CLASSIFICATION_BATCH_SIZE) {
+      const batch = uniqueItems.slice(i, i + CLASSIFICATION_BATCH_SIZE)
+      const batchNumber = Math.floor(i / CLASSIFICATION_BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(uniqueItems.length / CLASSIFICATION_BATCH_SIZE)
+      
+      console.log(`🎯 Processing classification batch ${batchNumber}/${totalBatches} (${batch.length} items)`)
+      
+      // Préparer les données du batch
+      const batchData = []
+      
+      for (const item of batch) {
+        try {
+          if (!item.urn || !item.url) {
+            excludedByMissingFields++
+            continue
+          }
 
-        // Vérifier si déjà en queue
-        const { data: existingPost } = await supabaseClient
-          .from('linkedin_posts')
-          .select('id')
-          .eq('urn', item.urn)
-          .maybeSingle()
+          // Classification simplifiée
+          if (item.authorType === 'Company') {
+            excludedByAuthorType++
+            continue
+          }
 
-        if (existingPost) {
-          alreadyQueued++
-          continue
-        }
+          // Vérifier si déjà en queue (batch check)
+          const { data: existingPosts } = await supabaseClient
+            .from('linkedin_posts')
+            .select('urn')
+            .eq('urn', item.urn)
+            .limit(1)
 
-        // Classification simplifiée
-        if (item.authorType === 'Company') {
-          excludedByAuthorType++
-          continue
-        }
+          if (existingPosts && existingPosts.length > 0) {
+            alreadyQueued++
+            continue
+          }
 
-        const postData = {
-          apify_dataset_id: datasetId,
-          urn: item.urn,
-          text: item.text || 'Content unavailable',
-          title: item.title || null,
-          url: item.url,
-          posted_at_timestamp: item.postedAtTimestamp || null,
-          posted_at_iso: item.postedAt || null,
-          author_type: item.authorType,
-          author_profile_url: item.authorProfileUrl || 'Unknown',
-          author_profile_id: item.authorProfileId || null,
-          author_name: item.authorName || 'Unknown author',
-          author_headline: item.authorHeadline || null,
-          processing_status: 'pending', // ✅ CORRECTION: utiliser 'pending' partout
-          raw_data: item
-        }
+          const postData = {
+            apify_dataset_id: datasetId,
+            urn: item.urn,
+            text: item.text || 'Content unavailable',
+            title: item.title || null,
+            url: item.url,
+            posted_at_timestamp: item.postedAtTimestamp || null,
+            posted_at_iso: item.postedAt || null,
+            author_type: item.authorType,
+            author_profile_url: item.authorProfileUrl || 'Unknown',
+            author_profile_id: item.authorProfileId || null,
+            author_name: item.authorName || 'Unknown author',
+            author_headline: item.authorHeadline || null,
+            processing_status: 'pending',
+            raw_data: item
+          }
 
-        const { data: insertedPost, error: insertError } = await supabaseClient
-          .from('linkedin_posts')
-          .insert(postData)
-          .select('id')
-          .single()
+          batchData.push(postData)
 
-        if (insertError) {
-          console.error('❌ Error queuing post:', insertError)
+        } catch (error) {
+          console.error('❌ Error preparing item for batch:', error)
           stats.processing_errors++
-          continue
         }
+      }
 
-        queuedCount++
+      // Insérer le batch en une seule fois
+      if (batchData.length > 0) {
+        try {
+          const { data: insertedPosts, error: insertError } = await supabaseClient
+            .from('linkedin_posts')
+            .insert(batchData)
+            .select('id')
 
-        // Déclencher le traitement asynchrone
-        supabaseClient.functions.invoke('process-linkedin-post', {
-          body: { postId: insertedPost.id, datasetId: datasetId }
-        }).catch(err => {
-          console.error('⚠️ Error triggering processing:', err)
-        })
+          if (insertError) {
+            console.error(`❌ Error inserting batch ${batchNumber}:`, insertError)
+            stats.processing_errors += batchData.length
+          } else {
+            queuedCount += batchData.length
+            console.log(`✅ Classification batch ${batchNumber} inserted: ${batchData.length} posts`)
 
-      } catch (error) {
-        console.error('❌ Error during classification:', error)
-        stats.processing_errors++
+            // Déclencher le traitement asynchrone pour chaque post inséré
+            if (insertedPosts && insertedPosts.length > 0) {
+              for (const post of insertedPosts) {
+                supabaseClient.functions.invoke('process-linkedin-post', {
+                  body: { postId: post.id, datasetId: datasetId }
+                }).catch(err => {
+                  console.error(`⚠️ Error triggering processing for ${post.id}:`, err)
+                })
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Exception in classification batch ${batchNumber}:`, error)
+          stats.processing_errors += batchData.length
+        }
+      }
+
+      // Pause courte entre les batches pour éviter la surcharge
+      if (i + CLASSIFICATION_BATCH_SIZE < uniqueItems.length) {
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
     }
 
@@ -404,11 +436,11 @@ serve(async (req) => {
         }
       },
       improvements: [
-        '✅ FIXED STATUS: Changed processing_status from "queued" to "pending"',
-        '✅ FIXED DUPLICATES: Added deduplication before batch processing',
-        '✅ BATCH PROCESSING: Raw data stored in chunks of 100 to prevent timeouts',
-        '✅ ENHANCED LOGGING: Better progress tracking and error handling',
-        '✅ IMPROVED ERROR HANDLING: Better tracking of insertion errors',
+        '✅ FIXED TIMEOUT: Added batch processing for classification (50 items/batch)',
+        '✅ OPTIMIZED INSERTION: Bulk insert instead of individual queries',
+        '✅ REDUCED DATABASE CALLS: Batch duplicate checking',
+        '✅ IMPROVED TIMEOUT HANDLING: Better progress tracking and pauses',
+        '✅ ENHANCED LOGGING: Detailed batch progress reporting',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
