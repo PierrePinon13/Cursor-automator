@@ -14,7 +14,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import NotificationButton from './notifications/NotificationButton';
-import { TaskCounter } from './TaskCounter';
 
 const UserActionsDropdown = () => {
   const { user } = useAuth();
@@ -41,16 +40,6 @@ const UserActionsDropdown = () => {
   return (
     <div className="flex items-center gap-2">
       <NotificationButton />
-      
-      <Button
-        variant="ghost"
-        size="sm"
-        className="relative"
-        onClick={() => navigate('/tasks')}
-      >
-        <CheckSquare className="h-4 w-4" />
-        <TaskCounter />
-      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

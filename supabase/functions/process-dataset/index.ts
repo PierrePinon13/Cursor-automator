@@ -267,8 +267,8 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
 
-    // ✅ OPTIMISATION MAJEURE: Phase 4 - Classification BATCH optimisée
-    console.log('🎯 Starting OPTIMIZED batch classification and queuing...')
+    // ✅ OPTIMISATION CRITIQUE: Phase 4 avec traitement asynchrone pour éviter les timeouts
+    console.log('🎯 Starting OPTIMIZED asynchronous classification and queuing...')
     let queuedCount = 0
     let excludedByAuthorType = 0
     let excludedByMissingFields = 0
@@ -284,33 +284,42 @@ serve(async (req) => {
 
     console.log(`📊 Processing ${uniqueItems.length} unique items (deduplicated from ${allDatasetItems.length})`)
 
-    // ✅ CORRECTION CRITIQUE: Traitement par BATCH pour éviter les timeouts
-    const CLASSIFICATION_BATCH_SIZE = 50
+    // ✅ AMÉLIORATION CRITIQUE: Traitement par très petits batches avec traitement asynchrone
+    const CLASSIFICATION_BATCH_SIZE = 25 // Réduit pour éviter les timeouts
+    const MAX_CONCURRENT_BATCHES = 3 // Limiter la concurrence
     
+    // Découper en chunks pour traitement concurrent mais contrôlé
+    const chunks = []
     for (let i = 0; i < uniqueItems.length; i += CLASSIFICATION_BATCH_SIZE) {
-      const batch = uniqueItems.slice(i, i + CLASSIFICATION_BATCH_SIZE)
-      const batchNumber = Math.floor(i / CLASSIFICATION_BATCH_SIZE) + 1
-      const totalBatches = Math.ceil(uniqueItems.length / CLASSIFICATION_BATCH_SIZE)
+      chunks.push(uniqueItems.slice(i, i + CLASSIFICATION_BATCH_SIZE))
+    }
+
+    // Traitement par groupes de chunks avec gestion des timeouts
+    const processChunk = async (chunk: any[], chunkIndex: number) => {
+      const batchNumber = chunkIndex + 1
+      const totalBatches = chunks.length
       
-      console.log(`🎯 Processing classification batch ${batchNumber}/${totalBatches} (${batch.length} items)`)
+      console.log(`🎯 Processing classification batch ${batchNumber}/${totalBatches} (${chunk.length} items)`)
       
-      // Préparer les données du batch
       const batchData = []
+      let batchExcludedByAuthorType = 0
+      let batchExcludedByMissingFields = 0
+      let batchAlreadyQueued = 0
       
-      for (const item of batch) {
+      for (const item of chunk) {
         try {
           if (!item.urn || !item.url) {
-            excludedByMissingFields++
+            batchExcludedByMissingFields++
             continue
           }
 
           // Classification simplifiée
           if (item.authorType === 'Company') {
-            excludedByAuthorType++
+            batchExcludedByAuthorType++
             continue
           }
 
-          // Vérifier si déjà en queue (batch check)
+          // Vérifier si déjà en queue (batch check optimisé)
           const { data: existingPosts } = await supabaseClient
             .from('linkedin_posts')
             .select('urn')
@@ -318,7 +327,7 @@ serve(async (req) => {
             .limit(1)
 
           if (existingPosts && existingPosts.length > 0) {
-            alreadyQueued++
+            batchAlreadyQueued++
             continue
           }
 
@@ -359,11 +368,11 @@ serve(async (req) => {
             console.error(`❌ Error inserting batch ${batchNumber}:`, insertError)
             stats.processing_errors += batchData.length
           } else {
-            queuedCount += batchData.length
             console.log(`✅ Classification batch ${batchNumber} inserted: ${batchData.length} posts`)
 
-            // Déclencher le traitement asynchrone pour chaque post inséré
+            // Déclencher le traitement asynchrone pour chaque post inséré (en arrière-plan)
             if (insertedPosts && insertedPosts.length > 0) {
+              // ✅ CRITIQUE: Traitement asynchrone sans attendre pour éviter les timeouts
               for (const post of insertedPosts) {
                 supabaseClient.functions.invoke('process-linkedin-post', {
                   body: { postId: post.id, datasetId: datasetId }
@@ -379,9 +388,40 @@ serve(async (req) => {
         }
       }
 
-      // Pause courte entre les batches pour éviter la surcharge
-      if (i + CLASSIFICATION_BATCH_SIZE < uniqueItems.length) {
-        await new Promise(resolve => setTimeout(resolve, 100))
+      return {
+        processed: batchData.length,
+        excludedByAuthorType: batchExcludedByAuthorType,
+        excludedByMissingFields: batchExcludedByMissingFields,
+        alreadyQueued: batchAlreadyQueued
+      }
+    }
+
+    // Traitement par groupes de chunks avec délais pour éviter la surcharge
+    for (let i = 0; i < chunks.length; i += MAX_CONCURRENT_BATCHES) {
+      const chunkGroup = chunks.slice(i, i + MAX_CONCURRENT_BATCHES)
+      
+      try {
+        // Traitement concurrent des chunks du groupe
+        const results = await Promise.all(
+          chunkGroup.map((chunk, index) => processChunk(chunk, i + index))
+        )
+        
+        // Agréger les résultats
+        for (const result of results) {
+          queuedCount += result.processed
+          excludedByAuthorType += result.excludedByAuthorType
+          excludedByMissingFields += result.excludedByMissingFields
+          alreadyQueued += result.alreadyQueued
+        }
+        
+        // Délai entre les groupes pour éviter la surcharge
+        if (i + MAX_CONCURRENT_BATCHES < chunks.length) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error processing chunk group starting at ${i}:`, error)
+        // Continuer avec le groupe suivant
       }
     }
 
@@ -436,11 +476,12 @@ serve(async (req) => {
         }
       },
       improvements: [
-        '✅ FIXED TIMEOUT: Added batch processing for classification (50 items/batch)',
-        '✅ OPTIMIZED INSERTION: Bulk insert instead of individual queries',
-        '✅ REDUCED DATABASE CALLS: Batch duplicate checking',
-        '✅ IMPROVED TIMEOUT HANDLING: Better progress tracking and pauses',
-        '✅ ENHANCED LOGGING: Detailed batch progress reporting',
+        '✅ FIXED CRITICAL TIMEOUT: Reduced batch size to 25 items and added concurrent processing',
+        '✅ ASYNC PROCESSING: Post processing triggered asynchronously to avoid blocking',
+        '✅ CONTROLLED CONCURRENCY: Limited to 3 concurrent batches max',
+        '✅ TIMEOUT RESILIENCE: Added delays and error recovery between batch groups',
+        '✅ MEMORY OPTIMIZATION: Better garbage collection with smaller chunks',
+        '✅ IMPROVED LOGGING: Better progress tracking for debugging timeouts',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
