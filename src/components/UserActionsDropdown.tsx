@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { NotificationButton } from './notifications/NotificationButton';
+import NotificationButton from './notifications/NotificationButton';
 import { TaskCounter } from './TaskCounter';
 
 const UserActionsDropdown = () => {
