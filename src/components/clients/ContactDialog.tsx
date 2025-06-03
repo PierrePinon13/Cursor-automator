@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useClientContacts } from '@/hooks/useClientContacts';
-import { Loader2, User, Mail, Phone, Briefcase, Globe, FileText, ArrowLeft } from 'lucide-react';
+import { Loader2, User, Mail, Phone, Briefcase, Globe, FileText, ArrowLeft, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface ContactDialogProps {
   open: boolean;
@@ -16,7 +16,7 @@ interface ContactDialogProps {
 }
 
 export function ContactDialog({ open, onOpenChange, clientId, contact }: ContactDialogProps) {
-  const { createContact, updateContact, extractingLinkedIn } = useClientContacts(clientId);
+  const { createContact, updateContact, deleteContact, extractingLinkedIn } = useClientContacts(clientId);
   const [step, setStep] = useState<'linkedin' | 'details'>(contact ? 'details' : 'linkedin');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [extractedData, setExtractedData] = useState<any>(null);
@@ -144,6 +144,20 @@ export function ContactDialog({ open, onOpenChange, clientId, contact }: Contact
     }
   };
 
+  const handleDelete = async () => {
+    if (!contact) return;
+    
+    setLoading(true);
+    try {
+      await deleteContact(contact.id);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -169,6 +183,37 @@ export function ContactDialog({ open, onOpenChange, clientId, contact }: Contact
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
+            )}
+            {contact && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer le contact</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Êtes-vous sûr de vouloir supprimer {contact.first_name} {contact.last_name} ? 
+                      Cette action est irréversible.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDelete}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Supprimer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </DialogTitle>
         </DialogHeader>

@@ -4,7 +4,7 @@ import { useClients } from '@/hooks/useClients';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Upload, AlertCircle, ArrowLeft, Edit, Trash2, User } from 'lucide-react';
+import { Plus, Upload, AlertCircle, ArrowLeft, Edit, Trash2, User, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ClientDialog } from '@/components/clients/ClientDialog';
 import { ImportClientsDialog } from '@/components/clients/ImportClientsDialog';
@@ -12,6 +12,7 @@ import { IncompleteClientsDialog } from '@/components/clients/IncompleteClientsD
 import { ContactDialog } from '@/components/clients/ContactDialog';
 import { LinkedInIcon } from '@/components/clients/LinkedInIcon';
 import { TierSelector } from '@/components/clients/TierSelector';
+import { CollaboratorsSelect } from '@/components/clients/CollaboratorsSelect';
 import { useClientContacts } from '@/hooks/useClientContacts';
 
 const ClientSettings = () => {
@@ -23,6 +24,7 @@ const ClientSettings = () => {
   const [editingClient, setEditingClient] = useState<any>(null);
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState<any>(null);
 
   // Count incomplete clients
   const incompleteCount = clients.filter(client => 
@@ -53,6 +55,13 @@ const ClientSettings = () => {
 
   const handleAddContact = (clientId: string) => {
     setSelectedClientId(clientId);
+    setEditingContact(null);
+    setShowContactDialog(true);
+  };
+
+  const handleEditContact = (clientId: string, contact: any) => {
+    setSelectedClientId(clientId);
+    setEditingContact(contact);
     setShowContactDialog(true);
   };
 
@@ -147,6 +156,7 @@ const ClientSettings = () => {
                   onTrackingToggle={handleTrackingToggle}
                   onTierChange={handleTierChange}
                   onAddContact={handleAddContact}
+                  onEditContact={handleEditContact}
                 />
               ))}
               {clients.length === 0 && (
@@ -189,9 +199,13 @@ const ClientSettings = () => {
           open={showContactDialog}
           onOpenChange={(open) => {
             setShowContactDialog(open);
-            if (!open) setSelectedClientId(null);
+            if (!open) {
+              setSelectedClientId(null);
+              setEditingContact(null);
+            }
           }}
           clientId={selectedClientId}
+          contact={editingContact}
         />
       )}
     </div>
@@ -199,26 +213,31 @@ const ClientSettings = () => {
 };
 
 // Composant pour chaque ligne du tableau
-function TableRow({ client, onEdit, onDelete, onTrackingToggle, onTierChange, onAddContact }: {
+function TableRow({ client, onEdit, onDelete, onTrackingToggle, onTierChange, onAddContact, onEditContact }: {
   client: any;
   onEdit: (client: any) => void;
   onDelete: (id: string) => void;
   onTrackingToggle: (clientId: string, trackingEnabled: boolean) => void;
   onTierChange: (clientId: string, tier: string | null) => void;
   onAddContact: (clientId: string) => void;
+  onEditContact: (clientId: string, contact: any) => void;
 }) {
   const { contacts, loading } = useClientContacts(client.id);
 
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-900">{client.company_name}</span>
-          <LinkedInIcon url={client.company_linkedin_url} />
+        <div className="flex items-center justify-between min-w-0 pr-2">
+          <span className="text-sm font-medium text-gray-900 truncate flex-1 mr-2">
+            {client.company_name}
+          </span>
+          <div className="flex-shrink-0">
+            <LinkedInIcon url={client.company_linkedin_url} />
+          </div>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className="text-sm text-gray-500">-</span>
+        <CollaboratorsSelect clientId={client.id} />
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <TierSelector
@@ -238,6 +257,7 @@ function TableRow({ client, onEdit, onDelete, onTrackingToggle, onTierChange, on
           contacts={contacts}
           loading={loading}
           onAddContact={() => onAddContact(client.id)}
+          onEditContact={(contact) => onEditContact(client.id, contact)}
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
@@ -265,11 +285,12 @@ function TableRow({ client, onEdit, onDelete, onTrackingToggle, onTierChange, on
 }
 
 // Composant pour afficher les contacts d'un client
-function ContactsCell({ clientId, contacts, loading, onAddContact }: { 
+function ContactsCell({ clientId, contacts, loading, onAddContact, onEditContact }: { 
   clientId: string; 
   contacts: any[];
   loading: boolean;
   onAddContact: () => void;
+  onEditContact: (contact: any) => void;
 }) {
   if (loading) {
     return (
@@ -292,13 +313,21 @@ function ContactsCell({ clientId, contacts, loading, onAddContact }: {
       {contacts.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {contacts.slice(0, 2).map((contact) => (
-            <span
+            <div
               key={contact.id}
-              className="inline-flex items-center gap-1 text-xs bg-gray-100 rounded px-2 py-1"
+              className="inline-flex items-center gap-1 text-xs bg-gray-100 rounded px-2 py-1 group"
             >
               <User className="h-3 w-3" />
-              {contact.first_name} {contact.last_name}
-            </span>
+              <span>{contact.first_name} {contact.last_name}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => onEditContact(contact)}
+              >
+                <Edit2 className="h-3 w-3" />
+              </Button>
+            </div>
           ))}
           {contacts.length > 2 && (
             <span className="text-xs text-gray-500">
