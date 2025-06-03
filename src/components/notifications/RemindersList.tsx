@@ -19,13 +19,18 @@ const RemindersList = ({ reminders, onMarkAsRead }: RemindersListProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogLeads, setDialogLeads] = useState<any[]>([]);
 
+  // Ne plus afficher les assignations ici car elles sont dans NotificationsList
+  const traditionalReminders = reminders.filter(r => 
+    r.type !== 'lead_assigned' && r.type !== 'job_offer_assigned'
+  );
+
   const handleReminderClick = (reminder: Reminder) => {
     if (!reminder.read) {
       onMarkAsRead(reminder.id);
     }
     
-    // Si c'est une assignation de lead avec données complètes, ouvrir la dialog
-    if (reminder.type === 'lead_assigned' && reminder.lead_data) {
+    // Si c'est un rappel traditionnel avec données complètes, ouvrir la dialog
+    if (reminder.lead_data) {
       setDialogLeads([reminder.lead_data]);
       setSelectedLeadIndex(0);
       setIsDialogOpen(true);
@@ -51,10 +56,6 @@ const RemindersList = ({ reminders, onMarkAsRead }: RemindersListProps) => {
 
   const getReminderIcon = (reminder: Reminder) => {
     switch (reminder.type) {
-      case 'lead_assigned':
-        return <UserPlus className="h-4 w-4 text-purple-600" />;
-      case 'job_offer_assigned':
-        return <Briefcase className="h-4 w-4 text-blue-600" />;
       case 'reminder_due':
         return reminder.due_date && new Date(reminder.due_date) < new Date() ? 
           <Clock className="h-4 w-4 text-red-600" /> :
@@ -66,10 +67,6 @@ const RemindersList = ({ reminders, onMarkAsRead }: RemindersListProps) => {
 
   const getReminderTypeLabel = (reminder: Reminder) => {
     switch (reminder.type) {
-      case 'lead_assigned':
-        return 'Lead assigné';
-      case 'job_offer_assigned':
-        return 'Offre d\'emploi assignée';
       case 'reminder_due':
         return reminder.due_date && new Date(reminder.due_date) < new Date() ? 
           'Rappel en retard' : 'Rappel programmé';
@@ -78,10 +75,10 @@ const RemindersList = ({ reminders, onMarkAsRead }: RemindersListProps) => {
     }
   };
 
-  if (reminders.length === 0) {
+  if (traditionalReminders.length === 0) {
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
-        Aucune notification
+        Aucun rappel
       </div>
     );
   }
@@ -90,7 +87,7 @@ const RemindersList = ({ reminders, onMarkAsRead }: RemindersListProps) => {
     <>
       <ScrollArea className="max-h-96">
         <div className="divide-y">
-          {reminders.map((reminder) => (
+          {traditionalReminders.map((reminder) => (
             <div
               key={reminder.id}
               className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
@@ -123,11 +120,6 @@ const RemindersList = ({ reminders, onMarkAsRead }: RemindersListProps) => {
                         <p className="text-xs text-blue-600 mt-1">
                           Lead: {reminder.lead_data.author_name}
                           {reminder.lead_data.company_position && ` - ${reminder.lead_data.company_position}`}
-                        </p>
-                      )}
-                      {reminder.creator_name && reminder.type === 'lead_assigned' && (
-                        <p className="text-xs text-green-600 mt-1">
-                          Assigné par: {reminder.creator_name}
                         </p>
                       )}
                       {reminder.due_date && (

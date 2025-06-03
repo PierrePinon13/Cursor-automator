@@ -4,6 +4,8 @@ import { TasksOverview } from '@/components/tasks/TasksOverview';
 import { useTasks } from '@/hooks/useTasks';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 
 const Tasks = () => {
   const { 
@@ -14,6 +16,17 @@ const Tasks = () => {
     updateTaskComment, 
     updateTaskFollowUpDate 
   } = useTasks();
+  
+  const [searchParams] = useSearchParams();
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  // Récupérer le taskId depuis l'URL si présent
+  useEffect(() => {
+    const taskId = searchParams.get('taskId');
+    if (taskId) {
+      setSelectedTaskId(taskId);
+    }
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -54,6 +67,7 @@ const Tasks = () => {
           onUpdateStatus={updateTaskStatus}
           onUpdateComment={updateTaskComment}
           onUpdateFollowUpDate={updateTaskFollowUpDate}
+          selectedTaskId={selectedTaskId}
         />
       </div>
     </div>

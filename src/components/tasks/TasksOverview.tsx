@@ -1,17 +1,17 @@
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Clock, Calendar, CheckSquare } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { IntegratedTaskCard } from './IntegratedTaskCard';
+import React, { useState, useEffect } from 'react';
+import { TaskCard } from './TaskCard';
+import { CompletedTasksSection } from './CompletedTasksSection';
 import { Task } from '@/hooks/useTasks';
+import { Badge } from '@/components/ui/badge';
 
 interface TasksOverviewProps {
   tasks: Task[];
-  onComplete: (taskId: string, taskType: Task['type']) => void;
-  onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => void;
-  onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => void;
-  onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => void;
+  onComplete: (taskId: string, taskType: Task['type']) => Promise<void>;
+  onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => Promise<void>;
+  onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => Promise<void>;
+  onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => Promise<void>;
+  selectedTaskId?: string | null;
 }
 
 export const TasksOverview = ({ 
@@ -19,164 +19,125 @@ export const TasksOverview = ({
   onComplete, 
   onUpdateStatus, 
   onUpdateComment, 
-  onUpdateFollowUpDate 
+  onUpdateFollowUpDate,
+  selectedTaskId 
 }: TasksOverviewProps) => {
-  const [showUpcoming, setShowUpcoming] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
-  const now = new Date();
-  const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
+  // Ouvrir automatiquement la tâche sélectionnée
+  useEffect(() => {
+    if (selectedTaskId) {
+      setExpandedTaskId(selectedTaskId);
+      // Scroll vers la tâche après un petit délai
+      setTimeout(() => {
+        const element = document.getElementById(`task-${selectedTaskId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [selectedTaskId]);
 
-  // Filtrer les tâches
-  const overdueTasks = tasks.filter(task => task.isOverdue && !task.isCompleted);
-  const urgentTasks = tasks.filter(task => 
-    !task.isCompleted && 
-    !task.isOverdue && 
-    task.dueDate && 
-    new Date(task.dueDate) <= threeDaysFromNow
-  );
-  const upcomingTasks = tasks.filter(task => 
-    !task.isCompleted && 
-    !task.isOverdue && 
-    (!task.dueDate || new Date(task.dueDate) > threeDaysFromNow)
-  );
+  const pendingTasks = tasks.filter(task => !task.isCompleted);
   const completedTasks = tasks.filter(task => task.isCompleted);
 
-  // Tâches principales à afficher (retard + urgentes)
-  const mainTasks = [...overdueTasks, ...urgentTasks];
+  const overdueTasks = pendingTasks.filter(task => task.isOverdue);
+  const upcomingTasks = pendingTasks.filter(task => !task.isOverdue);
 
-  const SectionHeader = ({ 
-    icon, 
-    title, 
-    count, 
-    variant = "default", 
-    isExpanded, 
-    onToggle 
-  }: {
-    icon: React.ReactNode;
-    title: string;
-    count: number;
-    variant?: "default" | "destructive" | "outline";
-    isExpanded?: boolean;
-    onToggle?: () => void;
-  }) => (
-    <div 
-      className="flex items-center justify-between py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 px-2 rounded"
-      onClick={onToggle}
-    >
-      <div className="flex items-center gap-3">
-        {icon}
-        <h2 className="font-semibold text-gray-900">{title}</h2>
-        <Badge variant={variant} className="text-xs">
-          {count}
-        </Badge>
-      </div>
-      {onToggle && (
-        <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-      )}
-    </div>
-  );
+  const handleTaskToggle = (taskId: string) => {
+    setExpandedTaskId(expandedTaskId === taskId ? null : taskId);
+  };
 
   return (
     <div className="space-y-6">
-      {/* Section principale : Tâches prioritaires */}
-      <div>
-        <SectionHeader
-          icon={<Clock className="h-5 w-5 text-red-500" />}
-          title="Tâches prioritaires"
-          count={mainTasks.length}
-          variant={mainTasks.length > 0 ? "destructive" : "outline"}
-        />
-        
-        <div className="mt-4">
-          {mainTasks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <CheckSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium text-gray-600 mb-2">Aucune tâche prioritaire</p>
-              <p className="text-sm text-gray-500">
-                Toutes vos tâches urgentes sont à jour !
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {mainTasks.map((task) => (
-                <IntegratedTaskCard
-                  key={task.id}
-                  task={task}
-                  onComplete={onComplete}
-                  onUpdateStatus={onUpdateStatus}
-                  onUpdateComment={onUpdateComment}
-                  onUpdateFollowUpDate={onUpdateFollowUpDate}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Statistiques */}
+      <div className="flex gap-4 flex-wrap">
+        <Badge variant="destructive" className="text-sm">
+          {overdueTasks.length} tâche{overdueTasks.length > 1 ? 's' : ''} en retard
+        </Badge>
+        <Badge variant="secondary" className="text-sm">
+          {upcomingTasks.length} tâche{upcomingTasks.length > 1 ? 's' : ''} à venir
+        </Badge>
+        <Badge variant="outline" className="text-sm">
+          {completedTasks.length} tâche{completedTasks.length > 1 ? 's' : ''} terminée{completedTasks.length > 1 ? 's' : ''}
+        </Badge>
       </div>
 
-      {/* Section tâches à venir */}
-      {upcomingTasks.length > 0 && (
-        <div>
-          <SectionHeader
-            icon={<Calendar className="h-5 w-5 text-blue-500" />}
-            title="Tâches à venir"
-            count={upcomingTasks.length}
-            variant="outline"
-            isExpanded={showUpcoming}
-            onToggle={() => setShowUpcoming(!showUpcoming)}
-          />
-          
-          {showUpcoming && (
-            <div className="mt-4 space-y-2">
-              {upcomingTasks.map((task) => (
-                <IntegratedTaskCard
-                  key={task.id}
+      {/* Tâches en retard */}
+      {overdueTasks.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-red-700 flex items-center gap-2">
+            ⚠️ Tâches en retard ({overdueTasks.length})
+          </h2>
+          <div className="space-y-3">
+            {overdueTasks.map((task) => (
+              <div 
+                key={task.id} 
+                id={`task-${task.id}`}
+                className={selectedTaskId === task.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}
+              >
+                <TaskCard
                   task={task}
                   onComplete={onComplete}
                   onUpdateStatus={onUpdateStatus}
                   onUpdateComment={onUpdateComment}
                   onUpdateFollowUpDate={onUpdateFollowUpDate}
+                  isExpanded={expandedTaskId === task.id}
+                  onToggle={() => handleTaskToggle(task.id)}
                 />
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Section tâches terminées */}
-      <div>
-        <SectionHeader
-          icon={<CheckSquare className="h-5 w-5 text-green-500" />}
-          title="Tâches terminées"
-          count={completedTasks.length}
-          variant="outline"
-          isExpanded={showCompleted}
-          onToggle={() => setShowCompleted(!showCompleted)}
-        />
-        
-        {showCompleted && (
-          <div className="mt-4">
-            {completedTasks.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>Aucune tâche terminée</p>
+      {/* Tâches à venir */}
+      {upcomingTasks.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+            📋 Tâches à venir ({upcomingTasks.length})
+          </h2>
+          <div className="space-y-3">
+            {upcomingTasks.map((task) => (
+              <div 
+                key={task.id} 
+                id={`task-${task.id}`}
+                className={selectedTaskId === task.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}
+              >
+                <TaskCard
+                  task={task}
+                  onComplete={onComplete}
+                  onUpdateStatus={onUpdateStatus}
+                  onUpdateComment={onUpdateComment}
+                  onUpdateFollowUpDate={onUpdateFollowUpDate}
+                  isExpanded={expandedTaskId === task.id}
+                  onToggle={() => handleTaskToggle(task.id)}
+                />
               </div>
-            ) : (
-              <div className="space-y-2">
-                {completedTasks.map((task) => (
-                  <IntegratedTaskCard
-                    key={task.id}
-                    task={task}
-                    onComplete={onComplete}
-                    onUpdateStatus={onUpdateStatus}
-                    onUpdateComment={onUpdateComment}
-                    onUpdateFollowUpDate={onUpdateFollowUpDate}
-                  />
-                ))}
-              </div>
-            )}
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Message si aucune tâche */}
+      {pendingTasks.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-gray-500">
+            <p className="text-lg mb-2">🎉 Aucune tâche en attente !</p>
+            <p className="text-sm">Toutes vos tâches sont terminées.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Tâches terminées */}
+      {completedTasks.length > 0 && (
+        <CompletedTasksSection 
+          tasks={completedTasks}
+          onUpdateStatus={onUpdateStatus}
+          onUpdateComment={onUpdateComment}
+          onUpdateFollowUpDate={onUpdateFollowUpDate}
+        />
+      )}
     </div>
   );
 };
