@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ContactDialog } from './ContactDialog';
+import { ContactUserAssociations } from './ContactUserAssociations';
 import { 
   User, 
   Mail, 
@@ -150,7 +151,7 @@ export function ContactsList({ clientId, clientName }: ContactsListProps) {
                 )}
               </CardHeader>
 
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {/* Contact Info */}
                 <div className="space-y-2">
                   {contact.email && (
@@ -191,6 +192,12 @@ export function ContactsList({ clientId, clientName }: ContactsListProps) {
                     </div>
                   )}
                 </div>
+
+                {/* User Associations */}
+                <ContactUserAssociations 
+                  contactId={contact.id} 
+                  contactName={`${contact.first_name} ${contact.last_name}`}
+                />
 
                 {/* Notes */}
                 {contact.notes && (
