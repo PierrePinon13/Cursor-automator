@@ -132,32 +132,33 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
     );
   }
 
-  // Composant de tooltip personnalisé pour afficher le nom complet
+  // Composant de tooltip personnalisé
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
           <p className="font-medium mb-2">{`Date: ${label}`}</p>
           {payload.map((entry: any, index: number) => {
-            // Extraire le nom d'utilisateur de la dataKey
             const dataKey = entry.dataKey;
             let userName = '';
             let metricType = '';
             
-            if (dataKey.includes('_linkedin')) {
-              userName = dataKey.replace('_linkedin', '');
-              metricType = 'Messages LinkedIn';
-            } else if (dataKey.includes('_positive')) {
-              userName = dataKey.replace('_positive', '');
-              metricType = 'Appels positifs';
-            } else if (dataKey.includes('_negative')) {
-              userName = dataKey.replace('_negative', '');
-              metricType = 'Appels négatifs';
-            } else if (dataKey.includes('_success_rate')) {
-              userName = dataKey.replace('_success_rate', '');
-              metricType = 'Taux de réussite (%)';
+            if (viewType === 'comparison') {
+              if (dataKey.includes('_linkedin')) {
+                userName = dataKey.replace('_linkedin', '');
+                metricType = 'Messages LinkedIn';
+              } else if (dataKey.includes('_positive')) {
+                userName = dataKey.replace('_positive', '');
+                metricType = 'Appels positifs';
+              } else if (dataKey.includes('_negative')) {
+                userName = dataKey.replace('_negative', '');
+                metricType = 'Appels négatifs';
+              } else if (dataKey.includes('_success_rate')) {
+                userName = dataKey.replace('_success_rate', '');
+                metricType = 'Taux de réussite (%)';
+              }
             } else {
-              metricType = entry.name || dataKey;
+              metricType = chartConfig[dataKey as keyof typeof chartConfig]?.label || dataKey;
             }
             
             return (
@@ -202,12 +203,19 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                       />
                     ))}
                     <ChartLegend 
-                      content={<ChartLegendContent />} 
-                      payload={users.map(user => ({
-                        value: user,
-                        type: 'line',
-                        color: userColors[user]
-                      }))}
+                      content={({ payload }) => (
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3">
+                          {users.map(user => (
+                            <div key={user} className="flex items-center gap-1.5">
+                              <div
+                                className="h-2 w-2 shrink-0 rounded-[2px]"
+                                style={{ backgroundColor: userColors[user] }}
+                              />
+                              <span className="text-sm text-muted-foreground">{user}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     />
                   </>
                 ) : (
@@ -251,12 +259,19 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                       />
                     ))}
                     <ChartLegend 
-                      content={<ChartLegendContent />} 
-                      payload={users.map(user => ({
-                        value: user,
-                        type: 'line',
-                        color: userColors[user]
-                      }))}
+                      content={({ payload }) => (
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3">
+                          {users.map(user => (
+                            <div key={user} className="flex items-center gap-1.5">
+                              <div
+                                className="h-2 w-2 shrink-0 rounded-[2px]"
+                                style={{ backgroundColor: userColors[user] }}
+                              />
+                              <span className="text-sm text-muted-foreground">{user}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     />
                   </>
                 ) : (
@@ -300,12 +315,19 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                       />
                     ))}
                     <ChartLegend 
-                      content={<ChartLegendContent />} 
-                      payload={users.map(user => ({
-                        value: user,
-                        type: 'line',
-                        color: userColors[user]
-                      }))}
+                      content={({ payload }) => (
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3">
+                          {users.map(user => (
+                            <div key={user} className="flex items-center gap-1.5">
+                              <div
+                                className="h-2 w-2 shrink-0 rounded-[2px]"
+                                style={{ backgroundColor: userColors[user] }}
+                              />
+                              <span className="text-sm text-muted-foreground">{user}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     />
                   </>
                 ) : (
@@ -349,12 +371,19 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                       />
                     ))}
                     <ChartLegend 
-                      content={<ChartLegendContent />} 
-                      payload={users.map(user => ({
-                        value: user,
-                        type: 'line',
-                        color: userColors[user]
-                      }))}
+                      content={({ payload }) => (
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3">
+                          {users.map(user => (
+                            <div key={user} className="flex items-center gap-1.5">
+                              <div
+                                className="h-2 w-2 shrink-0 rounded-[2px]"
+                                style={{ backgroundColor: userColors[user] }}
+                              />
+                              <span className="text-sm text-muted-foreground">{user}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     />
                   </>
                 ) : (
