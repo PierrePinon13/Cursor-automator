@@ -44,10 +44,10 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
   return (
     <div className="h-full bg-white flex flex-col">
       {/* En-tête avec structure demandée */}
-      <div className="bg-gradient-to-r from-slate-50 to-gray-50 border-b p-6 flex-shrink-0">
+      <div className="bg-gradient-to-r from-slate-50 to-gray-50 border-b p-4 flex-shrink-0">
         {/* Ligne 1: Prénom nom + LinkedIn */}
-        <div className="flex items-center gap-2 mb-3">
-          <h1 className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center gap-2 mb-2">
+          <h1 className="text-lg font-semibold text-gray-900">
             {activity.lead_data?.author_name || 'Lead inconnu'}
           </h1>
           
@@ -59,7 +59,7 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
               className="flex-shrink-0 hover:scale-110 transition-transform"
             >
               <svg 
-                className="h-5 w-5 text-blue-600 hover:text-blue-800" 
+                className="h-4 w-4 text-blue-600 hover:text-blue-800" 
                 fill="currentColor" 
                 viewBox="0 0 24 24"
               >
@@ -70,7 +70,7 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
         </div>
 
         {/* Ligne 2: Vignette + Date */}
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-2">
           {getActivityBadge()}
           <span className="text-sm text-gray-500">
             {format(activityDate, 'dd/MM/yyyy HH:mm', { locale: fr })}
@@ -88,78 +88,96 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
       {/* Séparateur */}
       <Separator />
 
-      {/* Message envoyé si disponible - maintenant sous le trait */}
+      {/* Message envoyé si disponible - maintenant sous le trait avec une largeur limitée */}
       {activity.message_content && (
         <div className="bg-blue-50/50 border-b p-4 flex-shrink-0">
-          <div className="bg-white rounded-lg p-3 max-w-md border border-blue-100">
-            <div className="text-xs text-blue-600 font-medium mb-1">Message envoyé</div>
-            <ScrollArea className="max-h-20">
-              <p className="text-sm text-gray-900 leading-relaxed">
+          <div className="bg-white rounded-lg p-3 border border-blue-100 max-w-2xl">
+            <div className="text-xs text-blue-600 font-medium mb-2">Message envoyé</div>
+            <ScrollArea className="max-h-24">
+              <div className="text-sm text-gray-900 leading-relaxed pr-3 whitespace-pre-wrap">
                 {activity.message_content}
-              </p>
+              </div>
             </ScrollArea>
           </div>
         </div>
       )}
 
-      {/* Contenu principal : Informations du lead */}
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto bg-slate-50/30">
-        <div className="bg-white rounded-lg p-5 border border-gray-100 shadow-sm">
-          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-            <User className="h-5 w-5 text-blue-600" />
-            Informations du contact
-          </h3>
-          
-          <div className="space-y-4">
-            {activity.lead_data?.company_position && (
-              <div className="bg-gray-50 rounded-lg p-3">
-                <span className="text-sm text-gray-500 font-medium">Poste</span>
-                <p className="text-base text-gray-900 mt-1 font-medium">
-                  {activity.lead_data.company_position}
-                </p>
-              </div>
-            )}
+      {/* Contenu principal : Informations du lead - structure en grille pour éviter le scroll */}
+      <div className="flex-1 p-4 overflow-y-auto bg-slate-50/30">
+        <div className="grid grid-cols-1 gap-4 max-w-4xl">
+          {/* Informations personnelles et poste */}
+          <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+            <h3 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <User className="h-4 w-4 text-blue-600" />
+              Informations du contact
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {activity.lead_data?.company_position && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <span className="text-xs text-gray-500 font-medium">Poste</span>
+                  <p className="text-sm text-gray-900 mt-1 font-medium">
+                    {activity.lead_data.company_position}
+                  </p>
+                </div>
+              )}
 
-            {activity.lead_data?.company_name && (
+              {activity.lead_data?.matched_client_name && (
+                <div className="bg-purple-50 rounded-lg p-3">
+                  <span className="text-xs text-purple-600 font-medium">Client associé</span>
+                  <p className="text-sm font-medium text-purple-700 mt-1">
+                    {activity.lead_data.matched_client_name}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Informations entreprise */}
+          {activity.lead_data?.company_name && (
+            <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+              <h3 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
+                <Building className="h-4 w-4 text-green-600" />
+                Entreprise
+              </h3>
+              
               <div className="bg-green-50 rounded-lg p-3">
-                <span className="text-sm text-green-600 font-medium">Entreprise</span>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mb-2">
                   <Building className="h-4 w-4 text-green-600" />
-                  <p className="text-base text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-medium">
                     {activity.lead_data.company_name}
                   </p>
                 </div>
                 
-                {/* Éléments clés de l'entreprise */}
-                <div className="mt-2 text-sm text-green-700 bg-green-100 rounded p-2">
+                <div className="text-xs text-green-700 bg-green-100 rounded p-2">
                   <p className="font-medium">Éléments clés disponibles :</p>
-                  <p className="text-xs mt-1">Secteur d'activité, taille, localisation et autres informations détaillées</p>
+                  <p className="mt-1">Secteur d'activité, taille, localisation et autres informations détaillées</p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {activity.lead_data?.matched_client_name && (
-              <div className="bg-purple-50 rounded-lg p-3">
-                <span className="text-sm text-purple-600 font-medium">Client associé</span>
-                <p className="text-base font-medium text-purple-700 mt-1">
-                  {activity.lead_data.matched_client_name}
-                </p>
-              </div>
-            )}
-
-            {/* Détails temporels */}
+          {/* Détails temporels */}
+          <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+            <h3 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-amber-600" />
+              Détails temporels
+            </h3>
+            
             <div className="bg-amber-50 rounded-lg p-3">
-              <span className="text-sm text-amber-600 font-medium">Détails temporels</span>
-              <div className="mt-2 space-y-1">
-                <p className="text-sm text-gray-900">
-                  <span className="font-medium">Date :</span> {format(activityDate, 'EEEE dd MMMM yyyy', { locale: fr })}
-                </p>
-                <p className="text-sm text-gray-900">
-                  <span className="font-medium">Heure :</span> {format(activityDate, 'HH:mm', { locale: fr })}
-                </p>
-                <p className="text-sm text-gray-900">
-                  <span className="font-medium">Il y a :</span> {formatDistanceToNow(activityDate, { addSuffix: true, locale: fr })}
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                <div>
+                  <span className="font-medium text-gray-900">Date :</span>
+                  <p className="text-gray-700">{format(activityDate, 'dd/MM/yyyy', { locale: fr })}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Heure :</span>
+                  <p className="text-gray-700">{format(activityDate, 'HH:mm', { locale: fr })}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Il y a :</span>
+                  <p className="text-gray-700">{formatDistanceToNow(activityDate, { addSuffix: true, locale: fr })}</p>
+                </div>
               </div>
             </div>
           </div>
