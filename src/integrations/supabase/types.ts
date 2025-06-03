@@ -194,6 +194,120 @@ export type Database = {
           },
         ]
       }
+      client_contact_activities: {
+        Row: {
+          activity_data: Json | null
+          activity_type: string
+          contact_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_data?: Json | null
+          activity_type: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_data?: Json | null
+          activity_type?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contact_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contact_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_contacts: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by_user_id: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string
+          linkedin_profile_id: string | null
+          linkedin_url: string | null
+          notes: string | null
+          phone: string | null
+          position: string | null
+          unipile_data: Json | null
+          unipile_extracted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by_user_id: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          linkedin_profile_id?: string | null
+          linkedin_url?: string | null
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          unipile_data?: Json | null
+          unipile_extracted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by_user_id?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          linkedin_profile_id?: string | null
+          linkedin_url?: string | null
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          unipile_data?: Json | null
+          unipile_extracted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contacts_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_job_offers: {
         Row: {
           apify_dataset_id: string
