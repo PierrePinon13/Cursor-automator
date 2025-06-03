@@ -1,11 +1,10 @@
 
 import { useState } from 'react';
-import { Circle, CheckCircle2, Calendar, User, Briefcase, Clock, ExternalLink } from 'lucide-react';
+import { Circle, CheckCircle2, Calendar, User, Briefcase, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task } from '@/hooks/useTasks';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -23,12 +22,17 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
   const [showAnimation, setShowAnimation] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
-  const handleCompleteClick = () => {
+  const handleCompleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Empêcher l'ouverture du popup
     if (task.type === 'job_offer_assignment' || task.type === 'lead_assignment') {
       setShowCompletionDialog(true);
     } else {
       handleComplete('');
     }
+  };
+
+  const handleTaskClick = () => {
+    setShowDetail(true);
   };
 
   const handleComplete = async (status: string) => {
@@ -96,7 +100,10 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
 
   return (
     <>
-      <Card className={`hover:shadow-md transition-all duration-200 ${task.isOverdue ? 'border-red-200 bg-red-50' : ''} ${task.isCompleted ? 'opacity-60' : ''}`}>
+      <Card 
+        className={`hover:shadow-md transition-all duration-200 cursor-pointer ${task.isOverdue ? 'border-red-200 bg-red-50' : ''} ${task.isCompleted ? 'opacity-60' : ''}`}
+        onClick={handleTaskClick}
+      >
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <Button
@@ -149,18 +156,6 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
                       {getStatusBadge(getCurrentStatus())}
                     </div>
                   )}
-                  
-                  <div className="flex items-center gap-2 mt-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-6 px-2"
-                      onClick={() => setShowDetail(true)}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Voir détails
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
