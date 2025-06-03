@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, Lightbulb } from 'lucide-react';
 import LeadActions from './LeadActions';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
+import { useLinkedInDailyLimit } from '@/hooks/useLinkedInDailyLimit';
+import { LinkedInDailyLimitBanner } from './LinkedInDailyLimitBanner';
 
 interface Lead {
   id: string;
@@ -35,6 +37,14 @@ const LeadMessageEditor = ({
 }: LeadMessageEditorProps) => {
   const [message, setMessage] = useState('');
   const { sendMessage, loading: messageSending } = useLinkedInMessage();
+  const {
+    dailyCount,
+    remainingMessages,
+    isAtLimit,
+    isAtMaxLimit,
+    loading: limitLoading,
+    DAILY_LINKEDIN_LIMIT
+  } = useLinkedInDailyLimit();
 
   useEffect(() => {
     if (lead.approach_message) {
@@ -59,6 +69,16 @@ const LeadMessageEditor = ({
 
   return (
     <div className="space-y-6">
+      {/* Banner de limite quotidienne */}
+      <LinkedInDailyLimitBanner
+        dailyCount={dailyCount}
+        remainingMessages={remainingMessages}
+        isAtLimit={isAtLimit}
+        isAtMaxLimit={isAtMaxLimit}
+        loading={limitLoading}
+        limit={DAILY_LINKEDIN_LIMIT}
+      />
+
       {/* Message Editor */}
       <Card>
         <CardHeader className="pb-3">
@@ -112,6 +132,7 @@ const LeadMessageEditor = ({
         message={message}
         onPhoneRetrieved={onPhoneRetrieved}
         onContactUpdate={onContactUpdate}
+        isAtLinkedInLimit={isAtLimit}
       />
     </div>
   );

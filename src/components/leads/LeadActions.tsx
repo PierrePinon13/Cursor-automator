@@ -31,6 +31,7 @@ interface LeadActionsProps {
   message?: string;
   onPhoneRetrieved?: (phoneNumber: string | null) => void;
   onContactUpdate?: () => void;
+  isAtLinkedInLimit?: boolean;
 }
 
 const LeadActions = ({ 
@@ -40,7 +41,8 @@ const LeadActions = ({
   messageSending = false,
   message = '',
   onPhoneRetrieved,
-  onContactUpdate
+  onContactUpdate,
+  isAtLinkedInLimit = false
 }: LeadActionsProps) => {
   const [showHrProviderSelector, setShowHrProviderSelector] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
@@ -130,7 +132,10 @@ const LeadActions = ({
     }
   };
 
-  const canSendMessage = onSendLinkedInMessage && message.trim().length > 0 && message.length <= 300;
+  const canSendMessage = onSendLinkedInMessage && 
+    message.trim().length > 0 && 
+    message.length <= 300 && 
+    !isAtLinkedInLimit;
   const messageIsTooLong = message.length > 300;
 
   const formatContactDate = (dateStr: string | null) => {
@@ -179,6 +184,13 @@ const LeadActions = ({
               <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 p-2 rounded">
                 <span className="text-red-600 font-bold">✕</span>
                 <span>Le message dépasse la limite de 300 caractères. Veuillez le raccourcir.</span>
+              </div>
+            )}
+
+            {isAtLinkedInLimit && (
+              <div className="flex items-start gap-2 text-green-600 text-sm bg-green-50 p-2 rounded">
+                <span className="text-green-600 font-bold">🎉</span>
+                <span>Limite quotidienne atteinte ! Excellente implication, à demain !</span>
               </div>
             )}
             

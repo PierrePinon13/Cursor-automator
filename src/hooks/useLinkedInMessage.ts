@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useLeadInteractions } from './useLeadInteractions';
+import { useLinkedInDailyLimit } from './useLinkedInDailyLimit';
 
 export function useLinkedInMessage() {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { showSuccessToast } = useLeadInteractions();
+  const { isAtLimit, incrementCount, dailyCount, DAILY_LINKEDIN_LIMIT } = useLinkedInDailyLimit();
 
   const sendMessage = async (leadId: string, message: string, leadData?: { author_name?: string; author_profile_url?: string }) => {
     if (!user) {
@@ -17,6 +19,14 @@ export function useLinkedInMessage() {
 
     if (!message.trim()) {
       showSuccessToast("Le message ne peut pas être vide.");
+      return false;
+    }
+
+    // Vérifier la limite quotidienne
+    if (isAtLimit) {
+      showSuccessToast(
+        `🎉 Félicitations ! Vous avez atteint votre objectif quotidien de ${DAILY_LINKEDIN_LIMIT} messages LinkedIn. Excellente implication ! À demain pour continuer ! 💪`
+      );
       return false;
     }
 
@@ -41,11 +51,20 @@ export function useLinkedInMessage() {
       }
 
       if (data && data.success) {
+        // Incrémenter le compteur local immédiatement
+        incrementCount();
+        
         const actionType = data.messageType === 'direct_message' ? 'Message LinkedIn envoyé' : 'Demande de connexion LinkedIn envoyée';
         const networkInfo = data.networkDistance ? ` (distance réseau: ${data.networkDistance})` : '';
         
+        // Message de succès avec info sur le compteur
+        const remainingMessages = Math.max(0, DAILY_LINKEDIN_LIMIT - (dailyCount + 1));
+        const successMessage = remainingMessages > 0 
+          ? `${actionType} avec succès${networkInfo} (${remainingMessages} messages restants aujourd'hui)`
+          : `${actionType} avec succès${networkInfo} 🎉 Objectif quotidien atteint !`;
+        
         showSuccessToast(
-          `${actionType} avec succès${networkInfo}`,
+          successMessage,
           leadData?.author_profile_url,
           leadData?.author_name
         );
