@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Check, ChevronDown, Users, User, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserSelection } from '@/hooks/useDashboardStats';
@@ -23,6 +23,20 @@ interface UserSelectorProps {
 export function UserSelector({ users, selection, onSelectionChange }: UserSelectorProps) {
   const [open, setOpen] = useState(false);
 
+  const getDisplayName = (user: User) => {
+    if (user.full_name) return user.full_name;
+    
+    // Extract name from email (before @)
+    const nameFromEmail = user.email.split('@')[0];
+    
+    // Convert formats like "prenom.nom" or "prenom_nom" to "Prénom Nom"
+    const nameParts = nameFromEmail
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    
+    return nameParts.join(' ');
+  };
+
   const getSelectionLabel = () => {
     switch (selection.type) {
       case 'personal':
@@ -33,7 +47,7 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
         if (!selection.userIds?.length) return 'Sélectionner des utilisateurs';
         if (selection.userIds.length === 1) {
           const user = users.find(u => u.id === selection.userIds![0]);
-          return user?.full_name || user?.email || 'Utilisateur';
+          return user ? getDisplayName(user) : 'Utilisateur';
         }
         return `${selection.userIds.length} utilisateurs`;
       default:
@@ -91,83 +105,85 @@ export function UserSelector({ users, selection, onSelectionChange }: UserSelect
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
-        <div className="p-1">
-          <div className="space-y-1">
-            <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">Type de vue</div>
-            
-            <button
-              onClick={() => handleTypeChange('personal')}
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
-            >
-              <Check
-                className={cn(
-                  "h-4 w-4",
-                  selection.type === 'personal' ? "opacity-100" : "opacity-0"
-                )}
-              />
-              <User className="h-4 w-4" />
-              Mes statistiques
-            </button>
-            
-            <button
-              onClick={() => handleTypeChange('global')}
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
-            >
-              <Check
-                className={cn(
-                  "h-4 w-4",
-                  selection.type === 'global' ? "opacity-100" : "opacity-0"
-                )}
-              />
-              <Globe className="h-4 w-4" />
-              Vue globale (tous)
-            </button>
-            
-            <button
-              onClick={() => handleTypeChange('specific')}
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
-            >
-              <Check
-                className={cn(
-                  "h-4 w-4",
-                  selection.type === 'specific' ? "opacity-100" : "opacity-0"
-                )}
-              />
-              <Users className="h-4 w-4" />
-              Sélection personnalisée
-            </button>
+        <ScrollArea className="h-[400px]">
+          <div className="p-4">
+            <div className="space-y-1">
+              <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">Type de vue</div>
+              
+              <button
+                onClick={() => handleTypeChange('personal')}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+              >
+                <Check
+                  className={cn(
+                    "h-4 w-4",
+                    selection.type === 'personal' ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                <User className="h-4 w-4" />
+                Mes statistiques
+              </button>
+              
+              <button
+                onClick={() => handleTypeChange('global')}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+              >
+                <Check
+                  className={cn(
+                    "h-4 w-4",
+                    selection.type === 'global' ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                <Globe className="h-4 w-4" />
+                Vue globale (tous)
+              </button>
+              
+              <button
+                onClick={() => handleTypeChange('specific')}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+              >
+                <Check
+                  className={cn(
+                    "h-4 w-4",
+                    selection.type === 'specific' ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                <Users className="h-4 w-4" />
+                Sélection personnalisée
+              </button>
 
-            {selection.type === 'specific' && users.length > 0 && (
-              <>
-                <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground mt-4">Utilisateurs</div>
-                {users.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => handleUserToggle(user.id)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <Check
-                      className={cn(
-                        "h-4 w-4",
-                        selection.userIds?.includes(user.id) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">
-                        {user.full_name || user.email}
-                      </span>
-                      {user.full_name && (
+              {selection.type === 'specific' && users.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground mt-4">
+                    Utilisateurs ({users.length})
+                  </div>
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleUserToggle(user.id)}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Check
+                        className={cn(
+                          "h-4 w-4",
+                          selection.userIds?.includes(user.id) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">
+                          {getDisplayName(user)}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {user.email}
                         </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </>
-            )}
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   );

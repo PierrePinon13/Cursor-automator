@@ -55,11 +55,21 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
   };
 
   const getDisplayName = (user: any) => {
-    return user.full_name || user.email || 'Utilisateur inconnu';
+    if (user.full_name) return user.full_name;
+    
+    // Extract name from email (before @)
+    const nameFromEmail = user.email.split('@')[0];
+    
+    // Convert formats like "prenom.nom" or "prenom_nom" to "Prénom Nom"
+    const nameParts = nameFromEmail
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    
+    return nameParts.join(' ');
   };
 
   const getInitials = (user: any) => {
-    const name = user.full_name || user.email || 'U';
+    const name = getDisplayName(user);
     return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
@@ -126,7 +136,7 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
                 Tous les utilisateurs sont déjà assignés.
               </div>
             ) : (
-              <ScrollArea className="h-[260px]">
+              <ScrollArea className="h-[200px]">
                 <div className="space-y-1">
                   {availableUsers.map((user) => (
                     <button
@@ -143,6 +153,9 @@ export function CollaboratorsSelect({ clientId }: CollaboratorsSelectProps) {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 text-sm truncate">
                           {getDisplayName(user)}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {user.email}
                         </div>
                       </div>
                     </button>

@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -53,6 +52,21 @@ const UserStatsTable = ({ stats }: UserStatsTableProps) => {
   const userStats = Object.values(userAggregatedStats)
     .sort((a, b) => (b.positive_calls + b.negative_calls) - (a.positive_calls + a.negative_calls));
 
+  // Helper function to get display name from email
+  const getDisplayName = (email: string) => {
+    if (email === 'Utilisateur inconnu') return email;
+    
+    // Extract name from email (before @)
+    const nameFromEmail = email.split('@')[0];
+    
+    // Convert formats like "prenom.nom" or "prenom_nom" to "Prénom Nom"
+    const nameParts = nameFromEmail
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    
+    return nameParts.join(' ');
+  };
+
   if (userStats.length === 0) {
     return (
       <Card className="shadow-sm border-0">
@@ -100,15 +114,19 @@ const UserStatsTable = ({ stats }: UserStatsTableProps) => {
               {userStats.map((user, index) => {
                 const totalCalls = user.positive_calls + user.negative_calls;
                 const successRate = totalCalls > 0 ? (user.positive_calls / totalCalls) * 100 : 0;
+                const displayName = getDisplayName(user.user_email);
                 
                 return (
                   <TableRow key={user.user_id} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-sm font-semibold">
-                          {user.user_email.charAt(0).toUpperCase()}
+                          {displayName.charAt(0).toUpperCase()}
                         </div>
-                        {user.user_email}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{displayName}</span>
+                          <span className="text-xs text-gray-500">{user.user_email}</span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
