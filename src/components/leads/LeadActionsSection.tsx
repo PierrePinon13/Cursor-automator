@@ -63,12 +63,24 @@ const LeadActionsSection = ({
 
   const handleMistargetedPost = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté pour effectuer cette action",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await supabase
         .from('mistargeted_posts')
         .insert({
           lead_id: lead.id,
           author_name: lead.author_name,
-          reason: 'Publication signalée comme mal ciblée'
+          reason: 'Publication signalée comme mal ciblée',
+          reported_by_user_id: user.id
         });
       
       toast({
