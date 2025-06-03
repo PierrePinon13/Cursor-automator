@@ -83,6 +83,11 @@ export const IntegratedTaskCard = ({
 
   const handleStatusChange = (status: string) => {
     onUpdateStatus(task.id, task.type, status);
+    
+    // Si "à relancer" est sélectionné sans date, définir comme "dès que possible" (aujourd'hui)
+    if (status === 'a_relancer' && !getCurrentFollowUpDate()) {
+      onUpdateFollowUpDate(task.id, task.type, new Date());
+    }
   };
 
   const handleCommentChange = (comment: string) => {
@@ -97,6 +102,24 @@ export const IntegratedTaskCard = ({
     // "Dès que possible" = date d'aujourd'hui
     onUpdateFollowUpDate(task.id, task.type, new Date());
   };
+
+  // Fonction pour obtenir le nom du client et le titre du poste
+  const getClientInfo = () => {
+    if (task.type === 'job_offer_assignment') {
+      return {
+        clientName: task.data.matched_client_name || task.data.company_name || 'Client inconnu',
+        jobTitle: task.data.title || 'Poste non défini'
+      };
+    } else if (task.type === 'lead_assignment') {
+      return {
+        clientName: task.data.matched_client_name || task.data.company_name || 'Client inconnu', 
+        jobTitle: task.data.openai_step3_categorie || 'Catégorie non définie'
+      };
+    }
+    return null;
+  };
+
+  const clientInfo = getClientInfo();
 
   return (
     <div className={`border-l-4 ${task.isOverdue ? 'border-l-red-500 bg-red-50' : task.isCompleted ? 'border-l-green-500 bg-green-50' : 'border-l-blue-500'} p-4 bg-white rounded-r-lg hover:shadow-sm transition-shadow`}>
@@ -138,14 +161,30 @@ export const IntegratedTaskCard = ({
             </Button>
           </div>
           
-          <h3 className={`font-medium mb-1 text-sm ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-            {task.title}
-          </h3>
+          {/* Informations client en priorité pour les tâches issues de clients */}
+          {clientInfo && (
+            <div className="mb-3">
+              <h3 className={`font-semibold text-lg ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                {clientInfo.clientName}
+              </h3>
+              <p className={`text-base font-medium ${task.isCompleted ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                {clientInfo.jobTitle}
+              </p>
+            </div>
+          )}
+
+          {/* Titre de la tâche pour les rappels ou si pas d'info client */}
+          {(!clientInfo || task.type === 'reminder') && (
+            <div className="mb-2">
+              <h3 className={`font-medium text-sm ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                {task.title}
+              </h3>
+              <p className="text-xs text-gray-600">{task.description}</p>
+            </div>
+          )}
           
-          <p className="text-xs text-gray-600 mb-2">{task.description}</p>
-          
-          {/* Actions et statut en une ligne */}
-          <div className="flex items-center gap-4 flex-wrap">
+          {/* Actions principales - statut, relance et commentaire */}
+          <div className="flex items-center gap-4 flex-wrap mb-2">
             {needsStatusSelection && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">Statut:</span>
@@ -170,9 +209,10 @@ export const IntegratedTaskCard = ({
               onChange={handleCommentChange}
             />
           </div>
-          
+
+          {/* Informations secondaires */}
           {task.dueDate && (
-            <p className={`text-xs mt-2 ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+            <p className={`text-xs ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
               Échéance: {formatDistanceToNow(new Date(task.dueDate), { 
                 addSuffix: true, 
                 locale: fr 
@@ -183,7 +223,7 @@ export const IntegratedTaskCard = ({
           {/* Détails dépliables */}
           {showDetails && (
             <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-2">
-              <div className="text-xs">
+              <div className="text-xs space-y-1">
                 <p><strong>Créée le:</strong> {formatDistanceToNow(new Date(task.createdAt), { 
                   addSuffix: true, 
                   locale: fr 
@@ -199,20 +239,28 @@ export const IntegratedTaskCard = ({
               </div>
               
               {task.type === 'lead_assignment' && (
-                <div className="text-xs">
+                <div className="text-xs space-y-1">
                   <p><strong>Contact:</strong> {task.data.author_name || 'Non renseigné'}</p>
                   <p><strong>Entreprise:</strong> {task.data.company_name || 'Non renseignée'}</p>
                   {task.data.phone_number && (
                     <p><strong>Téléphone:</strong> {task.data.phone_number}</p>
                   )}
+                  <p><strong>Description:</strong> {task.description}</p>
                 </div>
               )}
               
               {task.type === 'job_offer_assignment' && (
-                <div className="text-xs">
+                <div className="text-xs space-y-1">
                   <p><strong>Titre:</strong> {task.data.title}</p>
                   <p><strong>Entreprise:</strong> {task.data.company_name || 'Non renseignée'}</p>
                   <p><strong>Localisation:</strong> {task.data.location || 'Non renseignée'}</p>
+                  <p><strong>Description:</strong> {task.description}</p>
+                </div>
+              )}
+
+              {task.type === 'reminder' && (
+                <div className="text-xs">
+                  <p><strong>Description:</strong> {task.description}</p>
                 </div>
               )}
             </div>
