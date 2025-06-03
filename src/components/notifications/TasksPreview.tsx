@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Calendar, Clock, UserCheck, Briefcase } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
+import { useNavigate } from 'react-router-dom';
 
 interface TasksPreviewProps {
   onViewAllTasks: () => void;
@@ -13,6 +14,7 @@ interface TasksPreviewProps {
 
 const TasksPreview = ({ onViewAllTasks }: TasksPreviewProps) => {
   const { tasks, loading } = useTasks();
+  const navigate = useNavigate();
 
   const getTaskIcon = (task: any) => {
     switch (task.type) {
@@ -29,6 +31,11 @@ const TasksPreview = ({ onViewAllTasks }: TasksPreviewProps) => {
     }
   };
 
+  const handleTaskClick = (task: any) => {
+    // Naviguer vers la page des tâches avec la tâche sélectionnée
+    navigate(`/tasks?taskId=${task.id}`);
+  };
+
   if (loading) {
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
@@ -37,12 +44,31 @@ const TasksPreview = ({ onViewAllTasks }: TasksPreviewProps) => {
     );
   }
 
-  const pendingTasks = tasks.filter(task => !task.isCompleted).slice(0, 8);
+  const now = new Date();
+  const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
 
-  if (pendingTasks.length === 0) {
+  // Filtrer les tâches : en retard + 3 prochains jours
+  const priorityTasks = tasks.filter(task => {
+    if (task.isCompleted) return false;
+    
+    // Tâches en retard
+    if (task.isOverdue) return true;
+    
+    // Tâches des 3 prochains jours
+    if (task.dueDate) {
+      const dueDate = new Date(task.dueDate);
+      return dueDate <= threeDaysFromNow;
+    }
+    
+    // Tâches sans date d'échéance mais récentes
+    const createdDate = new Date(task.createdAt);
+    return (now.getTime() - createdDate.getTime()) <= (3 * 24 * 60 * 60 * 1000);
+  }).slice(0, 8);
+
+  if (priorityTasks.length === 0) {
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
-        Aucune tâche en attente
+        Aucune tâche prioritaire
       </div>
     );
   }
@@ -50,8 +76,12 @@ const TasksPreview = ({ onViewAllTasks }: TasksPreviewProps) => {
   return (
     <ScrollArea className="max-h-80">
       <div className="p-3 space-y-3">
-        {pendingTasks.map((task) => (
-          <div key={task.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+        {priorityTasks.map((task) => (
+          <div 
+            key={task.id} 
+            className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+            onClick={() => handleTaskClick(task)}
+          >
             <div className="mt-1">
               {getTaskIcon(task)}
             </div>
