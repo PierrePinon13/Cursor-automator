@@ -38,16 +38,12 @@ serve(async (req) => {
     console.log('👤 Profile ID extracted:', profileId);
 
     // Call Unipile API to scrape profile
-    const unipileResponse = await fetch('https://api.unipile.com/api/v1/profiles', {
-      method: 'POST',
+    const unipileResponse = await fetch('https://api9.unipile.com:13946/api/v1/users/' + profileId, {
+      method: 'GET',
       headers: {
         'X-API-KEY': Deno.env.get('UNIPILE_API_KEY') ?? '',
         'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        profile_id: profileId,
-        provider: 'linkedin'
-      })
+      }
     });
 
     if (!unipileResponse.ok) {
@@ -65,36 +61,39 @@ serve(async (req) => {
       unipile_extracted_at: new Date().toISOString()
     };
 
-    // Update contact with additional info if available
-    const updates: any = { ...extractedData };
-    
-    if (unipileData.first_name && !updates.first_name) {
-      updates.first_name = unipileData.first_name;
-    }
-    if (unipileData.last_name && !updates.last_name) {
-      updates.last_name = unipileData.last_name;
-    }
-    if (unipileData.headline && !updates.position) {
-      updates.position = unipileData.headline;
-    }
+    // Si on a un vrai contact_id (pas "temp"), on met à jour en base
+    if (contact_id !== 'temp') {
+      // Update contact with additional info if available
+      const updates: any = { ...extractedData };
+      
+      if (unipileData.first_name && !updates.first_name) {
+        updates.first_name = unipileData.first_name;
+      }
+      if (unipileData.last_name && !updates.last_name) {
+        updates.last_name = unipileData.last_name;
+      }
+      if (unipileData.headline && !updates.position) {
+        updates.position = unipileData.headline;
+      }
 
-    // Update the contact in database
-    const { error: updateError } = await supabase
-      .from('client_contacts')
-      .update(updates)
-      .eq('id', contact_id);
+      // Update the contact in database
+      const { error: updateError } = await supabase
+        .from('client_contacts')
+        .update(updates)
+        .eq('id', contact_id);
 
-    if (updateError) {
-      throw updateError;
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log('✅ Contact updated successfully with LinkedIn data');
     }
-
-    console.log('✅ Contact updated successfully with LinkedIn data');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         extracted_data: extractedData,
-        message: 'LinkedIn profile data extracted and saved successfully'
+        message: 'LinkedIn profile data extracted successfully'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
