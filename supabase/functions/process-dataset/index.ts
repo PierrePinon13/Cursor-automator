@@ -20,7 +20,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { datasetId, cleanupExisting = false, webhook_triggered = false, forceAll = false } = await req.json()
+    const { datasetId, cleanupExisting = false, webhook_triggered = false, forceAll = false, resumeFromBatch = 0 } = await req.json()
     
     if (!datasetId) {
       return new Response('Dataset ID is required', { 
@@ -30,6 +30,9 @@ serve(async (req) => {
     }
 
     console.log(`📊 ${webhook_triggered ? 'WEBHOOK' : 'MANUAL'} processing for dataset:`, datasetId)
+    if (resumeFromBatch > 0) {
+      console.log(`🔄 RESUMING from batch ${resumeFromBatch}`)
+    }
 
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
     if (!apifyApiKey) {
@@ -50,7 +53,8 @@ serve(async (req) => {
       processing_errors: 0,
       apify_item_count: 0,
       apify_clean_item_count: 0,
-      force_all_mode: forceAll
+      force_all_mode: forceAll,
+      resumed_from_batch: resumeFromBatch
     }
 
     // ÉTAPE 0: Vérifier les métadonnées du dataset Apify
@@ -79,8 +83,8 @@ serve(async (req) => {
       console.log('❌ Error fetching metadata:', error.message)
     }
 
-    // Phase 1: Cleanup existing data if requested
-    if (cleanupExisting) {
+    // Phase 1: Cleanup existing data if requested (seulement si pas en mode reprise)
+    if (cleanupExisting && resumeFromBatch === 0) {
       console.log('🧹 Cleaning up existing data for dataset:', datasetId)
       
       const { count: deletedPosts } = await supabaseClient
@@ -97,163 +101,181 @@ serve(async (req) => {
       console.log(`✅ Cleanup completed: ${stats.cleaned_existing} records deleted`)
     }
 
-    // Phase 2: Récupération des données avec diagnostic avancé
-    console.log('📥 Starting data retrieval with enhanced diagnostics...')
+    // Phase 2: Récupération des données (seulement si pas en mode reprise)
     let allDatasetItems: any[] = []
-    const limit = 1000
-    let offset = 0
-    let batchCount = 0
+    
+    if (resumeFromBatch === 0) {
+      console.log('📥 Starting data retrieval with enhanced diagnostics...')
+      const limit = 1000
+      let offset = 0
+      let batchCount = 0
 
-    while (true) {
-      batchCount++
-      console.log(`📥 Fetching batch ${batchCount}: offset=${offset}, limit=${limit}`)
-      
-      try {
-        let apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&desc=1`
+      while (true) {
+        batchCount++
+        console.log(`📥 Fetching batch ${batchCount}: offset=${offset}, limit=${limit}`)
         
-        if (!forceAll) {
-          apiUrl += '&skipEmpty=true'
-        } else {
-          console.log('🚫 forceAll mode: retrieving ALL items including empty ones')
-        }
-        
-        const apifyResponse = await fetch(apiUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${apifyApiKey}`,
-            'Accept': 'application/json',
-          },
-        })
-
-        if (!apifyResponse.ok) {
-          const errorText = await apifyResponse.text()
-          console.error('❌ Apify API error:', apifyResponse.status, errorText)
+        try {
+          let apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&desc=1`
           
-          if (allDatasetItems.length > 0) {
-            console.log('⚠️ API error but we have data, stopping...')
+          if (!forceAll) {
+            apiUrl += '&skipEmpty=true'
+          } else {
+            console.log('🚫 forceAll mode: retrieving ALL items including empty ones')
+          }
+          
+          const apifyResponse = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${apifyApiKey}`,
+              'Accept': 'application/json',
+            },
+          })
+
+          if (!apifyResponse.ok) {
+            const errorText = await apifyResponse.text()
+            console.error('❌ Apify API error:', apifyResponse.status, errorText)
+            
+            if (allDatasetItems.length > 0) {
+              console.log('⚠️ API error but we have data, stopping...')
+              break
+            }
+            throw new Error(`Apify API error: ${apifyResponse.status} - ${errorText}`)
+          }
+
+          const batchItems = await apifyResponse.json()
+          console.log(`📊 Batch ${batchCount}: ${batchItems.length} items retrieved`)
+          
+          if (!batchItems || batchItems.length === 0) {
+            console.log(`📄 Empty batch - stopping pagination`)
             break
           }
-          throw new Error(`Apify API error: ${apifyResponse.status} - ${errorText}`)
-        }
 
-        const batchItems = await apifyResponse.json()
-        console.log(`📊 Batch ${batchCount}: ${batchItems.length} items retrieved`)
-        
-        if (!batchItems || batchItems.length === 0) {
-          console.log(`📄 Empty batch - stopping pagination`)
-          break
-        }
+          const validItems = batchItems.filter((item: any) => item && item.urn)
+          const invalidItems = batchItems.length - validItems.length
+          
+          if (invalidItems > 0) {
+            console.log(`⚠️ Batch ${batchCount}: ${invalidItems} invalid items detected (no URN)`)
+          }
 
-        const validItems = batchItems.filter((item: any) => item && item.urn)
-        const invalidItems = batchItems.length - validItems.length
-        
-        if (invalidItems > 0) {
-          console.log(`⚠️ Batch ${batchCount}: ${invalidItems} invalid items detected (no URN)`)
-        }
+          allDatasetItems = allDatasetItems.concat(batchItems)
+          offset += limit
+          
+          console.log(`📊 Total items collected: ${allDatasetItems.length}`)
 
-        allDatasetItems = allDatasetItems.concat(batchItems)
-        offset += limit
-        
-        console.log(`📊 Total items collected: ${allDatasetItems.length}`)
+          if (batchItems.length === limit) {
+            await new Promise(resolve => setTimeout(resolve, 200)) // Pause plus longue
+          }
 
-        if (batchItems.length === limit) {
-          await new Promise(resolve => setTimeout(resolve, 100))
+        } catch (error) {
+          console.error(`❌ Error fetching batch ${batchCount}:`, error)
+          if (allDatasetItems.length > 0) {
+            console.log('⚠️ Error but we have some data, stopping...')
+            break
+          }
+          throw error
         }
-
-      } catch (error) {
-        console.error(`❌ Error fetching batch ${batchCount}:`, error)
-        if (allDatasetItems.length > 0) {
-          console.log('⚠️ Error but we have some data, stopping...')
-          break
-        }
-        throw error
       }
-    }
 
-    stats.total_fetched = allDatasetItems.length
-    console.log(`📊 FINAL RETRIEVAL SUMMARY:`)
-    console.log(`   📥 Total fetched: ${stats.total_fetched}`)
-    console.log(`   📊 Expected (Apify): ${stats.apify_item_count}`)
-    
-    if (stats.apify_item_count > 0) {
-      const retrievalRate = (stats.total_fetched / stats.apify_item_count) * 100
-      console.log(`   📈 Retrieval rate: ${retrievalRate.toFixed(1)}%`)
+      stats.total_fetched = allDatasetItems.length
+      console.log(`📊 FINAL RETRIEVAL SUMMARY:`)
+      console.log(`   📥 Total fetched: ${stats.total_fetched}`)
+      console.log(`   📊 Expected (Apify): ${stats.apify_item_count}`)
       
-      if (retrievalRate < 80) {
-        console.log(`🚨 WARNING: Low retrieval rate (${retrievalRate.toFixed(1)}%) - significant data loss detected!`)
-      }
-    }
-
-    // Phase 3: Stockage des données brutes en BATCH
-    console.log('💾 Storing raw data with BATCH processing...')
-    let rawStoredCount = 0
-    const BATCH_SIZE = 100
-
-    const validRawData = allDatasetItems
-      .filter(item => item && item.urn)
-      .reduce((acc, item) => {
-        if (!acc.find(existing => existing.urn === item.urn)) {
-          acc.push({
-            apify_dataset_id: datasetId,
-            urn: item.urn,
-            text: item.text || null,
-            title: item.title || null,
-            url: item.url,
-            posted_at_timestamp: item.postedAtTimestamp || null,
-            posted_at_iso: item.postedAt || null,
-            author_type: item.authorType || null,
-            author_profile_url: item.authorProfileUrl || null,
-            author_profile_id: item.authorProfileId || null,
-            author_name: item.authorName || null,
-            author_headline: item.authorHeadline || null,
-            is_repost: item.isRepost || false,
-            raw_data: item,
-            updated_at: new Date().toISOString()
-          })
+      if (stats.apify_item_count > 0) {
+        const retrievalRate = (stats.total_fetched / stats.apify_item_count) * 100
+        console.log(`   📈 Retrieval rate: ${retrievalRate.toFixed(1)}%`)
+        
+        if (retrievalRate < 80) {
+          console.log(`🚨 WARNING: Low retrieval rate (${retrievalRate.toFixed(1)}%) - significant data loss detected!`)
         }
-        return acc
-      }, [] as any[])
+      }
 
-    console.log(`📦 Processing ${validRawData.length} deduplicated records in batches of ${BATCH_SIZE}`)
+      // Phase 3: Stockage des données brutes en BATCH
+      console.log('💾 Storing raw data with BATCH processing...')
+      let rawStoredCount = 0
+      const BATCH_SIZE = 100
 
-    for (let i = 0; i < validRawData.length; i += BATCH_SIZE) {
-      const batch = validRawData.slice(i, i + BATCH_SIZE)
-      const batchNumber = Math.floor(i / BATCH_SIZE) + 1
-      const totalBatches = Math.ceil(validRawData.length / BATCH_SIZE)
-      
-      console.log(`💾 Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`)
-      
-      try {
-        const { error: batchError } = await supabaseClient
-          .from('linkedin_posts_raw')
-          .upsert(batch, { 
-            onConflict: 'urn',
-            ignoreDuplicates: false 
-          })
+      const validRawData = allDatasetItems
+        .filter(item => item && item.urn)
+        .reduce((acc, item) => {
+          if (!acc.find(existing => existing.urn === item.urn)) {
+            acc.push({
+              apify_dataset_id: datasetId,
+              urn: item.urn,
+              text: item.text || null,
+              title: item.title || null,
+              url: item.url,
+              posted_at_timestamp: item.postedAtTimestamp || null,
+              posted_at_iso: item.postedAt || null,
+              author_type: item.authorType || null,
+              author_profile_url: item.authorProfileUrl || null,
+              author_profile_id: item.authorProfileId || null,
+              author_name: item.authorName || null,
+              author_headline: item.authorHeadline || null,
+              is_repost: item.isRepost || false,
+              raw_data: item,
+              updated_at: new Date().toISOString()
+            })
+          }
+          return acc
+        }, [] as any[])
 
-        if (batchError) {
-          console.error(`❌ Error in batch ${batchNumber}:`, batchError)
+      console.log(`📦 Processing ${validRawData.length} deduplicated records in batches of ${BATCH_SIZE}`)
+
+      for (let i = 0; i < validRawData.length; i += BATCH_SIZE) {
+        const batch = validRawData.slice(i, i + BATCH_SIZE)
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(validRawData.length / BATCH_SIZE)
+        
+        console.log(`💾 Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`)
+        
+        try {
+          const { error: batchError } = await supabaseClient
+            .from('linkedin_posts_raw')
+            .upsert(batch, { 
+              onConflict: 'urn',
+              ignoreDuplicates: false 
+            })
+
+          if (batchError) {
+            console.error(`❌ Error in batch ${batchNumber}:`, batchError)
+            stats.processing_errors += batch.length
+          } else {
+            rawStoredCount += batch.length
+            console.log(`✅ Batch ${batchNumber} stored successfully`)
+          }
+
+          if (i + BATCH_SIZE < validRawData.length) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+
+        } catch (error) {
+          console.error(`❌ Exception in batch ${batchNumber}:`, error)
           stats.processing_errors += batch.length
-        } else {
-          rawStoredCount += batch.length
-          console.log(`✅ Batch ${batchNumber} stored successfully`)
         }
-
-        if (i + BATCH_SIZE < validRawData.length) {
-          await new Promise(resolve => setTimeout(resolve, 50))
-        }
-
-      } catch (error) {
-        console.error(`❌ Exception in batch ${batchNumber}:`, error)
-        stats.processing_errors += batch.length
       }
+
+      stats.stored_raw = rawStoredCount
+      console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
+    } else {
+      // Mode reprise : récupérer les données depuis la base
+      console.log('🔄 RESUME MODE: Fetching data from linkedin_posts_raw...')
+      const { data: rawData, error: fetchError } = await supabaseClient
+        .from('linkedin_posts_raw')
+        .select('raw_data')
+        .eq('apify_dataset_id', datasetId)
+
+      if (fetchError) {
+        throw new Error(`Error fetching raw data: ${fetchError.message}`)
+      }
+
+      allDatasetItems = rawData?.map(item => item.raw_data) || []
+      stats.total_fetched = allDatasetItems.length
+      console.log(`🔄 Resumed with ${allDatasetItems.length} items from database`)
     }
 
-    stats.stored_raw = rawStoredCount
-    console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
-
-    // ✅ OPTIMISATION ULTRA-CRITIQUE: Phase 4 avec traitement hyper-optimisé pour éviter CPU timeout
-    console.log('🎯 Starting ULTRA-OPTIMIZED classification (minimal CPU usage)...')
+    // ✅ TRAITEMENT ULTRA-LENT : Phase 4 avec traitement robuste et reprise possible
+    console.log('🐌 Starting ULTRA-SLOW classification (maximum robustness)...')
     let queuedCount = 0
     let excludedByAuthorType = 0
     let excludedByMissingFields = 0
@@ -269,17 +291,38 @@ serve(async (req) => {
 
     console.log(`📊 Processing ${uniqueItems.length} unique items`)
 
-    // ✅ ULTRA-OPTIMISATION: Traitement séquentiel avec très petits batches et pauses fréquentes
-    const ULTRA_SMALL_BATCH = 10 // Réduit drastiquement pour minimiser la charge CPU
-    const LONG_PAUSE_MS = 300 // Pause plus longue pour donner le temps au CPU de respirer
+    // ✅ TRAITEMENT ULTRA-LENT : Batches de 5 items avec pauses de 1 seconde
+    const ULTRA_SLOW_BATCH = 5
+    const ULTRA_LONG_PAUSE_MS = 1000 // 1 seconde entre chaque batch
     
-    for (let i = 0; i < uniqueItems.length; i += ULTRA_SMALL_BATCH) {
-      const chunk = uniqueItems.slice(i, i + ULTRA_SMALL_BATCH)
-      const batchNumber = Math.floor(i / ULTRA_SMALL_BATCH) + 1
-      const totalBatches = Math.ceil(uniqueItems.length / ULTRA_SMALL_BATCH)
+    // Calculer le batch de départ en mode reprise
+    const startBatch = resumeFromBatch
+    const startIndex = startBatch * ULTRA_SLOW_BATCH
+
+    console.log(`🐌 Starting from batch ${startBatch}, index ${startIndex}`)
+
+    for (let i = startIndex; i < uniqueItems.length; i += ULTRA_SLOW_BATCH) {
+      const chunk = uniqueItems.slice(i, i + ULTRA_SLOW_BATCH)
+      const currentBatch = Math.floor(i / ULTRA_SLOW_BATCH)
+      const totalBatches = Math.ceil(uniqueItems.length / ULTRA_SLOW_BATCH)
       
-      console.log(`🎯 Processing ultra-small batch ${batchNumber}/${totalBatches} (${chunk.length} items)`)
+      console.log(`🐌 Processing ultra-slow batch ${currentBatch}/${totalBatches} (${chunk.length} items)`)
       
+      // ✅ POINT DE SAUVEGARDE : Enregistrer le progrès toutes les 20 batches
+      if (currentBatch > 0 && currentBatch % 20 === 0) {
+        console.log(`💾 CHECKPOINT: Saving progress at batch ${currentBatch}`)
+        await supabaseClient
+          .from('apify_webhook_stats')
+          .upsert({
+            dataset_id: datasetId,
+            last_processed_batch: currentBatch,
+            checkpoint_at: new Date().toISOString(),
+            reprocessing: !webhook_triggered,
+            total_fetched: stats.total_fetched,
+            queued_for_processing: queuedCount
+          }, { onConflict: 'dataset_id' })
+      }
+
       const batchData = []
       let batchExcludedByAuthorType = 0
       let batchExcludedByMissingFields = 0
@@ -344,10 +387,10 @@ serve(async (req) => {
             .select('id')
 
           if (insertError) {
-            console.error(`❌ Error inserting ultra-batch ${batchNumber}:`, insertError)
+            console.error(`❌ Error inserting ultra-batch ${currentBatch}:`, insertError)
             stats.processing_errors += batchData.length
           } else {
-            console.log(`✅ Ultra-batch ${batchNumber} inserted: ${batchData.length} posts`)
+            console.log(`✅ Ultra-batch ${currentBatch} inserted: ${batchData.length} posts`)
 
             // ✅ CRITIQUE: Déclenchement 100% asynchrone sans attendre
             if (insertedPosts && insertedPosts.length > 0) {
@@ -360,7 +403,7 @@ serve(async (req) => {
             }
           }
         } catch (error) {
-          console.error(`❌ Exception in ultra-batch ${batchNumber}:`, error)
+          console.error(`❌ Exception in ultra-batch ${currentBatch}:`, error)
           stats.processing_errors += batchData.length
         }
       }
@@ -371,16 +414,46 @@ serve(async (req) => {
       excludedByMissingFields += batchExcludedByMissingFields
       alreadyQueued += batchAlreadyQueued
 
-      // ✅ PAUSE OBLIGATOIRE pour laisser respirer le CPU
-      if (i + ULTRA_SMALL_BATCH < uniqueItems.length) {
-        await new Promise(resolve => setTimeout(resolve, LONG_PAUSE_MS))
+      // ✅ PAUSE ULTRA-LONGUE pour garantir la stabilité
+      if (i + ULTRA_SLOW_BATCH < uniqueItems.length) {
+        console.log(`⏸️ Pausing for ${ULTRA_LONG_PAUSE_MS}ms...`)
+        await new Promise(resolve => setTimeout(resolve, ULTRA_LONG_PAUSE_MS))
+      }
+
+      // ✅ SÉCURITÉ : Déclencher la reprise automatique si on approche de la limite
+      const currentTime = Date.now()
+      const startTime = new Date(stats.started_at).getTime()
+      const elapsedMs = currentTime - startTime
+      
+      // Si on approche de 50 secondes (limite Supabase ~55s), programmer la reprise
+      if (elapsedMs > 50000 && i + ULTRA_SLOW_BATCH < uniqueItems.length) {
+        const nextBatch = Math.floor((i + ULTRA_SLOW_BATCH) / ULTRA_SLOW_BATCH)
+        console.log(`⏰ Time limit approaching (${elapsedMs}ms), scheduling resume from batch ${nextBatch}`)
+        
+        // Programmer la reprise avec un délai de 5 secondes
+        setTimeout(() => {
+          supabaseClient.functions.invoke('process-dataset', {
+            body: { 
+              datasetId, 
+              cleanupExisting: false, 
+              webhook_triggered: false, 
+              forceAll,
+              resumeFromBatch: nextBatch 
+            }
+          }).catch(error => {
+            console.error('❌ Error scheduling resume:', error)
+          })
+        }, 5000)
+        
+        // Terminer cette exécution proprement
+        break
       }
     }
 
     stats.queued_for_processing = queuedCount
     stats.completed_at = new Date().toISOString()
 
-    console.log(`🎯 ULTRA-OPTIMIZED CLASSIFICATION SUMMARY:`)
+    console.log(`🐌 ULTRA-SLOW CLASSIFICATION SUMMARY:`)
     console.log(`   📥 Items processed: ${uniqueItems.length}`)
     console.log(`   ✅ Successfully queued: ${queuedCount}`)
     console.log(`   🏢 Excluded (Company): ${excludedByAuthorType}`)
@@ -388,10 +461,10 @@ serve(async (req) => {
     console.log(`   🔄 Already queued: ${alreadyQueued}`)
     console.log(`   📊 Qualification rate: ${uniqueItems.length > 0 ? ((queuedCount / uniqueItems.length) * 100).toFixed(1) : 0}%`)
 
-    // Stocker les statistiques
+    // Stocker les statistiques finales
     await supabaseClient
       .from('apify_webhook_stats')
-      .insert({
+      .upsert({
         ...stats,
         reprocessing: !webhook_triggered,
         classification_success_rate: stats.total_fetched > 0 ? 
@@ -400,10 +473,11 @@ serve(async (req) => {
           ((stats.stored_raw / stats.total_fetched) * 100).toFixed(2) : 0,
         excluded_by_author_type: excludedByAuthorType,
         excluded_by_missing_fields: excludedByMissingFields,
-        already_queued: alreadyQueued
-      })
+        already_queued: alreadyQueued,
+        processing_completed: true
+      }, { onConflict: 'dataset_id' })
 
-    console.log(`🎯 ULTRA-OPTIMIZED PROCESSING COMPLETE:`)
+    console.log(`🐌 ULTRA-SLOW PROCESSING COMPLETE:`)
     console.log(`📊 Dataset ID: ${datasetId}`)
     console.log(`📥 Total fetched: ${stats.total_fetched} / ${stats.apify_item_count} expected`)
     console.log(`💾 Stored raw: ${stats.stored_raw}`)
@@ -426,12 +500,13 @@ serve(async (req) => {
         }
       },
       improvements: [
-        '✅ ULTRA-CRITICAL FIX: Reduced to 10-item micro-batches with 300ms pauses',
-        '✅ SEQUENTIAL PROCESSING: Eliminated all concurrent processing to minimize CPU',
-        '✅ EXTENDED PAUSES: Added mandatory 300ms delays between batches',
-        '✅ FIRE-AND-FORGET: Post processing triggered without blocking the main function',
-        '✅ MINIMAL CPU LOOPS: Optimized all data processing loops for minimal CPU usage',
-        '✅ TIMEOUT PREVENTION: Designed specifically to stay under 2000ms CPU limit',
+        '🐌 ULTRA-SLOW MODE: Reduced to 5-item batches with 1-second pauses',
+        '🔄 AUTO-RESUME: Automatic restart capability with progress tracking',
+        '💾 CHECKPOINTS: Progress saved every 20 batches',
+        '⏰ TIME-AWARE: Automatic scheduling before timeout',
+        '🛡️ ROBUST DESIGN: Handles interruptions gracefully',
+        '✅ SEQUENTIAL PROCESSING: Eliminated all concurrent processing',
+        '✅ FIRE-AND-FORGET: Post processing triggered without blocking',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',

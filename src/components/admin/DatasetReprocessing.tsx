@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ReprocessingResult {
@@ -21,6 +21,7 @@ interface ReprocessingResult {
     completed_at: string;
     apify_item_count: number;
     apify_clean_item_count: number;
+    resumed_from_batch?: number;
   };
   diagnostics: {
     retrieval_rate_percent: string;
@@ -38,10 +39,11 @@ export function DatasetReprocessing() {
   const [datasetId, setDatasetId] = useState('');
   const [cleanupExisting, setCleanupExisting] = useState(false);
   const [forceAll, setForceAll] = useState(false);
+  const [resumeFromBatch, setResumeFromBatch] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ReprocessingResult | null>(null);
 
-  const startReprocessing = async () => {
+  const startReprocessing = async (isResume = false) => {
     if (!datasetId.trim()) {
       toast.error('Veuillez saisir un Dataset ID');
       return;
@@ -56,8 +58,9 @@ export function DatasetReprocessing() {
       const { data, error } = await supabase.functions.invoke('process-dataset', {
         body: {
           datasetId: datasetId.trim(),
-          cleanupExisting,
-          forceAll
+          cleanupExisting: isResume ? false : cleanupExisting,
+          forceAll,
+          resumeFromBatch: isResume ? resumeFromBatch : 0
         }
       });
 
@@ -95,7 +98,7 @@ export function DatasetReprocessing() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5" />
-            Retraitement avancé de Dataset
+            Retraitement robuste de Dataset
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -133,6 +136,31 @@ export function DatasetReprocessing() {
                 </label>
               </div>
             </div>
+
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="text-sm font-medium">Reprendre depuis le batch:</label>
+                  <Input
+                    type="number"
+                    value={resumeFromBatch}
+                    onChange={(e) => setResumeFromBatch(Number(e.target.value))}
+                    placeholder="0"
+                    className="mt-1"
+                    min="0"
+                  />
+                </div>
+                <Button
+                  onClick={() => startReprocessing(true)}
+                  disabled={isProcessing || !datasetId.trim() || resumeFromBatch <= 0}
+                  variant="outline"
+                  className="mt-6"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Reprendre
+                </Button>
+              </div>
+            </div>
           </div>
 
           {cleanupExisting && (
@@ -158,6 +186,10 @@ export function DatasetReprocessing() {
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="font-medium">Ce processus va :</div>
             <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>🐌 Traitement ultra-lent (5 items par batch, pause de 1 seconde)</li>
+              <li>🔄 Reprise automatique en cas d'interruption</li>
+              <li>💾 Points de sauvegarde toutes les 20 batches</li>
+              <li>⏰ Détection proactive des timeouts</li>
               <li>🔍 Vérifier les métadonnées Apify (itemCount vs cleanItemCount)</li>
               <li>📥 Récupérer les données avec diagnostic de perte</li>
               <li>💾 Utiliser des upserts pour éviter les conflits de duplicatas</li>
@@ -167,23 +199,25 @@ export function DatasetReprocessing() {
             </ul>
           </div>
 
-          <Button 
-            onClick={startReprocessing}
-            disabled={isProcessing || !datasetId.trim()}
-            className="w-full"
-          >
-            {isProcessing ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Retraitement en cours...
-              </>
-            ) : (
-              <>
-                <Database className="h-4 w-4 mr-2" />
-                Lancer le retraitement avancé
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => startReprocessing(false)}
+              disabled={isProcessing || !datasetId.trim()}
+              className="flex-1"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Retraitement en cours...
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4 mr-2" />
+                  Lancer le retraitement robuste
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -196,7 +230,10 @@ export function DatasetReprocessing() {
               ) : (
                 <XCircle className="h-5 w-5 text-red-600" />
               )}
-              Résultat du retraitement avancé
+              Résultat du retraitement robuste
+              {result.statistics.resumed_from_batch && (
+                <Badge variant="outline">Repris du batch {result.statistics.resumed_from_batch}</Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -277,6 +314,9 @@ export function DatasetReprocessing() {
               Dataset: <code className="bg-gray-100 px-2 py-1 rounded">{result.dataset_id}</code> | 
               Démarré: {new Date(result.statistics.started_at).toLocaleString()} | 
               Terminé: {new Date(result.statistics.completed_at).toLocaleString()}
+              {result.statistics.resumed_from_batch && (
+                <> | Repris du batch: {result.statistics.resumed_from_batch}</>
+              )}
             </div>
           </CardContent>
         </Card>
