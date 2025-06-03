@@ -7,26 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Types pour les tâches de traitement
-interface ProcessingTask {
-  id: string;
-  type: 'openai_analysis' | 'unipile_scraping' | 'lead_creation' | 'requalification';
-  data: any;
-  retry_count: number;
-  next_retry_at?: string;
-  dataset_id: string;
-}
-
-// Configuration des retry selon le type d'erreur
-const RETRY_CONFIG = {
-  openai_rate_limit: { delay: 60000, max_retries: 5 },
-  openai_timeout: { delay: 30000, max_retries: 3 },
-  unipile_rate_limit: { delay: 120000, max_retries: 10 },
-  unipile_provider_error: { delay: 300000, max_retries: 5 },
-  temporary_error: { delay: 60000, max_retries: 3 },
-  permanent_error: { delay: 0, max_retries: 0 }
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -74,45 +54,63 @@ serve(async (req) => {
 async function queuePendingPosts(supabaseClient: any) {
   console.log('📥 Queuing pending posts for processing...');
   
-  // ✅ CORRECTION: Utiliser 'pending' au lieu de 'queued'
   const { data: pendingPosts, error } = await supabaseClient
     .from('linkedin_posts')
     .select('*')
     .eq('processing_status', 'pending')
-    .order('created_at', { ascending: true }) // Ordre par date de création
-    .limit(100);
+    .order('created_at', { ascending: true })
+    .limit(500); // Augmenter la limite
 
   if (error) {
     throw new Error(`Error fetching pending posts: ${error.message}`);
   }
 
+  console.log(`📊 Found ${pendingPosts.length} pending posts`);
+
+  // Traitement par batch plus important pour OpenAI Step 1
+  const OPENAI_BATCH_SIZE = 30; // Augmenté de 10 à 30
   let queuedCount = 0;
   
-  for (const post of pendingPosts) {
+  // Traiter par batch de 30 pour l'étape 1
+  for (let i = 0; i < pendingPosts.length; i += OPENAI_BATCH_SIZE) {
+    const batch = pendingPosts.slice(i, i + OPENAI_BATCH_SIZE);
+    const batchNumber = Math.floor(i / OPENAI_BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(pendingPosts.length / OPENAI_BATCH_SIZE);
+    
+    console.log(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
+    
     try {
-      // Déclencher le traitement de façon asynchrone
+      // Déclencher le traitement en mode batch
       supabaseClient.functions.invoke('specialized-openai-worker', {
         body: { 
-          post_id: post.id, 
-          dataset_id: post.apify_dataset_id,
-          step: 'step1'
+          post_ids: batch.map(p => p.id),
+          dataset_id: batch[0]?.apify_dataset_id,
+          step: 'step1',
+          batch_mode: true
         }
       }).catch((err: any) => {
-        console.error(`⚠️ Error triggering OpenAI worker for post ${post.id}:`, err);
+        console.error(`⚠️ Error triggering OpenAI batch ${batchNumber}:`, err);
       });
 
-      queuedCount++;
+      queuedCount += batch.length;
+      
+      // Pause courte entre les batches
+      if (i + OPENAI_BATCH_SIZE < pendingPosts.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
     } catch (error) {
-      console.error(`❌ Error queuing post ${post.id}:`, error);
+      console.error(`❌ Error queuing batch ${batchNumber}:`, error);
     }
   }
 
-  console.log(`✅ Queued ${queuedCount} posts for processing`);
+  console.log(`✅ Queued ${queuedCount} posts for processing in ${Math.ceil(pendingPosts.length / OPENAI_BATCH_SIZE)} batches`);
   
   return new Response(JSON.stringify({ 
     success: true, 
     queued_count: queuedCount,
-    total_pending: pendingPosts.length
+    total_pending: pendingPosts.length,
+    batch_count: Math.ceil(pendingPosts.length / OPENAI_BATCH_SIZE)
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
@@ -127,38 +125,68 @@ async function processNextBatch(supabaseClient: any, taskType: string) {
   let query = supabaseClient.from('linkedin_posts').select('*');
   
   switch (taskType) {
-    case 'openai_analysis':
-      query = query.eq('processing_status', 'processing')
-                  .is('openai_step1_recrute_poste', null);
+    case 'openai_step2':
+      query = query.eq('openai_step1_recrute_poste', 'oui')
+                  .is('openai_step2_reponse', null)
+                  .eq('processing_status', 'processing');
+      break;
+    case 'openai_step3':
+      query = query.eq('openai_step2_reponse', 'oui')
+                  .is('openai_step3_categorie', null)
+                  .eq('processing_status', 'processing');
       break;
     case 'unipile_scraping':
-      query = query.eq('processing_status', 'processing')
-                  .eq('openai_step2_reponse', 'oui')
-                  .eq('unipile_profile_scraped', false);
+      query = query.eq('openai_step2_reponse', 'oui')
+                  .eq('unipile_profile_scraped', false)
+                  .eq('processing_status', 'processing');
       break;
     case 'lead_creation':
-      query = query.eq('processing_status', 'processing')
-                  .eq('unipile_profile_scraped', true)
-                  .is('lead_id', null);
+      query = query.eq('unipile_profile_scraped', true)
+                  .is('lead_id', null)
+                  .eq('processing_status', 'processing');
       break;
   }
   
   const { data: posts, error } = await query
-    .order('created_at', { ascending: true }) // Remplacé processing_priority par created_at
+    .order('created_at', { ascending: true })
     .limit(batchSize);
 
   if (error) {
     throw new Error(`Error fetching posts for ${taskType}: ${error.message}`);
   }
 
-  // Déclencher le traitement des posts trouvés
+  console.log(`📊 Found ${posts.length} posts to process for ${taskType}`);
+
+  // Déclencher le traitement approprié
   let processedCount = 0;
-  for (const post of posts) {
-    try {
-      await triggerSpecializedWorker(supabaseClient, taskType, post);
-      processedCount++;
-    } catch (error) {
-      console.error(`❌ Error processing post ${post.id} for ${taskType}:`, error);
+  
+  if (taskType.startsWith('openai_')) {
+    // Mode batch pour OpenAI
+    if (posts.length > 0) {
+      const step = taskType.replace('openai_', '');
+      try {
+        await supabaseClient.functions.invoke('specialized-openai-worker', {
+          body: { 
+            post_ids: posts.map(p => p.id),
+            dataset_id: posts[0]?.apify_dataset_id,
+            step: step,
+            batch_mode: true
+          }
+        });
+        processedCount = posts.length;
+      } catch (error) {
+        console.error(`❌ Error processing OpenAI batch for ${taskType}:`, error);
+      }
+    }
+  } else {
+    // Mode individuel pour Unipile et Lead creation
+    for (const post of posts) {
+      try {
+        await triggerSpecializedWorker(supabaseClient, taskType, post);
+        processedCount++;
+      } catch (error) {
+        console.error(`❌ Error processing post ${post.id} for ${taskType}:`, error);
+      }
     }
   }
 
@@ -179,13 +207,13 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
     .from('linkedin_posts')
     .select('*')
     .in('processing_status', ['error', 'failed_max_retries'])
-    .lt('retry_count', 5); // Limiter les retry infinis
+    .lt('retry_count', 5);
 
   if (datasetId) {
     query = query.eq('apify_dataset_id', datasetId);
   }
 
-  const { data: failedPosts, error } = await query.limit(50);
+  const { data: failedPosts, error } = await query.limit(100); // Augmenté de 50 à 100
 
   if (error) {
     throw new Error(`Error fetching failed posts: ${error.message}`);
@@ -194,7 +222,6 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
   let requeuedCount = 0;
   for (const post of failedPosts) {
     try {
-      // ✅ CORRECTION: Utiliser 'pending' au lieu de 'queued'
       await supabaseClient
         .from('linkedin_posts')
         .update({ 
@@ -222,7 +249,6 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
 async function forceReprocessPost(supabaseClient: any, postId: string) {
   console.log(`🔄 Force reprocessing post: ${postId}`);
   
-  // ✅ CORRECTION: Utiliser 'pending' au lieu de 'queued'
   await supabaseClient
     .from('linkedin_posts')
     .update({
@@ -248,7 +274,6 @@ async function forceReprocessPost(supabaseClient: any, postId: string) {
 
 async function triggerSpecializedWorker(supabaseClient: any, taskType: string, post: any) {
   const workerMap = {
-    'openai_analysis': 'specialized-openai-worker',
     'unipile_scraping': 'specialized-unipile-worker', 
     'lead_creation': 'specialized-lead-worker'
   };
@@ -269,10 +294,11 @@ async function triggerSpecializedWorker(supabaseClient: any, taskType: string, p
 
 function getBatchSizeForTaskType(taskType: string): number {
   const batchSizes = {
-    'openai_analysis': 10,
-    'unipile_scraping': 5, // Plus conservateur pour Unipile
-    'lead_creation': 20
+    'openai_step2': 30,      // Augmenté de 10 à 30
+    'openai_step3': 30,      // Augmenté de 10 à 30  
+    'unipile_scraping': 10,  // Augmenté de 5 à 10
+    'lead_creation': 50      // Augmenté de 20 à 50
   };
   
-  return batchSizes[taskType as keyof typeof batchSizes] || 10;
+  return batchSizes[taskType as keyof typeof batchSizes] || 20;
 }
