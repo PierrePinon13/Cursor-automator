@@ -1,5 +1,4 @@
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -53,12 +52,22 @@ export const useDashboardStats = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchStats = useCallback(async (
     timeRange: TimeRange,
     userSelection: UserSelection
   ) => {
     if (!user) return;
+
+    // Annuler la requête précédente si elle existe
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Créer un nouveau contrôleur d'annulation
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     setLoading(true);
     try {
@@ -79,22 +88,38 @@ export const useDashboardStats = () => {
       // Filtre utilisateur
       if (userSelection.type === 'personal') {
         query = query.eq('user_id', user.id);
-      } else if (userSelection.type === 'specific' && userSelection.userIds) {
+      } else if (userSelection.type === 'specific' && userSelection.userIds && userSelection.userIds.length > 0) {
         query = query.in('user_id', userSelection.userIds);
       }
 
       const { data: rawData, error } = await query.order('stat_date');
 
+      // Vérifier si la requête a été annulée
+      if (signal.aborted) {
+        console.log('Request was cancelled');
+        return;
+      }
+
       if (error) throw error;
 
       // Récupérer les emails des utilisateurs séparément
       const userIds = [...new Set(rawData?.map(stat => stat.user_id) || [])];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .in('id', userIds);
+      
+      let emailMap = new Map<string, string>();
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', userIds);
 
-      const emailMap = new Map(profilesData?.map(profile => [profile.id, profile.email]) || []);
+        emailMap = new Map(profilesData?.map(profile => [profile.id, profile.email]) || []);
+      }
+
+      // Vérifier à nouveau si la requête a été annulée
+      if (signal.aborted) {
+        console.log('Request was cancelled after profiles fetch');
+        return;
+      }
 
       // Ajouter les emails aux données
       const enrichedData = rawData?.map(stat => ({
@@ -104,12 +129,32 @@ export const useDashboardStats = () => {
 
       // Traitement des données
       const processedData = processRawData(enrichedData, userSelection);
-      setData(processedData);
+      
+      // Vérifier une dernière fois si la requête a été annulée
+      if (!signal.aborted) {
+        setData(processedData);
+      }
 
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      if (!signal.aborted) {
+        console.error('Error fetching dashboard stats:', error);
+        // En cas d'erreur, on peut garder les données précédentes ou mettre une structure vide
+        setData({
+          stats: {
+            linkedin_messages: 0,
+            positive_calls: 0,
+            negative_calls: 0,
+            total_calls: 0,
+            success_rate: 0,
+          },
+          evolution: [],
+          userComparison: undefined,
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [user]);
 

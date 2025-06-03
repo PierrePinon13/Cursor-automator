@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useDashboardStats, TimeRange } from '@/hooks/useDashboardStats';
@@ -13,6 +13,7 @@ import UserStatsTable from '@/components/dashboard/UserStatsTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, TrendingUp } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ViewType = 'personal' | 'global' | 'custom';
 type DisplayMode = 'stats' | 'evolution';
@@ -37,23 +38,88 @@ const Dashboard = () => {
   const { data, loading, fetchStats } = useDashboardStats();
   const { users } = useUsers();
 
-  // Convertir les types pour l'API existante
-  const userSelection = {
+  // Mémoriser userSelection pour éviter les re-renders inutiles
+  const userSelection = useMemo(() => ({
     type: viewType === 'custom' ? 'specific' as const : viewType,
     userIds: viewType === 'custom' ? selectedUserIds : undefined
-  };
+  }), [viewType, selectedUserIds]);
 
-  // Charger les données quand les filtres changent
+  // Charger les données quand les filtres changent (avec debounce implicite via useMemo)
   useEffect(() => {
-    fetchStats(timeRange, userSelection);
+    let isCancelled = false;
+    
+    const loadData = async () => {
+      try {
+        await fetchStats(timeRange, userSelection);
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Error loading dashboard data:', error);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [timeRange, userSelection, fetchStats]);
 
+  // Composant de chargement amélioré
+  const LoadingState = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="space-y-0 pb-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-4 ml-auto" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  // État de chargement initial
   if (loading && !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Chargement des statistiques...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+                <p className="text-sm text-gray-600">Aperçu de vos performances</p>
+              </div>
+            </div>
+            <UserActionsDropdown />
+          </div>
+        </div>
+
+        <div className="p-6 space-y-8 max-w-7xl mx-auto">
+          <Card className="bg-white shadow-sm border-0">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-blue-600" />
+                Filtres d'analyse
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-4">
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-8 w-16" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <LoadingState />
         </div>
       </div>
     );
@@ -135,7 +201,10 @@ const Dashboard = () => {
             )}
           </div>
 
-          {data ? (
+          {/* Affichage conditionnel stable */}
+          {loading ? (
+            <LoadingState />
+          ) : data && (data.stats.linkedin_messages > 0 || data.stats.positive_calls > 0 || data.stats.negative_calls > 0) ? (
             <div className="space-y-8">
               {displayMode === 'stats' ? (
                 <>
@@ -148,7 +217,7 @@ const Dashboard = () => {
                   />
                   
                   {/* Table des utilisateurs si sélection spécifique */}
-                  {viewType === 'custom' && data.userComparison && (
+                  {viewType === 'custom' && data.userComparison && data.userComparison.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Performances par collaborateur</h3>
                       <UserStatsTable 
