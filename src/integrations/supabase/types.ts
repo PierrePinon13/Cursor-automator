@@ -199,6 +199,7 @@ export type Database = {
           apify_dataset_id: string
           assigned_at: string | null
           assigned_to_user_id: string | null
+          assignment_completed_at: string | null
           company_name: string | null
           created_at: string
           description: string | null
@@ -219,6 +220,7 @@ export type Database = {
           apify_dataset_id: string
           assigned_at?: string | null
           assigned_to_user_id?: string | null
+          assignment_completed_at?: string | null
           company_name?: string | null
           created_at?: string
           description?: string | null
@@ -239,6 +241,7 @@ export type Database = {
           apify_dataset_id?: string
           assigned_at?: string | null
           assigned_to_user_id?: string | null
+          assignment_completed_at?: string | null
           company_name?: string | null
           created_at?: string
           description?: string | null
@@ -496,6 +499,9 @@ export type Database = {
           approach_message: string | null
           approach_message_generated: boolean | null
           approach_message_generated_at: string | null
+          assigned_at: string | null
+          assigned_to_user_id: string | null
+          assignment_completed_at: string | null
           author_headline: string | null
           author_name: string | null
           author_profile_id: string
@@ -540,6 +546,9 @@ export type Database = {
           approach_message?: string | null
           approach_message_generated?: boolean | null
           approach_message_generated_at?: string | null
+          assigned_at?: string | null
+          assigned_to_user_id?: string | null
+          assignment_completed_at?: string | null
           author_headline?: string | null
           author_name?: string | null
           author_profile_id: string
@@ -584,6 +593,9 @@ export type Database = {
           approach_message?: string | null
           approach_message_generated?: boolean | null
           approach_message_generated_at?: string | null
+          assigned_at?: string | null
+          assigned_to_user_id?: string | null
+          assignment_completed_at?: string | null
           author_headline?: string | null
           author_name?: string | null
           author_profile_id?: string
@@ -625,6 +637,13 @@ export type Database = {
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_company_id_fkey"
             columns: ["company_id"]

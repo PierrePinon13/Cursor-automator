@@ -1,11 +1,34 @@
 
-import { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { TasksList } from '@/components/tasks/TasksList';
-import { CompletedTasksSection } from '@/components/tasks/CompletedTasksSection';
+import { TasksOverview } from '@/components/tasks/TasksOverview';
+import { useTasks } from '@/hooks/useTasks';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
+import { Loader2 } from 'lucide-react';
 
 const Tasks = () => {
+  const { tasks, loading, completeTask, updateTaskStatus } = useTasks();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger />
+            <h1 className="text-2xl font-bold text-gray-900">Tâches</h1>
+          </div>
+          <UserActionsDropdown />
+        </div>
+
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-600">Chargement des tâches...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -17,13 +40,12 @@ const Tasks = () => {
         <UserActionsDropdown />
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Tâches à réaliser</h2>
-          <TasksList />
-        </div>
-
-        <CompletedTasksSection />
+      <div className="max-w-4xl mx-auto">
+        <TasksOverview 
+          tasks={tasks} 
+          onComplete={completeTask}
+          onUpdateStatus={updateTaskStatus}
+        />
       </div>
     </div>
   );

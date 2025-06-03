@@ -1,0 +1,245 @@
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+
+export interface Task {
+  id: string;
+  type: 'reminder' | 'lead_assignment' | 'job_offer_assignment';
+  title: string;
+  description: string;
+  dueDate: string | null;
+  isOverdue: boolean;
+  isCompleted: boolean;
+  priority: 'high' | 'medium' | 'low';
+  data: any;
+  createdAt: string;
+}
+
+export const useTasks = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const fetchTasks = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const now = new Date();
+      const tasks: Task[] = [];
+
+      // 1. Récupérer les rappels
+      const { data: reminders, error: remindersError } = await supabase
+        .from('reminders')
+        .select(`
+          *,
+          leads!inner(id, author_name, company_name, openai_step3_categorie)
+        `)
+        .eq('target_user_id', user.id)
+        .order('due_date', { ascending: true });
+
+      if (remindersError) throw remindersError;
+
+      // Transformer les rappels en tâches
+      reminders?.forEach(reminder => {
+        const dueDate = reminder.due_date ? new Date(reminder.due_date) : null;
+        const isOverdue = dueDate ? dueDate < now : false;
+        
+        tasks.push({
+          id: reminder.id,
+          type: 'reminder',
+          title: reminder.title,
+          description: reminder.message,
+          dueDate: reminder.due_date,
+          isOverdue: isOverdue && !reminder.read,
+          isCompleted: reminder.read,
+          priority: isOverdue ? 'high' : 'medium',
+          data: {
+            ...reminder,
+            lead: reminder.leads
+          },
+          createdAt: reminder.created_at
+        });
+      });
+
+      // 2. Récupérer les leads assignés
+      const { data: assignedLeads, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('assigned_to_user_id', user.id)
+        .is('assignment_completed_at', null)
+        .order('assigned_at', { ascending: false });
+
+      if (leadsError) throw leadsError;
+
+      // Transformer les leads assignés en tâches
+      assignedLeads?.forEach(lead => {
+        const assignedDate = lead.assigned_at ? new Date(lead.assigned_at) : new Date();
+        const isOverdue = (now.getTime() - assignedDate.getTime()) > (7 * 24 * 60 * 60 * 1000); // Plus de 7 jours
+        
+        tasks.push({
+          id: lead.id,
+          type: 'lead_assignment',
+          title: `Lead assigné: ${lead.author_name || 'Nom inconnu'}`,
+          description: `${lead.company_name || 'Entreprise inconnue'} - ${lead.openai_step3_categorie || 'Catégorie non définie'}`,
+          dueDate: null,
+          isOverdue,
+          isCompleted: false,
+          priority: isOverdue ? 'high' : 'medium',
+          data: lead,
+          createdAt: lead.assigned_at || lead.created_at
+        });
+      });
+
+      // 3. Récupérer les offres d'emploi assignées
+      const { data: assignedJobOffers, error: jobOffersError } = await supabase
+        .from('client_job_offers')
+        .select('*')
+        .eq('assigned_to_user_id', user.id)
+        .is('assignment_completed_at', null)
+        .order('assigned_at', { ascending: false });
+
+      if (jobOffersError) throw jobOffersError;
+
+      // Transformer les offres d'emploi assignées en tâches
+      assignedJobOffers?.forEach(jobOffer => {
+        const assignedDate = jobOffer.assigned_at ? new Date(jobOffer.assigned_at) : new Date();
+        const isOverdue = (now.getTime() - assignedDate.getTime()) > (7 * 24 * 60 * 60 * 1000); // Plus de 7 jours
+        
+        tasks.push({
+          id: jobOffer.id,
+          type: 'job_offer_assignment',
+          title: `Offre d'emploi assignée: ${jobOffer.title}`,
+          description: `${jobOffer.company_name || 'Entreprise inconnue'} - ${jobOffer.location || 'Localisation non définie'}`,
+          dueDate: null,
+          isOverdue,
+          isCompleted: false,
+          priority: isOverdue ? 'high' : 'medium',
+          data: jobOffer,
+          createdAt: jobOffer.assigned_at || jobOffer.created_at
+        });
+      });
+
+      // Trier les tâches
+      tasks.sort((a, b) => {
+        // Priorité aux tâches en retard
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        
+        // Ensuite par date d'échéance
+        if (a.dueDate && b.dueDate) {
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        }
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+        
+        // Enfin par date de création
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      setTasks(tasks);
+      setPendingCount(tasks.filter(task => !task.isCompleted).length);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer les tâches",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeTask = async (taskId: string, taskType: Task['type']) => {
+    try {
+      if (taskType === 'reminder') {
+        const { error } = await supabase
+          .from('reminders')
+          .update({ read: true })
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'lead_assignment') {
+        const { error } = await supabase
+          .from('leads')
+          .update({ assignment_completed_at: new Date().toISOString() })
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'job_offer_assignment') {
+        const { error } = await supabase
+          .from('client_job_offers')
+          .update({ assignment_completed_at: new Date().toISOString() })
+          .eq('id', taskId);
+        if (error) throw error;
+      }
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, isCompleted: true } : task
+      ));
+      setPendingCount(prev => Math.max(0, prev - 1));
+
+      toast({
+        title: "Succès",
+        description: "Tâche marquée comme terminée",
+      });
+    } catch (error) {
+      console.error('Error completing task:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de marquer la tâche comme terminée",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateTaskStatus = async (taskId: string, taskType: Task['type'], status: string) => {
+    try {
+      if (taskType === 'job_offer_assignment') {
+        const { error } = await supabase
+          .from('client_job_offers')
+          .update({ status })
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'lead_assignment') {
+        const { error } = await supabase
+          .from('leads')
+          .update({ phone_contact_status: status })
+          .eq('id', taskId);
+        if (error) throw error;
+      }
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, data: { ...task.data, status } } : task
+      ));
+
+      toast({
+        title: "Succès",
+        description: "Statut mis à jour",
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le statut",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, [user]);
+
+  return {
+    tasks,
+    loading,
+    pendingCount,
+    completeTask,
+    updateTaskStatus,
+    refreshTasks: fetchTasks
+  };
+};

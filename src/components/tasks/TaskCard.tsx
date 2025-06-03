@@ -1,0 +1,258 @@
+
+import { useState } from 'react';
+import { Circle, CheckCircle2, Calendar, User, Briefcase, Clock, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Task } from '@/hooks/useTasks';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+
+interface TaskCardProps {
+  task: Task;
+  onComplete: (taskId: string, taskType: Task['type']) => void;
+  onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => void;
+}
+
+export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) => {
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  const handleComplete = async () => {
+    setIsCompleting(true);
+    setShowAnimation(true);
+    
+    setTimeout(async () => {
+      await onComplete(task.id, task.type);
+      setIsCompleting(false);
+      setShowAnimation(false);
+    }, 800);
+  };
+
+  const getTaskIcon = () => {
+    switch (task.type) {
+      case 'reminder':
+        return <Calendar className="h-4 w-4" />;
+      case 'lead_assignment':
+        return <User className="h-4 w-4" />;
+      case 'job_offer_assignment':
+        return <Briefcase className="h-4 w-4" />;
+    }
+  };
+
+  const getTaskBadge = () => {
+    switch (task.type) {
+      case 'reminder':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Rappel</Badge>;
+      case 'lead_assignment':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Lead</Badge>;
+      case 'job_offer_assignment':
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Offre</Badge>;
+    }
+  };
+
+  const getStatusOptions = () => {
+    if (task.type === 'job_offer_assignment') {
+      return [
+        { value: 'non_attribuee', label: 'Non attribuée' },
+        { value: 'en_cours', label: 'En cours' },
+        { value: 'transmise', label: 'Transmise' },
+        { value: 'refusee', label: 'Refusée' }
+      ];
+    } else if (task.type === 'lead_assignment') {
+      return [
+        { value: 'positive', label: 'Positif' },
+        { value: 'negative', label: 'Négatif' },
+        { value: 'no_answer', label: 'Pas de réponse' }
+      ];
+    }
+    return [];
+  };
+
+  const getCurrentStatus = () => {
+    if (task.type === 'job_offer_assignment') {
+      return task.data.status || 'non_attribuee';
+    } else if (task.type === 'lead_assignment') {
+      return task.data.phone_contact_status || '';
+    }
+    return '';
+  };
+
+  return (
+    <>
+      <Card className={`hover:shadow-md transition-all duration-200 ${task.isOverdue ? 'border-red-200 bg-red-50' : ''} ${task.isCompleted ? 'opacity-60' : ''}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-0 h-6 w-6 flex-shrink-0 mt-0.5"
+              onClick={handleComplete}
+              disabled={isCompleting || task.isCompleted}
+            >
+              {showAnimation || task.isCompleted ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600 animate-scale-in" />
+              ) : (
+                <Circle className={`h-5 w-5 transition-colors ${task.isOverdue ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-blue-600'}`} />
+              )}
+            </Button>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    {getTaskIcon()}
+                    {getTaskBadge()}
+                    {task.isOverdue && (
+                      <Badge variant="destructive" className="text-xs">
+                        <Clock className="h-3 w-3 mr-1" />
+                        En retard
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <h3 className={`font-medium mb-1 ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                    {task.title}
+                  </h3>
+                  
+                  <p className="text-sm text-gray-600 mb-2">{task.description}</p>
+                  
+                  {task.dueDate && (
+                    <p className={`text-xs mb-2 ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                      Échéance: {formatDistanceToNow(new Date(task.dueDate), { 
+                        addSuffix: true, 
+                        locale: fr 
+                      })}
+                    </p>
+                  )}
+
+                  {/* Sélecteur de statut pour les assignations */}
+                  {(task.type === 'job_offer_assignment' || task.type === 'lead_assignment') && !task.isCompleted && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-gray-500">Statut:</span>
+                      <Select
+                        value={getCurrentStatus()}
+                        onValueChange={(value) => onUpdateStatus(task.id, task.type, value)}
+                      >
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue placeholder="Sélectionner un statut" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getStatusOptions().map((option) => (
+                            <SelectItem key={option.value} value={option.value} className="text-xs">
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-6 px-2"
+                      onClick={() => setShowDetail(true)}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Voir détails
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal de détails */}
+      <Dialog open={showDetail} onOpenChange={setShowDetail}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {getTaskIcon()}
+              {task.title}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2">Description</h4>
+              <p className="text-sm text-gray-600">{task.description}</p>
+            </div>
+            
+            {task.type === 'reminder' && task.data.lead && (
+              <div>
+                <h4 className="font-medium mb-2">Informations du lead</h4>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <p><strong>Nom:</strong> {task.data.lead.author_name || 'Non renseigné'}</p>
+                  <p><strong>Entreprise:</strong> {task.data.lead.company_name || 'Non renseignée'}</p>
+                  <p><strong>Catégorie:</strong> {task.data.lead.openai_step3_categorie || 'Non définie'}</p>
+                </div>
+              </div>
+            )}
+            
+            {task.type === 'lead_assignment' && (
+              <div>
+                <h4 className="font-medium mb-2">Détails du lead</h4>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <p><strong>Nom:</strong> {task.data.author_name || 'Non renseigné'}</p>
+                  <p><strong>Entreprise:</strong> {task.data.company_name || 'Non renseignée'}</p>
+                  <p><strong>Position:</strong> {task.data.company_position || 'Non renseignée'}</p>
+                  <p><strong>Catégorie:</strong> {task.data.openai_step3_categorie || 'Non définie'}</p>
+                  {task.data.phone_number && (
+                    <p><strong>Téléphone:</strong> {task.data.phone_number}</p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {task.type === 'job_offer_assignment' && (
+              <div>
+                <h4 className="font-medium mb-2">Détails de l'offre</h4>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <p><strong>Titre:</strong> {task.data.title}</p>
+                  <p><strong>Entreprise:</strong> {task.data.company_name || 'Non renseignée'}</p>
+                  <p><strong>Localisation:</strong> {task.data.location || 'Non renseignée'}</p>
+                  <p><strong>Type:</strong> {task.data.job_type || 'Non renseigné'}</p>
+                  {task.data.salary && (
+                    <p><strong>Salaire:</strong> {task.data.salary}</p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <h4 className="font-medium mb-2">Informations de la tâche</h4>
+              <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                <p><strong>Type:</strong> {getTaskBadge()}</p>
+                <p><strong>Créée le:</strong> {formatDistanceToNow(new Date(task.createdAt), { 
+                  addSuffix: true, 
+                  locale: fr 
+                })}</p>
+                {task.dueDate && (
+                  <p><strong>Échéance:</strong> {formatDistanceToNow(new Date(task.dueDate), { 
+                    addSuffix: true, 
+                    locale: fr 
+                  })}</p>
+                )}
+                <p><strong>Priorité:</strong> 
+                  <Badge 
+                    variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'secondary'}
+                    className="ml-2"
+                  >
+                    {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
+                  </Badge>
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
