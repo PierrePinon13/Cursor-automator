@@ -4,15 +4,15 @@ import { useClients } from '@/hooks/useClients';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
 import { ClientLeadsView } from '@/components/clients/ClientLeadsView';
-import { ClientManagement } from '@/components/clients/ClientManagement';
 import { updateUrlWithSubPage, getSubPageFromUrl } from '@/utils/urlState';
 
 const Clients = () => {
   const { clients, loading } = useClients();
-  const [showManagement, setShowManagement] = useState(false);
+  const navigate = useNavigate();
   
   // Get initial tab from URL or default to 'job-offers'
   const [activeTab, setActiveTab] = useState(() => getSubPageFromUrl('job-offers'));
@@ -39,25 +39,6 @@ const Clients = () => {
     );
   }
 
-  if (showManagement) {
-    return (
-      <div className="space-y-6">
-        <DashboardHeader>
-          <Button
-            variant="outline"
-            onClick={() => setShowManagement(false)}
-            className="ml-4"
-          >
-            Retour
-          </Button>
-        </DashboardHeader>
-        <div className="p-6">
-          <ClientManagement />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <DashboardHeader
@@ -71,7 +52,7 @@ const Clients = () => {
         }
         rightActions={
           <Button
-            onClick={() => setShowManagement(true)}
+            onClick={() => navigate('/client-settings')}
             className="flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
