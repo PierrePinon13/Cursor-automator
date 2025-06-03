@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { allColumns } from './table/columnDefinitions';
@@ -14,9 +15,17 @@ interface DraggableTableProps {
   onActionCompleted: () => void;
   selectedLeadIndex: number | null;
   onLeadSelect: (index: number | null) => void;
+  isAdmin?: boolean;
 }
 
-const DraggableTable = ({ leads, visibleColumns, onActionCompleted, selectedLeadIndex, onLeadSelect }: DraggableTableProps) => {
+const DraggableTable = ({ 
+  leads, 
+  visibleColumns, 
+  onActionCompleted, 
+  selectedLeadIndex, 
+  onLeadSelect,
+  isAdmin = false 
+}: DraggableTableProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
@@ -54,8 +63,13 @@ const DraggableTable = ({ leads, visibleColumns, onActionCompleted, selectedLead
     }
   };
 
+  // Filter columns based on admin status
+  const availableColumns = allColumns.filter(col => 
+    !col.adminOnly || (col.adminOnly && isAdmin)
+  );
+
   const [columnOrder, setColumnOrder] = useState(
-    allColumns.filter(col => visibleColumns.includes(col.id)).map(col => col.id)
+    availableColumns.filter(col => visibleColumns.includes(col.id)).map(col => col.id)
   );
 
   const handleOnDragEnd = (result: any) => {
@@ -118,7 +132,7 @@ const DraggableTable = ({ leads, visibleColumns, onActionCompleted, selectedLead
 
   const displayedColumns = columnOrder
     .filter(colId => visibleColumns.includes(colId))
-    .map(colId => allColumns.find(col => col.id === colId)!)
+    .map(colId => availableColumns.find(col => col.id === colId)!)
     .filter(Boolean);
 
   return (

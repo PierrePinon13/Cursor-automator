@@ -1,98 +1,92 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useClients } from '@/hooks/useClients';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DashboardHeader } from '@/components/DashboardHeader';
+import { ClientsTable } from '@/components/clients/ClientsTable';
+import { ContactsList } from '@/components/clients/ContactsList';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
-import { ClientManagement } from '@/components/clients/ClientManagement';
+import { ClientLeadsSection } from '@/components/clients/ClientLeadsSection';
 import { ClientLeadsView } from '@/components/clients/ClientLeadsView';
-import UserActionsDropdown from '@/components/UserActionsDropdown';
+import { ClientQualification } from '@/components/clients/ClientQualification';
+import { updateUrlWithSubPage, getSubPageFromUrl } from '@/utils/urlState';
 
 const Clients = () => {
-  const { loading } = useClients();
-  const [showManagement, setShowManagement] = useState(false);
-  const [activeTab, setActiveTab] = useState('job-offers');
+  const { clients, loading } = useClients();
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  
+  // Get initial tab from URL or default to 'job-offers'
+  const [activeTab, setActiveTab] = useState(() => getSubPageFromUrl('job-offers'));
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    updateUrlWithSubPage('/clients', value);
+  };
+
+  // Update URL on initial load
+  useEffect(() => {
+    updateUrlWithSubPage('/clients', activeTab);
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Chargement...</p>
+          <p className="mt-2 text-muted-foreground">Chargement des clients...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Barre de navigation principale */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white">
-        <div className="flex items-center gap-6">
-          <SidebarTrigger />
-        </div>
-        
-        {/* Navigation centrée et élargie */}
-        <div className="flex items-center justify-center flex-1">
-          <div className="flex items-center bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-1.5 border border-blue-200/60 shadow-sm">
-            <button
-              onClick={() => {
-                setShowManagement(false);
-                setActiveTab('job-offers');
-              }}
-              className={`
-                px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 min-w-[160px]
-                ${!showManagement && activeTab === 'job-offers'
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105' 
-                  : 'text-blue-700 hover:text-blue-800 hover:bg-blue-100/70'
-                }
-              `}
-            >
-              Offres d'emploi
-            </button>
-            <button
-              onClick={() => {
-                setShowManagement(false);
-                setActiveTab('client-posts');
-              }}
-              className={`
-                px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 ml-2 min-w-[160px]
-                ${!showManagement && activeTab === 'client-posts'
-                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md transform scale-105' 
-                  : 'text-purple-700 hover:text-purple-800 hover:bg-purple-100/70'
-                }
-              `}
-            >
-              Publications LinkedIn
-            </button>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setShowManagement(!showManagement)}
-            variant={showManagement ? "default" : "outline"}
-            className="flex items-center gap-2"
-            size="sm"
-          >
-            <Settings className="h-4 w-4" />
-            Gestion
-          </Button>
-          <UserActionsDropdown />
-        </div>
-      </div>
+    <div className="space-y-6 p-6">
+      <DashboardHeader 
+        title="Gestion des Clients" 
+        subtitle="Vue d'ensemble et gestion de vos clients"
+      />
+      
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
+          <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
+          <TabsTrigger value="management">Gestion</TabsTrigger>
+          <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          <TabsTrigger value="qualification">Qualification</TabsTrigger>
+        </TabsList>
 
-      {/* Contenu */}
-      <div className="p-4">
-        {showManagement ? (
-          <ClientManagement />
-        ) : activeTab === 'job-offers' ? (
+        <TabsContent value="job-offers" className="space-y-6">
           <JobOffersSection />
-        ) : (
+        </TabsContent>
+
+        <TabsContent value="linkedin-posts" className="space-y-6">
           <ClientLeadsView />
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="management" className="space-y-6">
+          <ClientsTable clients={clients} onClientSelect={setSelectedClient} />
+        </TabsContent>
+
+        <TabsContent value="contacts" className="space-y-6">
+          {selectedClient ? (
+            <ContactsList 
+              clientId={selectedClient.id} 
+              clientName={selectedClient.name}
+            />
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                Sélectionnez un client dans l'onglet "Gestion" pour voir ses contacts
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="qualification" className="space-y-6">
+          <ClientQualification />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

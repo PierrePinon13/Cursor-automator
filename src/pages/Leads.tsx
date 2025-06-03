@@ -1,8 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
+import { useUserRole } from '@/hooks/useUserRole';
 import DraggableTable from '@/components/leads/DraggableTable';
 import CardView from '@/components/leads/CardView';
 import LeadsFilters from '@/components/leads/LeadsFilters';
@@ -28,22 +30,38 @@ const Leads = () => {
   
   const { getDefaultView, applyView } = useSavedViews();
   const { toggleSidebar } = useSidebar();
+  const { isAdmin } = useUserRole();
   
-  const [visibleColumns, setVisibleColumns] = useState([
-    'posted_date',
-    'last_updated', 
-    'job_title', 
-    'author_name', 
-    'company', 
-    'last_contact',
-    'category', 
-    'location'
-  ]);
+  const getDefaultColumns = () => {
+    const baseColumns = [
+      'posted_date',
+      'job_title', 
+      'author_name', 
+      'company', 
+      'last_contact',
+      'category', 
+      'location'
+    ];
+    
+    if (isAdmin) {
+      baseColumns.splice(1, 0, 'last_updated');
+    }
+    
+    return baseColumns;
+  };
 
+  const [visibleColumns, setVisibleColumns] = useState(getDefaultColumns());
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Update visible columns when admin status changes
+  useEffect(() => {
+    if (!hasLoadedDefaultView) {
+      setVisibleColumns(getDefaultColumns());
+    }
+  }, [isAdmin, hasLoadedDefaultView]);
 
   // Filter leads based on search query
   const filteredLeads: Lead[] = baseFilteredLeads.filter(lead => {
@@ -198,6 +216,7 @@ const Leads = () => {
           setViewMode={setViewMode}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          isAdmin={isAdmin}
         />
       </div>
       
@@ -210,6 +229,7 @@ const Leads = () => {
             onActionCompleted={handleActionCompleted}
             selectedLeadIndex={selectedLeadIndex}
             onLeadSelect={setSelectedLeadIndex}
+            isAdmin={isAdmin}
           />
         ) : (
           <div className="px-6 pb-6">

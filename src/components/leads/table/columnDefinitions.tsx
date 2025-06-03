@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +13,7 @@ export interface Column {
   label: string;
   width?: string;
   minWidth?: string;
+  adminOnly?: boolean;
   render: (lead: Lead, onRowClick?: (leadIndex: number, event: React.MouseEvent) => void, leadIndex?: number) => React.ReactNode;
 }
 
@@ -45,6 +45,7 @@ export const allColumns: Column[] = [
     label: 'Dernière MAJ',
     width: '90px',
     minWidth: '90px',
+    adminOnly: true,
     render: (lead) => (
       <span className="text-xs whitespace-nowrap text-gray-600">
         {lead.last_updated_at ? getTimeAgo(lead.last_updated_at) : 'N/A'}
