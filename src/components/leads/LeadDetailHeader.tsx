@@ -79,17 +79,17 @@ const LeadDetailHeader = ({
                 <Linkedin className="h-4 w-4" />
               </a>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 flex items-center gap-1">
               {lead.unipile_position && (
                 <span>{lead.unipile_position}</span>
               )}
-              {lead.unipile_position && companyName && <span> @ </span>}
+              {lead.unipile_position && companyName && <span className="mx-1">@</span>}
               {companyName && (
                 <CompanyHoverCard 
                   companyId={companyId} 
                   companyName={companyName}
                 >
-                  <span className="font-medium text-blue-700 hover:text-blue-900 cursor-pointer hover:underline transition-all duration-200 relative">
+                  <span className="font-semibold text-blue-700 hover:text-blue-900 cursor-pointer hover:underline transition-all duration-200 relative">
                     {companyName}
                     <span className="ml-1 text-xs text-blue-500 opacity-70">●</span>
                   </span>

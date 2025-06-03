@@ -1,12 +1,14 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Phone, Clock, AlertTriangle, Building2 } from 'lucide-react';
+import { Send, Phone, Clock, AlertTriangle, Building2, Linkedin } from 'lucide-react';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import PhoneContactStatus from './PhoneContactStatus';
 import ReminderDialog from './ReminderDialog';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Lead {
   id: string;
@@ -41,6 +43,7 @@ const LeadActionsSection = ({
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleRetrievePhone = async () => {
     try {
@@ -62,8 +65,6 @@ const LeadActionsSection = ({
 
   const handleMistargetedPost = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         toast({
           title: "Erreur",
@@ -102,14 +103,24 @@ const LeadActionsSection = ({
   const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
 
   return (
-    <div className="space-y-4">
-      {/* Actions LinkedIn */}
-      <div className="space-y-2">
+    <div className="space-y-6">
+      {/* Action principale LinkedIn */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 shadow-sm">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 bg-blue-600 rounded-lg">
+            <Linkedin className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-blue-900">Message LinkedIn</h4>
+            <p className="text-xs text-blue-700">Action principale</p>
+          </div>
+        </div>
+        
         <Button
           onClick={onSendLinkedInMessage}
           disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
-          className="w-full"
-          size="sm"
+          className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+          size="lg"
         >
           <Send className="h-4 w-4 mr-2" />
           {messageSending ? 'Envoi en cours...' : 
@@ -118,23 +129,25 @@ const LeadActionsSection = ({
         </Button>
         
         {hasLinkedInMessage && (
-          <div className="text-xs text-green-600 text-center">
+          <div className="text-xs text-green-600 text-center mt-2">
             Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
           </div>
         )}
       </div>
 
-      {/* Contact téléphonique */}
-      <div className="space-y-2">
+      {/* Actions secondaires */}
+      <div className="space-y-3">
+        {/* Contact téléphonique */}
         {!lead.phone_number ? (
           <Button
             onClick={handleRetrievePhone}
             disabled={phoneLoading}
             variant="outline"
-            className="w-full"
-            size="sm"
+            className="w-full h-10 justify-start bg-white hover:bg-green-50 border-green-200"
           >
-            <Phone className="h-4 w-4 mr-2" />
+            <div className="p-1 bg-green-100 rounded mr-3">
+              <Phone className="h-4 w-4 text-green-600" />
+            </div>
             {phoneLoading ? 'Recherche...' : 'Récupérer le téléphone'}
           </Button>
         ) : (
@@ -145,26 +158,27 @@ const LeadActionsSection = ({
             onStatusUpdate={() => onContactUpdate?.()}
           />
         )}
-      </div>
 
-      {/* Suivi */}
-      <div className="space-y-2">
+        {/* Planifier un rappel */}
         <Button
           onClick={() => setReminderDialogOpen(true)}
           variant="outline"
-          className="w-full"
-          size="sm"
+          className="w-full h-10 justify-start bg-white hover:bg-purple-50 border-purple-200"
         >
-          <Clock className="h-4 w-4 mr-2" />
+          <div className="p-1 bg-purple-100 rounded mr-3">
+            <Clock className="h-4 w-4 text-purple-600" />
+          </div>
           Planifier un rappel
         </Button>
       </div>
 
       {/* Signalement */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
+      <Card className="border-orange-200 bg-orange-50/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm text-orange-800">
+            <div className="p-1 bg-orange-100 rounded">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+            </div>
             Signalement
           </CardTitle>
         </CardHeader>
@@ -172,20 +186,20 @@ const LeadActionsSection = ({
           <Button
             onClick={handleMistargetedPost}
             variant="outline"
-            className="w-full"
+            className="w-full h-9 justify-start bg-white hover:bg-orange-50 border-orange-200"
             size="sm"
           >
-            <AlertTriangle className="h-4 w-4 mr-2" />
+            <AlertTriangle className="h-3 w-3 mr-2 text-orange-600" />
             Publication mal ciblée
           </Button>
           
           <Button
             onClick={() => onAction('hr_provider')}
             variant="outline"
-            className="w-full"
+            className="w-full h-9 justify-start bg-white hover:bg-orange-50 border-orange-200"
             size="sm"
           >
-            <Building2 className="h-4 w-4 mr-2" />
+            <Building2 className="h-3 w-3 mr-2 text-orange-600" />
             Prestataire RH
           </Button>
         </CardContent>
