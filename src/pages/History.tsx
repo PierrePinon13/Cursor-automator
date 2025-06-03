@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import ActivityDetail from '@/components/history/ActivityDetail';
 import HistoryFilters from '@/components/history/HistoryFilters';
-import HistoryDiagnostics from '@/components/history/HistoryDiagnostics';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useHistoryWithFilters } from '@/hooks/useHistoryWithFilters';
@@ -46,8 +45,6 @@ const History = () => {
         {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
         <div className="w-1/4 bg-white border-r flex flex-col">
           <div className="p-2 border-b">
-            <HistoryDiagnostics />
-            
             <HistoryFilters
               filterBy={filterBy}
               onFilterByChange={setFilterBy}
