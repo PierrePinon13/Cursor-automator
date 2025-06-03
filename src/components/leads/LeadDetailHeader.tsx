@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import LeadDetailNavigation from './LeadDetailNavigation';
 import NotificationButton from '../notifications/NotificationButton';
+import CompanyHoverCard from './CompanyHoverCard';
 
 interface Lead {
   author_name: string;
@@ -21,6 +22,8 @@ interface Lead {
   author_headline: string;
   unipile_company: string;
   unipile_position: string;
+  company_id?: string;
+  company_name?: string;
 }
 
 interface LeadDetailHeaderProps {
@@ -56,6 +59,10 @@ const LeadDetailHeader = ({
     navigate('/profile');
   };
 
+  // Déterminer quel nom d'entreprise utiliser et quel ID
+  const companyName = lead.company_name || lead.unipile_company;
+  const companyId = lead.company_id;
+
   return (
     <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
       <div className="flex items-center justify-between">
@@ -76,20 +83,17 @@ const LeadDetailHeader = ({
               {lead.unipile_position && (
                 <span>{lead.unipile_position}</span>
               )}
-              {lead.unipile_position && lead.unipile_company && <span> @ </span>}
-              {lead.unipile_company && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help hover:text-blue-600 transition-colors">
-                      {lead.unipile_company}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 rounded-lg shadow-lg">
-                    <p className="text-sm">
-                      {lead.author_headline || "Description de l'activité non disponible"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
+              {lead.unipile_position && companyName && <span> @ </span>}
+              {companyName && (
+                <CompanyHoverCard 
+                  companyId={companyId} 
+                  companyName={companyName}
+                >
+                  <span className="font-medium text-blue-700 hover:text-blue-900 cursor-pointer hover:underline transition-all duration-200 relative">
+                    {companyName}
+                    <span className="ml-1 text-xs text-blue-500 opacity-70">●</span>
+                  </span>
+                </CompanyHoverCard>
               )}
             </div>
           </div>

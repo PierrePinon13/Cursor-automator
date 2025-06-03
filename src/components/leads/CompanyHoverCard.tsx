@@ -128,10 +128,21 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
                 </div>
               </div>
             )}
+            
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-blue-600 font-medium">
+                Cliquez pour voir le profil LinkedIn
+              </p>
+            </div>
           </div>
         ) : (
           <div className="text-center py-4">
             <p className="text-sm text-gray-500">Informations sur l'entreprise non disponibles</p>
+            {company?.linkedin_id && (
+              <p className="text-xs text-blue-600 mt-2">
+                Cliquez pour voir le profil LinkedIn
+              </p>
+            )}
           </div>
         )}
       </HoverCardContent>

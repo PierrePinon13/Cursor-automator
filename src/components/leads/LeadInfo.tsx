@@ -4,7 +4,6 @@ import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tables } from '@/integrations/supabase/types';
-import CompanyHoverCard from './CompanyHoverCard';
 
 type Lead = Tables<'leads'>;
 
@@ -41,34 +40,6 @@ const LeadInfo = ({ lead }: LeadInfoProps) => {
           )}
         </div>
       </div>
-
-      {/* Entreprise - avec hover et lien */}
-      {lead.company_name && (
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-shrink-0">
-          <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            Entreprise
-          </h4>
-          <CompanyHoverCard 
-            companyId={lead.company_id || undefined} 
-            companyName={lead.company_name}
-          >
-            <div className="cursor-pointer group">
-              <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors text-base">
-                {lead.company_name}
-              </p>
-              {lead.company_position && (
-                <p className="text-sm text-gray-600 mt-1">
-                  {lead.company_position}
-                </p>
-              )}
-              <p className="text-xs text-blue-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                Cliquez pour voir le profil LinkedIn
-              </p>
-            </div>
-          </CompanyHoverCard>
-        </div>
-      )}
 
       {/* Publication LinkedIn - utilise l'espace restant */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex-1 min-h-0">
