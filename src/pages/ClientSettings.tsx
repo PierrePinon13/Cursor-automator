@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -315,18 +314,12 @@ function ContactsCell({ clientId, contacts, loading, onAddContact, onEditContact
           {contacts.slice(0, 2).map((contact) => (
             <div
               key={contact.id}
-              className="inline-flex items-center gap-1 text-xs bg-gray-100 rounded px-2 py-1 group"
+              className="inline-flex items-center gap-1 text-xs bg-gray-100 rounded px-2 py-1 group cursor-pointer hover:bg-gray-200"
+              onClick={() => onEditContact(contact)}
             >
               <User className="h-3 w-3" />
               <span>{contact.first_name} {contact.last_name}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => onEditContact(contact)}
-              >
-                <Edit2 className="h-3 w-3" />
-              </Button>
+              <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           ))}
           {contacts.length > 2 && (

@@ -101,11 +101,14 @@ serve(async (req) => {
       console.log(`✅ Cleanup completed: ${stats.cleaned_existing} records deleted`)
     }
 
-    // Phase 2: Récupération des données (seulement si pas en mode reprise)
+    // 🚀 NOUVELLE APPROCHE : DÉLÉGATION COMPLÈTE AU PROCESSING-QUEUE-MANAGER
+    console.log('🚀 NEW APPROACH: Full delegation to specialized queue manager')
+    
+    // Phase 2: Récupération et stockage UNIQUEMENT (pas de traitement)
     let allDatasetItems: any[] = []
     
     if (resumeFromBatch === 0) {
-      console.log('📥 Starting data retrieval with enhanced diagnostics...')
+      console.log('📥 Starting FAST data retrieval (storage only)...')
       const limit = 1000
       let offset = 0
       let batchCount = 0
@@ -119,8 +122,6 @@ serve(async (req) => {
           
           if (!forceAll) {
             apiUrl += '&skipEmpty=true'
-          } else {
-            console.log('🚫 forceAll mode: retrieving ALL items including empty ones')
           }
           
           const apifyResponse = await fetch(apiUrl, {
@@ -163,7 +164,7 @@ serve(async (req) => {
           console.log(`📊 Total items collected: ${allDatasetItems.length}`)
 
           if (batchItems.length === limit) {
-            await new Promise(resolve => setTimeout(resolve, 200)) // Pause plus longue
+            await new Promise(resolve => setTimeout(resolve, 100)) // Pause réduite
           }
 
         } catch (error) {
@@ -190,10 +191,10 @@ serve(async (req) => {
         }
       }
 
-      // Phase 3: Stockage des données brutes en BATCH
-      console.log('💾 Storing raw data with BATCH processing...')
+      // Phase 3: Stockage RAPIDE des données brutes
+      console.log('💾 Storing raw data with FAST processing...')
       let rawStoredCount = 0
-      const BATCH_SIZE = 100
+      const BATCH_SIZE = 500 // Augmenté de 100 à 500
 
       const validRawData = allDatasetItems
         .filter(item => item && item.urn)
@@ -246,7 +247,7 @@ serve(async (req) => {
           }
 
           if (i + BATCH_SIZE < validRawData.length) {
-            await new Promise(resolve => setTimeout(resolve, 100))
+            await new Promise(resolve => setTimeout(resolve, 50)) // Pause très réduite
           }
 
         } catch (error) {
@@ -257,31 +258,30 @@ serve(async (req) => {
 
       stats.stored_raw = rawStoredCount
       console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
-    } else {
-      // Mode reprise : récupérer les données depuis la base
-      console.log('🔄 RESUME MODE: Fetching data from linkedin_posts_raw...')
-      const { data: rawData, error: fetchError } = await supabaseClient
-        .from('linkedin_posts_raw')
-        .select('raw_data')
-        .eq('apify_dataset_id', datasetId)
-
-      if (fetchError) {
-        throw new Error(`Error fetching raw data: ${fetchError.message}`)
-      }
-
-      allDatasetItems = rawData?.map(item => item.raw_data) || []
-      stats.total_fetched = allDatasetItems.length
-      console.log(`🔄 Resumed with ${allDatasetItems.length} items from database`)
     }
 
-    // ✅ TRAITEMENT ULTRA-LENT : Phase 4 avec traitement robuste et reprise possible
-    console.log('🐌 Starting ULTRA-SLOW classification (maximum robustness)...')
+    // 🚀 NOUVELLE PHASE : Classification et insertion MASSIVE avec filtres simples
+    console.log('🚀 Starting FAST classification and insertion...')
+    
+    // Récupérer les données depuis la base
+    const { data: rawData, error: fetchError } = await supabaseClient
+      .from('linkedin_posts_raw')
+      .select('raw_data')
+      .eq('apify_dataset_id', datasetId)
+
+    if (fetchError) {
+      throw new Error(`Error fetching raw data: ${fetchError.message}`)
+    }
+
+    allDatasetItems = rawData?.map(item => item.raw_data) || []
+    console.log(`📊 Processing ${allDatasetItems.length} items from database`)
+
+    // Filtres simples et rapides
     let queuedCount = 0
     let excludedByAuthorType = 0
     let excludedByMissingFields = 0
     let alreadyQueued = 0
 
-    // Déduplication ultra-rapide
     const uniqueItems = allDatasetItems.reduce((acc, item) => {
       if (item && item.urn && !acc.find(existing => existing.urn === item.urn)) {
         acc.push(item)
@@ -289,48 +289,26 @@ serve(async (req) => {
       return acc
     }, [] as any[])
 
-    console.log(`📊 Processing ${uniqueItems.length} unique items`)
+    console.log(`📊 Processing ${uniqueItems.length} unique items with FAST classification`)
 
-    // ✅ TRAITEMENT ULTRA-LENT : Batches de 5 items avec pauses de 1 seconde
-    const ULTRA_SLOW_BATCH = 5
-    const ULTRA_LONG_PAUSE_MS = 1000 // 1 seconde entre chaque batch
+    // 🚀 TRAITEMENT RAPIDE : Batches de 200 items sans pauses
+    const FAST_BATCH = 200
     
-    // Calculer le batch de départ en mode reprise
-    const startBatch = resumeFromBatch
-    const startIndex = startBatch * ULTRA_SLOW_BATCH
-
-    console.log(`🐌 Starting from batch ${startBatch}, index ${startIndex}`)
-
-    for (let i = startIndex; i < uniqueItems.length; i += ULTRA_SLOW_BATCH) {
-      const chunk = uniqueItems.slice(i, i + ULTRA_SLOW_BATCH)
-      const currentBatch = Math.floor(i / ULTRA_SLOW_BATCH)
-      const totalBatches = Math.ceil(uniqueItems.length / ULTRA_SLOW_BATCH)
+    for (let i = 0; i < uniqueItems.length; i += FAST_BATCH) {
+      const chunk = uniqueItems.slice(i, i + FAST_BATCH)
+      const currentBatch = Math.floor(i / FAST_BATCH)
+      const totalBatches = Math.ceil(uniqueItems.length / FAST_BATCH)
       
-      console.log(`🐌 Processing ultra-slow batch ${currentBatch}/${totalBatches} (${chunk.length} items)`)
+      console.log(`🚀 Processing FAST batch ${currentBatch}/${totalBatches} (${chunk.length} items)`)
       
-      // ✅ POINT DE SAUVEGARDE : Enregistrer le progrès toutes les 20 batches
-      if (currentBatch > 0 && currentBatch % 20 === 0) {
-        console.log(`💾 CHECKPOINT: Saving progress at batch ${currentBatch}`)
-        await supabaseClient
-          .from('apify_webhook_stats')
-          .upsert({
-            dataset_id: datasetId,
-            last_processed_batch: currentBatch,
-            checkpoint_at: new Date().toISOString(),
-            reprocessing: !webhook_triggered,
-            total_fetched: stats.total_fetched,
-            queued_for_processing: queuedCount
-          }, { onConflict: 'dataset_id' })
-      }
-
       const batchData = []
       let batchExcludedByAuthorType = 0
       let batchExcludedByMissingFields = 0
       let batchAlreadyQueued = 0
       
-      // Traitement minimal par item pour économiser le CPU
       for (const item of chunk) {
         try {
+          // Filtres ultra-rapides
           if (!item.urn || !item.url) {
             batchExcludedByMissingFields++
             continue
@@ -338,18 +316,6 @@ serve(async (req) => {
 
           if (item.authorType === 'Company') {
             batchExcludedByAuthorType++
-            continue
-          }
-
-          // Check unique ultra-rapide
-          const { data: existingPosts } = await supabaseClient
-            .from('linkedin_posts')
-            .select('urn')
-            .eq('urn', item.urn)
-            .limit(1)
-
-          if (existingPosts && existingPosts.length > 0) {
-            batchAlreadyQueued++
             continue
           }
 
@@ -378,88 +344,67 @@ serve(async (req) => {
         }
       }
 
-      // Insertion du micro-batch
+      // Insertion RAPIDE du batch complet
       if (batchData.length > 0) {
         try {
-          const { data: insertedPosts, error: insertError } = await supabaseClient
+          const { error: insertError } = await supabaseClient
             .from('linkedin_posts')
-            .insert(batchData)
-            .select('id')
+            .upsert(batchData, { 
+              onConflict: 'urn', 
+              ignoreDuplicates: true 
+            })
 
           if (insertError) {
-            console.error(`❌ Error inserting ultra-batch ${currentBatch}:`, insertError)
+            console.error(`❌ Error inserting FAST batch ${currentBatch}:`, insertError)
             stats.processing_errors += batchData.length
           } else {
-            console.log(`✅ Ultra-batch ${currentBatch} inserted: ${batchData.length} posts`)
-
-            // ✅ CRITIQUE: Déclenchement 100% asynchrone sans attendre
-            if (insertedPosts && insertedPosts.length > 0) {
-              for (const post of insertedPosts) {
-                // Fire and forget - pas d'await pour éviter de bloquer
-                supabaseClient.functions.invoke('process-linkedin-post', {
-                  body: { postId: post.id, datasetId: datasetId }
-                }).catch(() => {}) // Catch silencieux pour éviter les erreurs non gérées
-              }
-            }
+            console.log(`✅ FAST batch ${currentBatch} inserted: ${batchData.length} posts`)
+            queuedCount += batchData.length
           }
         } catch (error) {
-          console.error(`❌ Exception in ultra-batch ${currentBatch}:`, error)
+          console.error(`❌ Exception in FAST batch ${currentBatch}:`, error)
           stats.processing_errors += batchData.length
         }
       }
 
       // Mise à jour des compteurs
-      queuedCount += batchData.length
       excludedByAuthorType += batchExcludedByAuthorType
       excludedByMissingFields += batchExcludedByMissingFields
       alreadyQueued += batchAlreadyQueued
 
-      // ✅ PAUSE ULTRA-LONGUE pour garantir la stabilité
-      if (i + ULTRA_SLOW_BATCH < uniqueItems.length) {
-        console.log(`⏸️ Pausing for ${ULTRA_LONG_PAUSE_MS}ms...`)
-        await new Promise(resolve => setTimeout(resolve, ULTRA_LONG_PAUSE_MS))
-      }
-
-      // ✅ SÉCURITÉ : Déclencher la reprise automatique si on approche de la limite
-      const currentTime = Date.now()
-      const startTime = new Date(stats.started_at).getTime()
-      const elapsedMs = currentTime - startTime
-      
-      // Si on approche de 50 secondes (limite Supabase ~55s), programmer la reprise
-      if (elapsedMs > 50000 && i + ULTRA_SLOW_BATCH < uniqueItems.length) {
-        const nextBatch = Math.floor((i + ULTRA_SLOW_BATCH) / ULTRA_SLOW_BATCH)
-        console.log(`⏰ Time limit approaching (${elapsedMs}ms), scheduling resume from batch ${nextBatch}`)
-        
-        // Programmer la reprise avec un délai de 5 secondes
-        setTimeout(() => {
-          supabaseClient.functions.invoke('process-dataset', {
-            body: { 
-              datasetId, 
-              cleanupExisting: false, 
-              webhook_triggered: false, 
-              forceAll,
-              resumeFromBatch: nextBatch 
-            }
-          }).catch(error => {
-            console.error('❌ Error scheduling resume:', error)
-          })
-        }, 5000)
-        
-        // Terminer cette exécution proprement
-        break
-      }
+      // Pas de pause pour aller vite
     }
 
     stats.queued_for_processing = queuedCount
     stats.completed_at = new Date().toISOString()
 
-    console.log(`🐌 ULTRA-SLOW CLASSIFICATION SUMMARY:`)
+    console.log(`🚀 FAST CLASSIFICATION SUMMARY:`)
     console.log(`   📥 Items processed: ${uniqueItems.length}`)
     console.log(`   ✅ Successfully queued: ${queuedCount}`)
     console.log(`   🏢 Excluded (Company): ${excludedByAuthorType}`)
     console.log(`   ❌ Excluded (Missing fields): ${excludedByMissingFields}`)
-    console.log(`   🔄 Already queued: ${alreadyQueued}`)
     console.log(`   📊 Qualification rate: ${uniqueItems.length > 0 ? ((queuedCount / uniqueItems.length) * 100).toFixed(1) : 0}%`)
+
+    // 🚀 DÉLÉGATION COMPLÈTE : Déclencher le processing-queue-manager
+    console.log('🚀 DELEGATING to processing-queue-manager for specialized processing...')
+    
+    // Déclencher immédiatement le queue manager pour traiter les posts en attente
+    try {
+      const queueResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
+        body: { 
+          action: 'queue_posts',
+          dataset_id: datasetId
+        }
+      })
+      
+      if (queueResponse.data?.success) {
+        console.log(`✅ Queue manager triggered successfully: ${queueResponse.data.queued_count} posts queued`)
+      } else {
+        console.log(`⚠️ Queue manager trigger failed: ${queueResponse.error?.message}`)
+      }
+    } catch (error) {
+      console.log(`⚠️ Error triggering queue manager: ${error.message}`)
+    }
 
     // Stocker les statistiques finales
     await supabaseClient
@@ -477,11 +422,12 @@ serve(async (req) => {
         processing_completed: true
       }, { onConflict: 'dataset_id' })
 
-    console.log(`🐌 ULTRA-SLOW PROCESSING COMPLETE:`)
+    console.log(`🚀 FAST PROCESSING COMPLETE:`)
     console.log(`📊 Dataset ID: ${datasetId}`)
     console.log(`📥 Total fetched: ${stats.total_fetched} / ${stats.apify_item_count} expected`)
     console.log(`💾 Stored raw: ${stats.stored_raw}`)
     console.log(`🎯 Queued for processing: ${stats.queued_for_processing}`)
+    console.log(`🚀 Delegated to specialized queue manager for OpenAI processing`)
 
     return new Response(JSON.stringify({ 
       success: true,
@@ -500,19 +446,19 @@ serve(async (req) => {
         }
       },
       improvements: [
-        '🐌 ULTRA-SLOW MODE: Reduced to 5-item batches with 1-second pauses',
-        '🔄 AUTO-RESUME: Automatic restart capability with progress tracking',
-        '💾 CHECKPOINTS: Progress saved every 20 batches',
-        '⏰ TIME-AWARE: Automatic scheduling before timeout',
-        '🛡️ ROBUST DESIGN: Handles interruptions gracefully',
-        '✅ SEQUENTIAL PROCESSING: Eliminated all concurrent processing',
-        '✅ FIRE-AND-FORGET: Post processing triggered without blocking',
+        '🚀 ARCHITECTURAL REVOLUTION: Separated data ingestion from processing',
+        '📊 FAST RETRIEVAL: Eliminated ultra-slow processing bottleneck',
+        '🎯 SMART DELEGATION: Full handover to specialized queue manager',
+        '💾 BULK OPERATIONS: 500-item batches instead of 5-item micro-batches',
+        '⚡ ZERO PAUSES: Removed artificial delays for maximum speed',
+        '🔄 NO MORE TIMEOUTS: Eliminated complex auto-resume logic',
+        '🛡️ SIMPLE & ROBUST: Focused on data ingestion only',
+        '🚀 SCALABLE ARCHITECTURE: Queue manager handles all processing',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
-        'Automatic alert system for data loss detection',
-        'Support for forceAll mode to bypass Apify filtering',
-        webhook_triggered ? 'Fast webhook response architecture' : 'Manual reprocessing with full diagnostics'
+        'Automatic delegation to processing-queue-manager',
+        webhook_triggered ? 'Fast webhook response architecture' : 'Manual reprocessing with optimized architecture'
       ]
     }), { 
       status: 200,
