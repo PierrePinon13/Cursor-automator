@@ -6,7 +6,14 @@ import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { Loader2 } from 'lucide-react';
 
 const Tasks = () => {
-  const { tasks, loading, completeTask, updateTaskStatus } = useTasks();
+  const { 
+    tasks, 
+    loading, 
+    completeTask, 
+    updateTaskStatus, 
+    updateTaskComment, 
+    updateTaskFollowUpDate 
+  } = useTasks();
 
   if (loading) {
     return (
@@ -45,6 +52,8 @@ const Tasks = () => {
           tasks={tasks} 
           onComplete={completeTask}
           onUpdateStatus={updateTaskStatus}
+          onUpdateComment={updateTaskComment}
+          onUpdateFollowUpDate={updateTaskFollowUpDate}
         />
       </div>
     </div>

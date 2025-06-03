@@ -237,6 +237,96 @@ export const useTasks = () => {
     }
   };
 
+  const updateTaskComment = async (taskId: string, taskType: Task['type'], comment: string) => {
+    try {
+      const updateData = {
+        task_comment: comment,
+        task_comment_updated_at: new Date().toISOString()
+      };
+
+      if (taskType === 'job_offer_assignment') {
+        const { error } = await supabase
+          .from('client_job_offers')
+          .update(updateData)
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'lead_assignment') {
+        const { error } = await supabase
+          .from('leads')
+          .update(updateData)
+          .eq('id', taskId);
+        if (error) throw error;
+      }
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { 
+          ...task, 
+          data: { 
+            ...task.data, 
+            task_comment: comment,
+            task_comment_updated_at: updateData.task_comment_updated_at
+          } 
+        } : task
+      ));
+
+      toast({
+        title: "Succès",
+        description: "Commentaire mis à jour",
+      });
+    } catch (error) {
+      console.error('Error updating task comment:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le commentaire",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateTaskFollowUpDate = async (taskId: string, taskType: Task['type'], date: Date | null) => {
+    try {
+      const updateData = {
+        follow_up_date: date ? date.toISOString() : null
+      };
+
+      if (taskType === 'job_offer_assignment') {
+        const { error } = await supabase
+          .from('client_job_offers')
+          .update(updateData)
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'lead_assignment') {
+        const { error } = await supabase
+          .from('leads')
+          .update(updateData)
+          .eq('id', taskId);
+        if (error) throw error;
+      }
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { 
+          ...task, 
+          data: { 
+            ...task.data, 
+            follow_up_date: updateData.follow_up_date
+          } 
+        } : task
+      ));
+
+      toast({
+        title: "Succès",
+        description: "Date de relance mise à jour",
+      });
+    } catch (error) {
+      console.error('Error updating follow-up date:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour la date de relance",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
   }, [user]);
@@ -247,6 +337,8 @@ export const useTasks = () => {
     pendingCount,
     completeTask,
     updateTaskStatus,
+    updateTaskComment,
+    updateTaskFollowUpDate,
     refreshTasks: fetchTasks
   };
 };

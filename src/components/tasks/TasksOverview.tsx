@@ -3,17 +3,24 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Clock, Calendar, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TaskCard } from './TaskCard';
+import { IntegratedTaskCard } from './IntegratedTaskCard';
 import { Task } from '@/hooks/useTasks';
 
 interface TasksOverviewProps {
   tasks: Task[];
   onComplete: (taskId: string, taskType: Task['type']) => void;
   onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => void;
+  onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => void;
+  onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => void;
 }
 
-export const TasksOverview = ({ tasks, onComplete, onUpdateStatus }: TasksOverviewProps) => {
+export const TasksOverview = ({ 
+  tasks, 
+  onComplete, 
+  onUpdateStatus, 
+  onUpdateComment, 
+  onUpdateFollowUpDate 
+}: TasksOverviewProps) => {
   const [showUpcoming, setShowUpcoming] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -38,20 +45,50 @@ export const TasksOverview = ({ tasks, onComplete, onUpdateStatus }: TasksOvervi
   // Tâches principales à afficher (retard + urgentes)
   const mainTasks = [...overdueTasks, ...urgentTasks];
 
+  const SectionHeader = ({ 
+    icon, 
+    title, 
+    count, 
+    variant = "default", 
+    isExpanded, 
+    onToggle 
+  }: {
+    icon: React.ReactNode;
+    title: string;
+    count: number;
+    variant?: "default" | "destructive" | "outline";
+    isExpanded?: boolean;
+    onToggle?: () => void;
+  }) => (
+    <div 
+      className="flex items-center justify-between py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 px-2 rounded"
+      onClick={onToggle}
+    >
+      <div className="flex items-center gap-3">
+        {icon}
+        <h2 className="font-semibold text-gray-900">{title}</h2>
+        <Badge variant={variant} className="text-xs">
+          {count}
+        </Badge>
+      </div>
+      {onToggle && (
+        <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Section principale : Tâches urgentes et en retard */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-red-500" />
-            Tâches prioritaires
-            {mainTasks.length > 0 && (
-              <Badge variant="destructive">{mainTasks.length}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Section principale : Tâches prioritaires */}
+      <div>
+        <SectionHeader
+          icon={<Clock className="h-5 w-5 text-red-500" />}
+          title="Tâches prioritaires"
+          count={mainTasks.length}
+          variant={mainTasks.length > 0 ? "destructive" : "outline"}
+        />
+        
+        <div className="mt-4">
           {mainTasks.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <CheckSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -61,101 +98,85 @@ export const TasksOverview = ({ tasks, onComplete, onUpdateStatus }: TasksOvervi
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {mainTasks.map((task) => (
-                <TaskCard
+                <IntegratedTaskCard
                   key={task.id}
                   task={task}
                   onComplete={onComplete}
                   onUpdateStatus={onUpdateStatus}
+                  onUpdateComment={onUpdateComment}
+                  onUpdateFollowUpDate={onUpdateFollowUpDate}
                 />
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Section tâches à venir (collapsible) */}
+      {/* Section tâches à venir */}
       {upcomingTasks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <Button
-              variant="ghost"
-              className="w-full flex items-center justify-between p-0 h-auto hover:bg-transparent"
-              onClick={() => setShowUpcoming(!showUpcoming)}
-            >
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-blue-500" />
-                <span className="font-semibold">Tâches à venir</span>
-                <Badge variant="secondary">{upcomingTasks.length}</Badge>
-              </div>
-              {showUpcoming ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </Button>
-          </CardHeader>
+        <div>
+          <SectionHeader
+            icon={<Calendar className="h-5 w-5 text-blue-500" />}
+            title="Tâches à venir"
+            count={upcomingTasks.length}
+            variant="outline"
+            isExpanded={showUpcoming}
+            onToggle={() => setShowUpcoming(!showUpcoming)}
+          />
           
           {showUpcoming && (
-            <CardContent className="pt-0">
-              <div className="space-y-3">
-                {upcomingTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onComplete={onComplete}
-                    onUpdateStatus={onUpdateStatus}
-                  />
-                ))}
-              </div>
-            </CardContent>
+            <div className="mt-4 space-y-2">
+              {upcomingTasks.map((task) => (
+                <IntegratedTaskCard
+                  key={task.id}
+                  task={task}
+                  onComplete={onComplete}
+                  onUpdateStatus={onUpdateStatus}
+                  onUpdateComment={onUpdateComment}
+                  onUpdateFollowUpDate={onUpdateFollowUpDate}
+                />
+              ))}
+            </div>
           )}
-        </Card>
+        </div>
       )}
 
-      {/* Section tâches terminées (collapsible) */}
-      <Card>
-        <CardHeader className="pb-3">
-          <Button
-            variant="ghost"
-            className="w-full flex items-center justify-between p-0 h-auto hover:bg-transparent"
-            onClick={() => setShowCompleted(!showCompleted)}
-          >
-            <div className="flex items-center gap-2">
-              <CheckSquare className="h-5 w-5 text-green-500" />
-              <span className="font-semibold">Tâches terminées</span>
-              <Badge variant="outline">{completedTasks.length}</Badge>
-            </div>
-            {showCompleted ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </Button>
-        </CardHeader>
+      {/* Section tâches terminées */}
+      <div>
+        <SectionHeader
+          icon={<CheckSquare className="h-5 w-5 text-green-500" />}
+          title="Tâches terminées"
+          count={completedTasks.length}
+          variant="outline"
+          isExpanded={showCompleted}
+          onToggle={() => setShowCompleted(!showCompleted)}
+        />
         
         {showCompleted && (
-          <CardContent className="pt-0">
+          <div className="mt-4">
             {completedTasks.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <p>Aucune tâche terminée</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {completedTasks.map((task) => (
-                  <TaskCard
+                  <IntegratedTaskCard
                     key={task.id}
                     task={task}
                     onComplete={onComplete}
                     onUpdateStatus={onUpdateStatus}
+                    onUpdateComment={onUpdateComment}
+                    onUpdateFollowUpDate={onUpdateFollowUpDate}
                   />
                 ))}
               </div>
             )}
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

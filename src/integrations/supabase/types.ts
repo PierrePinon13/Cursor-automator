@@ -203,6 +203,7 @@ export type Database = {
           company_name: string | null
           created_at: string
           description: string | null
+          follow_up_date: string | null
           id: string
           job_type: string | null
           location: string | null
@@ -212,6 +213,8 @@ export type Database = {
           raw_data: Json
           salary: string | null
           status: string | null
+          task_comment: string | null
+          task_comment_updated_at: string | null
           title: string
           updated_at: string
           url: string
@@ -224,6 +227,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           description?: string | null
+          follow_up_date?: string | null
           id?: string
           job_type?: string | null
           location?: string | null
@@ -233,6 +237,8 @@ export type Database = {
           raw_data: Json
           salary?: string | null
           status?: string | null
+          task_comment?: string | null
+          task_comment_updated_at?: string | null
           title: string
           updated_at?: string
           url: string
@@ -245,6 +251,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           description?: string | null
+          follow_up_date?: string | null
           id?: string
           job_type?: string | null
           location?: string | null
@@ -254,6 +261,8 @@ export type Database = {
           raw_data?: Json
           salary?: string | null
           status?: string | null
+          task_comment?: string | null
+          task_comment_updated_at?: string | null
           title?: string
           updated_at?: string
           url?: string
@@ -511,6 +520,7 @@ export type Database = {
           company_name: string | null
           company_position: string | null
           created_at: string
+          follow_up_date: string | null
           id: string
           is_client_lead: boolean | null
           last_contact_at: string | null
@@ -534,6 +544,8 @@ export type Database = {
           posted_at_iso: string | null
           posted_at_timestamp: number | null
           processing_status: string | null
+          task_comment: string | null
+          task_comment_updated_at: string | null
           text: string | null
           title: string | null
           unipile_company: string | null
@@ -558,6 +570,7 @@ export type Database = {
           company_name?: string | null
           company_position?: string | null
           created_at?: string
+          follow_up_date?: string | null
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
@@ -581,6 +594,8 @@ export type Database = {
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           processing_status?: string | null
+          task_comment?: string | null
+          task_comment_updated_at?: string | null
           text?: string | null
           title?: string | null
           unipile_company?: string | null
@@ -605,6 +620,7 @@ export type Database = {
           company_name?: string | null
           company_position?: string | null
           created_at?: string
+          follow_up_date?: string | null
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
@@ -628,6 +644,8 @@ export type Database = {
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           processing_status?: string | null
+          task_comment?: string | null
+          task_comment_updated_at?: string | null
           text?: string | null
           title?: string | null
           unipile_company?: string | null
