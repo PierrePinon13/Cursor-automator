@@ -19,6 +19,8 @@ interface HistoryFilters {
   activityTypes?: string[];
   timeFilter?: string;
   searchQuery?: string;
+  filterBy?: 'all' | 'mine';
+  customDateRange?: { from?: Date; to?: Date };
   limit?: number;
 }
 
@@ -32,7 +34,7 @@ export const useHistoryWithFilters = (filters: HistoryFilters = {}) => {
 
     setLoading(true);
     try {
-      console.log('🔍 Fetching filtered history...');
+      console.log('🔍 Fetching filtered history with filters:', filters);
       
       let query = supabase
         .from('activities')
@@ -65,8 +67,13 @@ export const useHistoryWithFilters = (filters: HistoryFilters = {}) => {
         query = query.in('activity_type', ['linkedin_message', 'phone_call']);
       }
 
+      // Filtrer par utilisateur (all/mine)
+      if (filters.filterBy === 'mine') {
+        query = query.eq('performed_by_user_id', user.id);
+      }
+
       // Filtrer par période
-      if (filters.timeFilter) {
+      if (filters.timeFilter && filters.timeFilter !== 'all') {
         const now = new Date();
         let startDate: Date;
         
@@ -80,6 +87,18 @@ export const useHistoryWithFilters = (filters: HistoryFilters = {}) => {
           case 'this-month':
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
+          case 'custom':
+            if (filters.customDateRange?.from) {
+              startDate = filters.customDateRange.from;
+              if (filters.customDateRange.to) {
+                const endDate = new Date(filters.customDateRange.to);
+                endDate.setHours(23, 59, 59, 999); // Fin de journée
+                query = query.lte('performed_at', endDate.toISOString());
+              }
+            } else {
+              startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Défaut: cette semaine
+            }
+            break;
           default:
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Défaut: cette semaine
         }
@@ -89,7 +108,7 @@ export const useHistoryWithFilters = (filters: HistoryFilters = {}) => {
 
       query = query
         .order('performed_at', { ascending: false })
-        .limit(filters.limit || 50);
+        .limit(filters.limit || 100);
 
       const { data: activitiesData, error } = await query;
 
@@ -184,7 +203,7 @@ export const useHistoryWithFilters = (filters: HistoryFilters = {}) => {
 
   useEffect(() => {
     fetchHistory();
-  }, [user, filters.activityTypes, filters.timeFilter, filters.searchQuery]);
+  }, [user, filters.activityTypes, filters.timeFilter, filters.searchQuery, filters.filterBy, filters.customDateRange?.from, filters.customDateRange?.to]);
 
   return {
     activities,

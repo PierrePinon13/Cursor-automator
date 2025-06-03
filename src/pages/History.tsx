@@ -15,11 +15,13 @@ const History = () => {
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Utiliser le nouveau hook avec filtres
+  // Utiliser le hook avec tous les filtres
   const { activities, loading, refreshHistory } = useHistoryWithFilters({
     activityTypes,
     timeFilter,
     searchQuery,
+    filterBy,
+    customDateRange,
     limit: 100
   });
 
@@ -30,7 +32,7 @@ const History = () => {
   console.log('📊 History - State:', {
     loading,
     activitiesCount: activities.length,
-    filters: { filterBy, activityTypes, timeFilter, searchQuery }
+    filters: { filterBy, activityTypes, timeFilter, searchQuery, customDateRange }
   });
 
   return (
