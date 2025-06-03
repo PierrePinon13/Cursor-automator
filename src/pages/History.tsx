@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ActivityList from '@/components/history/ActivityList';
 import ActivityDetail from '@/components/history/ActivityDetail';
 import HistoryFilters from '@/components/history/HistoryFilters';
 import HistoryDiagnostics from '@/components/history/HistoryDiagnostics';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserActionsDropdown from '@/components/UserActionsDropdown';
-import { useHistory } from '@/hooks/useHistory';
+import { useHistoryWithFilters } from '@/hooks/useHistoryWithFilters';
 
 const History = () => {
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
@@ -16,36 +16,13 @@ const History = () => {
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Utiliser le hook useHistory qui récupère les vraies données d'activités
-  const { activities, loading, refreshHistory } = useHistory();
-
-  // Rafraîchir les données quand les filtres changent
-  useEffect(() => {
-    refreshHistory();
-  }, [timeFilter, filterBy, refreshHistory]);
-
-  // Filtrer les activités selon les critères sélectionnés
-  const filteredActivities = React.useMemo(() => {
-    let filtered = activities;
-
-    // Filtrer par type d'activité
-    if (activityTypes.length > 0) {
-      filtered = filtered.filter(activity => activityTypes.includes(activity.type));
-    }
-
-    // Filtrer par recherche
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      filtered = filtered.filter(activity => 
-        activity.title.toLowerCase().includes(searchLower) ||
-        activity.message.toLowerCase().includes(searchLower) ||
-        (activity.sender_name && activity.sender_name.toLowerCase().includes(searchLower)) ||
-        (activity.lead_data?.author_name && activity.lead_data.author_name.toLowerCase().includes(searchLower))
-      );
-    }
-
-    return filtered;
-  }, [activities, activityTypes, searchQuery]);
+  // Utiliser le nouveau hook avec filtres
+  const { activities, loading, refreshHistory } = useHistoryWithFilters({
+    activityTypes,
+    timeFilter,
+    searchQuery,
+    limit: 100
+  });
 
   const handleSelectActivity = (activity: any) => {
     setSelectedActivity(activity);
@@ -54,7 +31,6 @@ const History = () => {
   console.log('📊 History - State:', {
     loading,
     activitiesCount: activities.length,
-    filteredCount: filteredActivities.length,
     filters: { filterBy, activityTypes, timeFilter, searchQuery }
   });
 
@@ -81,7 +57,7 @@ const History = () => {
               onTimeFilterChange={setTimeFilter}
               customDateRange={customDateRange}
               onCustomDateRangeChange={setCustomDateRange}
-              activitiesCount={filteredActivities.length}
+              activitiesCount={activities.length}
               searchQuery={searchQuery}
               onSearchQueryChange={setSearchQuery}
             />
@@ -97,7 +73,7 @@ const History = () => {
               </div>
             ) : (
               <ActivityList 
-                activities={filteredActivities}
+                activities={activities}
                 selectedActivity={selectedActivity}
                 onSelectActivity={handleSelectActivity}
               />
@@ -115,7 +91,7 @@ const History = () => {
                 <p className="text-lg">Sélectionnez une activité pour voir les détails</p>
                 {!loading && (
                   <p className="text-sm mt-2">
-                    {filteredActivities.length} activité{filteredActivities.length > 1 ? 's' : ''} disponible{filteredActivities.length > 1 ? 's' : ''}
+                    {activities.length} activité{activities.length > 1 ? 's' : ''} disponible{activities.length > 1 ? 's' : ''}
                   </p>
                 )}
               </div>
