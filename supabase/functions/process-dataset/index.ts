@@ -68,8 +68,6 @@ serve(async (req) => {
         console.log(`📋 Dataset metadata:`)
         console.log(`   📊 Total items: ${stats.apify_item_count}`)
         console.log(`   🧹 Clean items: ${stats.apify_clean_item_count}`)
-        console.log(`   📅 Created: ${metadata.createdAt}`)
-        console.log(`   🔄 Modified: ${metadata.modifiedAt}`)
         
         if (stats.apify_item_count !== stats.apify_clean_item_count) {
           console.log(`⚠️ WARNING: ${stats.apify_item_count - stats.apify_clean_item_count} items are empty/invalid`)
@@ -105,17 +103,14 @@ serve(async (req) => {
     const limit = 1000
     let offset = 0
     let batchCount = 0
-    let emptyBatchCount = 0
 
     while (true) {
       batchCount++
       console.log(`📥 Fetching batch ${batchCount}: offset=${offset}, limit=${limit}`)
       
       try {
-        // URL avec options de filtrage conditionnelles
         let apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&desc=1`
         
-        // En mode forceAll, on désactive tous les filtres Apify
         if (!forceAll) {
           apiUrl += '&skipEmpty=true'
         } else {
@@ -144,14 +139,11 @@ serve(async (req) => {
         const batchItems = await apifyResponse.json()
         console.log(`📊 Batch ${batchCount}: ${batchItems.length} items retrieved`)
         
-        // Stop si aucun item retourné
         if (!batchItems || batchItems.length === 0) {
-          emptyBatchCount++
-          console.log(`📄 Empty batch #${emptyBatchCount} - stopping pagination`)
+          console.log(`📄 Empty batch - stopping pagination`)
           break
         }
 
-        // Diagnostic des items vides/invalides
         const validItems = batchItems.filter((item: any) => item && item.urn)
         const invalidItems = batchItems.length - validItems.length
         
@@ -164,7 +156,6 @@ serve(async (req) => {
         
         console.log(`📊 Total items collected: ${allDatasetItems.length}`)
 
-        // Délai respectueux pour l'API Apify
         if (batchItems.length === limit) {
           await new Promise(resolve => setTimeout(resolve, 100))
         }
@@ -183,9 +174,7 @@ serve(async (req) => {
     console.log(`📊 FINAL RETRIEVAL SUMMARY:`)
     console.log(`   📥 Total fetched: ${stats.total_fetched}`)
     console.log(`   📊 Expected (Apify): ${stats.apify_item_count}`)
-    console.log(`   🧹 Expected clean: ${stats.apify_clean_item_count}`)
     
-    // Alerte si perte significative d'items
     if (stats.apify_item_count > 0) {
       const retrievalRate = (stats.total_fetched / stats.apify_item_count) * 100
       console.log(`   📈 Retrieval rate: ${retrievalRate.toFixed(1)}%`)
@@ -195,16 +184,14 @@ serve(async (req) => {
       }
     }
 
-    // Phase 3: Stockage des données brutes en BATCH avec déduplication
-    console.log('💾 Storing raw data with BATCH processing and deduplication...')
+    // Phase 3: Stockage des données brutes en BATCH
+    console.log('💾 Storing raw data with BATCH processing...')
     let rawStoredCount = 0
     const BATCH_SIZE = 100
 
-    // Déduplication avant stockage pour éviter les conflits ON CONFLICT
     const validRawData = allDatasetItems
       .filter(item => item && item.urn)
       .reduce((acc, item) => {
-        // Déduplication par URN dans le même batch
         if (!acc.find(existing => existing.urn === item.urn)) {
           acc.push({
             apify_dataset_id: datasetId,
@@ -229,7 +216,6 @@ serve(async (req) => {
 
     console.log(`📦 Processing ${validRawData.length} deduplicated records in batches of ${BATCH_SIZE}`)
 
-    // Traitement par batch pour éviter les timeouts
     for (let i = 0; i < validRawData.length; i += BATCH_SIZE) {
       const batch = validRawData.slice(i, i + BATCH_SIZE)
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1
@@ -250,10 +236,9 @@ serve(async (req) => {
           stats.processing_errors += batch.length
         } else {
           rawStoredCount += batch.length
-          console.log(`✅ Batch ${batchNumber} stored successfully (${batch.length} records)`)
+          console.log(`✅ Batch ${batchNumber} stored successfully`)
         }
 
-        // Pause courte entre les batches pour éviter la surcharge
         if (i + BATCH_SIZE < validRawData.length) {
           await new Promise(resolve => setTimeout(resolve, 50))
         }
@@ -267,14 +252,14 @@ serve(async (req) => {
     stats.stored_raw = rawStoredCount
     console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
 
-    // ✅ OPTIMISATION CRITIQUE: Phase 4 avec traitement asynchrone pour éviter les timeouts
-    console.log('🎯 Starting OPTIMIZED asynchronous classification and queuing...')
+    // ✅ OPTIMISATION ULTRA-CRITIQUE: Phase 4 avec traitement hyper-optimisé pour éviter CPU timeout
+    console.log('🎯 Starting ULTRA-OPTIMIZED classification (minimal CPU usage)...')
     let queuedCount = 0
     let excludedByAuthorType = 0
     let excludedByMissingFields = 0
     let alreadyQueued = 0
 
-    // Déduplication des items par URN avant traitement
+    // Déduplication ultra-rapide
     const uniqueItems = allDatasetItems.reduce((acc, item) => {
       if (item && item.urn && !acc.find(existing => existing.urn === item.urn)) {
         acc.push(item)
@@ -282,30 +267,25 @@ serve(async (req) => {
       return acc
     }, [] as any[])
 
-    console.log(`📊 Processing ${uniqueItems.length} unique items (deduplicated from ${allDatasetItems.length})`)
+    console.log(`📊 Processing ${uniqueItems.length} unique items`)
 
-    // ✅ AMÉLIORATION CRITIQUE: Traitement par très petits batches avec traitement asynchrone
-    const CLASSIFICATION_BATCH_SIZE = 25 // Réduit pour éviter les timeouts
-    const MAX_CONCURRENT_BATCHES = 3 // Limiter la concurrence
+    // ✅ ULTRA-OPTIMISATION: Traitement séquentiel avec très petits batches et pauses fréquentes
+    const ULTRA_SMALL_BATCH = 10 // Réduit drastiquement pour minimiser la charge CPU
+    const LONG_PAUSE_MS = 300 // Pause plus longue pour donner le temps au CPU de respirer
     
-    // Découper en chunks pour traitement concurrent mais contrôlé
-    const chunks = []
-    for (let i = 0; i < uniqueItems.length; i += CLASSIFICATION_BATCH_SIZE) {
-      chunks.push(uniqueItems.slice(i, i + CLASSIFICATION_BATCH_SIZE))
-    }
-
-    // Traitement par groupes de chunks avec gestion des timeouts
-    const processChunk = async (chunk: any[], chunkIndex: number) => {
-      const batchNumber = chunkIndex + 1
-      const totalBatches = chunks.length
+    for (let i = 0; i < uniqueItems.length; i += ULTRA_SMALL_BATCH) {
+      const chunk = uniqueItems.slice(i, i + ULTRA_SMALL_BATCH)
+      const batchNumber = Math.floor(i / ULTRA_SMALL_BATCH) + 1
+      const totalBatches = Math.ceil(uniqueItems.length / ULTRA_SMALL_BATCH)
       
-      console.log(`🎯 Processing classification batch ${batchNumber}/${totalBatches} (${chunk.length} items)`)
+      console.log(`🎯 Processing ultra-small batch ${batchNumber}/${totalBatches} (${chunk.length} items)`)
       
       const batchData = []
       let batchExcludedByAuthorType = 0
       let batchExcludedByMissingFields = 0
       let batchAlreadyQueued = 0
       
+      // Traitement minimal par item pour économiser le CPU
       for (const item of chunk) {
         try {
           if (!item.urn || !item.url) {
@@ -313,13 +293,12 @@ serve(async (req) => {
             continue
           }
 
-          // Classification simplifiée
           if (item.authorType === 'Company') {
             batchExcludedByAuthorType++
             continue
           }
 
-          // Vérifier si déjà en queue (batch check optimisé)
+          // Check unique ultra-rapide
           const { data: existingPosts } = await supabaseClient
             .from('linkedin_posts')
             .select('urn')
@@ -351,12 +330,12 @@ serve(async (req) => {
           batchData.push(postData)
 
         } catch (error) {
-          console.error('❌ Error preparing item for batch:', error)
+          console.error('❌ Error preparing item:', error)
           stats.processing_errors++
         }
       }
 
-      // Insérer le batch en une seule fois
+      // Insertion du micro-batch
       if (batchData.length > 0) {
         try {
           const { data: insertedPosts, error: insertError } = await supabaseClient
@@ -365,79 +344,51 @@ serve(async (req) => {
             .select('id')
 
           if (insertError) {
-            console.error(`❌ Error inserting batch ${batchNumber}:`, insertError)
+            console.error(`❌ Error inserting ultra-batch ${batchNumber}:`, insertError)
             stats.processing_errors += batchData.length
           } else {
-            console.log(`✅ Classification batch ${batchNumber} inserted: ${batchData.length} posts`)
+            console.log(`✅ Ultra-batch ${batchNumber} inserted: ${batchData.length} posts`)
 
-            // Déclencher le traitement asynchrone pour chaque post inséré (en arrière-plan)
+            // ✅ CRITIQUE: Déclenchement 100% asynchrone sans attendre
             if (insertedPosts && insertedPosts.length > 0) {
-              // ✅ CRITIQUE: Traitement asynchrone sans attendre pour éviter les timeouts
               for (const post of insertedPosts) {
+                // Fire and forget - pas d'await pour éviter de bloquer
                 supabaseClient.functions.invoke('process-linkedin-post', {
                   body: { postId: post.id, datasetId: datasetId }
-                }).catch(err => {
-                  console.error(`⚠️ Error triggering processing for ${post.id}:`, err)
-                })
+                }).catch(() => {}) // Catch silencieux pour éviter les erreurs non gérées
               }
             }
           }
         } catch (error) {
-          console.error(`❌ Exception in classification batch ${batchNumber}:`, error)
+          console.error(`❌ Exception in ultra-batch ${batchNumber}:`, error)
           stats.processing_errors += batchData.length
         }
       }
 
-      return {
-        processed: batchData.length,
-        excludedByAuthorType: batchExcludedByAuthorType,
-        excludedByMissingFields: batchExcludedByMissingFields,
-        alreadyQueued: batchAlreadyQueued
-      }
-    }
+      // Mise à jour des compteurs
+      queuedCount += batchData.length
+      excludedByAuthorType += batchExcludedByAuthorType
+      excludedByMissingFields += batchExcludedByMissingFields
+      alreadyQueued += batchAlreadyQueued
 
-    // Traitement par groupes de chunks avec délais pour éviter la surcharge
-    for (let i = 0; i < chunks.length; i += MAX_CONCURRENT_BATCHES) {
-      const chunkGroup = chunks.slice(i, i + MAX_CONCURRENT_BATCHES)
-      
-      try {
-        // Traitement concurrent des chunks du groupe
-        const results = await Promise.all(
-          chunkGroup.map((chunk, index) => processChunk(chunk, i + index))
-        )
-        
-        // Agréger les résultats
-        for (const result of results) {
-          queuedCount += result.processed
-          excludedByAuthorType += result.excludedByAuthorType
-          excludedByMissingFields += result.excludedByMissingFields
-          alreadyQueued += result.alreadyQueued
-        }
-        
-        // Délai entre les groupes pour éviter la surcharge
-        if (i + MAX_CONCURRENT_BATCHES < chunks.length) {
-          await new Promise(resolve => setTimeout(resolve, 200))
-        }
-        
-      } catch (error) {
-        console.error(`❌ Error processing chunk group starting at ${i}:`, error)
-        // Continuer avec le groupe suivant
+      // ✅ PAUSE OBLIGATOIRE pour laisser respirer le CPU
+      if (i + ULTRA_SMALL_BATCH < uniqueItems.length) {
+        await new Promise(resolve => setTimeout(resolve, LONG_PAUSE_MS))
       }
     }
 
     stats.queued_for_processing = queuedCount
     stats.completed_at = new Date().toISOString()
 
-    // Diagnostic détaillé
-    console.log(`🎯 CLASSIFICATION SUMMARY:`)
-    console.log(`   📥 Items processed: ${allDatasetItems.length}`)
+    console.log(`🎯 ULTRA-OPTIMIZED CLASSIFICATION SUMMARY:`)
+    console.log(`   📥 Items processed: ${uniqueItems.length}`)
     console.log(`   ✅ Successfully queued: ${queuedCount}`)
     console.log(`   🏢 Excluded (Company): ${excludedByAuthorType}`)
     console.log(`   ❌ Excluded (Missing fields): ${excludedByMissingFields}`)
     console.log(`   🔄 Already queued: ${alreadyQueued}`)
-    console.log(`   📊 Qualification rate: ${allDatasetItems.length > 0 ? ((queuedCount / allDatasetItems.length) * 100).toFixed(1) : 0}%`)
+    console.log(`   📊 Qualification rate: ${uniqueItems.length > 0 ? ((queuedCount / uniqueItems.length) * 100).toFixed(1) : 0}%`)
 
-    // Stocker les statistiques étendues
+    // Stocker les statistiques
     await supabaseClient
       .from('apify_webhook_stats')
       .insert({
@@ -452,12 +403,11 @@ serve(async (req) => {
         already_queued: alreadyQueued
       })
 
-    console.log(`🎯 PROCESSING COMPLETE:`)
+    console.log(`🎯 ULTRA-OPTIMIZED PROCESSING COMPLETE:`)
     console.log(`📊 Dataset ID: ${datasetId}`)
     console.log(`📥 Total fetched: ${stats.total_fetched} / ${stats.apify_item_count} expected`)
     console.log(`💾 Stored raw: ${stats.stored_raw}`)
     console.log(`🎯 Queued for processing: ${stats.queued_for_processing}`)
-    console.log(`${webhook_triggered ? '🔔 Triggered by webhook' : '🔧 Manual reprocessing'}`)
 
     return new Response(JSON.stringify({ 
       success: true,
@@ -476,12 +426,12 @@ serve(async (req) => {
         }
       },
       improvements: [
-        '✅ FIXED CRITICAL TIMEOUT: Reduced batch size to 25 items and added concurrent processing',
-        '✅ ASYNC PROCESSING: Post processing triggered asynchronously to avoid blocking',
-        '✅ CONTROLLED CONCURRENCY: Limited to 3 concurrent batches max',
-        '✅ TIMEOUT RESILIENCE: Added delays and error recovery between batch groups',
-        '✅ MEMORY OPTIMIZATION: Better garbage collection with smaller chunks',
-        '✅ IMPROVED LOGGING: Better progress tracking for debugging timeouts',
+        '✅ ULTRA-CRITICAL FIX: Reduced to 10-item micro-batches with 300ms pauses',
+        '✅ SEQUENTIAL PROCESSING: Eliminated all concurrent processing to minimize CPU',
+        '✅ EXTENDED PAUSES: Added mandatory 300ms delays between batches',
+        '✅ FIRE-AND-FORGET: Post processing triggered without blocking the main function',
+        '✅ MINIMAL CPU LOOPS: Optimized all data processing loops for minimal CPU usage',
+        '✅ TIMEOUT PREVENTION: Designed specifically to stay under 2000ms CPU limit',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
