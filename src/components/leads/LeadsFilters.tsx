@@ -1,4 +1,3 @@
-
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,7 @@ interface LeadsFiltersProps {
   setViewMode: (mode: 'table' | 'card') => void;
   searchQuery?: string;
   setSearchQuery?: (query: string) => void;
+  isAdmin?: boolean;
 }
 
 const dateFilterOptions = [
@@ -123,13 +123,17 @@ export default function LeadsFilters({
   viewMode,
   setViewMode,
   searchQuery = '',
-  setSearchQuery
+  setSearchQuery,
+  isAdmin = false
 }: LeadsFiltersProps) {
-  const { isAdmin } = useUserRole();
+  const { isAdmin: userIsAdmin } = useUserRole();
   const columnOptions = getColumnOptions(showAssignmentColumn);
 
+  // Use the passed isAdmin prop or fall back to the hook
+  const effectiveIsAdmin = isAdmin || userIsAdmin;
+
   // Filtrer les catégories selon le rôle de l'utilisateur
-  const categoriesToShow = isAdmin ? [...allCategories, 'Autre'] : allCategories;
+  const categoriesToShow = effectiveIsAdmin ? [...allCategories, 'Autre'] : allCategories;
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {

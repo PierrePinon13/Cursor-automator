@@ -13,7 +13,12 @@ import { useNavigate } from 'react-router-dom';
 import NotificationButton from './notifications/NotificationButton';
 import CustomSidebarTrigger from './ui/CustomSidebarTrigger';
 
-const DashboardHeader = () => {
+interface DashboardHeaderProps {
+  title?: string;
+  subtitle?: string;
+}
+
+const DashboardHeader = ({ title, subtitle }: DashboardHeaderProps = {}) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -33,6 +38,12 @@ const DashboardHeader = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <CustomSidebarTrigger />
+          {title && (
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
+              {subtitle && <p className="text-sm text-gray-600">{subtitle}</p>}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-4">

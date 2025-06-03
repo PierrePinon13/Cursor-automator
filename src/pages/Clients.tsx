@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DashboardHeader } from '@/components/DashboardHeader';
+import DashboardHeader from '@/components/DashboardHeader';
 import { ClientsTable } from '@/components/clients/ClientsTable';
 import { ContactsList } from '@/components/clients/ContactsList';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
@@ -65,7 +65,7 @@ const Clients = () => {
         </TabsContent>
 
         <TabsContent value="management" className="space-y-6">
-          <ClientsTable clients={clients} onClientSelect={setSelectedClient} />
+          <ClientsTable clients={clients} users={[]} onEdit={(client) => setSelectedClient(client)} />
         </TabsContent>
 
         <TabsContent value="contacts" className="space-y-6">
@@ -84,7 +84,7 @@ const Clients = () => {
         </TabsContent>
 
         <TabsContent value="qualification" className="space-y-6">
-          <ClientQualification />
+          <ClientQualification onBack={() => setActiveTab('management')} />
         </TabsContent>
       </Tabs>
     </div>
