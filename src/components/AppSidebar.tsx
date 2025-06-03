@@ -1,9 +1,9 @@
+
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   Sidebar, 
   SidebarContent, 
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -52,11 +52,6 @@ const AppSidebar = () => {
 
   return (
     <Sidebar>
-      <SidebarHeader className="h-16 flex items-center px-4 border-b bg-white">
-        <div className="flex items-center gap-3 w-full">
-          <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">Automator</h1>
-        </div>
-      </SidebarHeader>
       <SidebarContent className="bg-white">
         <div className="p-2">
           <SidebarMenu>
