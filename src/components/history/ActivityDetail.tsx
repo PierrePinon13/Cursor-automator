@@ -23,20 +23,6 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     );
   }
 
-  const getActivityIcon = () => {
-    switch (activity.type) {
-      case 'linkedin_message':
-        if (activity.message_type === 'connection_request') {
-          return <UserCheck className="h-5 w-5 text-blue-600" />;
-        }
-        return <MessageSquare className="h-5 w-5 text-blue-600" />;
-      case 'phone_call':
-        return <Phone className="h-5 w-5 text-green-600" />;
-      default:
-        return <MessageSquare className="h-5 w-5 text-gray-600" />;
-    }
-  };
-
   const getActivityBadge = () => {
     switch (activity.type) {
       case 'linkedin_message':
@@ -51,34 +37,89 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
     }
   };
 
+  const getActivityTitle = () => {
+    switch (activity.type) {
+      case 'linkedin_message':
+        return activity.message_type === 'connection_request' ? 'Demande de connexion' : 'Message LinkedIn';
+      case 'phone_call':
+        const statusText = activity.message.includes('positif') ? 'positif' : 
+                          activity.message.includes('négatif') ? 'négatif' : 'neutre';
+        return `Appel ${statusText}`;
+      default:
+        return 'Activité';
+    }
+  };
+
+  const getTitleColor = () => {
+    switch (activity.type) {
+      case 'linkedin_message':
+        return 'text-blue-700';
+      case 'phone_call':
+        return 'text-green-700';
+      default:
+        return 'text-gray-700';
+    }
+  };
+
   const activityDate = new Date(activity.created_at);
 
   return (
     <div className="h-full bg-white p-6 flex flex-col">
-      {/* En-tête condensé */}
+      {/* En-tête restructuré */}
       <div className="border-b pb-4 mb-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-gray-100 rounded-lg flex-shrink-0">
-            {getActivityIcon()}
-          </div>
+        {/* Ligne 1: Badge + Nom du lead + LinkedIn */}
+        <div className="flex items-center gap-3 mb-2">
+          {getActivityBadge()}
           
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              {getActivityBadge()}
-              <span className="text-xs text-gray-500">
-                {format(activityDate, 'dd/MM/yyyy HH:mm', { locale: fr })}
-              </span>
-            </div>
-            
-            <h1 className="text-lg font-semibold text-gray-900 mb-1">
-              {activity.title}
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-gray-900">
+              {activity.lead_data?.author_name || 'Lead inconnu'}
             </h1>
             
-            <p className="text-sm text-gray-600 leading-relaxed">
-              {activity.message}
-            </p>
+            {activity.lead_data?.author_profile_url && (
+              <a 
+                href={activity.lead_data.author_profile_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 hover:scale-110 transition-transform"
+              >
+                <svg 
+                  className="h-5 w-5 text-blue-600 hover:text-blue-800" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+              </a>
+            )}
           </div>
         </div>
+
+        {/* Ligne 2: Intitulé coloré + Date */}
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className={`text-base font-medium ${getTitleColor()}`}>
+            {getActivityTitle()}
+          </h2>
+          <span className="text-sm text-gray-500">
+            {format(activityDate, 'dd/MM/yyyy HH:mm', { locale: fr })}
+          </span>
+        </div>
+
+        {/* Ligne 3: Badge de la personne qui a fait l'action */}
+        <div className="mb-3">
+          <Badge variant="secondary" className="text-xs">
+            Par {activity.sender_name}
+          </Badge>
+        </div>
+
+        {/* Message envoyé si disponible */}
+        {activity.message_content && (
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-sm text-gray-900 leading-relaxed">
+              {activity.message_content}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Contenu principal en deux colonnes */}
@@ -92,13 +133,6 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
             </h3>
             
             <div className="space-y-2">
-              <div>
-                <span className="text-xs text-gray-500">Nom</span>
-                <p className="text-sm font-medium text-gray-900">
-                  {activity.lead_data?.author_name || 'Non renseigné'}
-                </p>
-              </div>
-
               {activity.lead_data?.company_position && (
                 <div>
                   <span className="text-xs text-gray-500">Poste</span>
@@ -126,20 +160,6 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                   <p className="text-sm font-medium text-gray-900">
                     {activity.lead_data.matched_client_name}
                   </p>
-                </div>
-              )}
-
-              {activity.lead_data?.author_profile_url && (
-                <div className="pt-1">
-                  <a 
-                    href={activity.lead_data.author_profile_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Profil LinkedIn
-                  </a>
                 </div>
               )}
             </div>
@@ -175,13 +195,6 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
                   {formatDistanceToNow(activityDate, { addSuffix: true, locale: fr })}
                 </p>
               </div>
-              
-              <div>
-                <span className="text-xs text-gray-500">Par</span>
-                <p className="text-sm font-medium text-gray-900">
-                  {activity.sender_name}
-                </p>
-              </div>
 
               <div>
                 <span className="text-xs text-gray-500">Type</span>
@@ -196,20 +209,6 @@ const ActivityDetail = ({ activity }: ActivityDetailProps) => {
           </div>
         </div>
       </div>
-
-      {/* Message content en bas si disponible */}
-      {activity.message_content && (
-        <div className="border-t pt-4 mt-4">
-          <h4 className="text-xs font-medium text-gray-500 mb-2">
-            {activity.message_type === 'connection_request' ? 'Message de connexion' : 'Contenu du message'}
-          </h4>
-          <div className="bg-gray-50 rounded-lg p-3 max-h-24 overflow-y-auto">
-            <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-              {activity.message_content}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
