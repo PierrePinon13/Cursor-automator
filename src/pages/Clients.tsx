@@ -2,18 +2,17 @@
 import { useState, useEffect } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Users } from 'lucide-react';
 import DashboardHeader from '@/components/DashboardHeader';
-import { ClientsTable } from '@/components/clients/ClientsTable';
-import { ContactsList } from '@/components/clients/ContactsList';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
-import { ClientLeadsSection } from '@/components/clients/ClientLeadsSection';
 import { ClientLeadsView } from '@/components/clients/ClientLeadsView';
-import { ClientQualification } from '@/components/clients/ClientQualification';
+import { ClientManagement } from '@/components/clients/ClientManagement';
 import { updateUrlWithSubPage, getSubPageFromUrl } from '@/utils/urlState';
 
 const Clients = () => {
   const { clients, loading } = useClients();
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [showManagement, setShowManagement] = useState(false);
   
   // Get initial tab from URL or default to 'job-offers'
   const [activeTab, setActiveTab] = useState(() => getSubPageFromUrl('job-offers'));
@@ -40,20 +39,46 @@ const Clients = () => {
     );
   }
 
+  if (showManagement) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <DashboardHeader 
+            title="Gestion des Clients" 
+            subtitle="Administration et configuration des clients"
+          />
+          <Button
+            variant="outline"
+            onClick={() => setShowManagement(false)}
+          >
+            Retour
+          </Button>
+        </div>
+        <ClientManagement />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6">
-      <DashboardHeader 
-        title="Gestion des Clients" 
-        subtitle="Vue d'ensemble et gestion de vos clients"
-      />
+      <div className="flex items-center justify-between">
+        <DashboardHeader 
+          title="Clients" 
+          subtitle="Offres d'emploi et publications LinkedIn"
+        />
+        <Button
+          onClick={() => setShowManagement(true)}
+          className="flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Gestion clients
+        </Button>
+      </div>
       
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
           <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
-          <TabsTrigger value="management">Gestion</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts</TabsTrigger>
-          <TabsTrigger value="qualification">Qualification</TabsTrigger>
         </TabsList>
 
         <TabsContent value="job-offers" className="space-y-6">
@@ -62,29 +87,6 @@ const Clients = () => {
 
         <TabsContent value="linkedin-posts" className="space-y-6">
           <ClientLeadsView />
-        </TabsContent>
-
-        <TabsContent value="management" className="space-y-6">
-          <ClientsTable clients={clients} users={[]} onEdit={(client) => setSelectedClient(client)} />
-        </TabsContent>
-
-        <TabsContent value="contacts" className="space-y-6">
-          {selectedClient ? (
-            <ContactsList 
-              clientId={selectedClient.id} 
-              clientName={selectedClient.name}
-            />
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                Sélectionnez un client dans l'onglet "Gestion" pour voir ses contacts
-              </p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="qualification" className="space-y-6">
-          <ClientQualification onBack={() => setActiveTab('management')} />
         </TabsContent>
       </Tabs>
     </div>
