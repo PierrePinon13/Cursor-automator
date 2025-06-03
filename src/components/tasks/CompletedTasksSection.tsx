@@ -45,7 +45,7 @@ export const CompletedTasksSection = ({
           <ChevronRight className="h-4 w-4" />
         )}
         <span className="text-lg font-semibold">
-          ✅ Tâches terminées ({tasks.length})
+          ✅ Tasks terminées ({tasks.length})
         </span>
       </Button>
 

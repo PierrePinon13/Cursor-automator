@@ -34,7 +34,7 @@ const Tasks = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <SidebarTrigger />
-            <h1 className="text-2xl font-bold text-gray-900">Tâches</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
           </div>
           <UserActionsDropdown />
         </div>
@@ -42,7 +42,7 @@ const Tasks = () => {
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-600">Chargement des tâches...</span>
+            <span className="ml-2 text-gray-600">Chargement des tasks...</span>
           </div>
         </div>
       </div>
@@ -54,7 +54,7 @@ const Tasks = () => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-2xl font-bold text-gray-900">Tâches</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
         </div>
         
         <UserActionsDropdown />

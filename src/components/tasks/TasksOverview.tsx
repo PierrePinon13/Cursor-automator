@@ -53,21 +53,21 @@ export const TasksOverview = ({
       {/* Statistiques */}
       <div className="flex gap-4 flex-wrap">
         <Badge variant="destructive" className="text-sm">
-          {overdueTasks.length} tâche{overdueTasks.length > 1 ? 's' : ''} en retard
+          {overdueTasks.length} task{overdueTasks.length > 1 ? 's' : ''} en retard
         </Badge>
         <Badge variant="secondary" className="text-sm">
-          {upcomingTasks.length} tâche{upcomingTasks.length > 1 ? 's' : ''} à venir
+          {upcomingTasks.length} task{upcomingTasks.length > 1 ? 's' : ''} à venir
         </Badge>
         <Badge variant="outline" className="text-sm">
-          {completedTasks.length} tâche{completedTasks.length > 1 ? 's' : ''} terminée{completedTasks.length > 1 ? 's' : ''}
+          {completedTasks.length} task{completedTasks.length > 1 ? 's' : ''} terminée{completedTasks.length > 1 ? 's' : ''}
         </Badge>
       </div>
 
-      {/* Tâches en retard */}
+      {/* Tasks en retard */}
       {overdueTasks.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-red-700 flex items-center gap-2">
-            ⚠️ Tâches en retard ({overdueTasks.length})
+            ⚠️ Tasks en retard ({overdueTasks.length})
           </h2>
           <div className="space-y-3">
             {overdueTasks.map((task) => (
@@ -91,11 +91,11 @@ export const TasksOverview = ({
         </div>
       )}
 
-      {/* Tâches à venir */}
+      {/* Tasks à venir */}
       {upcomingTasks.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-            📋 Tâches à venir ({upcomingTasks.length})
+            📋 Tasks à venir ({upcomingTasks.length})
           </h2>
           <div className="space-y-3">
             {upcomingTasks.map((task) => (
@@ -119,17 +119,17 @@ export const TasksOverview = ({
         </div>
       )}
 
-      {/* Message si aucune tâche */}
+      {/* Message si aucune task */}
       {pendingTasks.length === 0 && (
         <div className="text-center py-12">
           <div className="text-gray-500">
-            <p className="text-lg mb-2">🎉 Aucune tâche en attente !</p>
-            <p className="text-sm">Toutes vos tâches sont terminées.</p>
+            <p className="text-lg mb-2">🎉 Aucune task en attente !</p>
+            <p className="text-sm">Toutes vos tasks sont terminées.</p>
           </div>
         </div>
       )}
 
-      {/* Tâches terminées */}
+      {/* Tasks terminées */}
       {completedTasks.length > 0 && (
         <CompletedTasksSection 
           tasks={completedTasks}

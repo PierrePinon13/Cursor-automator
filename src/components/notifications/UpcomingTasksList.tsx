@@ -32,14 +32,16 @@ const UpcomingTasksList = ({ tasks, onViewAllTasks }: UpcomingTasksListProps) =>
   };
 
   const handleTaskClick = (task: Task) => {
-    // Naviguer vers la page des tâches avec la tâche sélectionnée
+    // Naviguer vers la page des tâches avec la tâche sélectionnée et fermer le dropdown
     navigate(`/tasks?taskId=${task.id}`);
+    // Fermer le dropdown en cliquant ailleurs
+    document.body.click();
   };
 
   if (tasks.length === 0) {
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
-        Aucune tâche urgente
+        Aucune task urgente
       </div>
     );
   }
@@ -94,7 +96,7 @@ const UpcomingTasksList = ({ tasks, onViewAllTasks }: UpcomingTasksListProps) =>
             onClick={onViewAllTasks}
           >
             <ExternalLink className="h-3 w-3 mr-2" />
-            Voir toutes les tâches
+            Voir toutes les tasks
           </Button>
         </div>
       </div>
