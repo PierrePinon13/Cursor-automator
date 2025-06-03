@@ -47,10 +47,10 @@ export function TierSelector({ value, onChange, disabled = false }: TierSelector
             disabled={disabled}
             onClick={() => handleTierClick(tier)}
             className={cn(
-              "h-8 w-8 p-0 rounded-full border-2 font-medium transition-all",
+              "h-8 w-8 p-0 rounded-full border-2 font-medium transition-all duration-200",
               isSelected
-                ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
-                : "bg-white text-gray-600 border-gray-300 hover:border-blue-300 hover:text-blue-600"
+                ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600 transform scale-105 shadow-md"
+                : "bg-white text-gray-600 border-gray-300 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm"
             )}
           >
             {tier}

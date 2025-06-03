@@ -2,7 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Plus, Pencil } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { CollaboratorsSelect } from './CollaboratorsSelect';
 import { TierSelector } from './TierSelector';
@@ -72,7 +72,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
           <TableHead>Collaborateurs</TableHead>
           <TableHead>Tier</TableHead>
           <TableHead>Suivi</TableHead>
-          <TableHead>LinkedIn</TableHead>
+          <TableHead>Contacts</TableHead>
           <TableHead className="w-[120px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -81,7 +81,10 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
           return (
             <TableRow key={client.id}>
               <TableCell className="font-medium">
-                {client.company_name}
+                <div className="flex items-center gap-2">
+                  <span>{client.company_name}</span>
+                  <LinkedInIcon url={client.company_linkedin_url} />
+                </div>
               </TableCell>
               <TableCell>
                 <CollaboratorsSelect clientId={client.id} />
@@ -99,7 +102,19 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                 />
               </TableCell>
               <TableCell>
-                <LinkedInIcon url={client.company_linkedin_url} />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    {/* Placeholder for contacts - will be implemented with ContactsList */}
+                    Contacts
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
@@ -114,6 +129,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(client.id)}
+                    className="text-red-600 hover:text-red-800"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
