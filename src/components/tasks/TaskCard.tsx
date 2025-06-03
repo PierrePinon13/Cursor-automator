@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Task } from '@/hooks/useTasks';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { TaskCompletionDialog } from './TaskCompletionDialog';
 
 interface TaskCardProps {
   task: Task;
@@ -20,10 +21,25 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
   const [isCompleting, setIsCompleting] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
-  const handleComplete = async () => {
+  const handleCompleteClick = () => {
+    if (task.type === 'job_offer_assignment' || task.type === 'lead_assignment') {
+      setShowCompletionDialog(true);
+    } else {
+      handleComplete('');
+    }
+  };
+
+  const handleComplete = async (status: string) => {
     setIsCompleting(true);
     setShowAnimation(true);
+    setShowCompletionDialog(false);
+    
+    // Mettre à jour le statut si nécessaire
+    if (status && (task.type === 'job_offer_assignment' || task.type === 'lead_assignment')) {
+      await onUpdateStatus(task.id, task.type, status);
+    }
     
     setTimeout(async () => {
       await onComplete(task.id, task.type);
@@ -54,31 +70,28 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
     }
   };
 
-  const getStatusOptions = () => {
-    if (task.type === 'job_offer_assignment') {
-      return [
-        { value: 'non_attribuee', label: 'Non attribuée' },
-        { value: 'en_cours', label: 'En cours' },
-        { value: 'transmise', label: 'Transmise' },
-        { value: 'refusee', label: 'Refusée' }
-      ];
-    } else if (task.type === 'lead_assignment') {
-      return [
-        { value: 'positive', label: 'Positif' },
-        { value: 'negative', label: 'Négatif' },
-        { value: 'no_answer', label: 'Pas de réponse' }
-      ];
-    }
-    return [];
-  };
-
   const getCurrentStatus = () => {
     if (task.type === 'job_offer_assignment') {
-      return task.data.status || 'non_attribuee';
+      return task.data.status || 'en_attente';
     } else if (task.type === 'lead_assignment') {
-      return task.data.phone_contact_status || '';
+      return task.data.phone_contact_status || 'en_attente';
     }
     return '';
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'en_attente':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">En attente</Badge>;
+      case 'negatif':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Négatif</Badge>;
+      case 'positif':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Positif</Badge>;
+      case 'a_relancer':
+        return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">À relancer</Badge>;
+      default:
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">{status}</Badge>;
+    }
   };
 
   return (
@@ -90,7 +103,7 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
               variant="ghost"
               size="sm"
               className="p-0 h-6 w-6 flex-shrink-0 mt-0.5"
-              onClick={handleComplete}
+              onClick={handleCompleteClick}
               disabled={isCompleting || task.isCompleted}
             >
               {showAnimation || task.isCompleted ? (
@@ -129,25 +142,11 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
                     </p>
                   )}
 
-                  {/* Sélecteur de statut pour les assignations */}
-                  {(task.type === 'job_offer_assignment' || task.type === 'lead_assignment') && !task.isCompleted && (
+                  {/* Affichage du statut actuel pour les assignations */}
+                  {(task.type === 'job_offer_assignment' || task.type === 'lead_assignment') && (
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-gray-500">Statut:</span>
-                      <Select
-                        value={getCurrentStatus()}
-                        onValueChange={(value) => onUpdateStatus(task.id, task.type, value)}
-                      >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue placeholder="Sélectionner un statut" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getStatusOptions().map((option) => (
-                            <SelectItem key={option.value} value={option.value} className="text-xs">
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {getStatusBadge(getCurrentStatus())}
                     </div>
                   )}
                   
@@ -168,6 +167,14 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog de completion avec sélection de statut */}
+      <TaskCompletionDialog
+        open={showCompletionDialog}
+        onOpenChange={setShowCompletionDialog}
+        task={task}
+        onComplete={handleComplete}
+      />
 
       {/* Modal de détails */}
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
@@ -248,6 +255,9 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
                     {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
                   </Badge>
                 </p>
+                {(task.type === 'job_offer_assignment' || task.type === 'lead_assignment') && (
+                  <p><strong>Statut actuel:</strong> {getStatusBadge(getCurrentStatus())}</p>
+                )}
               </div>
             </div>
           </div>

@@ -213,7 +213,14 @@ export const useTasks = () => {
       }
 
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, data: { ...task.data, status } } : task
+        task.id === taskId ? { 
+          ...task, 
+          data: { 
+            ...task.data, 
+            status: taskType === 'job_offer_assignment' ? status : task.data.status,
+            phone_contact_status: taskType === 'lead_assignment' ? status : task.data.phone_contact_status
+          } 
+        } : task
       ));
 
       toast({
