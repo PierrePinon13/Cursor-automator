@@ -216,8 +216,8 @@ const Dashboard = () => {
                     successRate={data.stats.success_rate}
                   />
                   
-                  {/* Table des utilisateurs si sélection spécifique */}
-                  {viewType === 'custom' && data.userComparison && data.userComparison.length > 0 && (
+                  {/* Table des utilisateurs si vue globale ou sélection multiple */}
+                  {(viewType === 'global' || (viewType === 'custom' && selectedUserIds.length > 1)) && data.userComparison && data.userComparison.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Performances par collaborateur</h3>
                       <UserStatsTable 
