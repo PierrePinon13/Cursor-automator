@@ -89,28 +89,10 @@ const History = () => {
           
           <div className="flex-1 overflow-hidden">
             {loading ? (
-              <div className="flex items-center justify-center p-8">
+              <div className="flex items-center justify-center p-8 min-h-[200px]">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                   <p className="text-sm text-gray-600">Chargement des activités...</p>
-                </div>
-              </div>
-            ) : activities.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <p className="text-lg">Aucune activité trouvée</p>
-                  <p className="text-sm mt-2">
-                    Vérifiez les diagnostics ci-dessus pour identifier les problèmes
-                  </p>
-                </div>
-              </div>
-            ) : filteredActivities.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <p className="text-lg">Aucune activité pour ces filtres</p>
-                  <p className="text-sm mt-2">
-                    {activities.length} activité{activities.length > 1 ? 's' : ''} au total, modifiez vos filtres
-                  </p>
                 </div>
               </div>
             ) : (
@@ -131,9 +113,11 @@ const History = () => {
             <div className="h-full flex items-center justify-center text-gray-500">
               <div className="text-center">
                 <p className="text-lg">Sélectionnez une activité pour voir les détails</p>
-                <p className="text-sm mt-2">
-                  {filteredActivities.length} activité{filteredActivities.length > 1 ? 's' : ''} disponible{filteredActivities.length > 1 ? 's' : ''}
-                </p>
+                {!loading && (
+                  <p className="text-sm mt-2">
+                    {filteredActivities.length} activité{filteredActivities.length > 1 ? 's' : ''} disponible{filteredActivities.length > 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -34,7 +34,7 @@ export const useLinkedInMessageHistory = (leadId: string) => {
     try {
       console.log('🔍 Fetching message history for lead:', leadId);
       
-      // Récupérer les messages depuis la nouvelle table activities
+      // Récupérer les messages depuis la table activities avec une clé étrangère explicite
       const { data: activitiesData, error: activitiesError } = await supabase
         .from('activities')
         .select('*')
@@ -44,6 +44,7 @@ export const useLinkedInMessageHistory = (leadId: string) => {
 
       if (activitiesError) {
         console.error('❌ Error fetching activities:', activitiesError);
+        setMessages([]);
         return;
       }
 
@@ -124,6 +125,7 @@ export const useLinkedInMessageHistory = (leadId: string) => {
       setMessages(formattedMessages);
     } catch (error) {
       console.error('💥 Unexpected error fetching message history:', error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }

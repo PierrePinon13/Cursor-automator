@@ -36,10 +36,14 @@ const ActivityList = ({
     }
   };
 
+  // Gestion de l'état de chargement et des données vides
   if (activities.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-500">
-        <p>Aucune activité trouvée dans l'historique</p>
+      <div className="p-4 text-center text-gray-500 min-h-[200px] flex items-center justify-center">
+        <div>
+          <MessageSquare className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+          <p>Aucune activité trouvée dans l'historique</p>
+        </div>
       </div>
     );
   }
@@ -51,6 +55,12 @@ const ActivityList = ({
     >
       {activities.map((activity, index) => {
         console.log(`📝 Rendering activity ${index + 1}:`, activity.id, activity.type, 'message_type:', activity.message_type);
+        
+        // Nom du lead avec fallback intelligent
+        const leadName = activity.lead_data?.author_name || 'Contact inconnu';
+        const leadPosition = activity.lead_data?.company_position || activity.lead_data?.unipile_position;
+        const leadCompany = activity.lead_data?.company_name || activity.lead_data?.unipile_company;
+        
         return (
           <div
             key={activity.id}
@@ -71,9 +81,14 @@ const ActivityList = ({
                   </span>
                 </div>
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {activity.lead_data?.author_name || 'Lead inconnu'}
+                  {leadName}
                 </p>
-                <p className="text-xs text-gray-600 truncate">
+                {(leadPosition || leadCompany) && (
+                  <p className="text-xs text-gray-600 truncate">
+                    {leadPosition}{leadPosition && leadCompany ? ' @ ' : ''}{leadCompany}
+                  </p>
+                )}
+                <p className="text-xs text-gray-600 truncate mt-1">
                   {activity.message}
                 </p>
                 {/* Affichage du nom de l'utilisateur qui a fait l'action */}
