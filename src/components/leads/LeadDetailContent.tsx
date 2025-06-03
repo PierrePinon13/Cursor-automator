@@ -2,7 +2,8 @@
 import React from 'react';
 import { Tables } from '@/integrations/supabase/types';
 import LeadInfo from './LeadInfo';
-import LeadMessageEditor from './LeadMessageEditor';
+import LeadMessageSection from './LeadMessageSection';
+import LeadActionsSection from './LeadActionsSection';
 
 type Lead = Tables<'leads'>;
 
@@ -36,12 +37,26 @@ const LeadDetailContent = ({
         </div>
       </div>
 
-      {/* Section milieu et droite - Message et Actions ensemble */}
-      <div className="w-2/3 bg-white h-full overflow-hidden">
+      {/* Section milieu - Message pré-rédigé */}
+      <div className="w-1/3 border-r border-gray-200 bg-white h-full overflow-hidden">
         <div className="p-6 h-full overflow-y-auto">
-          <LeadMessageEditor
+          <LeadMessageSection
+            lead={lead}
+            customMessage={customMessage}
+            onMessageChange={onMessageChange}
+          />
+        </div>
+      </div>
+
+      {/* Section droite - Actions */}
+      <div className="w-1/3 bg-white h-full overflow-hidden">
+        <div className="p-6 h-full overflow-y-auto">
+          <LeadActionsSection
             lead={lead}
             onAction={onAction}
+            onSendLinkedInMessage={onSendLinkedInMessage}
+            messageSending={messageSending}
+            customMessage={customMessage}
             onPhoneRetrieved={onPhoneRetrieved}
             onContactUpdate={onContactUpdate}
           />
