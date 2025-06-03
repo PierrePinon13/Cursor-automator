@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Circle, CheckCircle2, Calendar, User, Briefcase, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,11 +11,23 @@ import { TaskCompletionDialog } from './TaskCompletionDialog';
 
 interface TaskCardProps {
   task: Task;
-  onComplete: (taskId: string, taskType: Task['type']) => void;
-  onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => void;
+  onComplete: (taskId: string, taskType: Task['type']) => Promise<void>;
+  onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => Promise<void>;
+  onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => Promise<void>;
+  onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => Promise<void>;
+  isExpanded?: boolean;
+  onToggle?: () => void;
 }
 
-export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) => {
+export const TaskCard = ({ 
+  task, 
+  onComplete, 
+  onUpdateStatus, 
+  onUpdateComment, 
+  onUpdateFollowUpDate, 
+  isExpanded = false, 
+  onToggle 
+}: TaskCardProps) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
@@ -32,7 +43,11 @@ export const TaskCard = ({ task, onComplete, onUpdateStatus }: TaskCardProps) =>
   };
 
   const handleTaskClick = () => {
-    setShowDetail(true);
+    if (onToggle) {
+      onToggle();
+    } else {
+      setShowDetail(true);
+    }
   };
 
   const handleComplete = async (status: string) => {

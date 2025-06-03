@@ -10,11 +10,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useReminders } from '@/hooks/useReminders';
+import { useReminders, Reminder } from '@/hooks/useReminders';
 import { useTasks } from '@/hooks/useTasks';
 import { useNavigate } from 'react-router-dom';
 import NotificationsList from './NotificationsList';
 import UpcomingTasksList from './UpcomingTasksList';
+
+interface Notification {
+  id: string;
+  type: 'lead_assigned' | 'job_offer_assigned';
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  lead_id?: string;
+  lead_data?: any;
+  creator_name?: string;
+}
 
 const NotificationButton = () => {
   const { reminders, unreadCount, markAsRead, markAllAsRead } = useReminders();
@@ -22,9 +34,20 @@ const NotificationButton = () => {
   const navigate = useNavigate();
 
   // Séparer les notifications des tâches
-  const notifications = reminders.filter(r => 
-    r.type === 'lead_assigned' || r.type === 'job_offer_assigned'
-  );
+  const notifications: Notification[] = reminders
+    .filter(r => r.type === 'lead_assigned' || r.type === 'job_offer_assigned')
+    .map(r => ({
+      id: r.id,
+      type: r.type as 'lead_assigned' | 'job_offer_assigned',
+      title: r.title,
+      message: r.message,
+      read: r.read,
+      created_at: r.created_at,
+      lead_id: r.lead_id,
+      lead_data: r.lead_data,
+      creator_name: r.creator_name
+    }));
+  
   const notificationCount = notifications.filter(n => !n.read).length;
 
   // Filtrer les tâches dues dans les 3 prochains jours ou en retard
