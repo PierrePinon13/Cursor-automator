@@ -41,54 +41,53 @@ const Clients = () => {
 
   if (showManagement) {
     return (
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <DashboardHeader 
-            title="Gestion des Clients" 
-            subtitle="Administration et configuration des clients"
-          />
+      <div className="space-y-6">
+        <DashboardHeader>
           <Button
             variant="outline"
             onClick={() => setShowManagement(false)}
+            className="ml-4"
           >
             Retour
           </Button>
+        </DashboardHeader>
+        <div className="p-6">
+          <ClientManagement />
         </div>
-        <ClientManagement />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <DashboardHeader 
-          title="Clients" 
-          subtitle="Offres d'emploi et publications LinkedIn"
-        />
+    <div className="space-y-6">
+      <DashboardHeader>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-auto">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
+            <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
         <Button
           onClick={() => setShowManagement(true)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 ml-4"
         >
           <Users className="h-4 w-4" />
           Gestion clients
         </Button>
-      </div>
+      </DashboardHeader>
       
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
-          <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
-        </TabsList>
+      <div className="p-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsContent value="job-offers" className="space-y-6 mt-0">
+            <JobOffersSection />
+          </TabsContent>
 
-        <TabsContent value="job-offers" className="space-y-6">
-          <JobOffersSection />
-        </TabsContent>
-
-        <TabsContent value="linkedin-posts" className="space-y-6">
-          <ClientLeadsView />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="linkedin-posts" className="space-y-6 mt-0">
+            <ClientLeadsView />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };

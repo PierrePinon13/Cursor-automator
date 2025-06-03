@@ -16,9 +16,10 @@ import CustomSidebarTrigger from './ui/CustomSidebarTrigger';
 interface DashboardHeaderProps {
   title?: string;
   subtitle?: string;
+  children?: React.ReactNode;
 }
 
-const DashboardHeader = ({ title, subtitle }: DashboardHeaderProps = {}) => {
+const DashboardHeader = ({ title, subtitle, children }: DashboardHeaderProps = {}) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -38,6 +39,7 @@ const DashboardHeader = ({ title, subtitle }: DashboardHeaderProps = {}) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <CustomSidebarTrigger />
+          {children}
           {title && (
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
