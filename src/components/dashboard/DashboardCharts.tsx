@@ -1,9 +1,8 @@
 
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { ViewType, TimeFilter } from '@/hooks/useUserStats';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -17,42 +16,60 @@ interface UserStat {
 }
 
 interface DashboardChartsProps {
-  viewType: ViewType;
-  timeFilter: TimeFilter;
+  viewType: 'global' | 'comparison';
+  timeFilter: string;
   stats: UserStat[];
 }
 
 const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) => {
+  // Fonction pour obtenir le nom d'affichage d'un utilisateur
+  const getDisplayName = (user: UserStat) => {
+    if (!user.user_email) return `User ${user.user_id.slice(0, 8)}`;
+    
+    const nameFromEmail = user.user_email.split('@')[0];
+    const nameParts = nameFromEmail
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    
+    return nameParts.join(' ');
+  };
+
   // Préparer les données pour les graphiques
-  const chartData = useMemo(() => {
+  const { chartData, users, userColors } = useMemo(() => {
+    const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1'];
+    
     if (viewType === 'comparison') {
       // Pour la vue par collaborateur, grouper par date et utilisateur
       const groupedByDate = stats.reduce((acc, stat) => {
         const date = stat.stat_date;
         if (!acc[date]) {
-          acc[date] = {};
+          acc[date] = { date: format(new Date(date), 'dd/MM', { locale: fr }) };
         }
         
-        const userKey = stat.user_email || `User ${stat.user_id.slice(0, 8)}`;
-        acc[date][userKey] = {
-          linkedin_messages: stat.linkedin_messages_sent,
-          positive_calls: stat.positive_calls,
-          negative_calls: stat.negative_calls,
-          total_calls: stat.positive_calls + stat.negative_calls,
-          success_rate: stat.positive_calls + stat.negative_calls > 0 
-            ? (stat.positive_calls / (stat.positive_calls + stat.negative_calls)) * 100 
-            : 0
-        };
+        const userKey = getDisplayName(stat);
+        acc[date][`${userKey}_linkedin`] = stat.linkedin_messages_sent;
+        acc[date][`${userKey}_positive`] = stat.positive_calls;
+        acc[date][`${userKey}_negative`] = stat.negative_calls;
+        acc[date][`${userKey}_success_rate`] = stat.positive_calls + stat.negative_calls > 0 
+          ? (stat.positive_calls / (stat.positive_calls + stat.negative_calls)) * 100 
+          : 0;
         
         return acc;
-      }, {} as Record<string, Record<string, any>>);
+      }, {} as Record<string, any>);
 
-      return Object.entries(groupedByDate)
-        .map(([date, users]) => ({
-          date: format(new Date(date), 'dd/MM', { locale: fr }),
-          ...users
-        }))
+      const chartData = Object.values(groupedByDate)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Obtenir la liste des utilisateurs uniques
+      const uniqueUsers = [...new Set(stats.map(stat => getDisplayName(stat)))];
+      
+      // Assigner des couleurs aux utilisateurs
+      const userColors = uniqueUsers.reduce((acc, user, index) => {
+        acc[user] = colors[index % colors.length];
+        return acc;
+      }, {} as Record<string, string>);
+
+      return { chartData, users: uniqueUsers, userColors };
     } else {
       // Pour les vues personnelle et globale, agréger par date
       const groupedByDate = stats.reduce((acc, stat) => {
@@ -72,35 +89,21 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
         return acc;
       }, {} as Record<string, any>);
 
-      return Object.entries(groupedByDate)
+      const chartData = Object.entries(groupedByDate)
         .map(([date, data]) => ({
           date: format(new Date(date), 'dd/MM', { locale: fr }),
           linkedin_messages: data.linkedin_messages,
           positive_calls: data.positive_calls,
           negative_calls: data.negative_calls,
-          total_calls: data.positive_calls + data.negative_calls,
           success_rate: data.positive_calls + data.negative_calls > 0 
             ? (data.positive_calls / (data.positive_calls + data.negative_calls)) * 100 
             : 0
         }))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      return { chartData, users: [], userColors: {} };
     }
   }, [stats, viewType]);
-
-  // Obtenir la liste des utilisateurs pour les courbes multiples
-  const users = useMemo(() => {
-    if (viewType !== 'comparison') return [];
-    
-    const userSet = new Set<string>();
-    stats.forEach(stat => {
-      const userKey = stat.user_email || `User ${stat.user_id.slice(0, 8)}`;
-      userSet.add(userKey);
-    });
-    
-    return Array.from(userSet);
-  }, [stats, viewType]);
-
-  const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
 
   const chartConfig = {
     linkedin_messages: {
@@ -129,6 +132,47 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
     );
   }
 
+  // Composant de tooltip personnalisé pour afficher le nom complet
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-medium mb-2">{`Date: ${label}`}</p>
+          {payload.map((entry: any, index: number) => {
+            // Extraire le nom d'utilisateur de la dataKey
+            const dataKey = entry.dataKey;
+            let userName = '';
+            let metricType = '';
+            
+            if (dataKey.includes('_linkedin')) {
+              userName = dataKey.replace('_linkedin', '');
+              metricType = 'Messages LinkedIn';
+            } else if (dataKey.includes('_positive')) {
+              userName = dataKey.replace('_positive', '');
+              metricType = 'Appels positifs';
+            } else if (dataKey.includes('_negative')) {
+              userName = dataKey.replace('_negative', '');
+              metricType = 'Appels négatifs';
+            } else if (dataKey.includes('_success_rate')) {
+              userName = dataKey.replace('_success_rate', '');
+              metricType = 'Taux de réussite (%)';
+            } else {
+              metricType = entry.name || dataKey;
+            }
+            
+            return (
+              <p key={index} style={{ color: entry.color }} className="text-sm">
+                {userName ? `${userName} - ${metricType}` : metricType}: {entry.value}
+                {dataKey.includes('_success_rate') ? '%' : ''}
+              </p>
+            );
+          })}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Messages LinkedIn */}
@@ -143,18 +187,29 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={<CustomTooltip />} />
                 {viewType === 'comparison' ? (
-                  users.map((user, index) => (
-                    <Line
-                      key={user}
-                      type="monotone"
-                      dataKey={`${user}.linkedin_messages`}
-                      stroke={colors[index % colors.length]}
-                      strokeWidth={2}
-                      name={user}
+                  <>
+                    {users.map((user) => (
+                      <Line
+                        key={`${user}_linkedin`}
+                        type="monotone"
+                        dataKey={`${user}_linkedin`}
+                        stroke={userColors[user]}
+                        strokeWidth={2}
+                        name={user}
+                        connectNulls={false}
+                      />
+                    ))}
+                    <ChartLegend 
+                      content={<ChartLegendContent />} 
+                      payload={users.map(user => ({
+                        value: user,
+                        type: 'line',
+                        color: userColors[user]
+                      }))}
                     />
-                  ))
+                  </>
                 ) : (
                   <Line
                     type="monotone"
@@ -181,18 +236,29 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={<CustomTooltip />} />
                 {viewType === 'comparison' ? (
-                  users.map((user, index) => (
-                    <Line
-                      key={user}
-                      type="monotone"
-                      dataKey={`${user}.positive_calls`}
-                      stroke={colors[index % colors.length]}
-                      strokeWidth={2}
-                      name={user}
+                  <>
+                    {users.map((user) => (
+                      <Line
+                        key={`${user}_positive`}
+                        type="monotone"
+                        dataKey={`${user}_positive`}
+                        stroke={userColors[user]}
+                        strokeWidth={2}
+                        name={user}
+                        connectNulls={false}
+                      />
+                    ))}
+                    <ChartLegend 
+                      content={<ChartLegendContent />} 
+                      payload={users.map(user => ({
+                        value: user,
+                        type: 'line',
+                        color: userColors[user]
+                      }))}
                     />
-                  ))
+                  </>
                 ) : (
                   <Line
                     type="monotone"
@@ -219,18 +285,29 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={<CustomTooltip />} />
                 {viewType === 'comparison' ? (
-                  users.map((user, index) => (
-                    <Line
-                      key={user}
-                      type="monotone"
-                      dataKey={`${user}.negative_calls`}
-                      stroke={colors[index % colors.length]}
-                      strokeWidth={2}
-                      name={user}
+                  <>
+                    {users.map((user) => (
+                      <Line
+                        key={`${user}_negative`}
+                        type="monotone"
+                        dataKey={`${user}_negative`}
+                        stroke={userColors[user]}
+                        strokeWidth={2}
+                        name={user}
+                        connectNulls={false}
+                      />
+                    ))}
+                    <ChartLegend 
+                      content={<ChartLegendContent />} 
+                      payload={users.map(user => ({
+                        value: user,
+                        type: 'line',
+                        color: userColors[user]
+                      }))}
                     />
-                  ))
+                  </>
                 ) : (
                   <Line
                     type="monotone"
@@ -257,18 +334,29 @@ const DashboardCharts = ({ viewType, timeFilter, stats }: DashboardChartsProps) 
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis domain={[0, 100]} />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={<CustomTooltip />} />
                 {viewType === 'comparison' ? (
-                  users.map((user, index) => (
-                    <Line
-                      key={user}
-                      type="monotone"
-                      dataKey={`${user}.success_rate`}
-                      stroke={colors[index % colors.length]}
-                      strokeWidth={2}
-                      name={user}
+                  <>
+                    {users.map((user) => (
+                      <Line
+                        key={`${user}_success_rate`}
+                        type="monotone"
+                        dataKey={`${user}_success_rate`}
+                        stroke={userColors[user]}
+                        strokeWidth={2}
+                        name={user}
+                        connectNulls={false}
+                      />
+                    ))}
+                    <ChartLegend 
+                      content={<ChartLegendContent />} 
+                      payload={users.map(user => ({
+                        value: user,
+                        type: 'line',
+                        color: userColors[user]
+                      }))}
                     />
-                  ))
+                  </>
                 ) : (
                   <Line
                     type="monotone"
