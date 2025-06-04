@@ -1,4 +1,3 @@
-
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,9 @@ import { Separator } from '@/components/ui/separator';
 import { Calendar, MapPin, User, ExternalLink, Building, Phone, Crown } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { LeadActions } from './LeadActions';
-import { LeadMessageSection } from './LeadMessageSection';
-import { PhoneContactStatus } from './PhoneContactStatus';
+import LeadActions from './LeadActions';
+import LeadMessageSection from './LeadMessageSection';
+import PhoneContactStatus from './PhoneContactStatus';
 import { LeadWorkHistory } from './LeadWorkHistory';
 
 interface LeadDetailContentProps {
