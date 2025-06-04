@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -65,8 +66,8 @@ serve(async (req) => {
       
       if (metadataResponse.ok) {
         const metadata = await metadataResponse.json()
-        stats.apify_item_count = metadata.itemCount || 0
-        stats.apify_clean_item_count = metadata.cleanItemCount || 0
+        stats.apify_item_count = metadata?.itemCount || 0
+        stats.apify_clean_item_count = metadata?.cleanItemCount || 0
         
         console.log(`📋 Dataset metadata:`)
         console.log(`   📊 Total items: ${stats.apify_item_count}`)
@@ -79,25 +80,30 @@ serve(async (req) => {
         console.log('⚠️ Could not fetch dataset metadata')
       }
     } catch (error) {
-      console.log('❌ Error fetching metadata:', error.message)
+      console.log('❌ Error fetching metadata:', error?.message || 'Unknown error')
     }
 
     // Phase 1: Cleanup existing data if requested (seulement si pas en mode reprise)
     if (cleanupExisting && resumeFromBatch === 0) {
       console.log('🧹 Cleaning up existing data for dataset:', datasetId)
       
-      const { count: deletedPosts } = await supabaseClient
-        .from('linkedin_posts')
-        .delete({ count: 'exact' })
-        .eq('apify_dataset_id', datasetId)
+      try {
+        const { count: deletedPosts } = await supabaseClient
+          .from('linkedin_posts')
+          .delete({ count: 'exact' })
+          .eq('apify_dataset_id', datasetId)
 
-      const { count: deletedRaw } = await supabaseClient
-        .from('linkedin_posts_raw')
-        .delete({ count: 'exact' })
-        .eq('apify_dataset_id', datasetId)
+        const { count: deletedRaw } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .delete({ count: 'exact' })
+          .eq('apify_dataset_id', datasetId)
 
-      stats.cleaned_existing = (deletedPosts || 0) + (deletedRaw || 0)
-      console.log(`✅ Cleanup completed: ${stats.cleaned_existing} records deleted`)
+        stats.cleaned_existing = (deletedPosts || 0) + (deletedRaw || 0)
+        console.log(`✅ Cleanup completed: ${stats.cleaned_existing} records deleted`)
+      } catch (cleanupError) {
+        console.error('❌ Error during cleanup:', cleanupError?.message || 'Unknown cleanup error')
+        stats.cleaned_existing = 0
+      }
     }
 
     // 🚀 STRATÉGIE ANTI-TIMEOUT : Mode rapide pour webhooks
@@ -127,7 +133,7 @@ serve(async (req) => {
         });
         
       } catch (error) {
-        console.error('❌ Error delegating webhook processing:', error);
+        console.error('❌ Error delegating webhook processing:', error?.message || 'Unknown delegation error');
         throw error;
       }
     }
@@ -175,9 +181,9 @@ serve(async (req) => {
           }
 
           const batchItems = await apifyResponse.json()
-          console.log(`📊 Batch ${batchCount}: ${batchItems.length} items retrieved`)
+          console.log(`📊 Batch ${batchCount}: ${batchItems?.length || 0} items retrieved`)
           
-          if (!batchItems || batchItems.length === 0) {
+          if (!batchItems || !Array.isArray(batchItems) || batchItems.length === 0) {
             console.log(`📄 Empty batch - stopping pagination`)
             break
           }
@@ -199,7 +205,7 @@ serve(async (req) => {
           }
 
         } catch (error) {
-          console.error(`❌ Error fetching batch ${batchCount}:`, error)
+          console.error(`❌ Error fetching batch ${batchCount}:`, error?.message || 'Unknown fetch error')
           if (allDatasetItems.length > 0) {
             console.log('⚠️ Error but we have some data, stopping...')
             break
@@ -225,7 +231,7 @@ serve(async (req) => {
       // Phase 3: Stockage RAPIDE des données brutes
       console.log('💾 Storing raw data with FAST processing...')
       let rawStoredCount = 0
-      const BATCH_SIZE = 500 // Augmenté de 100 à 500
+      const BATCH_SIZE = 500
 
       const validRawData = allDatasetItems
         .filter(item => item && item.urn)
@@ -236,7 +242,7 @@ serve(async (req) => {
               urn: item.urn,
               text: item.text || null,
               title: item.title || null,
-              url: item.url,
+              url: item.url || null,
               posted_at_timestamp: item.postedAtTimestamp || null,
               posted_at_iso: item.postedAt || null,
               author_type: item.authorType || null,
@@ -270,7 +276,7 @@ serve(async (req) => {
             })
 
           if (batchError) {
-            console.error(`❌ Error in batch ${batchNumber}:`, batchError)
+            console.error(`❌ Error in batch ${batchNumber}:`, batchError?.message || 'Unknown batch error')
             stats.processing_errors += batch.length
           } else {
             rawStoredCount += batch.length
@@ -278,11 +284,11 @@ serve(async (req) => {
           }
 
           if (i + BATCH_SIZE < validRawData.length) {
-            await new Promise(resolve => setTimeout(resolve, 50)) // Pause très réduite
+            await new Promise(resolve => setTimeout(resolve, 50))
           }
 
         } catch (error) {
-          console.error(`❌ Exception in batch ${batchNumber}:`, error)
+          console.error(`❌ Exception in batch ${batchNumber}:`, error?.message || 'Unknown batch exception')
           stats.processing_errors += batch.length
         }
       }
@@ -302,30 +308,35 @@ serve(async (req) => {
     console.log('📥 Fetching ALL raw data from database (no 1000 limit)...')
     
     while (true) {
-      const { data: rawDataPage, error: fetchError } = await supabaseClient
-        .from('linkedin_posts_raw')
-        .select('raw_data')
-        .eq('apify_dataset_id', datasetId)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+      try {
+        const { data: rawDataPage, error: fetchError } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .select('raw_data')
+          .eq('apify_dataset_id', datasetId)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-      if (fetchError) {
-        throw new Error(`Error fetching raw data page ${page}: ${fetchError.message}`)
-      }
+        if (fetchError) {
+          throw new Error(`Error fetching raw data page ${page}: ${fetchError.message}`)
+        }
 
-      if (!rawDataPage || rawDataPage.length === 0) {
-        console.log(`📄 No more raw data - stopping at page ${page}`)
+        if (!rawDataPage || rawDataPage.length === 0) {
+          console.log(`📄 No more raw data - stopping at page ${page}`)
+          break
+        }
+
+        console.log(`📥 Fetched page ${page + 1}: ${rawDataPage.length} raw records`)
+        allRawData = allRawData.concat(rawDataPage.map(item => item?.raw_data).filter(Boolean))
+        
+        if (rawDataPage.length < PAGE_SIZE) {
+          console.log(`📄 Last page reached (${rawDataPage.length} < ${PAGE_SIZE})`)
+          break
+        }
+        
+        page++
+      } catch (error) {
+        console.error(`❌ Error fetching raw data page ${page}:`, error?.message || 'Unknown page error')
         break
       }
-
-      console.log(`📥 Fetched page ${page + 1}: ${rawDataPage.length} raw records`)
-      allRawData = allRawData.concat(rawDataPage.map(item => item.raw_data))
-      
-      if (rawDataPage.length < PAGE_SIZE) {
-        console.log(`📄 Last page reached (${rawDataPage.length} < ${PAGE_SIZE})`)
-        break
-      }
-      
-      page++
     }
 
     allDatasetItems = allRawData
@@ -364,7 +375,7 @@ serve(async (req) => {
       for (const item of chunk) {
         try {
           // Filtres ultra-rapides
-          if (!item.urn || !item.url) {
+          if (!item || !item.urn || !item.url) {
             batchExcludedByMissingFields++
             continue
           }
@@ -382,7 +393,7 @@ serve(async (req) => {
             url: item.url,
             posted_at_timestamp: item.postedAtTimestamp || null,
             posted_at_iso: item.postedAt || null,
-            author_type: item.authorType,
+            author_type: item.authorType || null,
             author_profile_url: item.authorProfileUrl || 'Unknown',
             author_profile_id: item.authorProfileId || null,
             author_name: item.authorName || 'Unknown author',
@@ -394,7 +405,7 @@ serve(async (req) => {
           batchData.push(postData)
 
         } catch (error) {
-          console.error('❌ Error preparing item:', error)
+          console.error('❌ Error preparing item:', error?.message || 'Unknown item error')
           stats.processing_errors++
         }
       }
@@ -410,14 +421,14 @@ serve(async (req) => {
             })
 
           if (insertError) {
-            console.error(`❌ Error inserting FAST batch ${currentBatch}:`, insertError)
+            console.error(`❌ Error inserting FAST batch ${currentBatch}:`, insertError?.message || 'Unknown insert error')
             stats.processing_errors += batchData.length
           } else {
             console.log(`✅ FAST batch ${currentBatch} inserted: ${batchData.length} posts`)
             queuedCount += batchData.length
           }
         } catch (error) {
-          console.error(`❌ Exception in FAST batch ${currentBatch}:`, error)
+          console.error(`❌ Exception in FAST batch ${currentBatch}:`, error?.message || 'Unknown batch exception')
           stats.processing_errors += batchData.length
         }
       }
@@ -426,8 +437,6 @@ serve(async (req) => {
       excludedByAuthorType += batchExcludedByAuthorType
       excludedByMissingFields += batchExcludedByMissingFields
       alreadyQueued += batchAlreadyQueued
-
-      // Pas de pause pour aller vite
     }
 
     stats.queued_for_processing = queuedCount
@@ -443,40 +452,43 @@ serve(async (req) => {
     // 🚀 DÉLÉGATION OPTIMISÉE : Déclencher le processing avec timeout management
     console.log('🚀 DELEGATING to processing-queue-manager with TIMEOUT PROTECTION...')
     
-    // Déclencher immédiatement le queue manager pour traiter les posts en attente
     try {
       const queueResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
         body: { 
           action: 'queue_posts',
           dataset_id: datasetId,
-          timeout_protection: true // Nouveau flag pour gestion des timeouts
+          timeout_protection: true
         }
       })
       
-      if (queueResponse.data?.success) {
+      if (queueResponse?.data?.success) {
         console.log(`✅ Queue manager triggered successfully: ${queueResponse.data.queued_count} posts queued`)
       } else {
-        console.log(`⚠️ Queue manager trigger failed: ${queueResponse.error?.message}`)
+        console.log(`⚠️ Queue manager trigger failed: ${queueResponse?.error?.message || 'Unknown queue error'}`)
       }
     } catch (error) {
-      console.log(`⚠️ Error triggering queue manager: ${error.message}`)
+      console.log(`⚠️ Error triggering queue manager: ${error?.message || 'Unknown trigger error'}`)
     }
 
     // Stocker les statistiques finales
-    await supabaseClient
-      .from('apify_webhook_stats')
-      .upsert({
-        ...stats,
-        reprocessing: !webhook_triggered,
-        classification_success_rate: stats.total_fetched > 0 ? 
-          ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(2) : 0,
-        storage_success_rate: stats.total_fetched > 0 ? 
-          ((stats.stored_raw / stats.total_fetched) * 100).toFixed(2) : 0,
-        excluded_by_author_type: excludedByAuthorType,
-        excluded_by_missing_fields: excludedByMissingFields,
-        already_queued: alreadyQueued,
-        processing_completed: true
-      }, { onConflict: 'dataset_id' })
+    try {
+      await supabaseClient
+        .from('apify_webhook_stats')
+        .upsert({
+          ...stats,
+          reprocessing: !webhook_triggered,
+          classification_success_rate: stats.total_fetched > 0 ? 
+            ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(2) : '0',
+          storage_success_rate: stats.total_fetched > 0 ? 
+            ((stats.stored_raw / stats.total_fetched) * 100).toFixed(2) : '0',
+          excluded_by_author_type: excludedByAuthorType,
+          excluded_by_missing_fields: excludedByMissingFields,
+          already_queued: alreadyQueued,
+          processing_completed: true
+        }, { onConflict: 'dataset_id' })
+    } catch (statsError) {
+      console.error('❌ Error storing final stats:', statsError?.message || 'Unknown stats error')
+    }
 
     console.log(`🚀 MANUAL PROCESSING COMPLETE:`)
     console.log(`📊 Dataset ID: ${datasetId}`)
@@ -492,9 +504,9 @@ serve(async (req) => {
       statistics: stats,
       diagnostics: {
         retrieval_rate_percent: stats.apify_item_count > 0 ? 
-          ((stats.total_fetched / stats.apify_item_count) * 100).toFixed(1) : 0,
+          ((stats.total_fetched / stats.apify_item_count) * 100).toFixed(1) : '0',
         qualification_rate_percent: stats.total_fetched > 0 ? 
-          ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(1) : 0,
+          ((stats.queued_for_processing / stats.total_fetched) * 100).toFixed(1) : '0',
         excluded_breakdown: {
           companies: excludedByAuthorType,
           missing_fields: excludedByMissingFields,
@@ -512,6 +524,7 @@ serve(async (req) => {
         '🚀 SCALABLE ARCHITECTURE: Queue manager handles all processing',
         '✅ FIXED 1000-LIMIT BUG: Now processes ALL raw data items',
         '⚡ WEBHOOK TIMEOUT PROTECTION: Fast delegation mode for webhooks',
+        '🔧 NULL SAFETY: Enhanced error handling to prevent null exceptions',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
@@ -524,10 +537,10 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in process-dataset function:', error)
+    console.error('❌ Error in process-dataset function:', error?.message || 'Unknown error')
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error?.message || 'Unknown error occurred'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
