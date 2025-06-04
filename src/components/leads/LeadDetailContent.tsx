@@ -112,7 +112,7 @@ const LeadDetailContent = ({
   const charactersRemaining = 300 - customMessage.length;
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-gray-50">
       {/* Alert entreprise cliente */}
       {lead.has_previous_client_company && (
         <div className="bg-yellow-100 border border-yellow-300 p-3 mx-6 mt-4 rounded">
@@ -126,7 +126,7 @@ const LeadDetailContent = ({
       {/* Layout 3 colonnes */}
       <div className="flex-1 flex overflow-hidden">
         {/* COLONNE GAUCHE - Poste recherché + Publication */}
-        <div className="w-1/3 bg-gray-50 p-6">
+        <div className="w-1/3 bg-white p-6 border-r border-gray-200">
           <div className="space-y-6">
             {/* Encart vert - Poste recherché */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -136,7 +136,6 @@ const LeadDetailContent = ({
                 </div>
                 <h3 className="font-semibold text-green-800">Poste recherché</h3>
               </div>
-              <p className="text-sm text-green-700 mb-2">Postes identifiés par l'IA</p>
               
               {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
                 <div className="space-y-2">
@@ -154,8 +153,8 @@ const LeadDetailContent = ({
             </div>
 
             {/* Publication LinkedIn */}
-            <div className="bg-white rounded-lg border shadow-sm">
-              <div className="border-b p-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="border-b border-gray-100 p-4">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
                     <Linkedin className="h-4 w-4 text-white" />
@@ -178,7 +177,7 @@ const LeadDetailContent = ({
             </div>
 
             {/* Lien vers la publication */}
-            <div className="bg-white rounded-lg border shadow-sm p-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <Button
                 variant="outline"
                 className="w-full justify-center"
@@ -192,9 +191,9 @@ const LeadDetailContent = ({
         </div>
 
         {/* COLONNE CENTRE - Message d'approche */}
-        <div className="w-1/3 bg-white border-r border-l p-6">
+        <div className="w-1/3 bg-white border-r border-gray-200 p-6">
           <div className="h-full flex flex-col">
-            <div className="border-b pb-4 mb-6">
+            <div className="border-b border-gray-100 pb-4 mb-6">
               <div className="flex items-center gap-2 mb-2">
                 <Send className="h-5 w-5 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">Message d'approche</h3>
@@ -224,82 +223,73 @@ const LeadDetailContent = ({
                     ✓ Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
                   </div>
                 )}
-
-                <Button
-                  onClick={onSendLinkedInMessage}
-                  disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {messageSending ? 'Envoi en cours...' : 
-                   hasLinkedInMessage ? 'Message déjà envoyé' : 
-                   'Envoyer le message LinkedIn'}
-                </Button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* COLONNE DROITE - Actions */}
-        <div className="w-1/3 bg-gray-50 p-6">
-          <div className="h-full flex flex-col">
-            <div className="border-b border-gray-200 pb-4 mb-6">
-              <h3 className="font-semibold text-gray-900">Actions</h3>
-              <p className="text-sm text-gray-600 mt-1">Gérer ce lead</p>
-            </div>
-            
-            <div className="space-y-4 flex-1">
-              {/* Informations du lead */}
-              <div className="bg-white rounded-lg border shadow-sm">
-                <div className="border-b p-4">
-                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                    <User className="h-4 w-4 text-blue-600" />
-                    Informations du lead
-                  </h4>
+        {/* COLONNE DROITE - Actions selon votre capture */}
+        <div className="w-1/3 bg-white p-6">
+          <div className="h-full flex flex-col space-y-4">
+            {/* Message LinkedIn - En haut */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <Linkedin className="h-5 w-5 text-white" />
                 </div>
-                <div className="p-4 space-y-3 text-sm">
-                  <div>
-                    <span className="text-gray-600">Nom :</span>
-                    <span className="ml-2 font-medium">{lead.author_name || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Poste :</span>
-                    <span className="ml-2 font-medium">{lead.unipile_position || 'Non disponible'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Date :</span>
-                    <span className="ml-2 font-medium">{formatDate(lead.latest_post_date)}</span>
-                  </div>
+                <div>
+                  <h4 className="font-semibold text-blue-900">Message LinkedIn</h4>
+                  <p className="text-xs text-blue-700">Action principale</p>
                 </div>
               </div>
+              
+              <Button
+                onClick={onSendLinkedInMessage}
+                disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                size="lg"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {messageSending ? 'Envoi en cours...' : 
+                 hasLinkedInMessage ? 'Message déjà envoyé' : 
+                 'Envoyer le message LinkedIn'}
+              </Button>
+              
+              {hasLinkedInMessage && (
+                <div className="text-xs text-green-600 text-center mt-2">
+                  Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
+                </div>
+              )}
+            </div>
 
-              {/* Récupérer téléphone */}
+            {/* Récupérer le téléphone */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
               {!lead.phone_number ? (
                 <Button
                   onClick={handleRetrievePhone}
                   disabled={phoneLoading}
-                  variant="outline"
-                  className="w-full h-12"
+                  className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-medium"
+                  size="lg"
                 >
                   <Phone className="h-4 w-4 mr-2" />
                   {phoneLoading ? 'Recherche...' : 'Récupérer le téléphone'}
                 </Button>
               ) : (
-                <div className="bg-white p-4 rounded-lg border shadow-sm">
-                  <PhoneContactStatus
-                    leadId={lead.id}
-                    phoneNumber={lead.phone_number}
-                    currentStatus={lead.phone_contact_status}
-                    onStatusUpdate={() => onContactUpdate?.()}
-                  />
-                </div>
+                <PhoneContactStatus
+                  leadId={lead.id}
+                  phoneNumber={lead.phone_number}
+                  currentStatus={lead.phone_contact_status}
+                  onStatusUpdate={() => onContactUpdate?.()}
+                />
               )}
+            </div>
 
-              {/* Planifier un rappel */}
+            {/* Planifier un rappel */}
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
               <Button
-                variant="outline"
-                className="w-full h-12"
                 onClick={() => onAction('schedule_reminder')}
+                className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-medium"
+                size="lg"
               >
                 <Calendar className="h-4 w-4 mr-2" />
                 Planifier un rappel
@@ -307,29 +297,32 @@ const LeadDetailContent = ({
             </div>
 
             {/* Section Signalement */}
-            <div className="mt-auto pt-6">
-              <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-4">Signalement</h4>
-                
-                <div className="space-y-3">
-                  <Button
-                    onClick={handleMistargetedPost}
-                    variant="outline"
-                    className="w-full justify-start text-sm"
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Publication mal ciblée
-                  </Button>
-                  
-                  <Button
-                    onClick={() => onAction('hr_provider')}
-                    variant="outline"
-                    className="w-full justify-start text-sm"
-                  >
-                    <Building className="h-4 w-4 mr-2" />
-                    Prestataire RH
-                  </Button>
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex-1">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1 bg-orange-100 rounded">
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
                 </div>
+                <h4 className="font-semibold text-orange-800">Signalement</h4>
+              </div>
+              
+              <div className="space-y-3">
+                <Button
+                  onClick={handleMistargetedPost}
+                  variant="outline"
+                  className="w-full h-10 justify-start bg-white hover:bg-orange-50 border-orange-200"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2 text-orange-600" />
+                  Publication mal ciblée
+                </Button>
+                
+                <Button
+                  onClick={() => onAction('hr_provider')}
+                  variant="outline"
+                  className="w-full h-10 justify-start bg-white hover:bg-orange-50 border-orange-200"
+                >
+                  <Building className="h-4 w-4 mr-2 text-orange-600" />
+                  Prestataire RH
+                </Button>
               </div>
             </div>
           </div>

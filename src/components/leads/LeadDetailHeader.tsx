@@ -64,34 +64,34 @@ const LeadDetailHeader = ({
   const companyId = lead.company_id;
 
   return (
-    <div className="px-6 py-4 bg-blue-600 text-white">
+    <div className="px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           {/* Première ligne : Nom + LinkedIn */}
           <div className="flex items-center gap-3 mb-2">
-            <h3 className="font-semibold text-xl">{lead.author_name || 'N/A'}</h3>
+            <h3 className="font-semibold text-xl text-gray-900">{lead.author_name || 'N/A'}</h3>
             <a
               href={lead.author_profile_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white hover:text-blue-200 transition-colors hover:scale-110 transform duration-200"
+              className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110 transform duration-200"
             >
               <Linkedin className="h-5 w-5" />
             </a>
           </div>
           
           {/* Deuxième ligne : Poste @ Entreprise */}
-          <div className="text-blue-100 flex items-center gap-1">
+          <div className="text-gray-600 flex items-center gap-1">
             {lead.unipile_position && (
-              <span className="font-medium">{lead.unipile_position}</span>
+              <span className="font-medium text-gray-700">{lead.unipile_position}</span>
             )}
-            {lead.unipile_position && companyName && <span className="mx-1">@</span>}
+            {lead.unipile_position && companyName && <span className="mx-1 text-gray-500">@</span>}
             {companyName && (
               <CompanyHoverCard 
                 companyId={companyId} 
                 companyName={companyName}
               >
-                <span className="font-semibold text-white hover:text-blue-200 cursor-pointer hover:underline transition-all duration-200 bg-blue-500 bg-opacity-50 px-2 py-1 rounded">
+                <span className="font-semibold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline transition-all duration-200 bg-blue-50 px-2 py-1 rounded">
                   {companyName}
                 </span>
               </CompanyHoverCard>
@@ -142,7 +142,7 @@ const LeadDetailHeader = ({
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="h-8 w-8 p-0 border-white text-white hover:bg-white hover:text-blue-600"
+            className="h-8 w-8 p-0 border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           >
             <X className="h-4 w-4" />
           </Button>
