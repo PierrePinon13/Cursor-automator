@@ -84,10 +84,36 @@ const LeadDetailDialog = ({
     if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return;
     
     const lead = currentLeads[selectedLeadIndex];
-    const success = await sendMessage(lead.id, customMessage);
+    
+    if (!customMessage.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le message ne peut pas être vide",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (customMessage.length > 300) {
+      toast({
+        title: "Erreur",
+        description: "Le message dépasse la limite de 300 caractères",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const success = await sendMessage(lead.id, customMessage, {
+      author_name: lead.author_name,
+      author_profile_url: lead.author_profile_url
+    });
     
     if (success) {
       onActionCompleted();
+      toast({
+        title: "Message envoyé",
+        description: "Votre message LinkedIn a été envoyé avec succès",
+      });
     }
   };
 
@@ -128,6 +154,18 @@ const LeadDetailDialog = ({
             title: "Succès",
             description: "Appel négatif enregistré",
           });
+          break;
+
+        case 'message_sent':
+          // Marquer le message comme envoyé
+          await supabase
+            .from('leads')
+            .update({
+              linkedin_message_sent_at: new Date().toISOString(),
+              last_contact_at: new Date().toISOString(),
+              last_updated_at: new Date().toISOString()
+            })
+            .eq('id', lead.id);
           break;
       }
       
