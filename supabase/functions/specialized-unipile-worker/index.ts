@@ -23,12 +23,39 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { post_id, dataset_id, batch_mode = false } = await req.json();
+    const requestBody = await req.json();
+    console.log('📥 Request body received:', JSON.stringify(requestBody, null, 2));
     
-    if (batch_mode) {
+    const { post_id, dataset_id, batch_mode = false, task_type } = requestBody;
+    
+    // ✅ CORRECTION : Vérification et gestion des paramètres
+    if (!post_id && !dataset_id && !batch_mode) {
+      console.error('❌ Missing required parameters: post_id, dataset_id, or batch_mode');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Missing required parameters: post_id, dataset_id, or batch_mode' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Mode batch ou dataset_id fourni sans post_id spécifique
+    if (batch_mode || (dataset_id && !post_id)) {
+      console.log(`📦 Processing batch Unipile scraping for dataset: ${dataset_id}`);
       return await processBatchUnipile(supabaseClient, dataset_id);
-    } else {
+    } else if (post_id) {
+      console.log(`🎯 Processing single post Unipile scraping for post: ${post_id}`);
       return await processSinglePost(supabaseClient, post_id, dataset_id);
+    } else {
+      console.error('❌ Invalid request: no valid processing mode detected');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid request: no valid processing mode detected' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
   } catch (error) {
@@ -43,7 +70,13 @@ serve(async (req) => {
   }
 });
 
-async function processSinglePost(supabaseClient: any, postId: string, datasetId: string) {
+async function processSinglePost(supabaseClient: any, postId: string, datasetId?: string) {
+  // ✅ AMÉLIORATION : Validation du postId
+  if (!postId || postId === 'undefined' || postId === 'null') {
+    console.error('❌ Invalid post ID received:', postId);
+    throw new Error(`Invalid post ID: ${postId}`);
+  }
+
   console.log(`🎯 Processing Unipile scraping for post: ${postId}`);
 
   // Récupérer le post
@@ -54,8 +87,11 @@ async function processSinglePost(supabaseClient: any, postId: string, datasetId:
     .single();
 
   if (fetchError || !post) {
+    console.error(`❌ Post not found or error fetching post ${postId}:`, fetchError);
     throw new Error(`Post not found: ${postId}`);
   }
+
+  console.log(`📋 Post found: ${post.author_name} - ${post.title?.substring(0, 50) || 'No title'}...`);
 
   if (!post.author_profile_id) {
     console.log(`⚠️ No author_profile_id for post ${postId}, marking as scraped with null data`);
@@ -70,12 +106,13 @@ async function processSinglePost(supabaseClient: any, postId: string, datasetId:
       .eq('id', postId);
     
     // Déclencher la création de lead
-    await triggerLeadCreation(supabaseClient, postId, datasetId);
+    await triggerLeadCreation(supabaseClient, postId, datasetId || post.apify_dataset_id);
     
     return new Response(JSON.stringify({ 
       success: true, 
       skipped: true,
-      post_id: postId
+      post_id: postId,
+      reason: 'No author_profile_id'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
@@ -84,8 +121,11 @@ async function processSinglePost(supabaseClient: any, postId: string, datasetId:
   // Récupérer un compte Unipile disponible
   const accountId = await getAvailableUnipileAccount(supabaseClient);
   if (!accountId) {
+    console.error('❌ No Unipile accounts available');
     throw new Error('No Unipile accounts available');
   }
+
+  console.log(`🔑 Using Unipile account: ${accountId}`);
 
   try {
     const scrapingResult = await scrapeWithRateLimit(
@@ -95,8 +135,10 @@ async function processSinglePost(supabaseClient: any, postId: string, datasetId:
       postId
     );
 
+    console.log(`✅ Scraping completed for post ${postId}`);
+
     // Déclencher la création de lead
-    await triggerLeadCreation(supabaseClient, postId, datasetId);
+    await triggerLeadCreation(supabaseClient, postId, datasetId || post.apify_dataset_id);
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -108,6 +150,7 @@ async function processSinglePost(supabaseClient: any, postId: string, datasetId:
     });
 
   } catch (error) {
+    console.error(`❌ Scraping failed for post ${postId}:`, error);
     await handleUnipileError(supabaseClient, postId, error);
     throw error;
   }
@@ -116,7 +159,7 @@ async function processSinglePost(supabaseClient: any, postId: string, datasetId:
 async function processBatchUnipile(supabaseClient: any, datasetId?: string) {
   console.log('📦 Processing batch Unipile scraping...');
 
-  // Récupérer les posts en attente de scraping
+  // ✅ AMÉLIORATION : Requête plus spécifique pour les posts prêts pour Unipile
   let query = supabaseClient
     .from('linkedin_posts')
     .select('*')
@@ -131,10 +174,25 @@ async function processBatchUnipile(supabaseClient: any, datasetId?: string) {
 
   const { data: posts, error } = await query
     .order('created_at', { ascending: true })
-    .limit(20);
+    .limit(50); // Réduire la limite pour éviter les timeouts
 
   if (error) {
+    console.error('❌ Error fetching posts for Unipile scraping:', error);
     throw new Error(`Error fetching posts for Unipile scraping: ${error.message}`);
+  }
+
+  console.log(`🔄 Found ${posts.length} posts ready for Unipile scraping`);
+
+  if (posts.length === 0) {
+    return new Response(JSON.stringify({
+      success: true,
+      batch_size: 0,
+      success_count: 0,
+      error_count: 0,
+      message: 'No posts ready for Unipile scraping'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   // Récupérer tous les comptes Unipile disponibles
@@ -144,60 +202,57 @@ async function processBatchUnipile(supabaseClient: any, datasetId?: string) {
     .not('unipile_account_id', 'is', null);
 
   if (accountsError || !accounts?.length) {
+    console.error('❌ No Unipile accounts available:', accountsError);
     throw new Error('No Unipile accounts available');
   }
 
-  console.log(`🔄 Found ${posts.length} posts to scrape with ${accounts.length} accounts`);
+  console.log(`🔑 Found ${accounts.length} Unipile accounts`);
 
   // Distribuer les posts entre les comptes disponibles
   const accountIds = accounts.map(acc => acc.unipile_account_id);
   const results = [];
 
+  let successCount = 0;
+  let errorCount = 0;
+
+  // Traitement séquentiel pour éviter les problèmes de rate limiting
   for (let i = 0; i < posts.length; i++) {
     const post = posts[i];
     const accountId = accountIds[i % accountIds.length]; // Distribution round-robin
 
     try {
-      // Traitement asynchrone avec rate limiting par compte
-      const scrapingPromise = scrapeWithRateLimit(
+      console.log(`🔍 Processing post ${i + 1}/${posts.length}: ${post.id}`);
+      
+      const scrapingResult = await scrapeWithRateLimit(
         supabaseClient, 
         accountId, 
         post.author_profile_id, 
         post.id
       );
 
-      results.push({
-        post_id: post.id,
-        account_id: accountId,
-        promise: scrapingPromise
+      successCount++;
+      console.log(`✅ Post ${post.id} processed successfully`);
+
+      // Déclencher la création de lead
+      triggerLeadCreation(supabaseClient, post.id, datasetId || post.apify_dataset_id).catch(err => {
+        console.error(`Error triggering lead creation for ${post.id}:`, err);
       });
 
     } catch (error) {
-      console.error(`❌ Error setting up scraping for post ${post.id}:`, error);
+      errorCount++;
+      console.error(`❌ Error processing post ${post.id}:`, error);
+      
+      // Gérer l'erreur pour ce post spécifique
+      await handleUnipileError(supabaseClient, post.id, error);
+    }
+
+    // Petite pause entre les posts pour éviter la surcharge
+    if (i < posts.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
-  // Attendre tous les résultats (avec rate limiting appliqué)
-  const completedResults = await Promise.allSettled(
-    results.map(r => r.promise)
-  );
-
-  let successCount = 0;
-  let errorCount = 0;
-
-  completedResults.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      successCount++;
-      // Déclencher la création de lead pour ce post
-      const postId = results[index].post_id;
-      triggerLeadCreation(supabaseClient, postId, datasetId).catch(err => {
-        console.error(`Error triggering lead creation for ${postId}:`, err);
-      });
-    } else {
-      errorCount++;
-      console.error(`Scraping failed for post ${results[index].post_id}:`, result.reason);
-    }
-  });
+  console.log(`📊 Batch completed: ${successCount} success, ${errorCount} errors`);
 
   return new Response(JSON.stringify({
     success: true,
