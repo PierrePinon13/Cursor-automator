@@ -19,7 +19,26 @@ interface LinkedInPost {
   created_at: string;
 }
 
-export const useLeadsNew = () => {
+interface SearchFilters {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}
+
+export const useLeadsNew = (): {
+  leads: Lead[];
+  filteredLeads: Lead[];
+  loading: boolean;
+  selectedCategories: string[];
+  setSelectedCategories: (categories: string[]) => void;
+  selectedDateFilter: string;
+  setSelectedDateFilter: (filter: string) => void;
+  selectedContactFilter: string;
+  setSelectedContactFilter: (filter: string) => void;
+  availableCategories: string[];
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  refreshLeads: () => Promise<void>;
+} => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +46,7 @@ export const useLeadsNew = () => {
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
   const [selectedContactFilter, setSelectedContactFilter] = useState<string>('exclude_2weeks');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchLeads();
@@ -34,7 +54,7 @@ export const useLeadsNew = () => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter]);
+  }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter, searchQuery]);
 
   useEffect(() => {
     // Extract unique categories from leads
@@ -75,7 +95,7 @@ export const useLeadsNew = () => {
 
       const hrProviderNames = hrProviders?.map(provider => provider.company_name.toLowerCase()) || [];
 
-      // ✅ AMÉLIORATION : Requête avec plus de champs pour le debugging
+      // ✅ AMÉLIORATION : Requête avec plus de champs pour le debugging et correction des dates
       let query = supabase
         .from('leads')
         .select(`
@@ -87,8 +107,12 @@ export const useLeadsNew = () => {
           title,
           url,
           latest_post_url,
+          posted_at_iso,
+          posted_at_timestamp,
+          latest_post_date,
           has_previous_client_company,
-          previous_client_companies
+          previous_client_companies,
+          apify_dataset_id
         `)
         .order('created_at', { ascending: false });
 
@@ -112,15 +136,17 @@ export const useLeadsNew = () => {
 
       console.log(`📋 Fetched ${filteredLeads.length} leads after filtering`);
       
-      // ✅ DEBUG : Log des premiers leads pour vérifier les données
+      // ✅ DEBUG : Log des premiers leads pour vérifier les données de date
       if (filteredLeads.length > 0) {
-        console.log('🔍 Debug - First few leads data:', filteredLeads.slice(0, 3).map(lead => ({
+        console.log('🔍 Debug - First few leads date data:', filteredLeads.slice(0, 3).map(lead => ({
           id: lead.id,
           name: lead.author_name,
-          categorie: lead.openai_step3_categorie,
-          postes: lead.openai_step3_postes_selectionnes,
+          posted_at_iso: lead.posted_at_iso,
+          posted_at_timestamp: lead.posted_at_timestamp,
+          latest_post_date: lead.latest_post_date,
+          created_at: lead.created_at,
           text_preview: lead.text?.substring(0, 50) || 'NO TEXT',
-          has_url: !!lead.url || !!lead.latest_post_url,
+          apify_dataset_id: lead.apify_dataset_id,
           has_previous_client: lead.has_previous_client_company
         })));
       }
@@ -172,6 +198,23 @@ export const useLeadsNew = () => {
     let filtered = leads;
     console.log(`🔄 Starting to filter ${leads.length} leads`);
 
+    // ✅ AMÉLIORATION : Filter by search query
+    if (searchQuery.trim()) {
+      const beforeSearchFilter = filtered.length;
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(lead => 
+        lead.author_name?.toLowerCase().includes(query) ||
+        lead.company_name?.toLowerCase().includes(query) ||
+        lead.unipile_company?.toLowerCase().includes(query) ||
+        lead.text?.toLowerCase().includes(query) ||
+        lead.openai_step3_categorie?.toLowerCase().includes(query) ||
+        lead.openai_step3_postes_selectionnes?.some(poste => 
+          poste.toLowerCase().includes(query)
+        )
+      );
+      console.log(`🔍 Search filter ("${searchQuery}"): ${beforeSearchFilter} → ${filtered.length} leads`);
+    }
+
     // Filter by categories
     if (selectedCategories.length > 0) {
       const beforeCategoryFilter = filtered.length;
@@ -181,19 +224,24 @@ export const useLeadsNew = () => {
       console.log(`🏷️ Category filter: ${beforeCategoryFilter} → ${filtered.length} leads`);
     }
 
-    // Filter by date
+    // ✅ CORRECTION : Filter by date avec priorité aux bonnes données
     const dateCutoff = getDateFilterCutoff(selectedDateFilter);
     if (dateCutoff) {
       const beforeDateFilter = filtered.length;
       filtered = filtered.filter(lead => {
         let leadDate: Date;
+        
+        // ✅ PRIORITÉ : 1. posted_at_timestamp, 2. posted_at_iso, 3. latest_post_date, 4. created_at
         if (lead.posted_at_timestamp) {
           leadDate = new Date(lead.posted_at_timestamp);
         } else if (lead.posted_at_iso) {
           leadDate = new Date(lead.posted_at_iso);
+        } else if (lead.latest_post_date) {
+          leadDate = new Date(lead.latest_post_date);
         } else {
           leadDate = new Date(lead.created_at);
         }
+        
         return leadDate >= dateCutoff;
       });
       console.log(`📅 Date filter (${selectedDateFilter}): ${beforeDateFilter} → ${filtered.length} leads`);
@@ -215,15 +263,17 @@ export const useLeadsNew = () => {
       console.log(`📞 Contact filter (${selectedContactFilter}): ${beforeContactFilter} → ${filtered.length} leads`);
     }
 
-    // Sort filtered leads by date
+    // ✅ CORRECTION : Sort filtered leads by date avec priorité aux bonnes données
     filtered.sort((a, b) => {
-      const dateA = a.posted_at_timestamp || 
-                   (a.posted_at_iso ? new Date(a.posted_at_iso).getTime() : 0) ||
-                   new Date(a.created_at).getTime();
-      const dateB = b.posted_at_timestamp || 
-                   (b.posted_at_iso ? new Date(b.posted_at_iso).getTime() : 0) ||
-                   new Date(b.created_at).getTime();
-      return dateB - dateA;
+      // Priorité : posted_at_timestamp > posted_at_iso > latest_post_date > created_at
+      const getTimestamp = (lead: Lead): number => {
+        if (lead.posted_at_timestamp) return lead.posted_at_timestamp;
+        if (lead.posted_at_iso) return new Date(lead.posted_at_iso).getTime();
+        if (lead.latest_post_date) return new Date(lead.latest_post_date).getTime();
+        return new Date(lead.created_at).getTime();
+      };
+      
+      return getTimestamp(b) - getTimestamp(a); // Plus récent en premier
     });
 
     console.log(`✅ Final filtered results: ${filtered.length} leads`);
@@ -241,6 +291,8 @@ export const useLeadsNew = () => {
     selectedContactFilter,
     setSelectedContactFilter,
     availableCategories,
+    searchQuery,
+    setSearchQuery,
     refreshLeads: fetchLeads
   };
 };

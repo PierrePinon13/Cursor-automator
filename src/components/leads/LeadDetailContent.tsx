@@ -219,6 +219,46 @@ const LeadDetailContent = ({
   const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
   const charactersRemaining = 300 - customMessage.length;
 
+  // ✅ AMÉLIORATION : Fonction pour déterminer le contenu de publication à afficher
+  const getPostContent = () => {
+    // Priorité : text > title
+    if (lead.text && lead.text !== 'Content unavailable' && lead.text.trim() !== '') {
+      return {
+        type: 'text',
+        content: lead.text,
+        hasContent: true
+      };
+    }
+    
+    if (lead.title && lead.title.trim() !== '') {
+      return {
+        type: 'title',
+        content: lead.title,
+        hasContent: true
+      };
+    }
+    
+    return {
+      type: 'none',
+      content: '',
+      hasContent: false
+    };
+  };
+
+  const postContent = getPostContent();
+
+  // ✅ DEBUG : Logging pour vérifier les données du lead
+  console.log('🔍 Lead detail data:', {
+    id: lead.id,
+    text_length: lead.text?.length || 0,
+    has_title: !!lead.title,
+    posted_at_iso: lead.posted_at_iso,
+    posted_at_timestamp: lead.posted_at_timestamp,
+    apify_dataset_id: lead.apify_dataset_id,
+    has_previous_client_company: lead.has_previous_client_company,
+    previous_client_companies: lead.previous_client_companies
+  });
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Layout 3 colonnes */}
@@ -254,27 +294,30 @@ const LeadDetailContent = ({
               )}
             </div>
 
-            {/* Encart d'alerte pour entreprise cliente */}
-            {lead.has_previous_client_company && (
+            {/* ✅ AMÉLIORATION : Encart d'alerte pour entreprise cliente avec plus de détails */}
+            {lead.has_previous_client_company && lead.previous_client_companies && lead.previous_client_companies.length > 0 && (
               <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Crown className="h-4 w-4 text-blue-600" />
                   <h4 className="font-semibold text-blue-800">Entreprise cliente détectée</h4>
                 </div>
                 <p className="text-sm text-blue-700 mb-2">
-                  Cette personne a travaillé dans une de vos entreprises clientes :
+                  Cette personne a travaillé dans {lead.previous_client_companies.length > 1 ? 'vos entreprises clientes' : 'une de vos entreprises clientes'} :
                 </p>
                 <div className="space-y-1">
-                  {lead.previous_client_companies?.map((company: string, index: number) => (
-                    <div key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
-                      🏢 {company}
+                  {lead.previous_client_companies.map((company: any, index: number) => (
+                    <div key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                      <div className="font-medium">🏢 {typeof company === 'string' ? company : company.client_name}</div>
+                      {typeof company === 'object' && company.position && (
+                        <div className="text-xs text-blue-600">📋 {company.position}</div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Publication LinkedIn */}
+            {/* ✅ AMÉLIORATION : Publication LinkedIn avec meilleure gestion du contenu */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="border-b border-gray-100 p-4">
                 <div className="flex items-center gap-2">
@@ -283,17 +326,21 @@ const LeadDetailContent = ({
                   </div>
                   <h3 className="font-semibold text-gray-900">Publication LinkedIn</h3>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">Contenu de la publication</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  {postContent.hasContent ? 'Contenu de la publication' : 'Contenu non disponible'}
+                </p>
               </div>
               <div className="p-4">
-                {/* Affichage correct du contenu de la publication */}
-                {lead.text && lead.text !== 'Content unavailable' && lead.text.trim() !== '' ? (
-                  <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto whitespace-pre-wrap">
-                    {lead.text}
-                  </div>
-                ) : lead.title && lead.title.trim() !== '' ? (
+                {postContent.hasContent ? (
                   <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
-                    <strong>Titre :</strong> {lead.title}
+                    {postContent.type === 'title' && (
+                      <div className="mb-2">
+                        <strong className="text-blue-600">Titre :</strong>
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap">
+                      {postContent.content}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-500 text-center py-8">

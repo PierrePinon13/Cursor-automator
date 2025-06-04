@@ -71,13 +71,23 @@ async function processSingleLead(supabaseClient: any, postId: string, datasetId:
     throw new Error(`Post not found: ${postId}`);
   }
 
+  // ✅ CORRECTION : Logging détaillé des données de date pour debug
+  console.log('📅 Date debugging for post:', {
+    id: post.id,
+    posted_at_iso: post.posted_at_iso,
+    posted_at_timestamp: post.posted_at_timestamp,
+    text_preview: post.text?.substring(0, 100) || 'NO TEXT',
+    apify_dataset_id: post.apify_dataset_id
+  });
+
   console.log('📊 Post data for lead creation:', {
     id: post.id,
     author_name: post.author_name,
     has_openai_step3: !!post.openai_step3_postes_selectionnes,
     has_unipile_data: !!post.unipile_response,
     company: post.unipile_company,
-    position: post.unipile_position
+    position: post.unipile_position,
+    has_text: !!post.text && post.text !== 'Content unavailable'
   });
 
   try {
@@ -107,13 +117,19 @@ async function processSingleLead(supabaseClient: any, postId: string, datasetId:
       });
     }
 
-    // Extraction complète des données Unipile
+    // ✅ AMÉLIORATION : Extraction complète et robuste des données Unipile
     const unipileExtraction = extractUnipileData(post.unipile_response);
     console.log('📋 Unipile extraction result:', {
       has_work_history: unipileExtraction.workHistory.length,
       current_company: unipileExtraction.currentCompany,
       current_position: unipileExtraction.currentPosition,
-      phone: unipileExtraction.phone ? 'Found' : 'Not found'
+      current_company_linkedin_id: unipileExtraction.currentCompanyLinkedInId,
+      phone: unipileExtraction.phone ? 'Found' : 'Not found',
+      work_history_details: unipileExtraction.workHistory.map(w => ({
+        company: w.company_name,
+        linkedin_id: w.company_linkedin_id,
+        is_current: w.is_current
+      }))
     });
 
     // Vérification HR provider (utilise les données Unipile extraites)
@@ -146,11 +162,28 @@ async function processSingleLead(supabaseClient: any, postId: string, datasetId:
     // Vérification client match
     const clientMatch = await checkClientMatch(supabaseClient, unipileExtraction.currentCompanyLinkedInId);
     
-    // Vérification historique professionnel vs clients
+    // ✅ AMÉLIORATION : Vérification historique professionnel vs clients avec plus de détails
     const clientHistoryAnalysis = await analyzeClientWorkHistory(supabaseClient, unipileExtraction.workHistory);
 
     // Créer un nouveau lead avec toutes les données enrichies
     const leadData = buildLeadData(post, unipileExtraction, clientMatch, clientHistoryAnalysis);
+
+    console.log('📝 Final lead data before insertion:', {
+      posted_at_iso: leadData.posted_at_iso,
+      posted_at_timestamp: leadData.posted_at_timestamp,
+      latest_post_date: leadData.latest_post_date,
+      text_length: leadData.text?.length || 0,
+      apify_dataset_id: leadData.apify_dataset_id,
+      company_name: leadData.company_name,
+      has_previous_client_company: leadData.has_previous_client_company,
+      work_history_companies: [
+        leadData.company_1_name,
+        leadData.company_2_name,
+        leadData.company_3_name,
+        leadData.company_4_name,
+        leadData.company_5_name
+      ].filter(Boolean)
+    });
 
     const { data: newLead, error: leadError } = await supabaseClient
       .from('leads')
@@ -225,23 +258,40 @@ function extractUnipileData(unipileResponse: any) {
     return { workHistory, currentCompany, currentPosition, currentCompanyLinkedInId, phone };
   }
 
-  // Extraction du téléphone
-  phone = unipileResponse.phone_numbers?.[0] || unipileResponse.phone || null;
+  // ✅ AMÉLIORATION : Extraction plus robuste du téléphone
+  phone = unipileResponse.phone_numbers?.[0] || 
+          unipileResponse.phone || 
+          unipileResponse.contact_info?.phone ||
+          unipileResponse.linkedin_profile?.contact_info?.phone ||
+          null;
 
-  // Extraction de l'expérience professionnelle
-  const experiences = unipileResponse.work_experience || unipileResponse.linkedin_profile?.experience || [];
+  // ✅ AMÉLIORATION : Extraction plus robuste de l'expérience professionnelle
+  const experiences = unipileResponse.work_experience || 
+                     unipileResponse.linkedin_profile?.experience || 
+                     unipileResponse.experience ||
+                     unipileResponse.linkedin_profile?.work_experience ||
+                     [];
   
   console.log(`📋 Found ${experiences.length} work experiences`);
   
   for (const exp of experiences) {
+    // ✅ AMÉLIORATION : Extraction plus robuste des données d'entreprise
     const workEntry = {
-      company_name: exp.company || exp.companyName || 'Unknown',
-      position: exp.position || exp.title || 'Unknown',
-      start_date: exp.start || exp.startDate || null,
-      end_date: exp.end || exp.endDate || null,
-      is_current: !exp.end || exp.end === null || exp.end === '',
-      company_linkedin_id: exp.company_id || exp.companyId || null
+      company_name: exp.company || exp.companyName || exp.company_name || 'Unknown',
+      position: exp.position || exp.title || exp.job_title || exp.role || 'Unknown',
+      start_date: exp.start || exp.startDate || exp.start_date || exp.from || null,
+      end_date: exp.end || exp.endDate || exp.end_date || exp.to || null,
+      is_current: !exp.end && !exp.endDate && !exp.end_date && !exp.to,
+      company_linkedin_id: exp.company_id || exp.companyId || exp.company_linkedin_id || exp.linkedinId || null
     };
+
+    // ✅ AMÉLIORATION : Nettoyage des dates
+    if (workEntry.start_date && typeof workEntry.start_date === 'object') {
+      workEntry.start_date = workEntry.start_date.year ? `${workEntry.start_date.year}-01-01` : null;
+    }
+    if (workEntry.end_date && typeof workEntry.end_date === 'object') {
+      workEntry.end_date = workEntry.end_date.year ? `${workEntry.end_date.year}-12-31` : null;
+    }
 
     workHistory.push(workEntry);
 
@@ -253,7 +303,7 @@ function extractUnipileData(unipileResponse: any) {
     }
   }
 
-  // Si pas d'expérience actuelle trouvée, prendre la première
+  // Si pas d'expérience actuelle trouvée, prendre la première (la plus récente)
   if (!currentCompany && workHistory.length > 0) {
     const firstExp = workHistory[0];
     currentCompany = firstExp.company_name;
@@ -265,6 +315,7 @@ function extractUnipileData(unipileResponse: any) {
     work_experiences: workHistory.length,
     current_company: currentCompany,
     current_position: currentPosition,
+    current_company_linkedin_id: currentCompanyLinkedInId,
     has_phone: !!phone
   });
 
@@ -308,7 +359,7 @@ async function checkExistingLead(supabaseClient: any, post: any) {
 
   const { data: existingLead, error } = await supabaseClient
     .from('leads')
-    .select('id, latest_post_date')
+    .select('id, latest_post_date, posted_at_timestamp')
     .eq('author_profile_id', post.author_profile_id)
     .single();
 
@@ -318,17 +369,21 @@ async function checkExistingLead(supabaseClient: any, post: any) {
   }
 
   if (existingLead) {
-    // Mettre à jour la date du dernier post si plus récent
-    const postDate = post.posted_at_iso ? new Date(post.posted_at_iso) : null;
-    const existingDate = existingLead.latest_post_date ? new Date(existingLead.latest_post_date) : null;
+    // ✅ CORRECTION : Mettre à jour la date du dernier post si plus récent
+    const postTimestamp = post.posted_at_timestamp || (post.posted_at_iso ? new Date(post.posted_at_iso).getTime() : null);
+    const existingTimestamp = existingLead.posted_at_timestamp || 0;
 
-    if (postDate && (!existingDate || postDate > existingDate)) {
+    if (postTimestamp && postTimestamp > existingTimestamp) {
+      const postDate = post.posted_at_iso ? new Date(post.posted_at_iso) : null;
+      
       await supabaseClient
         .from('leads')
         .update({
           latest_post_urn: post.urn,
           latest_post_url: post.url,
-          latest_post_date: postDate,
+          latest_post_date: postDate?.toISOString(),
+          posted_at_timestamp: postTimestamp,
+          posted_at_iso: post.posted_at_iso,
           updated_at: new Date().toISOString()
         })
         .eq('id', existingLead.id);
@@ -405,7 +460,7 @@ async function analyzeClientWorkHistory(supabaseClient: any, workHistory: any[])
     }
   });
 
-  // Analyser chaque expérience
+  // ✅ AMÉLIORATION : Analyser chaque expérience avec plus de détails
   for (const experience of workHistory) {
     if (experience.company_linkedin_id && clientsMap.has(experience.company_linkedin_id)) {
       const clientInfo = clientsMap.get(experience.company_linkedin_id);
@@ -421,7 +476,7 @@ async function analyzeClientWorkHistory(supabaseClient: any, workHistory: any[])
         is_current: experience.is_current
       });
 
-      console.log(`✅ Client match found in work history: ${clientInfo.name}`);
+      console.log(`✅ Client match found in work history: ${clientInfo.name} (${experience.company_name})`);
     }
   }
 
@@ -433,23 +488,35 @@ async function analyzeClientWorkHistory(supabaseClient: any, workHistory: any[])
 function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clientHistoryAnalysis: any) {
   console.log('🏗️ Building lead data...');
   
+  // ✅ CORRECTION : Gestion robuste des dates
+  let postTimestamp = null;
+  let postDate = null;
+  
+  if (post.posted_at_timestamp) {
+    postTimestamp = post.posted_at_timestamp;
+    postDate = new Date(post.posted_at_timestamp);
+  } else if (post.posted_at_iso) {
+    postDate = new Date(post.posted_at_iso);
+    postTimestamp = postDate.getTime();
+  }
+  
   const leadData = {
-    // Données de base
+    // ✅ CORRECTION : Données de base avec dataset_id explicite
     author_profile_id: post.author_profile_id,
     author_name: post.author_name || 'Unknown',
     author_headline: post.author_headline,
     author_profile_url: post.author_profile_url,
+    apify_dataset_id: post.apify_dataset_id, // ✅ Dataset ID bien inclus
     
-    // Données du post
+    // ✅ CORRECTION : Données du post avec texte complet
     latest_post_urn: post.urn,
     latest_post_url: post.url,
-    latest_post_date: post.posted_at_iso ? new Date(post.posted_at_iso) : null,
-    text: post.text,
+    latest_post_date: postDate?.toISOString() || null,
+    text: post.text || 'Content unavailable', // ✅ Texte de la publication
     title: post.title,
     url: post.url,
     posted_at_iso: post.posted_at_iso,
-    posted_at_timestamp: post.posted_at_timestamp,
-    apify_dataset_id: post.apify_dataset_id,
+    posted_at_timestamp: postTimestamp,
     
     // Données OpenAI
     openai_step3_categorie: post.openai_step3_categorie,
@@ -457,14 +524,17 @@ function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clie
     openai_step3_justification: post.openai_step3_justification,
     openai_step2_localisation: post.openai_step2_localisation,
     
-    // Données Unipile enrichies
+    // ✅ AMÉLIORATION : Données Unipile enrichies avec priorité aux données extraites
     company_name: unipileExtraction.currentCompany || post.unipile_company || 'Unknown',
     company_position: unipileExtraction.currentPosition || post.unipile_position,
     company_linkedin_id: unipileExtraction.currentCompanyLinkedInId || post.unipile_company_linkedin_id,
+    unipile_company: unipileExtraction.currentCompany || post.unipile_company,
+    unipile_position: unipileExtraction.currentPosition || post.unipile_position,
+    unipile_company_linkedin_id: unipileExtraction.currentCompanyLinkedInId || post.unipile_company_linkedin_id,
     phone_number: unipileExtraction.phone,
     phone_retrieved_at: unipileExtraction.phone ? new Date().toISOString() : null,
     
-    // Historique professionnel enrichi
+    // ✅ AMÉLIORATION : Historique professionnel enrichi avec LinkedIn IDs
     ...buildWorkHistoryFields(unipileExtraction.workHistory),
     
     // Statut client
@@ -472,7 +542,7 @@ function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clie
     matched_client_id: clientMatch.clientId,
     matched_client_name: clientMatch.clientName,
     
-    // Historique client
+    // ✅ AMÉLIORATION : Historique client enrichi
     has_previous_client_company: clientHistoryAnalysis.hasPreviousClientCompany,
     previous_client_companies: clientHistoryAnalysis.previousClientCompanies,
     
@@ -487,7 +557,7 @@ function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clie
 function buildWorkHistoryFields(workHistory: any[]) {
   const fields: any = {};
   
-  // Remplir jusqu'à 5 expériences
+  // ✅ AMÉLIORATION : Remplir jusqu'à 5 expériences avec tous les champs
   for (let i = 0; i < Math.min(workHistory.length, 5); i++) {
     const exp = workHistory[i];
     const num = i + 1;
@@ -497,7 +567,7 @@ function buildWorkHistoryFields(workHistory: any[]) {
     fields[`company_${num}_start_date`] = exp.start_date;
     fields[`company_${num}_end_date`] = exp.end_date;
     fields[`company_${num}_is_current`] = exp.is_current;
-    fields[`company_${num}_linkedin_id`] = exp.company_linkedin_id;
+    fields[`company_${num}_linkedin_id`] = exp.company_linkedin_id; // ✅ LinkedIn ID inclus
     
     // Calculer la durée si possible
     if (exp.start_date && exp.end_date) {
@@ -505,7 +575,7 @@ function buildWorkHistoryFields(workHistory: any[]) {
         const startDate = new Date(exp.start_date);
         const endDate = new Date(exp.end_date);
         const diffTime = endDate.getTime() - startDate.getTime();
-        const diffMonths = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30.44)); // Approximation
+        const diffMonths = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30.44));
         fields[`company_${num}_duration_months`] = Math.max(1, diffMonths);
       } catch (error) {
         console.log(`Could not calculate duration for experience ${num}`);
@@ -537,10 +607,10 @@ async function generateApproachMessage(supabaseClient: any, leadId: string, post
       return { success: true, message: defaultMessage, usedDefaultTemplate: true };
     }
 
-    // Extraire le prénom
+    // ✅ CORRECTION : Extraction correcte du prénom
     const firstName = post.author_name?.split(' ')[0] || 'Professionnel(le)';
     
-    // Simplifier les postes pour un nom plus usuel
+    // ✅ CORRECTION : Simplifier les postes pour un nom plus usuel
     const positions = post.openai_step3_postes_selectionnes || ['profil qualifié'];
     const mainPosition = positions[0] || 'profil qualifié';
 
