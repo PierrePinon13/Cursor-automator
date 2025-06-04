@@ -179,7 +179,7 @@ const LeadDetailContent = ({
     }
   };
 
-  // Utiliser la fonction sendMessage pour LinkedIn
+  // Utiliser la fonction sendMessage correcte pour LinkedIn
   const handleSendLinkedInMessage = async () => {
     if (!customMessage.trim()) {
       toast({
