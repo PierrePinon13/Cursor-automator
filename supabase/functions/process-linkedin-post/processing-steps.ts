@@ -22,7 +22,6 @@ export {
   executeCompanyInfoStep
 };
 
-// ✅ SIMPLIFICATION : Fusionner création et déduplication en une seule étape
 export async function executeLeadCreation(
   context: ProcessingContext,
   step3Result: any,
@@ -33,6 +32,11 @@ export async function executeLeadCreation(
 ) {
   try {
     console.log('🏗️ Starting unified lead creation/update step...');
+    console.log('📊 Step3 result received:', {
+      categorie: step3Result.categorie,
+      postes_selectionnes: step3Result.postes_selectionnes,
+      justification: step3Result.justification
+    });
     
     // Check if this is an HR provider lead - if so, don't create a lead
     if (hrProviderMatch?.isHrProviderLead) {
@@ -44,50 +48,75 @@ export async function executeLeadCreation(
       };
     }
     
-    // ✅ CORRECTION : Mettre à jour le post avec les données step3 AVANT la création du lead
-    console.log('📝 Updating post with step3 data before lead creation...');
+    // ✅ CORRECTION CRITIQUE : Assurer que les données step3 sont correctement formatées
+    const formattedStep3Data = {
+      openai_step3_categorie: step3Result.categorie || null,
+      openai_step3_postes_selectionnes: Array.isArray(step3Result.postes_selectionnes) 
+        ? step3Result.postes_selectionnes 
+        : (step3Result.postes_selectionnes ? [step3Result.postes_selectionnes] : null),
+      openai_step3_justification: step3Result.justification || null,
+      approach_message: approachMessage || null,
+      approach_message_generated: !!approachMessage,
+      approach_message_generated_at: approachMessage ? new Date().toISOString() : null,
+      last_updated_at: new Date().toISOString()
+    };
+
+    console.log('📝 Updating post with formatted step3 data:', formattedStep3Data);
+    
     const { error: step3UpdateError } = await context.supabaseClient
       .from('linkedin_posts')
-      .update({
-        openai_step3_categorie: step3Result.categorie,
-        openai_step3_postes_selectionnes: step3Result.postes_selectionnes,
-        openai_step3_justification: step3Result.justification,
-        approach_message: approachMessage || null,
-        approach_message_generated: !!approachMessage,
-        approach_message_generated_at: approachMessage ? new Date().toISOString() : null,
-        last_updated_at: new Date().toISOString()
-      })
+      .update(formattedStep3Data)
       .eq('id', context.postId);
 
     if (step3UpdateError) {
       console.error('❌ Error updating post with step3 data:', step3UpdateError);
+      throw new Error(`Failed to update post with step3 data: ${step3UpdateError.message}`);
     } else {
-      console.log('✅ Post updated with step3 data');
+      console.log('✅ Post updated with step3 data successfully');
     }
 
-    // Récupérer le post mis à jour pour avoir toutes les données
-    console.log('📥 Fetching updated post data...');
+    // ✅ CORRECTION : Récupérer le post mis à jour avec un select complet
+    console.log('📥 Fetching updated post data with complete fields...');
     const { data: updatedPost, error: fetchError } = await context.supabaseClient
       .from('linkedin_posts')
-      .select('*')
+      .select(`
+        *,
+        openai_step3_categorie,
+        openai_step3_postes_selectionnes,
+        openai_step3_justification,
+        text,
+        title,
+        url,
+        author_name,
+        author_profile_id,
+        unipile_company,
+        unipile_position
+      `)
       .eq('id', context.postId)
       .single();
 
     if (fetchError || !updatedPost) {
       console.error('❌ Error fetching updated post:', fetchError);
-      return {
-        success: false,
-        action: 'error',
-        error: 'Failed to fetch updated post data'
-      };
+      throw new Error(`Failed to fetch updated post data: ${fetchError?.message}`);
     }
 
     console.log('📊 Updated post data verification:', {
+      id: updatedPost.id,
       categorie: updatedPost.openai_step3_categorie,
       postes: updatedPost.openai_step3_postes_selectionnes,
       company: updatedPost.unipile_company,
-      position: updatedPost.unipile_position
+      position: updatedPost.unipile_position,
+      text_length: updatedPost.text?.length || 0,
+      has_url: !!updatedPost.url
     });
+
+    // ✅ CORRECTION : Assurer que les données essentielles sont présentes
+    if (!updatedPost.text || !updatedPost.url) {
+      console.error('❌ Missing essential post data:', {
+        hasText: !!updatedPost.text,
+        hasUrl: !!updatedPost.url
+      });
+    }
 
     // First, execute company info step
     console.log('🏢 Starting company info step...');

@@ -75,10 +75,21 @@ export const useLeadsNew = () => {
 
       const hrProviderNames = hrProviders?.map(provider => provider.company_name.toLowerCase()) || [];
 
-      // Requête principale pour les leads
+      // ✅ AMÉLIORATION : Requête avec plus de champs pour le debugging
       let query = supabase
         .from('leads')
-        .select('*')
+        .select(`
+          *,
+          openai_step3_categorie,
+          openai_step3_postes_selectionnes,
+          openai_step3_justification,
+          text,
+          title,
+          url,
+          latest_post_url,
+          has_previous_client_company,
+          previous_client_companies
+        `)
         .order('created_at', { ascending: false });
 
       // Exclure les publications mal ciblées
@@ -100,6 +111,21 @@ export const useLeadsNew = () => {
       });
 
       console.log(`📋 Fetched ${filteredLeads.length} leads after filtering`);
+      
+      // ✅ DEBUG : Log des premiers leads pour vérifier les données
+      if (filteredLeads.length > 0) {
+        console.log('🔍 Debug - First few leads data:', filteredLeads.slice(0, 3).map(lead => ({
+          id: lead.id,
+          name: lead.author_name,
+          categorie: lead.openai_step3_categorie,
+          postes: lead.openai_step3_postes_selectionnes,
+          text_preview: lead.text?.substring(0, 50) || 'NO TEXT',
+          has_url: !!lead.url || !!lead.latest_post_url,
+          has_previous_client: lead.has_previous_client_company
+        })));
+      }
+      
+      console.log(`🔍 After filtering HR providers: ${filteredLeads.length} leads`);
       setLeads(filteredLeads);
     } catch (error) {
       console.error('💥 Error fetching leads:', error);

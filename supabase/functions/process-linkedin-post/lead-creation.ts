@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { UnipileScrapingResult } from './unipile-scraper.ts';
 import { ClientMatchResult } from './client-matching.ts';
@@ -20,11 +21,14 @@ export async function createOrUpdateLead(
 ): Promise<LeadCreationResult> {
   try {
     console.log('🏗️ Creating or updating lead for profile:', post.author_profile_id);
-    console.log('📊 Debug - Post data keys:', Object.keys(post));
-    console.log('📊 Debug - OpenAI step3 data in post:', {
+    console.log('📊 Debug - Post data verification:', {
+      id: post.id,
       categorie: post.openai_step3_categorie,
       postes: post.openai_step3_postes_selectionnes,
-      justification: post.openai_step3_justification
+      justification: post.openai_step3_justification,
+      text_preview: post.text?.substring(0, 100) || 'NO TEXT',
+      url: post.url || 'NO URL',
+      author_name: post.author_name || 'NO NAME'
     });
     
     if (!post.author_profile_id) {
@@ -34,6 +38,15 @@ export async function createOrUpdateLead(
         action: 'error',
         error: 'No LinkedIn profile ID available for lead creation'
       };
+    }
+
+    // ✅ VÉRIFICATION : S'assurer que les données essentielles sont présentes
+    if (!post.openai_step3_postes_selectionnes || post.openai_step3_postes_selectionnes.length === 0) {
+      console.log('⚠️ Warning: No specific job positions found in step3 data');
+    }
+
+    if (!post.text) {
+      console.log('⚠️ Warning: No post text found - this will affect display');
     }
 
     // ✅ AMÉLIORATION : Vérifier d'abord si le lead existe pour implémenter un upsert
@@ -57,41 +70,41 @@ export async function createOrUpdateLead(
     // Extract work history from Unipile data
     const companyData = await extractWorkHistoryForLead(scrapingResult, supabaseClient);
 
-    // Préparer les données du lead avec toutes les informations nécessaires
+    // ✅ CORRECTION MAJEURE : Préparer les données du lead avec validation
     const leadData = {
       // Identifiants
       author_profile_id: post.author_profile_id,
       author_profile_url: post.author_profile_url,
       
-      // ✅ CORRECTION MAJEURE : Ajouter le dataset_id
+      // Dataset ID
       apify_dataset_id: post.apify_dataset_id,
       
       // Informations personnelles
-      author_name: post.author_name,
+      author_name: post.author_name || 'Unknown author',
       author_headline: post.author_headline,
       
-      // Dernière publication
-      text: post.text,
+      // ✅ CORRECTION CRITIQUE : S'assurer que le contenu de la publication est copié
+      text: post.text || 'Content unavailable',
       title: post.title,
-      url: post.url,
+      url: post.url || '',
       posted_at_iso: post.posted_at_iso,
       posted_at_timestamp: post.posted_at_timestamp,
       
-      // ✅ CORRECTION : S'assurer que les données OpenAI step3 sont bien copiées
+      // ✅ CORRECTION MAJEURE : Données OpenAI step3 avec validation
       openai_step2_localisation: post.openai_step2_localisation || null,
       openai_step3_categorie: post.openai_step3_categorie || null,
       openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes || null,
       openai_step3_justification: post.openai_step3_justification || null,
       
       // Informations entreprise (Unipile)
-      company_name: scrapingResult.company || null,
-      company_position: scrapingResult.position || null,
-      company_linkedin_id: scrapingResult.company_id || null,
-      unipile_company: scrapingResult.company || null,
-      unipile_position: scrapingResult.position || null,
-      unipile_company_linkedin_id: scrapingResult.company_id || null,
+      company_name: scrapingResult.company || post.unipile_company || null,
+      company_position: scrapingResult.position || post.unipile_position || null,
+      company_linkedin_id: scrapingResult.company_id || post.unipile_company_linkedin_id || null,
+      unipile_company: scrapingResult.company || post.unipile_company || null,
+      unipile_position: scrapingResult.position || post.unipile_position || null,
+      unipile_company_linkedin_id: scrapingResult.company_id || post.unipile_company_linkedin_id || null,
       
-      // ✅ Référence à l'entreprise dans la table companies
+      // Référence à l'entreprise dans la table companies
       company_id: companyInfo.success && companyInfo.companyId ? companyInfo.companyId : null,
       
       // Message d'approche
@@ -109,10 +122,10 @@ export async function createOrUpdateLead(
       latest_post_url: post.url,
       latest_post_urn: post.urn,
       
-      // ✅ NOUVEAU : Historique professionnel (5 entreprises max)
+      // Historique professionnel (5 entreprises max)
       ...companyData.workHistory,
       
-      // ✅ NOUVEAU : Détection des entreprises clientes précédentes
+      // Détection des entreprises clientes précédentes
       has_previous_client_company: companyData.hasPreviousClient,
       previous_client_companies: companyData.previousClientCompanies,
       
@@ -123,7 +136,7 @@ export async function createOrUpdateLead(
 
     console.log('📋 Lead data prepared:', {
       profile_id: leadData.author_profile_id,
-      dataset_id: leadData.apify_dataset_id, // ✅ Nouveau log
+      dataset_id: leadData.apify_dataset_id,
       name: leadData.author_name,
       company: leadData.company_name,
       company_id: leadData.company_id,
@@ -133,7 +146,9 @@ export async function createOrUpdateLead(
       is_client: leadData.is_client_lead,
       client_name: leadData.matched_client_name,
       has_previous_client: leadData.has_previous_client_company,
-      previous_clients: leadData.previous_client_companies
+      previous_clients: leadData.previous_client_companies,
+      text_length: leadData.text?.length || 0,
+      has_url: !!leadData.url
     });
 
     let leadId: string;

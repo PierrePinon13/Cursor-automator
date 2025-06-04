@@ -42,15 +42,6 @@ const LeadDetailContent = ({
   const { user } = useAuth();
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Non disponible';
-    try {
-      return format(new Date(dateString), 'dd MMMM yyyy', { locale: fr });
-    } catch {
-      return 'Date invalide';
-    }
-  };
-
   const handleRetrievePhone = async () => {
     try {
       const phoneNumber = await retrievePhone(lead.id);
@@ -115,10 +106,12 @@ const LeadDetailContent = ({
     <div className="h-full flex flex-col bg-gray-50">
       {/* Alert entreprise cliente */}
       {lead.has_previous_client_company && (
-        <div className="bg-yellow-100 border border-yellow-300 p-3 mx-6 mt-4 rounded">
-          <div className="flex items-center gap-2 text-yellow-800">
+        <div className="bg-blue-100 border border-blue-300 p-3 mx-6 mt-4 rounded-lg">
+          <div className="flex items-center gap-2 text-blue-800">
             <Crown className="h-4 w-4" />
-            <span className="font-medium">Entreprise cliente précédente détectée !</span>
+            <span className="font-medium">
+              A travaillé dans une entreprise cliente : {lead.previous_client_companies?.join(', ')}
+            </span>
           </div>
         </div>
       )}
@@ -137,6 +130,7 @@ const LeadDetailContent = ({
                 <h3 className="font-semibold text-green-800">Poste recherché</h3>
               </div>
               
+              {/* ✅ CORRECTION : Logique d'affichage améliorée pour les postes */}
               {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
                 <div className="space-y-2">
                   {lead.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
@@ -144,6 +138,10 @@ const LeadDetailContent = ({
                       {poste}
                     </div>
                   ))}
+                </div>
+              ) : lead.openai_step3_categorie && lead.openai_step3_categorie !== 'Autre' ? (
+                <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-medium">
+                  {lead.openai_step3_categorie}
                 </div>
               ) : (
                 <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-medium">
@@ -164,13 +162,21 @@ const LeadDetailContent = ({
                 <p className="text-sm text-gray-600 mt-1">Contenu de la publication</p>
               </div>
               <div className="p-4">
-                {lead.text ? (
+                {/* ✅ CORRECTION : Affichage amélioré du contenu avec fallback */}
+                {lead.text && lead.text !== 'Content unavailable' ? (
                   <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
                     {lead.text}
                   </div>
+                ) : lead.title ? (
+                  <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
+                    <strong>Titre :</strong> {lead.title}
+                  </div>
                 ) : (
                   <div className="text-sm text-gray-500 text-center py-8">
-                    Aucun texte disponible
+                    <AlertTriangle className="h-4 w-4 mx-auto mb-2 text-orange-500" />
+                    Contenu de la publication non disponible
+                    <br />
+                    <span className="text-xs">Cliquez sur "Voir la publication" pour consulter sur LinkedIn</span>
                   </div>
                 )}
               </div>
@@ -182,10 +188,16 @@ const LeadDetailContent = ({
                 variant="outline"
                 className="w-full justify-center"
                 onClick={() => window.open(lead.latest_post_url || lead.url, '_blank')}
+                disabled={!lead.latest_post_url && !lead.url}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Voir la publication
               </Button>
+              {(!lead.latest_post_url && !lead.url) && (
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  Lien non disponible
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -228,7 +240,7 @@ const LeadDetailContent = ({
           </div>
         </div>
 
-        {/* COLONNE DROITE - Actions selon votre capture */}
+        {/* COLONNE DROITE - Actions */}
         <div className="w-1/3 bg-white p-6">
           <div className="h-full flex flex-col space-y-4">
             {/* Message LinkedIn - En haut */}
