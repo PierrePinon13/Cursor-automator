@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Edit, ExternalLink, RefreshCw } from 'lucide-react';
 import { useHrProviders } from '@/hooks/useHrProviders';
+import { useLinkedInEnrichment } from '@/hooks/useLinkedInEnrichment';
 import { useToast } from '@/hooks/use-toast';
 
 interface HrProvider {
@@ -24,13 +25,13 @@ interface IncompleteHrProvidersDialogProps {
 
 export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }: IncompleteHrProvidersDialogProps) {
   const { updateHrProvider } = useHrProviders();
+  const { enrichEntity, loading: enrichLoading } = useLinkedInEnrichment();
   const { toast } = useToast();
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [editData, setEditData] = useState({
     company_linkedin_url: '',
     company_linkedin_id: ''
   });
-  const [loadingAuto, setLoadingAuto] = useState<string | null>(null);
 
   // Filter providers that are missing LinkedIn ID (critical field)
   const incompleteProviders = hrProviders.filter(provider => 
@@ -66,29 +67,21 @@ export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }:
   };
 
   const handleAutoComplete = async (provider: HrProvider) => {
-    setLoadingAuto(provider.id);
-    try {
-      // Placeholder for Unipile API call
+    if (!provider.company_linkedin_url) {
       toast({
         title: "Information",
-        description: "Fonction de complétion automatique via Unipile en développement.",
+        description: "URL LinkedIn requise pour l'enrichissement automatique.",
       });
-      
-      // TODO: Implement Unipile API call to extract LinkedIn ID from URL
-      // const { data, error } = await supabase.functions.invoke('unipile-company-enrichment', {
-      //   body: { 
-      //     company_url: provider.company_linkedin_url
-      //   }
-      // });
-      
-    } catch (error) {
+      return;
+    }
+
+    const success = await enrichEntity(provider.id, 'hr_provider', provider.company_linkedin_url);
+    if (success) {
+      // Refresh will happen automatically via the hook
       toast({
-        title: "Erreur",
-        description: "Impossible de compléter automatiquement les informations.",
-        variant: "destructive",
+        title: "Succès",
+        description: "Prestataire RH enrichi avec succès via Unipile.",
       });
-    } finally {
-      setLoadingAuto(null);
     }
   };
 
@@ -219,10 +212,10 @@ export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }:
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleAutoComplete(provider)}
-                                disabled={loadingAuto === provider.id}
+                                disabled={enrichLoading === provider.id}
                                 title="Enrichir l'ID LinkedIn via Unipile"
                               >
-                                {loadingAuto === provider.id ? (
+                                {enrichLoading === provider.id ? (
                                   <RefreshCw className="h-4 w-4 animate-spin" />
                                 ) : (
                                   <RefreshCw className="h-4 w-4" />
