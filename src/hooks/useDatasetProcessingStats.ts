@@ -81,18 +81,24 @@ export const useDatasetProcessingStats = (
         for (const stat of webhookStats) {
           console.log('📈 Processing dataset:', stat.dataset_id);
           
-          // Compter les leads créés pour ce dataset spécifique - simplifier la requête
-          const datasetId: string = stat.dataset_id; // Explicitly type this to avoid inference issues
-          const { data: leadsData, error: leadsError } = await supabase
-            .from('leads')
-            .select('id')
-            .eq('apify_dataset_id', datasetId);
+          // Compter les leads créés pour ce dataset spécifique - utiliser une approche différente
+          let leadsCount = 0;
+          try {
+            const { count, error: leadsError } = await supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .eq('apify_dataset_id', stat.dataset_id);
 
-          if (leadsError) {
-            console.error('❌ Error counting leads for dataset', stat.dataset_id, ':', leadsError);
+            if (leadsError) {
+              console.error('❌ Error counting leads for dataset', stat.dataset_id, ':', leadsError);
+            } else {
+              leadsCount = count || 0;
+            }
+          } catch (error) {
+            console.error('❌ Exception counting leads for dataset', stat.dataset_id, ':', error);
+            leadsCount = 0;
           }
 
-          const leadsCount = leadsData?.length || 0;
           console.log('👥 Leads found for', stat.dataset_id, ':', leadsCount);
 
           statsWithLeads.push({
