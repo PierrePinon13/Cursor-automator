@@ -50,7 +50,7 @@ export const useDatasetProcessingStats = (
     try {
       const dateFilter = getDateFilter(timePeriod);
       
-      // Requête pour les webhook stats
+      // 1. Récupérer les webhook stats (limitées en nombre, pas de problème de count)
       let webhookQuery = supabase
         .from('apify_webhook_stats')
         .select('*');
@@ -70,56 +70,93 @@ export const useDatasetProcessingStats = (
         throw webhookError;
       }
 
-      // ✅ CORRECTION : Requête simplifiée pour les leads avec gestion d'erreur
-      let leadsQuery = supabase
-        .from('leads')
-        .select('apify_dataset_id, created_at');
+      console.log('📊 Webhook stats fetched:', webhookStats?.length || 0);
 
-      if (dateFilter && timePeriod !== 'all') {
-        leadsQuery = leadsQuery.gte('created_at', dateFilter);
+      // 2. Compter les leads GLOBALEMENT avec count: 'exact'
+      let totalLeadsCount = 0;
+      if (!selectedDatasetId) {
+        // Comptage global de tous les leads dans la période
+        let globalLeadsQuery = supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true });
+
+        if (dateFilter && timePeriod !== 'all') {
+          globalLeadsQuery = globalLeadsQuery.gte('created_at', dateFilter);
+        }
+
+        const { count: globalCount, error: globalLeadsError } = await globalLeadsQuery;
+
+        if (globalLeadsError) {
+          console.error('Error counting global leads:', globalLeadsError);
+        } else {
+          totalLeadsCount = globalCount || 0;
+          console.log('📊 Total leads count (global):', totalLeadsCount);
+        }
       }
 
-      if (selectedDatasetId) {
-        leadsQuery = leadsQuery.eq('apify_dataset_id', selectedDatasetId);
-      }
-
-      const { data: leadsData, error: leadsError } = await leadsQuery;
-
-      if (leadsError) {
-        console.error('Error fetching leads data:', leadsError);
-        // Ne pas faire échouer complètement la requête si les leads échouent
-      }
-
-      console.log('✅ Fetched leads data with dataset_id:', leadsData?.length || 0);
-
-      // Grouper les leads par dataset_id (seulement si on a des données)
+      // 3. Compter les leads par dataset spécifique (si sélectionné)
       const leadsByDataset: Record<string, number> = {};
-      if (leadsData && !leadsError) {
-        leadsData.forEach(lead => {
-          const datasetId = lead.apify_dataset_id;
-          if (datasetId) {
-            leadsByDataset[datasetId] = (leadsByDataset[datasetId] || 0) + 1;
+      
+      if (selectedDatasetId) {
+        // Compter pour un dataset spécifique
+        let specificLeadsQuery = supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('apify_dataset_id', selectedDatasetId);
+
+        if (dateFilter && timePeriod !== 'all') {
+          specificLeadsQuery = specificLeadsQuery.gte('created_at', dateFilter);
+        }
+
+        const { count: specificCount, error: specificLeadsError } = await specificLeadsQuery;
+
+        if (specificLeadsError) {
+          console.error('Error counting leads for specific dataset:', specificLeadsError);
+        } else {
+          leadsByDataset[selectedDatasetId] = specificCount || 0;
+          totalLeadsCount = specificCount || 0;
+          console.log(`📊 Leads count for dataset ${selectedDatasetId}:`, specificCount);
+        }
+      } else {
+        // Compter par dataset pour tous les datasets des webhook stats
+        for (const stat of webhookStats || []) {
+          if (stat.dataset_id) {
+            let datasetLeadsQuery = supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .eq('apify_dataset_id', stat.dataset_id);
+
+            if (dateFilter && timePeriod !== 'all') {
+              datasetLeadsQuery = datasetLeadsQuery.gte('created_at', dateFilter);
+            }
+
+            const { count: datasetCount, error: datasetLeadsError } = await datasetLeadsQuery;
+
+            if (datasetLeadsError) {
+              console.error(`Error counting leads for dataset ${stat.dataset_id}:`, datasetLeadsError);
+            } else {
+              leadsByDataset[stat.dataset_id] = datasetCount || 0;
+            }
           }
-        });
+        }
       }
 
       console.log('📊 Leads grouped by dataset:', leadsByDataset);
 
-      // Transformer les données
+      // 4. Transformer les données
       const statsData: DatasetProcessingStats[] = (webhookStats || []).map(stat => ({
         dataset_id: stat.dataset_id,
         processing_date: stat.started_at.split('T')[0],
         total_records: stat.total_received || 0,
         raw_posts_stored: stat.stored_raw || 0,
         posts_stored: stat.successfully_inserted || 0,
-        leads_created: leadsByDataset[stat.dataset_id] || 0 // ✅ CORRECTION : Utiliser le vrai count par dataset
+        leads_created: leadsByDataset[stat.dataset_id] || 0
       }));
 
-      // Stats globales - totaux réels
+      // 5. Calculer les stats globales
       const totalRecords = statsData.reduce((sum, s) => sum + s.total_records, 0);
       const totalRawPosts = statsData.reduce((sum, s) => sum + s.raw_posts_stored, 0);
       const totalPosts = statsData.reduce((sum, s) => sum + s.posts_stored, 0);
-      const totalLeads = statsData.reduce((sum, s) => sum + s.leads_created, 0); // ✅ CORRECTION
 
       const globalStatsData: GlobalProcessingStats = {
         period: selectedDatasetId 
@@ -128,7 +165,7 @@ export const useDatasetProcessingStats = (
         total_records: totalRecords,
         raw_posts_stored: totalRawPosts,
         posts_stored: totalPosts,
-        leads_created: totalLeads, // ✅ CORRECTION : Utiliser la somme réelle
+        leads_created: totalLeadsCount, // Utilise le count exact
         datasets_processed: statsData.length
       };
 
