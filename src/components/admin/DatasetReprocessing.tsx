@@ -13,29 +13,44 @@ interface ReprocessingResult {
   action: string;
   dataset_id: string;
   statistics: {
-    total_fetched: number;
-    stored_raw: number;
-    queued_for_processing: number;
+    total_fetched?: number;
+    stored_raw?: number;
+    queued_for_processing?: number;
     started_at: string;
-    completed_at: string;
-    apify_item_count: number;
-    apify_clean_item_count: number;
+    completed_at?: string;
+    apify_item_count?: number;
+    apify_clean_item_count?: number;
     resumed_from_batch?: number;
     bypass_metadata_check?: boolean;
     metadata_corrected?: boolean;
+    delegation_successful?: boolean;
+    optimization_applied?: string;
   };
-  diagnostics: {
-    retrieval_rate_percent: string;
-    qualification_rate_percent: string;
-    excluded_breakdown: {
-      companies: number;
-      missing_fields: number;
-      already_processed: number;
+  diagnostics?: {
+    retrieval_rate_percent?: string;
+    qualification_rate_percent?: string;
+    excluded_breakdown?: {
+      companies?: number;
+      missing_fields?: number;
+      already_processed?: number;
     };
     metadata_bypass_used?: boolean;
     metadata_corrected?: boolean;
+    expected_items?: string | number;
+    cleaned_records?: number;
   };
-  improvements: string[];
+  improvements?: string[];
+  queue_response?: {
+    success: boolean;
+    message: string;
+    dataset_id: string;
+  };
+  optimization?: {
+    strategy: string;
+    reason: string;
+    delegation_time_ms: number;
+  };
+  message?: string;
 }
 
 export function DatasetReprocessing() {
@@ -79,16 +94,18 @@ export function DatasetReprocessing() {
       setResult(data);
       
       if (data.success) {
-        const retrievalRate = parseFloat(data.diagnostics?.retrieval_rate_percent || '0');
+        const retrievalRate = data.diagnostics?.retrieval_rate_percent ? parseFloat(data.diagnostics.retrieval_rate_percent) : 0;
         
         if (data.diagnostics?.metadata_bypass_used) {
-          toast.success(`✅ Dataset retraité avec bypass metadata! ${data.statistics.queued_for_processing} posts en queue`);
+          toast.success(`✅ Dataset retraité avec bypass metadata! Délégué au gestionnaire de queue`);
         } else if (data.diagnostics?.metadata_corrected) {
-          toast.warning(`⚠️ Métadonnées Apify corrigées! Dataset retraité: ${data.statistics.queued_for_processing} posts`);
+          toast.warning(`⚠️ Métadonnées Apify corrigées! Dataset retraité: ${data.statistics.queued_for_processing || 0} posts`);
+        } else if (data.optimization?.strategy === 'immediate_delegation') {
+          toast.success(`🚀 Dataset délégué avec succès au gestionnaire spécialisé! Traitement en arrière-plan.`);
         } else if (retrievalRate < 80 && retrievalRate > 0) {
           toast.warning(`⚠️ Dataset retraité avec alertes! Taux de récupération: ${retrievalRate}%`);
         } else {
-          toast.success(`✅ Dataset retraité avec succès! ${data.statistics.queued_for_processing} posts en queue`);
+          toast.success(`✅ Dataset retraité avec succès! ${data.statistics.queued_for_processing || 0} posts en queue`);
         }
       } else {
         toast.error('❌ Le retraitement a échoué');
@@ -308,55 +325,102 @@ export function DatasetReprocessing() {
                   Métadonnées corrigées
                 </Badge>
               )}
+              {result.optimization?.strategy === 'immediate_delegation' && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  Délégation optimisée
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {result.statistics.total_fetched}
+            {/* Affichage adapté selon le type de réponse */}
+            {result.optimization?.strategy === 'immediate_delegation' ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="font-medium text-blue-800">🚀 Traitement délégué avec succès</div>
+                  <div className="text-sm text-blue-700 mt-2">
+                    Le dataset a été délégué au gestionnaire de queue spécialisé en {result.optimization.delegation_time_ms}ms. 
+                    Le traitement continue en arrière-plan.
+                  </div>
+                  {result.queue_response && (
+                    <div className="text-xs text-blue-600 mt-2">
+                      Queue: {result.queue_response.message}
+                    </div>
+                  )}
                 </div>
-                <div className="text-sm text-muted-foreground">Récupérés</div>
-                <div className="text-xs text-gray-500">
-                  / {result.statistics.apify_item_count || '?'} attendus
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">
+                      Délégué
+                    </div>
+                    <div className="text-sm text-muted-foreground">Statut</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600">
+                      {result.diagnostics?.expected_items || 'N/A'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Items attendus</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-600">
+                      {result.diagnostics?.cleaned_records || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Nettoyés</div>
+                  </div>
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {result.statistics.stored_raw}
+            ) : (
+              // Affichage classique pour les réponses complètes
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {result.statistics.total_fetched || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Récupérés</div>
+                  <div className="text-xs text-gray-500">
+                    / {result.statistics.apify_item_count || '?'} attendus
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">Stockés brut</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {result.statistics.queued_for_processing}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {result.statistics.stored_raw || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Stockés brut</div>
                 </div>
-                <div className="text-sm text-muted-foreground">En queue</div>
-              </div>
-              <div className="text-center">
-                <div className={`text-2xl font-bold ${
-                  result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable'
-                    ? 'text-orange-600'
-                    : result.diagnostics && parseFloat(result.diagnostics.retrieval_rate_percent) >= 80 
-                    ? 'text-green-600' 
-                    : 'text-red-600'
-                }`}>
-                  {result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable' 
-                    ? 'N/A' 
-                    : `${result.diagnostics?.retrieval_rate_percent || '0'}%`}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {result.statistics.queued_for_processing || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">En queue</div>
                 </div>
-                <div className="text-sm text-muted-foreground">Taux récupération</div>
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${
+                    result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable'
+                      ? 'text-orange-600'
+                      : result.diagnostics && parseFloat(result.diagnostics.retrieval_rate_percent || '0') >= 80 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable' 
+                      ? 'N/A' 
+                      : `${result.diagnostics?.retrieval_rate_percent || '0'}%`}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Taux récupération</div>
+                </div>
               </div>
-            </div>
+            )}
 
             {result.diagnostics && (
               <div className="space-y-3">
                 <div className="font-medium">Diagnostic détaillé:</div>
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Taux de qualification:</span>
-                    <Badge variant="outline">{result.diagnostics.qualification_rate_percent}%</Badge>
-                  </div>
+                  {result.diagnostics.qualification_rate_percent && (
+                    <div className="flex justify-between">
+                      <span>Taux de qualification:</span>
+                      <Badge variant="outline">{result.diagnostics.qualification_rate_percent}%</Badge>
+                    </div>
+                  )}
                   
                   {result.diagnostics.metadata_bypass_used && (
                     <div className="flex items-center gap-2 text-orange-700">
@@ -372,46 +436,61 @@ export function DatasetReprocessing() {
                     </div>
                   )}
                   
-                  <div className="space-y-1">
-                    <div className="font-medium text-xs text-gray-600">Exclusions:</div>
-                    <div className="flex justify-between text-xs">
-                      <span>🏢 Entreprises:</span>
-                      <span>{result.diagnostics.excluded_breakdown.companies}</span>
+                  {result.diagnostics.excluded_breakdown && (
+                    <div className="space-y-1">
+                      <div className="font-medium text-xs text-gray-600">Exclusions:</div>
+                      <div className="flex justify-between text-xs">
+                        <span>🏢 Entreprises:</span>
+                        <span>{result.diagnostics.excluded_breakdown.companies || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>❌ Champs manquants:</span>
+                        <span>{result.diagnostics.excluded_breakdown.missing_fields || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>🔄 Déjà traités:</span>
+                        <span>{result.diagnostics.excluded_breakdown.already_processed || 0}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs">
-                      <span>❌ Champs manquants:</span>
-                      <span>{result.diagnostics.excluded_breakdown.missing_fields}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span>🔄 Déjà traités:</span>
-                      <span>{result.diagnostics.excluded_breakdown.already_processed}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <div className="font-medium">Améliorations appliquées:</div>
-              <div className="space-y-1">
-                {result.improvements.map((improvement, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-green-600" />
-                    <span className="text-sm">{improvement}</span>
-                  </div>
-                ))}
+            {result.improvements && result.improvements.length > 0 && (
+              <div className="space-y-2">
+                <div className="font-medium">Améliorations appliquées:</div>
+                <div className="space-y-1">
+                  {result.improvements.map((improvement, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      <span className="text-sm">{improvement}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {result.message && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm text-blue-800">{result.message}</div>
+              </div>
+            )}
 
             <div className="text-xs text-muted-foreground">
               Dataset: <code className="bg-gray-100 px-2 py-1 rounded">{result.dataset_id}</code> | 
-              Démarré: {new Date(result.statistics.started_at).toLocaleString()} | 
-              Terminé: {new Date(result.statistics.completed_at).toLocaleString()}
+              Démarré: {new Date(result.statistics.started_at).toLocaleString()}
+              {result.statistics.completed_at && (
+                <> | Terminé: {new Date(result.statistics.completed_at).toLocaleString()}</>
+              )}
               {result.statistics.resumed_from_batch && (
                 <> | Repris du batch: {result.statistics.resumed_from_batch}</>
               )}
               {result.statistics.bypass_metadata_check && (
                 <> | Mode bypass: activé</>
+              )}
+              {result.optimization && (
+                <> | Optimisation: {result.optimization.strategy}</>
               )}
             </div>
           </CardContent>
