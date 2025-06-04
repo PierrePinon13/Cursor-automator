@@ -20,6 +20,31 @@ export interface GlobalProcessingStats {
   datasets_processed: number;
 }
 
+// Fonction utilitaire séparée pour compter les leads
+const countLeadsForDataset = async (datasetId: string): Promise<number> => {
+  try {
+    const { data, error } = await supabase
+      .rpc('count_leads_by_dataset', { dataset_id: datasetId });
+    
+    if (error) {
+      console.error('❌ Error counting leads via RPC:', error);
+      // Fallback: requête simple sans inférence complexe
+      const { data: fallbackData } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('apify_dataset_id', datasetId)
+        .limit(1000); // Limite pour éviter les requêtes trop lourdes
+      
+      return fallbackData?.length || 0;
+    }
+    
+    return data || 0;
+  } catch (error) {
+    console.error('❌ Exception in countLeadsForDataset:', error);
+    return 0;
+  }
+};
+
 export const useDatasetProcessingStats = (
   timePeriod: string = '7d',
   displayMode: string = 'stats',
@@ -51,54 +76,45 @@ export const useDatasetProcessingStats = (
       const dateFilter = getDateFilter(timePeriod);
       console.log('🔍 Fetching stats for period:', timePeriod, 'Date filter:', dateFilter);
       
-      // Récupérer les stats des webhooks avec filtre de période
-      let webhookQuery = supabase
+      // 1. Récupérer les stats des webhooks avec filtre de période
+      const webhookQuery = supabase
         .from('apify_webhook_stats')
-        .select('dataset_id, started_at, total_received, stored_raw, successfully_inserted');
+        .select(`
+          dataset_id,
+          started_at,
+          total_received,
+          stored_raw,
+          successfully_inserted
+        `);
 
+      // Appliquer les filtres
       if (dateFilter && timePeriod !== 'all') {
-        webhookQuery = webhookQuery.gte('started_at', dateFilter);
+        webhookQuery.gte('started_at', dateFilter);
       }
 
-      // Si un dataset spécifique est sélectionné
       if (selectedDatasetId) {
-        webhookQuery = webhookQuery.eq('dataset_id', selectedDatasetId);
+        webhookQuery.eq('dataset_id', selectedDatasetId);
       }
 
-      const { data: webhookStats, error: webhookError } = await webhookQuery.order('started_at', { ascending: false });
+      const { data: webhookStats, error: webhookError } = await webhookQuery
+        .order('started_at', { ascending: false });
 
       if (webhookError) {
         console.error('❌ Error fetching webhook stats:', webhookError);
         throw webhookError;
       }
 
-      console.log('📊 Webhook stats found:', webhookStats?.length);
+      console.log('📊 Webhook stats found:', webhookStats?.length || 0);
 
-      // Pour chaque dataset, compter les leads créés dans la table leads
+      // 2. Traiter chaque dataset et compter les leads séparément
       const statsWithLeads: DatasetProcessingStats[] = [];
 
       if (webhookStats && webhookStats.length > 0) {
+        // Traitement séquentiel pour éviter les problèmes de concurrence
         for (const stat of webhookStats) {
           console.log('📈 Processing dataset:', stat.dataset_id);
           
-          // Compter les leads créés pour ce dataset spécifique - utiliser une approche différente
-          let leadsCount = 0;
-          try {
-            const { count, error: leadsError } = await supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .eq('apify_dataset_id', stat.dataset_id);
-
-            if (leadsError) {
-              console.error('❌ Error counting leads for dataset', stat.dataset_id, ':', leadsError);
-            } else {
-              leadsCount = count || 0;
-            }
-          } catch (error) {
-            console.error('❌ Exception counting leads for dataset', stat.dataset_id, ':', error);
-            leadsCount = 0;
-          }
-
+          const leadsCount = await countLeadsForDataset(stat.dataset_id);
           console.log('👥 Leads found for', stat.dataset_id, ':', leadsCount);
 
           statsWithLeads.push({
@@ -114,12 +130,12 @@ export const useDatasetProcessingStats = (
 
       console.log('📋 Final stats with leads:', statsWithLeads);
 
-      // Si on filtre par dataset, on ne garde que celui-ci
+      // 3. Filtrer par dataset si nécessaire
       const filteredStats = selectedDatasetId 
         ? statsWithLeads.filter(s => s.dataset_id === selectedDatasetId)
         : statsWithLeads;
 
-      // Calculer les stats globales
+      // 4. Calculer les stats globales
       const globalStatsData = filteredStats.reduce(
         (acc, stat) => ({
           period: selectedDatasetId ? `Dataset ${selectedDatasetId.substring(0, 8)}...` : `Derniers ${timePeriod}`,
@@ -139,10 +155,11 @@ export const useDatasetProcessingStats = (
         }
       );
 
+      // 5. Mettre à jour les états
       setGlobalStats([globalStatsData]);
       setEvolutionData(filteredStats);
       
-      // Pour l'historique, on affiche tous les datasets (pas de filtre)
+      // Pour l'historique, trier par date
       const allHistory = [...statsWithLeads].sort((a, b) => 
         new Date(b.processing_date).getTime() - new Date(a.processing_date).getTime()
       );
@@ -154,6 +171,11 @@ export const useDatasetProcessingStats = (
 
     } catch (error) {
       console.error('💥 Error fetching dataset processing stats:', error);
+      // En cas d'erreur, on met des valeurs par défaut
+      setGlobalStats([]);
+      setEvolutionData([]);
+      setDatasetHistory([]);
+      setDatasetsList([]);
     } finally {
       setLoading(false);
     }
