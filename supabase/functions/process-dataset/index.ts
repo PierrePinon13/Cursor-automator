@@ -13,14 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Dataset processing started - OPTIMIZED VERSION')
+    console.log('🔄 Dataset processing started - ENHANCED VERSION WITH OPENAI RESTART')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { datasetId, cleanupExisting = false, webhook_triggered = false, forceAll = false, resumeFromBatch = 0, bypassMetadataCheck = false } = await req.json()
+    const { datasetId, cleanupExisting = false, webhook_triggered = false, forceAll = false, resumeFromBatch = 0, bypassMetadataCheck = false, forceOpenAIRestart = false } = await req.json()
     
     if (!datasetId) {
       return new Response('Dataset ID is required', { 
@@ -31,6 +31,7 @@ serve(async (req) => {
 
     console.log(`📊 ${webhook_triggered ? 'WEBHOOK' : 'MANUAL'} processing for dataset:`, datasetId)
     console.log(`🚨 BYPASS MODE: ${bypassMetadataCheck ? 'ENABLED' : 'DISABLED'}`)
+    console.log(`🔥 OPENAI RESTART: ${forceOpenAIRestart ? 'ENABLED' : 'DISABLED'}`)
 
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
     if (!apifyApiKey) {
@@ -46,6 +47,16 @@ serve(async (req) => {
       console.log('🧹 Quick cleanup of existing data...')
       
       try {
+        // Si forceOpenAIRestart, supprimer aussi les leads
+        if (forceOpenAIRestart) {
+          const { count: deletedLeads } = await supabaseClient
+            .from('leads')
+            .delete({ count: 'exact' })
+            .eq('apify_dataset_id', datasetId)
+          
+          console.log(`🗑️ Deleted ${deletedLeads || 0} leads for OpenAI restart`)
+        }
+
         const { count: deletedPosts } = await supabaseClient
           .from('linkedin_posts')
           .delete({ count: 'exact' })
@@ -57,7 +68,7 @@ serve(async (req) => {
           .eq('apify_dataset_id', datasetId)
 
         cleanedCount = (deletedPosts || 0) + (deletedRaw || 0)
-        console.log(`✅ Cleanup completed: ${cleanedCount} records deleted`)
+        console.log(`✅ Enhanced cleanup completed: ${cleanedCount} records deleted`)
       } catch (cleanupError) {
         console.error('❌ Error during cleanup:', cleanupError?.message)
       }
@@ -87,17 +98,18 @@ serve(async (req) => {
     }
 
     // ✅ PHASE 3: DÉLÉGATION IMMÉDIATE avec action corrigée
-    console.log('🚀 IMMEDIATE DELEGATION to fast webhook processing...')
+    console.log('🚀 IMMEDIATE DELEGATION to enhanced fast webhook processing...')
     
     try {
-      console.log('📤 Delegating to fast_webhook_processing action...')
+      console.log('📤 Delegating to enhanced fast_webhook_processing action...')
 
       const { data: queueResponse, error: queueError } = await supabaseClient.functions.invoke('processing-queue-manager', {
         body: {
           action: 'fast_webhook_processing',
           dataset_id: datasetId,
           apify_api_key: apifyApiKey,
-          force_all: forceAll
+          force_all: forceAll,
+          force_openai_restart: forceOpenAIRestart
         }
       })
 
@@ -106,7 +118,7 @@ serve(async (req) => {
         throw new Error(`Queue delegation failed: ${queueError.message}`)
       }
 
-      console.log('✅ Successfully delegated to queue manager:', queueResponse)
+      console.log('✅ Successfully delegated to enhanced queue manager:', queueResponse)
 
       // ✅ Retour IMMÉDIAT avec confirmation de délégation
       const stats = {
@@ -117,7 +129,8 @@ serve(async (req) => {
         metadata_info: metadataInfo,
         delegated_at: new Date().toISOString(),
         delegation_successful: true,
-        optimization_applied: 'immediate_delegation_to_prevent_cpu_timeout'
+        force_openai_restart: forceOpenAIRestart,
+        optimization_applied: 'immediate_delegation_with_enhanced_openai_restart'
       }
 
       // Stockage des stats de délégation
@@ -139,36 +152,43 @@ serve(async (req) => {
         console.error('⚠️ Error storing delegation stats:', statsError?.message)
       }
 
-      console.log('🎉 OPTIMIZED PROCESSING: Immediate delegation completed successfully')
+      console.log('🎉 ENHANCED PROCESSING: Immediate delegation with OpenAI restart completed successfully')
 
       return new Response(JSON.stringify({ 
         success: true,
-        action: 'optimized_dataset_processing_delegation',
+        action: 'enhanced_dataset_processing_delegation_with_openai_restart',
         dataset_id: datasetId,
         statistics: stats,
         queue_response: queueResponse,
         optimization: {
-          strategy: 'immediate_delegation',
-          reason: 'prevent_cpu_timeout',
+          strategy: 'immediate_delegation_with_openai_restart',
+          reason: 'prevent_cpu_timeout_and_force_openai_restart',
           delegation_time_ms: Date.now() - new Date(stats.started_at).getTime()
         },
         diagnostics: {
           metadata_bypass_used: bypassMetadataCheck,
           expected_items: metadataInfo.itemCount || 'unknown',
-          cleaned_records: cleanedCount
+          cleaned_records: cleanedCount,
+          openai_restart_forced: forceOpenAIRestart
         },
-        message: `Dataset ${datasetId} processing delegated to specialized queue manager to prevent CPU timeout. Processing will continue in background.`
+        enhancements: [
+          'OpenAI processing restart capability',
+          'Enhanced cleanup including leads',
+          'Forced queue manager trigger',
+          'Improved delegation tracking'
+        ],
+        message: `Dataset ${datasetId} processing delegated to specialized queue manager with ${forceOpenAIRestart ? 'ENHANCED OpenAI restart' : 'standard processing'}. Processing will continue in background.`
       }), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
 
     } catch (delegationError) {
-      console.error('❌ Error during delegation:', delegationError?.message)
+      console.error('❌ Error during enhanced delegation:', delegationError?.message)
       
       return new Response(JSON.stringify({ 
         success: false,
-        error: 'Delegation to queue manager failed',
+        error: 'Enhanced delegation to queue manager failed',
         message: delegationError?.message,
         dataset_id: datasetId,
         retry_suggestion: 'Try again or contact support if the issue persists'
@@ -179,11 +199,11 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('❌ Error in optimized process-dataset function:', error?.message)
+    console.error('❌ Error in enhanced process-dataset function:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      optimization: 'immediate_delegation_failed'
+      optimization: 'enhanced_immediate_delegation_failed'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
