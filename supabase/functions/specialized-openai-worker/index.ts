@@ -65,14 +65,70 @@ serve(async (req) => {
 
         console.log(`✅ OpenAI ${step} BATCH completed: ${batchResult.success} success, ${batchResult.failed} failed`);
 
-        // Déclencher les étapes suivantes pour les posts réussis
-        for (const result of batchResult.results) {
-          if (result.success) {
-            const post = posts.find(p => p.id === result.post_id);
-            if (post) {
-              await triggerNextStep(supabaseClient, post, step, result.result);
+        // 🚀 CORRECTION CRITIQUE : Déclencher immédiatement l'étape suivante en arrière-plan
+        const triggerNextStepAsync = async () => {
+          try {
+            console.log(`🔄 Triggering next step after ${step} batch completion...`);
+            
+            // Délai de sécurité avant de déclencher l'étape suivante
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            let nextStepAction = '';
+            switch (step) {
+              case 'step1':
+                nextStepAction = 'process_next_batch';
+                await supabaseClient.functions.invoke('processing-queue-manager', {
+                  body: { 
+                    action: nextStepAction,
+                    task_type: 'openai_step2',
+                    dataset_id: dataset_id
+                  }
+                });
+                console.log(`✅ Triggered Step 2 processing for dataset: ${dataset_id}`);
+                break;
+                
+              case 'step2':
+                nextStepAction = 'process_next_batch';
+                await supabaseClient.functions.invoke('processing-queue-manager', {
+                  body: { 
+                    action: nextStepAction,
+                    task_type: 'openai_step3',
+                    dataset_id: dataset_id
+                  }
+                });
+                console.log(`✅ Triggered Step 3 processing for dataset: ${dataset_id}`);
+                break;
+                
+              case 'step3':
+                nextStepAction = 'process_next_batch';
+                await supabaseClient.functions.invoke('processing-queue-manager', {
+                  body: { 
+                    action: nextStepAction,
+                    task_type: 'unipile_scraping',
+                    dataset_id: dataset_id
+                  }
+                });
+                console.log(`✅ Triggered Unipile scraping for dataset: ${dataset_id}`);
+                break;
             }
-          } else {
+          } catch (error) {
+            console.error(`❌ Error triggering next step after ${step}:`, error);
+          }
+        };
+
+        // Lancer le déclenchement en arrière-plan
+        if ((globalThis as any).EdgeRuntime?.waitUntil) {
+          (globalThis as any).EdgeRuntime.waitUntil(triggerNextStepAsync());
+          console.log(`🚀 Next step trigger scheduled in background for ${step}`);
+        } else {
+          // Fallback si EdgeRuntime n'est pas disponible
+          triggerNextStepAsync().catch(console.error);
+          console.log(`🚀 Next step trigger started as fallback for ${step}`);
+        }
+
+        // Gérer les erreurs individuelles des posts dans le batch
+        for (const result of batchResult.results) {
+          if (!result.success) {
             // Gérer les erreurs pour les posts échoués
             await handleOpenAIError(supabaseClient, result.post_id, step, new Error(result.error || 'Unknown error'));
           }
@@ -85,7 +141,8 @@ serve(async (req) => {
           processed_count: post_ids.length,
           success_count: batchResult.success,
           failed_count: batchResult.failed,
-          dataset_id
+          dataset_id,
+          next_step_triggered: true
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
