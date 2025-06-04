@@ -62,22 +62,24 @@ const ProcessingStatsSection = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex gap-2 flex-wrap">
-          <Select 
-            value={selectedDatasetId || 'all'} 
-            onValueChange={handleDatasetSelect}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Sélectionner un dataset" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les datasets</SelectItem>
-              {datasetsList.map((datasetId) => (
-                <SelectItem key={datasetId} value={datasetId}>
-                  {datasetId.substring(0, 12)}...
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {datasetsList.length > 0 && (
+            <Select 
+              value={selectedDatasetId || 'all'} 
+              onValueChange={handleDatasetSelect}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Sélectionner un dataset" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les datasets</SelectItem>
+                {datasetsList.map((datasetId) => (
+                  <SelectItem key={datasetId} value={datasetId}>
+                    {datasetId.substring(0, 12)}...
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Select 
             value={timePeriod} 
