@@ -113,9 +113,42 @@ const LeadDetailContent = ({
 
   return (
     <div className="h-full flex flex-col bg-white">
+      {/* Bandeau bleu du lead */}
+      <div className="bg-blue-600 text-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold">{lead.author_name || 'N/A'}</h2>
+            <a
+              href={lead.author_profile_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-blue-200 transition-colors"
+            >
+              <Linkedin className="h-5 w-5" />
+            </a>
+          </div>
+        </div>
+        <div className="text-blue-100 text-sm mt-1">
+          {lead.unipile_position && (
+            <span>{lead.unipile_position}</span>
+          )}
+          {lead.unipile_position && companyName && <span className="mx-2">@</span>}
+          {companyName && (
+            <CompanyHoverCard 
+              companyId={companyId} 
+              companyName={companyName}
+            >
+              <span className="hover:text-white cursor-pointer hover:underline transition-all duration-200">
+                {companyName}
+              </span>
+            </CompanyHoverCard>
+          )}
+        </div>
+      </div>
+
       {/* Alert entreprise cliente */}
       {lead.has_previous_client_company && (
-        <div className="bg-yellow-100 border border-yellow-300 p-3 mx-4 mt-4 rounded">
+        <div className="bg-yellow-100 border border-yellow-300 p-3 mx-6 mt-4 rounded">
           <div className="flex items-center gap-2 text-yellow-800">
             <Crown className="h-4 w-4" />
             <span className="font-medium">Entreprise cliente précédente détectée !</span>
@@ -123,225 +156,214 @@ const LeadDetailContent = ({
         </div>
       )}
 
-      {/* Layout 3 colonnes */}
+      {/* Layout 3 colonnes avec plus d'espacement */}
       <div className="flex-1 flex overflow-hidden">
-        {/* COLONNE GAUCHE - Infos lead + Poste recherché + Publication LinkedIn */}
-        <div className="w-1/3 bg-gray-50 p-6 border-r overflow-y-auto">
-          {/* Infos lead */}
-          <Card className="mb-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <User className="h-5 w-5 text-blue-600" />
-                Informations du lead
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <div className="text-sm font-medium text-gray-600">Nom</div>
-                <div className="text-base">{lead.author_name || 'N/A'}</div>
+        {/* COLONNE GAUCHE - Infos lead */}
+        <div className="w-1/3 bg-gray-50 p-8">
+          <div className="space-y-8">
+            {/* Informations du lead */}
+            <div className="bg-white rounded-lg border">
+              <div className="border-b p-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-600" />
+                  Informations du lead
+                </h3>
               </div>
-              
-              <div>
-                <div className="text-sm font-medium text-gray-600">Poste actuel</div>
-                <div className="text-base">{lead.unipile_position || 'Non disponible'}</div>
-              </div>
-              
-              <div>
-                <div className="text-sm font-medium text-gray-600">Entreprise actuelle</div>
-                <div className="text-base">
-                  {companyName ? (
-                    <CompanyHoverCard 
-                      companyId={companyId} 
-                      companyName={companyName}
-                    >
-                      <span className="text-blue-700 hover:text-blue-900 cursor-pointer hover:underline">
-                        {companyName}
-                      </span>
-                    </CompanyHoverCard>
-                  ) : 'Non disponible'}
+              <div className="p-4 space-y-4">
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Nom</div>
+                  <div className="font-medium">{lead.author_name || 'N/A'}</div>
                 </div>
-              </div>
-              
-              <div>
-                <div className="text-sm font-medium text-gray-600">Profil LinkedIn</div>
-                <div className="text-base">
+                
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Poste actuel</div>
+                  <div className="font-medium">{lead.unipile_position || 'Non disponible'}</div>
+                </div>
+                
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Entreprise actuelle</div>
+                  <div className="font-medium">{companyName || 'Non disponible'}</div>
+                </div>
+                
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Profil LinkedIn</div>
                   <a
                     href={lead.author_profile_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
                   >
-                    <Linkedin className="h-4 w-4" />
+                    <Linkedin className="h-3 w-3" />
                     Voir le profil
                   </a>
                 </div>
+                
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Date de publication</div>
+                  <div className="font-medium">{formatDate(lead.latest_post_date)}</div>
+                </div>
               </div>
-              
-              <div>
-                <div className="text-sm font-medium text-gray-600">Date de publication</div>
-                <div className="text-base">{formatDate(lead.latest_post_date)}</div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Poste recherché */}
-          <Card className="mb-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building className="h-5 w-5 text-green-600" />
-                Poste recherché
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
-                <div className="space-y-2">
-                  <Badge variant="secondary" className="text-xs">
-                    Postes identifiés par l'IA
-                  </Badge>
-                  <div className="space-y-1">
+            {/* Poste recherché */}
+            <div className="bg-white rounded-lg border">
+              <div className="border-b p-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Building className="h-4 w-4 text-green-600" />
+                  Poste recherché
+                </h3>
+              </div>
+              <div className="p-4">
+                {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="text-sm text-green-600 mb-2">Postes identifiés par l'IA</div>
                     {lead.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
-                      <div key={index} className="text-sm bg-green-50 p-2 rounded border border-green-200">
+                      <div key={index} className="text-sm font-medium bg-green-50 p-2 rounded border border-green-200">
                         {poste}
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-600">Poste de recrutement détecté</div>
-              )}
-            </CardContent>
-          </Card>
+                ) : (
+                  <div className="text-sm text-gray-600 font-medium">Poste de recrutement détecté</div>
+                )}
+              </div>
+            </div>
 
-          {/* Publication LinkedIn */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Linkedin className="h-5 w-5 text-blue-600" />
-                Publication LinkedIn
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lead.text ? (
-                <div className="text-sm bg-white p-3 rounded border max-h-64 overflow-y-auto">
-                  {lead.text}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 text-center py-4">
-                  Aucun texte disponible
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Publication LinkedIn */}
+            <div className="bg-white rounded-lg border">
+              <div className="border-b p-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Linkedin className="h-4 w-4 text-blue-600" />
+                  Publication LinkedIn
+                </h3>
+              </div>
+              <div className="p-4">
+                {lead.text ? (
+                  <div className="text-sm bg-gray-50 p-3 rounded border max-h-48 overflow-y-auto">
+                    {lead.text}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Aucun texte disponible
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* COLONNE CENTRE - Message d'approche */}
-        <div className="w-1/3 bg-white p-6 border-r flex flex-col">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
-              <Send className="h-5 w-5 text-blue-600" />
-              Message d'approche
-            </h3>
-            <p className="text-sm text-gray-600">Personnalisez votre message LinkedIn</p>
-          </div>
-          
-          <div className="flex-1 flex flex-col">
-            <Textarea
-              value={customMessage}
-              onChange={(e) => onMessageChange(e.target.value)}
-              placeholder="Votre message LinkedIn..."
-              className="flex-1 resize-none border-gray-300 text-sm"
-            />
-            
-            <div className="mt-3 flex justify-between items-center text-xs">
-              <span className={charactersRemaining < 0 ? 'text-red-500' : 'text-gray-500'}>
-                {charactersRemaining < 0 ? `Dépassement de ${Math.abs(charactersRemaining)} caractères` : `${charactersRemaining} caractères restants`}
-              </span>
+        <div className="w-1/3 bg-white border-r p-8">
+          <div className="h-full flex flex-col">
+            <div className="border-b pb-4 mb-6">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Send className="h-4 w-4 text-blue-600" />
+                Message d'approche
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">Personnalisez votre message LinkedIn</p>
             </div>
-
-            {hasLinkedInMessage && (
-              <div className="mt-3 text-xs text-green-600 bg-green-50 p-2 rounded">
-                Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
+            
+            <div className="flex-1 flex flex-col">
+              <Textarea
+                value={customMessage}
+                onChange={(e) => onMessageChange(e.target.value)}
+                placeholder="Votre message LinkedIn..."
+                className="flex-1 resize-none border-gray-300 text-sm min-h-0"
+              />
+              
+              <div className="mt-4 text-sm">
+                <span className={charactersRemaining < 0 ? 'text-red-500' : 'text-gray-500'}>
+                  {charactersRemaining < 0 ? `Dépassement de ${Math.abs(charactersRemaining)} caractères` : `${charactersRemaining} caractères restants`}
+                </span>
               </div>
-            )}
+
+              {hasLinkedInMessage && (
+                <div className="mt-3 text-sm text-green-600 bg-green-50 p-2 rounded">
+                  Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* COLONNE DROITE - Actions */}
-        <div className="w-1/3 bg-gray-50 p-6 flex flex-col">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">Actions</h3>
+        <div className="w-1/3 bg-gray-50 p-8">
+          <div className="h-full flex flex-col">
+            <div className="border-b border-gray-200 pb-4 mb-6">
+              <h3 className="font-semibold text-gray-900">Actions</h3>
+            </div>
             
-            {/* Envoyer message LinkedIn */}
-            <Button
-              onClick={onSendLinkedInMessage}
-              disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
-              className="w-full mb-4 h-12"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {messageSending ? 'Envoi en cours...' : 
-               hasLinkedInMessage ? 'Message déjà envoyé' : 
-               'Envoyer le message LinkedIn'}
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {/* Récupérer téléphone */}
-            {!lead.phone_number ? (
+            <div className="space-y-4">
+              {/* Envoyer message LinkedIn */}
               <Button
-                onClick={handleRetrievePhone}
-                disabled={phoneLoading}
-                variant="outline"
-                className="w-full"
+                onClick={onSendLinkedInMessage}
+                disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700"
               >
-                <Phone className="h-4 w-4 mr-2" />
-                {phoneLoading ? 'Recherche...' : 'Récupérer le téléphone'}
+                <Send className="h-4 w-4 mr-2" />
+                {messageSending ? 'Envoi en cours...' : 
+                 hasLinkedInMessage ? 'Message déjà envoyé' : 
+                 'Envoyer le message LinkedIn'}
               </Button>
-            ) : (
-              <div className="bg-white p-4 rounded border">
-                <PhoneContactStatus
-                  leadId={lead.id}
-                  phoneNumber={lead.phone_number}
-                  currentStatus={lead.phone_contact_status}
-                  onStatusUpdate={() => onContactUpdate?.()}
-                />
+
+              {/* Récupérer téléphone */}
+              {!lead.phone_number ? (
+                <Button
+                  onClick={handleRetrievePhone}
+                  disabled={phoneLoading}
+                  variant="outline"
+                  className="w-full h-12"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  {phoneLoading ? 'Recherche...' : 'Récupérer le téléphone'}
+                </Button>
+              ) : (
+                <div className="bg-white p-4 rounded border">
+                  <PhoneContactStatus
+                    leadId={lead.id}
+                    phoneNumber={lead.phone_number}
+                    currentStatus={lead.phone_contact_status}
+                    onStatusUpdate={() => onContactUpdate?.()}
+                  />
+                </div>
+              )}
+
+              {/* Planifier un rappel */}
+              <Button
+                variant="outline"
+                className="w-full h-12"
+                onClick={() => onAction('schedule_reminder')}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Planifier un rappel
+              </Button>
+            </div>
+
+            {/* Section Signalement */}
+            <div className="mt-auto pt-6">
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-4">Signalement</h4>
+                
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleMistargetedPost}
+                    variant="outline"
+                    className="w-full justify-start text-sm"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Publication mal ciblée
+                  </Button>
+                  
+                  <Button
+                    onClick={() => onAction('hr_provider')}
+                    variant="outline"
+                    className="w-full justify-start text-sm"
+                  >
+                    <Building className="h-4 w-4 mr-2" />
+                    Prestataire RH
+                  </Button>
+                </div>
               </div>
-            )}
-
-            {/* Planifier un rappel */}
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => onAction('schedule_reminder')}
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Planifier un rappel
-            </Button>
-          </div>
-
-          {/* Section Signalement */}
-          <div className="mt-8 pt-6 border-t">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Signalement</h4>
-            
-            <div className="space-y-2">
-              <Button
-                onClick={handleMistargetedPost}
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-              >
-                <AlertTriangle className="h-3 w-3 mr-2" />
-                Publication mal ciblée
-              </Button>
-              
-              <Button
-                onClick={() => onAction('hr_provider')}
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-              >
-                <Building className="h-3 w-3 mr-2" />
-                Prestataire RH
-              </Button>
             </div>
           </div>
         </div>
