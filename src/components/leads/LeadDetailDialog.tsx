@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -8,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import LeadDetailHeader from './LeadDetailHeader';
 import LeadDetailContent from './LeadDetailContent';
-import SystemStatus from '../SystemStatus';
 
 type Lead = Tables<'leads'>;
 
@@ -187,9 +187,6 @@ const LeadDetailDialog = ({
           onNext={handleNext}
           onClose={onClose}
         />
-        
-        {/* System Status Banner */}
-        <SystemStatus className="mx-6 mt-2 flex-shrink-0" />
         
         <div className="flex-1 overflow-hidden">
           <LeadDetailContent
