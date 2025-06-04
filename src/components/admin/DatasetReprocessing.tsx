@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search, Play } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search, Play, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ReprocessingResult {
@@ -22,6 +21,8 @@ interface ReprocessingResult {
     apify_item_count: number;
     apify_clean_item_count: number;
     resumed_from_batch?: number;
+    bypass_metadata_check?: boolean;
+    metadata_corrected?: boolean;
   };
   diagnostics: {
     retrieval_rate_percent: string;
@@ -31,6 +32,8 @@ interface ReprocessingResult {
       missing_fields: number;
       already_processed: number;
     };
+    metadata_bypass_used?: boolean;
+    metadata_corrected?: boolean;
   };
   improvements: string[];
 }
@@ -39,6 +42,7 @@ export function DatasetReprocessing() {
   const [datasetId, setDatasetId] = useState('');
   const [cleanupExisting, setCleanupExisting] = useState(false);
   const [forceAll, setForceAll] = useState(false);
+  const [bypassMetadataCheck, setBypassMetadataCheck] = useState(false);
   const [resumeFromBatch, setResumeFromBatch] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ReprocessingResult | null>(null);
@@ -53,14 +57,15 @@ export function DatasetReprocessing() {
     setResult(null);
 
     try {
-      console.log('🔄 Starting enhanced dataset processing...');
+      console.log('🔄 Starting enhanced dataset processing with bypass:', bypassMetadataCheck);
       
       const { data, error } = await supabase.functions.invoke('process-dataset', {
         body: {
           datasetId: datasetId.trim(),
           cleanupExisting: isResume ? false : cleanupExisting,
           forceAll,
-          resumeFromBatch: isResume ? resumeFromBatch : 0
+          resumeFromBatch: isResume ? resumeFromBatch : 0,
+          bypassMetadataCheck
         }
       });
 
@@ -75,13 +80,18 @@ export function DatasetReprocessing() {
       
       if (data.success) {
         const retrievalRate = parseFloat(data.diagnostics?.retrieval_rate_percent || '0');
-        if (retrievalRate < 80) {
-          toast.warning(`Dataset retraité avec alertes! Taux de récupération: ${retrievalRate}%`);
+        
+        if (data.diagnostics?.metadata_bypass_used) {
+          toast.success(`✅ Dataset retraité avec bypass metadata! ${data.statistics.queued_for_processing} posts en queue`);
+        } else if (data.diagnostics?.metadata_corrected) {
+          toast.warning(`⚠️ Métadonnées Apify corrigées! Dataset retraité: ${data.statistics.queued_for_processing} posts`);
+        } else if (retrievalRate < 80 && retrievalRate > 0) {
+          toast.warning(`⚠️ Dataset retraité avec alertes! Taux de récupération: ${retrievalRate}%`);
         } else {
-          toast.success(`Dataset retraité avec succès! ${data.statistics.queued_for_processing} posts en queue`);
+          toast.success(`✅ Dataset retraité avec succès! ${data.statistics.queued_for_processing} posts en queue`);
         }
       } else {
-        toast.error('Le retraitement a échoué');
+        toast.error('❌ Le retraitement a échoué');
       }
 
     } catch (error) {
@@ -108,12 +118,14 @@ export function DatasetReprocessing() {
               <Input
                 value={datasetId}
                 onChange={(e) => setDatasetId(e.target.value)}
-                placeholder="ex: fLb3igSu5dgsM3de8"
+                placeholder="ex: c0YR6bSA4NdzBGQrB"
                 className="mt-1"
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4 border p-4 rounded-lg bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-700">Options de traitement</h3>
+              
               <div className="flex items-center space-x-2">
                 <Switch
                   id="cleanup"
@@ -134,6 +146,23 @@ export function DatasetReprocessing() {
                 <label htmlFor="forceAll" className="text-sm font-medium">
                   Mode forceAll (récupérer tous les items)
                 </label>
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <Switch
+                  id="bypassMetadata"
+                  checked={bypassMetadataCheck}
+                  onCheckedChange={setBypassMetadataCheck}
+                />
+                <div className="flex-1">
+                  <label htmlFor="bypassMetadata" className="text-sm font-medium flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-orange-600" />
+                    Mode Bypass Métadonnées
+                  </label>
+                  <p className="text-xs text-orange-700 mt-1">
+                    Ignorer les vérifications de métadonnées Apify (recommandé pour c0YR6bSA4NdzBGQrB)
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -163,6 +192,7 @@ export function DatasetReprocessing() {
             </div>
           </div>
 
+          {/* Messages d'alerte conditionnels */}
           {cleanupExisting && (
             <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
@@ -183,19 +213,36 @@ export function DatasetReprocessing() {
             </div>
           )}
 
+          {bypassMetadataCheck && (
+            <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <Shield className="h-4 w-4 text-green-600 mt-0.5" />
+              <div className="text-sm text-green-800">
+                <div className="font-medium">✅ Mode bypass métadonnées activé</div>
+                <div>Le système ignorera complètement les vérifications de métadonnées Apify et procédera directement au traitement. Parfait pour contourner le bug des métadonnées incorrectes.</div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="font-medium">Ce processus va :</div>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>🐌 Traitement ultra-lent (5 items par batch, pause de 1 seconde)</li>
-              <li>🔄 Reprise automatique en cas d'interruption</li>
-              <li>💾 Points de sauvegarde toutes les 20 batches</li>
-              <li>⏰ Détection proactive des timeouts</li>
-              <li>🔍 Vérifier les métadonnées Apify (itemCount vs cleanItemCount)</li>
+              {bypassMetadataCheck ? (
+                <>
+                  <li>🚨 <strong>BYPASS:</strong> Ignorer complètement les métadonnées Apify</li>
+                  <li>🚀 Procéder directement à la récupération des données</li>
+                </>
+              ) : (
+                <>
+                  <li>🔍 Vérifier les métadonnées Apify avec correction automatique</li>
+                  <li>🛡️ Détecter et contourner les métadonnées incorrectes</li>
+                  <li>📊 Effectuer une vérification directe si métadonnées suspectes</li>
+                </>
+              )}
               <li>📥 Récupérer les données avec diagnostic de perte</li>
               <li>💾 Utiliser des upserts pour éviter les conflits de duplicatas</li>
-              <li>🎯 Appliquer la classification simplifiée (exclusion Company uniquement)</li>
+              <li>🎯 Appliquer la classification simplifiée</li>
               <li>📊 Fournir un rapport détaillé avec taux de récupération</li>
-              <li>🚨 Alerter en cas de perte significative d'items (&lt; 80%)</li>
+              <li>🚀 Déléguer au gestionnaire de queue spécialisé</li>
             </ul>
           </div>
 
@@ -204,6 +251,7 @@ export function DatasetReprocessing() {
               onClick={() => startReprocessing(false)}
               disabled={isProcessing || !datasetId.trim()}
               className="flex-1"
+              variant={bypassMetadataCheck ? "default" : "default"}
             >
               {isProcessing ? (
                 <>
@@ -212,12 +260,27 @@ export function DatasetReprocessing() {
                 </>
               ) : (
                 <>
-                  <Database className="h-4 w-4 mr-2" />
-                  Lancer le retraitement robuste
+                  {bypassMetadataCheck ? (
+                    <Shield className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Database className="h-4 w-4 mr-2" />
+                  )}
+                  {bypassMetadataCheck ? 'Lancer avec bypass métadonnées' : 'Lancer le retraitement robuste'}
                 </>
               )}
             </Button>
           </div>
+
+          {/* Suggestion pour le dataset spécifique */}
+          {datasetId === 'c0YR6bSA4NdzBGQrB' && !bypassMetadataCheck && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+              <div className="text-sm text-amber-800">
+                <div className="font-medium">💡 Suggestion pour ce dataset</div>
+                <div>Les logs montrent que ce dataset a des métadonnées incorrectes. Nous recommandons d'activer le <strong>Mode Bypass Métadonnées</strong> ci-dessus.</div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -234,6 +297,17 @@ export function DatasetReprocessing() {
               {result.statistics.resumed_from_batch && (
                 <Badge variant="outline">Repris du batch {result.statistics.resumed_from_batch}</Badge>
               )}
+              {result.diagnostics?.metadata_bypass_used && (
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Bypass métadonnées
+                </Badge>
+              )}
+              {result.diagnostics?.metadata_corrected && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  Métadonnées corrigées
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -244,7 +318,7 @@ export function DatasetReprocessing() {
                 </div>
                 <div className="text-sm text-muted-foreground">Récupérés</div>
                 <div className="text-xs text-gray-500">
-                  / {result.statistics.apify_item_count} attendus
+                  / {result.statistics.apify_item_count || '?'} attendus
                 </div>
               </div>
               <div className="text-center">
@@ -261,11 +335,15 @@ export function DatasetReprocessing() {
               </div>
               <div className="text-center">
                 <div className={`text-2xl font-bold ${
-                  result.diagnostics && parseFloat(result.diagnostics.retrieval_rate_percent) >= 80 
+                  result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable'
+                    ? 'text-orange-600'
+                    : result.diagnostics && parseFloat(result.diagnostics.retrieval_rate_percent) >= 80 
                     ? 'text-green-600' 
                     : 'text-red-600'
                 }`}>
-                  {result.diagnostics?.retrieval_rate_percent || '0'}%
+                  {result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable' 
+                    ? 'N/A' 
+                    : `${result.diagnostics?.retrieval_rate_percent || '0'}%`}
                 </div>
                 <div className="text-sm text-muted-foreground">Taux récupération</div>
               </div>
@@ -279,6 +357,21 @@ export function DatasetReprocessing() {
                     <span>Taux de qualification:</span>
                     <Badge variant="outline">{result.diagnostics.qualification_rate_percent}%</Badge>
                   </div>
+                  
+                  {result.diagnostics.metadata_bypass_used && (
+                    <div className="flex items-center gap-2 text-orange-700">
+                      <Shield className="h-3 w-3" />
+                      <span className="text-xs font-medium">Bypass métadonnées activé</span>
+                    </div>
+                  )}
+                  
+                  {result.diagnostics.metadata_corrected && (
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <CheckCircle className="h-3 w-3" />
+                      <span className="text-xs font-medium">Métadonnées Apify corrigées automatiquement</span>
+                    </div>
+                  )}
+                  
                   <div className="space-y-1">
                     <div className="font-medium text-xs text-gray-600">Exclusions:</div>
                     <div className="flex justify-between text-xs">
@@ -316,6 +409,9 @@ export function DatasetReprocessing() {
               Terminé: {new Date(result.statistics.completed_at).toLocaleString()}
               {result.statistics.resumed_from_batch && (
                 <> | Repris du batch: {result.statistics.resumed_from_batch}</>
+              )}
+              {result.statistics.bypass_metadata_check && (
+                <> | Mode bypass: activé</>
               )}
             </div>
           </CardContent>
