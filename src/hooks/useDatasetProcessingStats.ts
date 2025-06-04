@@ -82,10 +82,11 @@ export const useDatasetProcessingStats = (
           console.log('📈 Processing dataset:', stat.dataset_id);
           
           // Compter les leads créés pour ce dataset spécifique - simplifier la requête
+          const datasetId: string = stat.dataset_id; // Explicitly type this to avoid inference issues
           const { data: leadsData, error: leadsError } = await supabase
             .from('leads')
             .select('id')
-            .eq('apify_dataset_id', stat.dataset_id);
+            .eq('apify_dataset_id', datasetId);
 
           if (leadsError) {
             console.error('❌ Error counting leads for dataset', stat.dataset_id, ':', leadsError);
