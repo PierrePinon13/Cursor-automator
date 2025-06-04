@@ -210,30 +210,53 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
 async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean = false) {
   console.log('📥 Starting OPTIMIZED queuing of pending posts...');
   
-  const batchLimit = timeoutProtection ? 500 : 1000; // Limite réduite si protection timeout
+  // 🔥 CORRECTION MAJEURE : Récupérer TOUS les posts pending sans limitation
+  console.log('📊 Fetching ALL pending posts without 1000 limit...');
   
-  const { data: pendingPosts, error } = await supabaseClient
-    .from('linkedin_posts')
-    .select('*')
-    .eq('processing_status', 'pending')
-    .order('created_at', { ascending: true })
-    .limit(batchLimit);
+  let allPendingPosts: any[] = [];
+  let page = 0;
+  const PAGE_SIZE = 1000;
+  
+  // Pagination pour récupérer TOUS les posts pending
+  while (true) {
+    const { data: pendingPostsPage, error } = await supabaseClient
+      .from('linkedin_posts')
+      .select('*')
+      .eq('processing_status', 'pending')
+      .order('created_at', { ascending: true })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-  if (error) {
-    throw new Error(`Error fetching pending posts: ${error.message}`);
+    if (error) {
+      throw new Error(`Error fetching pending posts page ${page}: ${error.message}`);
+    }
+
+    if (!pendingPostsPage || pendingPostsPage.length === 0) {
+      console.log(`📄 No more pending posts - stopping at page ${page}`);
+      break;
+    }
+
+    console.log(`📥 Fetched page ${page + 1}: ${pendingPostsPage.length} pending posts`);
+    allPendingPosts = allPendingPosts.concat(pendingPostsPage);
+    
+    if (pendingPostsPage.length < PAGE_SIZE) {
+      console.log(`📄 Last page reached (${pendingPostsPage.length} < ${PAGE_SIZE})`);
+      break;
+    }
+    
+    page++;
   }
 
-  console.log(`📊 Found ${pendingPosts.length} pending posts`);
+  console.log(`📊 Found ${allPendingPosts.length} TOTAL pending posts (NO 1000 LIMIT!)`);
 
   // 🚀 STRATÉGIE ANTI-TIMEOUT : Batches plus petits si protection activée
   const MEGA_BATCH_SIZE = timeoutProtection ? 50 : 100;
   let queuedCount = 0;
   
   // Traiter par méga-batches plus petits si timeout protection
-  for (let i = 0; i < pendingPosts.length; i += MEGA_BATCH_SIZE) {
-    const batch = pendingPosts.slice(i, i + MEGA_BATCH_SIZE);
+  for (let i = 0; i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
+    const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
     const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE);
+    const totalBatches = Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE);
     
     console.log(`🚀 Processing ${timeoutProtection ? 'PROTECTED' : 'MEGA'} batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
     
@@ -262,7 +285,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
       queuedCount += batch.length;
       
       // Pause adaptée au mode
-      if (i + MEGA_BATCH_SIZE < pendingPosts.length) {
+      if (i + MEGA_BATCH_SIZE < allPendingPosts.length) {
         await new Promise(resolve => setTimeout(resolve, timeoutProtection ? 200 : 100));
       }
       
@@ -301,15 +324,16 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
     }, 40000); // 40 secondes
   }
 
-  console.log(`✅ ${timeoutProtection ? 'PROTECTED' : 'OPTIMIZED'} queuing: ${queuedCount} posts queued in ${Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE)} batches`);
+  console.log(`✅ ${timeoutProtection ? 'PROTECTED' : 'OPTIMIZED'} queuing: ${queuedCount} posts queued in ${Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE)} batches`);
   
   return new Response(JSON.stringify({ 
     success: true, 
     queued_count: queuedCount,
-    total_pending: pendingPosts.length,
-    batch_count: Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE),
+    total_pending: allPendingPosts.length,
+    batch_count: Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE),
     timeout_protection: timeoutProtection,
-    cascade_triggered: !timeoutProtection
+    cascade_triggered: !timeoutProtection,
+    fixed_1000_limit: true
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
