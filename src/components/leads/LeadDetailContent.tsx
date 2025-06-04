@@ -1,3 +1,4 @@
+
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ interface LeadDetailContentProps {
   isAdmin?: boolean;
 }
 
-export function LeadDetailContent({ lead, onActionCompleted, isAdmin }: LeadDetailContentProps) {
+const LeadDetailContent = ({ lead, onActionCompleted, isAdmin }: LeadDetailContentProps) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Non disponible';
     try {
@@ -157,17 +158,33 @@ export function LeadDetailContent({ lead, onActionCompleted, isAdmin }: LeadDeta
       <Separator />
 
       {/* Statut contact téléphonique */}
-      <PhoneContactStatus lead={lead} onStatusUpdate={onActionCompleted} />
+      {lead.phone_number && (
+        <PhoneContactStatus
+          leadId={lead.id}
+          phoneNumber={lead.phone_number}
+          currentStatus={lead.phone_contact_status}
+          onStatusUpdate={onActionCompleted}
+        />
+      )}
 
       <Separator />
 
       {/* Actions */}
-      <LeadActions lead={lead} onActionCompleted={onActionCompleted} />
+      <LeadActions 
+        lead={lead} 
+        onAction={() => onActionCompleted()} 
+      />
 
       <Separator />
 
       {/* Message LinkedIn */}
-      <LeadMessageSection lead={lead} onMessageSent={onActionCompleted} />
+      <LeadMessageSection 
+        lead={lead} 
+        customMessage={lead.approach_message || ''}
+        onMessageChange={() => {}} 
+      />
     </div>
   );
-}
+};
+
+export default LeadDetailContent;
