@@ -55,6 +55,9 @@ export async function createOrUpdateLead(
       };
     }
 
+    // Extract work history from Unipile data
+    const companyData = await extractWorkHistoryForLead(scrapingResult, supabaseClient);
+
     // Préparer les données du lead avec toutes les informations nécessaires
     const leadData = {
       // Identifiants
@@ -104,6 +107,13 @@ export async function createOrUpdateLead(
       latest_post_url: post.url,
       latest_post_urn: post.urn,
       
+      // ✅ NOUVEAU : Historique professionnel (5 entreprises max)
+      ...companyData.workHistory,
+      
+      // ✅ NOUVEAU : Détection des entreprises clientes précédentes
+      has_previous_client_company: companyData.hasPreviousClient,
+      previous_client_companies: companyData.previousClientCompanies,
+      
       // Métadonnées
       processing_status: 'completed',
       last_updated_at: new Date().toISOString()
@@ -118,7 +128,9 @@ export async function createOrUpdateLead(
       category: leadData.openai_step3_categorie,
       jobs: leadData.openai_step3_postes_selectionnes,
       is_client: leadData.is_client_lead,
-      client_name: leadData.matched_client_name
+      client_name: leadData.matched_client_name,
+      has_previous_client: leadData.has_previous_client_company,
+      previous_clients: leadData.previous_client_companies
     });
 
     let leadId: string;
@@ -198,4 +210,96 @@ export async function createOrUpdateLead(
       error: error.message || 'Unknown error during lead creation/update'
     };
   }
+}
+
+async function extractWorkHistoryForLead(
+  scrapingResult: UnipileScrapingResult,
+  supabaseClient: ReturnType<typeof createClient>
+) {
+  console.log('💼 Extracting work history for lead...');
+  
+  const workHistory: any = {};
+  let hasPreviousClient = false;
+  const previousClientCompanies: string[] = [];
+  
+  // Get client companies for comparison
+  const { data: clientCompanies, error: clientError } = await supabaseClient
+    .from('clients')
+    .select('company_name, company_linkedin_id, company_linkedin_url');
+  
+  if (clientError) {
+    console.error('⚠️ Error fetching client companies:', clientError);
+  }
+  
+  // Extract work experience from Unipile profile data
+  const experiences = scrapingResult.profile?.work_experience || 
+                    scrapingResult.profile?.linkedin_profile?.experience || 
+                    [];
+  
+  console.log('💼 Found', experiences.length, 'work experiences for lead');
+  
+  for (let i = 0; i < Math.min(experiences.length, 5); i++) {
+    const exp = experiences[i];
+    const companyIndex = i + 1;
+    
+    const companyName = exp.company || exp.companyName || '';
+    const companyLinkedInId = exp.company_id || exp.companyId || '';
+    let companyLinkedInUrl = exp.company_url || '';
+    
+    // Generate LinkedIn URL if we have ID but no URL
+    if (companyLinkedInId && !companyLinkedInUrl) {
+      companyLinkedInUrl = `https://www.linkedin.com/company/${companyLinkedInId}`;
+    }
+    
+    workHistory[`company_${companyIndex}_name`] = companyName;
+    workHistory[`company_${companyIndex}_position`] = exp.position || exp.title || '';
+    workHistory[`company_${companyIndex}_start_date`] = exp.start || exp.startDate || null;
+    workHistory[`company_${companyIndex}_end_date`] = exp.end || exp.endDate || null;
+    workHistory[`company_${companyIndex}_is_current`] = !exp.end || exp.end === null || exp.end === '';
+    workHistory[`company_${companyIndex}_duration_months`] = calculateDurationInMonths(
+      exp.start || exp.startDate, 
+      exp.end || exp.endDate
+    );
+    workHistory[`company_${companyIndex}_linkedin_id`] = companyLinkedInId;
+    workHistory[`company_${companyIndex}_linkedin_url`] = companyLinkedInUrl;
+    
+    // Check if this company is a client
+    if (clientCompanies && companyName) {
+      const matchingClient = clientCompanies.find(client => 
+        client.company_name?.toLowerCase() === companyName.toLowerCase() ||
+        client.company_linkedin_id === companyLinkedInId ||
+        client.company_linkedin_url === companyLinkedInUrl
+      );
+      
+      if (matchingClient) {
+        hasPreviousClient = true;
+        previousClientCompanies.push(companyName);
+        console.log(`🎯 Found previous client company: ${companyName}`);
+      }
+    }
+  }
+  
+  console.log('📊 Work history extracted:', {
+    companies: Math.min(experiences.length, 5),
+    hasPreviousClient,
+    previousClientCompanies
+  });
+  
+  return {
+    workHistory,
+    hasPreviousClient,
+    previousClientCompanies
+  };
+}
+
+function calculateDurationInMonths(startDate: string | null, endDate: string | null): number | null {
+  if (!startDate) return null;
+  
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : new Date();
+  
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
+  
+  return yearDiff * 12 + monthDiff;
 }

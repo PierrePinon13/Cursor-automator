@@ -113,25 +113,38 @@ serve(async (req) => {
       position
     });
 
-    // Extract work experience
-    const workExperiences = [];
+    // Extract work experience (5 companies max)
     const experiences = unipileData.work_experience || unipileData.linkedin_profile?.experience || [];
-    
     console.log('💼 Found', experiences.length, 'work experiences');
     
-    for (const exp of experiences) {
-      const experience = {
-        company_name: exp.company || exp.companyName || '',
-        position: exp.position || exp.title || '',
-        start_date: exp.start || exp.startDate || null,
-        end_date: exp.end || exp.endDate || null,
-        is_current: !exp.end || exp.end === null || exp.end === '',
-        company_linkedin_id: exp.company_id || exp.companyId || null,
-        duration_months: calculateDurationInMonths(exp.start || exp.startDate, exp.end || exp.endDate)
-      };
+    // Prepare company data for direct column storage
+    const companyData: any = {};
+    
+    for (let i = 0; i < Math.min(experiences.length, 5); i++) {
+      const exp = experiences[i];
+      const companyIndex = i + 1;
       
-      if (experience.company_name) {
-        workExperiences.push(experience);
+      companyData[`company_${companyIndex}_name`] = exp.company || exp.companyName || '';
+      companyData[`company_${companyIndex}_position`] = exp.position || exp.title || '';
+      companyData[`company_${companyIndex}_start_date`] = exp.start || exp.startDate || null;
+      companyData[`company_${companyIndex}_end_date`] = exp.end || exp.endDate || null;
+      companyData[`company_${companyIndex}_is_current`] = !exp.end || exp.end === null || exp.end === '';
+      companyData[`company_${companyIndex}_duration_months`] = calculateDurationInMonths(
+        exp.start || exp.startDate, 
+        exp.end || exp.endDate
+      );
+      
+      // Extract LinkedIn ID and URL for the company
+      if (exp.company_id || exp.companyId) {
+        companyData[`company_${companyIndex}_linkedin_id`] = exp.company_id || exp.companyId;
+        companyData[`company_${companyIndex}_linkedin_url`] = `https://www.linkedin.com/company/${exp.company_id || exp.companyId}`;
+      } else if (exp.company_url) {
+        companyData[`company_${companyIndex}_linkedin_url`] = exp.company_url;
+        // Try to extract ID from URL
+        const idMatch = exp.company_url.match(/\/company\/([^\/\?]+)/);
+        if (idMatch) {
+          companyData[`company_${companyIndex}_linkedin_id`] = idMatch[1];
+        }
       }
     }
 
@@ -144,7 +157,8 @@ serve(async (req) => {
       last_name: lastName,
       email: email || null,
       phone: phone || null,
-      position: position || null
+      position: position || null,
+      ...companyData
     };
 
     // Si on a un vrai contact_id (pas "temp"), on met à jour en base
@@ -161,42 +175,14 @@ serve(async (req) => {
         throw updateError;
       }
 
-      // Sauvegarder l'historique professionnel
-      if (workExperiences.length > 0) {
-        console.log('💼 Saving work history...');
-        
-        // Supprimer l'historique existant
-        await supabase
-          .from('contact_work_history')
-          .delete()
-          .eq('contact_id', contact_id);
-
-        // Insérer le nouvel historique
-        const { error: historyError } = await supabase
-          .from('contact_work_history')
-          .insert(
-            workExperiences.map(exp => ({
-              contact_id: contact_id,
-              ...exp
-            }))
-          );
-
-        if (historyError) {
-          console.error('❌ Error saving work history:', historyError);
-        } else {
-          console.log('✅ Work history saved successfully');
-        }
-      }
-
-      console.log('✅ Contact updated successfully with LinkedIn data');
+      console.log('✅ Contact updated successfully with LinkedIn data and work history');
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         extracted_data: extractedData,
-        work_experiences: workExperiences,
-        message: 'LinkedIn profile data extracted successfully'
+        message: 'LinkedIn profile data extracted successfully with work history'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -245,30 +245,40 @@ export type Database = {
           company_1_duration_months: number | null
           company_1_end_date: string | null
           company_1_is_current: boolean | null
+          company_1_linkedin_id: string | null
+          company_1_linkedin_url: string | null
           company_1_name: string | null
           company_1_position: string | null
           company_1_start_date: string | null
           company_2_duration_months: number | null
           company_2_end_date: string | null
           company_2_is_current: boolean | null
+          company_2_linkedin_id: string | null
+          company_2_linkedin_url: string | null
           company_2_name: string | null
           company_2_position: string | null
           company_2_start_date: string | null
           company_3_duration_months: number | null
           company_3_end_date: string | null
           company_3_is_current: boolean | null
+          company_3_linkedin_id: string | null
+          company_3_linkedin_url: string | null
           company_3_name: string | null
           company_3_position: string | null
           company_3_start_date: string | null
           company_4_duration_months: number | null
           company_4_end_date: string | null
           company_4_is_current: boolean | null
+          company_4_linkedin_id: string | null
+          company_4_linkedin_url: string | null
           company_4_name: string | null
           company_4_position: string | null
           company_4_start_date: string | null
           company_5_duration_months: number | null
           company_5_end_date: string | null
           company_5_is_current: boolean | null
+          company_5_linkedin_id: string | null
+          company_5_linkedin_url: string | null
           company_5_name: string | null
           company_5_position: string | null
           company_5_start_date: string | null
@@ -292,30 +302,40 @@ export type Database = {
           company_1_duration_months?: number | null
           company_1_end_date?: string | null
           company_1_is_current?: boolean | null
+          company_1_linkedin_id?: string | null
+          company_1_linkedin_url?: string | null
           company_1_name?: string | null
           company_1_position?: string | null
           company_1_start_date?: string | null
           company_2_duration_months?: number | null
           company_2_end_date?: string | null
           company_2_is_current?: boolean | null
+          company_2_linkedin_id?: string | null
+          company_2_linkedin_url?: string | null
           company_2_name?: string | null
           company_2_position?: string | null
           company_2_start_date?: string | null
           company_3_duration_months?: number | null
           company_3_end_date?: string | null
           company_3_is_current?: boolean | null
+          company_3_linkedin_id?: string | null
+          company_3_linkedin_url?: string | null
           company_3_name?: string | null
           company_3_position?: string | null
           company_3_start_date?: string | null
           company_4_duration_months?: number | null
           company_4_end_date?: string | null
           company_4_is_current?: boolean | null
+          company_4_linkedin_id?: string | null
+          company_4_linkedin_url?: string | null
           company_4_name?: string | null
           company_4_position?: string | null
           company_4_start_date?: string | null
           company_5_duration_months?: number | null
           company_5_end_date?: string | null
           company_5_is_current?: boolean | null
+          company_5_linkedin_id?: string | null
+          company_5_linkedin_url?: string | null
           company_5_name?: string | null
           company_5_position?: string | null
           company_5_start_date?: string | null
@@ -339,30 +359,40 @@ export type Database = {
           company_1_duration_months?: number | null
           company_1_end_date?: string | null
           company_1_is_current?: boolean | null
+          company_1_linkedin_id?: string | null
+          company_1_linkedin_url?: string | null
           company_1_name?: string | null
           company_1_position?: string | null
           company_1_start_date?: string | null
           company_2_duration_months?: number | null
           company_2_end_date?: string | null
           company_2_is_current?: boolean | null
+          company_2_linkedin_id?: string | null
+          company_2_linkedin_url?: string | null
           company_2_name?: string | null
           company_2_position?: string | null
           company_2_start_date?: string | null
           company_3_duration_months?: number | null
           company_3_end_date?: string | null
           company_3_is_current?: boolean | null
+          company_3_linkedin_id?: string | null
+          company_3_linkedin_url?: string | null
           company_3_name?: string | null
           company_3_position?: string | null
           company_3_start_date?: string | null
           company_4_duration_months?: number | null
           company_4_end_date?: string | null
           company_4_is_current?: boolean | null
+          company_4_linkedin_id?: string | null
+          company_4_linkedin_url?: string | null
           company_4_name?: string | null
           company_4_position?: string | null
           company_4_start_date?: string | null
           company_5_duration_months?: number | null
           company_5_end_date?: string | null
           company_5_is_current?: boolean | null
+          company_5_linkedin_id?: string | null
+          company_5_linkedin_url?: string | null
           company_5_name?: string | null
           company_5_position?: string | null
           company_5_start_date?: string | null
@@ -812,12 +842,53 @@ export type Database = {
           author_name: string | null
           author_profile_id: string
           author_profile_url: string | null
+          company_1_duration_months: number | null
+          company_1_end_date: string | null
+          company_1_is_current: boolean | null
+          company_1_linkedin_id: string | null
+          company_1_linkedin_url: string | null
+          company_1_name: string | null
+          company_1_position: string | null
+          company_1_start_date: string | null
+          company_2_duration_months: number | null
+          company_2_end_date: string | null
+          company_2_is_current: boolean | null
+          company_2_linkedin_id: string | null
+          company_2_linkedin_url: string | null
+          company_2_name: string | null
+          company_2_position: string | null
+          company_2_start_date: string | null
+          company_3_duration_months: number | null
+          company_3_end_date: string | null
+          company_3_is_current: boolean | null
+          company_3_linkedin_id: string | null
+          company_3_linkedin_url: string | null
+          company_3_name: string | null
+          company_3_position: string | null
+          company_3_start_date: string | null
+          company_4_duration_months: number | null
+          company_4_end_date: string | null
+          company_4_is_current: boolean | null
+          company_4_linkedin_id: string | null
+          company_4_linkedin_url: string | null
+          company_4_name: string | null
+          company_4_position: string | null
+          company_4_start_date: string | null
+          company_5_duration_months: number | null
+          company_5_end_date: string | null
+          company_5_is_current: boolean | null
+          company_5_linkedin_id: string | null
+          company_5_linkedin_url: string | null
+          company_5_name: string | null
+          company_5_position: string | null
+          company_5_start_date: string | null
           company_id: string | null
           company_linkedin_id: string | null
           company_name: string | null
           company_position: string | null
           created_at: string
           follow_up_date: string | null
+          has_previous_client_company: boolean | null
           id: string
           is_client_lead: boolean | null
           last_contact_at: string | null
@@ -840,6 +911,7 @@ export type Database = {
           phone_retrieved_at: string | null
           posted_at_iso: string | null
           posted_at_timestamp: number | null
+          previous_client_companies: string[] | null
           processing_status: string | null
           task_comment: string | null
           task_comment_updated_at: string | null
@@ -862,12 +934,53 @@ export type Database = {
           author_name?: string | null
           author_profile_id: string
           author_profile_url?: string | null
+          company_1_duration_months?: number | null
+          company_1_end_date?: string | null
+          company_1_is_current?: boolean | null
+          company_1_linkedin_id?: string | null
+          company_1_linkedin_url?: string | null
+          company_1_name?: string | null
+          company_1_position?: string | null
+          company_1_start_date?: string | null
+          company_2_duration_months?: number | null
+          company_2_end_date?: string | null
+          company_2_is_current?: boolean | null
+          company_2_linkedin_id?: string | null
+          company_2_linkedin_url?: string | null
+          company_2_name?: string | null
+          company_2_position?: string | null
+          company_2_start_date?: string | null
+          company_3_duration_months?: number | null
+          company_3_end_date?: string | null
+          company_3_is_current?: boolean | null
+          company_3_linkedin_id?: string | null
+          company_3_linkedin_url?: string | null
+          company_3_name?: string | null
+          company_3_position?: string | null
+          company_3_start_date?: string | null
+          company_4_duration_months?: number | null
+          company_4_end_date?: string | null
+          company_4_is_current?: boolean | null
+          company_4_linkedin_id?: string | null
+          company_4_linkedin_url?: string | null
+          company_4_name?: string | null
+          company_4_position?: string | null
+          company_4_start_date?: string | null
+          company_5_duration_months?: number | null
+          company_5_end_date?: string | null
+          company_5_is_current?: boolean | null
+          company_5_linkedin_id?: string | null
+          company_5_linkedin_url?: string | null
+          company_5_name?: string | null
+          company_5_position?: string | null
+          company_5_start_date?: string | null
           company_id?: string | null
           company_linkedin_id?: string | null
           company_name?: string | null
           company_position?: string | null
           created_at?: string
           follow_up_date?: string | null
+          has_previous_client_company?: boolean | null
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
@@ -890,6 +1003,7 @@ export type Database = {
           phone_retrieved_at?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
+          previous_client_companies?: string[] | null
           processing_status?: string | null
           task_comment?: string | null
           task_comment_updated_at?: string | null
@@ -912,12 +1026,53 @@ export type Database = {
           author_name?: string | null
           author_profile_id?: string
           author_profile_url?: string | null
+          company_1_duration_months?: number | null
+          company_1_end_date?: string | null
+          company_1_is_current?: boolean | null
+          company_1_linkedin_id?: string | null
+          company_1_linkedin_url?: string | null
+          company_1_name?: string | null
+          company_1_position?: string | null
+          company_1_start_date?: string | null
+          company_2_duration_months?: number | null
+          company_2_end_date?: string | null
+          company_2_is_current?: boolean | null
+          company_2_linkedin_id?: string | null
+          company_2_linkedin_url?: string | null
+          company_2_name?: string | null
+          company_2_position?: string | null
+          company_2_start_date?: string | null
+          company_3_duration_months?: number | null
+          company_3_end_date?: string | null
+          company_3_is_current?: boolean | null
+          company_3_linkedin_id?: string | null
+          company_3_linkedin_url?: string | null
+          company_3_name?: string | null
+          company_3_position?: string | null
+          company_3_start_date?: string | null
+          company_4_duration_months?: number | null
+          company_4_end_date?: string | null
+          company_4_is_current?: boolean | null
+          company_4_linkedin_id?: string | null
+          company_4_linkedin_url?: string | null
+          company_4_name?: string | null
+          company_4_position?: string | null
+          company_4_start_date?: string | null
+          company_5_duration_months?: number | null
+          company_5_end_date?: string | null
+          company_5_is_current?: boolean | null
+          company_5_linkedin_id?: string | null
+          company_5_linkedin_url?: string | null
+          company_5_name?: string | null
+          company_5_position?: string | null
+          company_5_start_date?: string | null
           company_id?: string | null
           company_linkedin_id?: string | null
           company_name?: string | null
           company_position?: string | null
           created_at?: string
           follow_up_date?: string | null
+          has_previous_client_company?: boolean | null
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
@@ -940,6 +1095,7 @@ export type Database = {
           phone_retrieved_at?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
+          previous_client_companies?: string[] | null
           processing_status?: string | null
           task_comment?: string | null
           task_comment_updated_at?: string | null
