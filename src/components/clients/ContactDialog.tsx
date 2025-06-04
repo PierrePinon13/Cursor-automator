@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -78,10 +79,10 @@ export function ContactDialog({ open, onOpenChange, clientId, contact }: Contact
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzaWxrcmZpenBodGJtZXZsa21lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzE3MjksImV4cCI6MjA2Mzg0NzcyOX0.4jzjSkQVa1COccnCtdar3PkOnBBhX5xHRul1qk7Zbls'}`
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzaWxrcmZpenBodGJtZXZsa21lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzE3MjksImV4cCI6MjA2Mzg0NzcyOX0.4jzjSkQVa1COccnCtdar3PkOnBBhX5xHRul1qk7Zbls`
         },
         body: JSON.stringify({
-          contact_id: 'temp', // Temporaire pour l'extraction
+          contact_id: 'temp',
           profile_url: linkedinUrl
         })
       });
@@ -418,7 +419,7 @@ export function ContactDialog({ open, onOpenChange, clientId, contact }: Contact
             </TabsContent>
 
             <TabsContent value="history">
-              {contact && <ContactWorkHistory contactId={contact.id} />}
+              {contact && <ContactWorkHistory contactId={contact.id} contact={contact} />}
             </TabsContent>
           </Tabs>
         )}

@@ -242,6 +242,36 @@ export type Database = {
       client_contacts: {
         Row: {
           client_id: string
+          company_1_duration_months: number | null
+          company_1_end_date: string | null
+          company_1_is_current: boolean | null
+          company_1_name: string | null
+          company_1_position: string | null
+          company_1_start_date: string | null
+          company_2_duration_months: number | null
+          company_2_end_date: string | null
+          company_2_is_current: boolean | null
+          company_2_name: string | null
+          company_2_position: string | null
+          company_2_start_date: string | null
+          company_3_duration_months: number | null
+          company_3_end_date: string | null
+          company_3_is_current: boolean | null
+          company_3_name: string | null
+          company_3_position: string | null
+          company_3_start_date: string | null
+          company_4_duration_months: number | null
+          company_4_end_date: string | null
+          company_4_is_current: boolean | null
+          company_4_name: string | null
+          company_4_position: string | null
+          company_4_start_date: string | null
+          company_5_duration_months: number | null
+          company_5_end_date: string | null
+          company_5_is_current: boolean | null
+          company_5_name: string | null
+          company_5_position: string | null
+          company_5_start_date: string | null
           created_at: string
           created_by_user_id: string
           email: string | null
@@ -259,6 +289,36 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          company_1_duration_months?: number | null
+          company_1_end_date?: string | null
+          company_1_is_current?: boolean | null
+          company_1_name?: string | null
+          company_1_position?: string | null
+          company_1_start_date?: string | null
+          company_2_duration_months?: number | null
+          company_2_end_date?: string | null
+          company_2_is_current?: boolean | null
+          company_2_name?: string | null
+          company_2_position?: string | null
+          company_2_start_date?: string | null
+          company_3_duration_months?: number | null
+          company_3_end_date?: string | null
+          company_3_is_current?: boolean | null
+          company_3_name?: string | null
+          company_3_position?: string | null
+          company_3_start_date?: string | null
+          company_4_duration_months?: number | null
+          company_4_end_date?: string | null
+          company_4_is_current?: boolean | null
+          company_4_name?: string | null
+          company_4_position?: string | null
+          company_4_start_date?: string | null
+          company_5_duration_months?: number | null
+          company_5_end_date?: string | null
+          company_5_is_current?: boolean | null
+          company_5_name?: string | null
+          company_5_position?: string | null
+          company_5_start_date?: string | null
           created_at?: string
           created_by_user_id: string
           email?: string | null
@@ -276,6 +336,36 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          company_1_duration_months?: number | null
+          company_1_end_date?: string | null
+          company_1_is_current?: boolean | null
+          company_1_name?: string | null
+          company_1_position?: string | null
+          company_1_start_date?: string | null
+          company_2_duration_months?: number | null
+          company_2_end_date?: string | null
+          company_2_is_current?: boolean | null
+          company_2_name?: string | null
+          company_2_position?: string | null
+          company_2_start_date?: string | null
+          company_3_duration_months?: number | null
+          company_3_end_date?: string | null
+          company_3_is_current?: boolean | null
+          company_3_name?: string | null
+          company_3_position?: string | null
+          company_3_start_date?: string | null
+          company_4_duration_months?: number | null
+          company_4_end_date?: string | null
+          company_4_is_current?: boolean | null
+          company_4_name?: string | null
+          company_4_position?: string | null
+          company_4_start_date?: string | null
+          company_5_duration_months?: number | null
+          company_5_end_date?: string | null
+          company_5_is_current?: boolean | null
+          company_5_name?: string | null
+          company_5_position?: string | null
+          company_5_start_date?: string | null
           created_at?: string
           created_by_user_id?: string
           email?: string | null

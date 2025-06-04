@@ -45,75 +45,50 @@ export const useDatasetProcessingStats = (
     }
   };
 
-  // Fonction simple pour compter les leads
-  const countLeadsForDataset = async (datasetId: string): Promise<number> => {
-    try {
-      const { count } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('apify_dataset_id', datasetId);
-      
-      return count || 0;
-    } catch (error) {
-      console.error('Error counting leads for dataset:', datasetId, error);
-      return 0;
-    }
-  };
-
   const fetchStats = async () => {
     setLoading(true);
     try {
       const dateFilter = getDateFilter(timePeriod);
-      console.log('🔍 Fetching stats for period:', timePeriod, 'Date filter:', dateFilter);
       
-      // Requête simple pour les webhook stats
-      let webhookQuery = supabase
+      // Requête simplifiée pour les webhook stats
+      let query = supabase
         .from('apify_webhook_stats')
-        .select('dataset_id, started_at, total_received, stored_raw, successfully_inserted');
+        .select('*');
 
-      // Filtres simples
       if (dateFilter && timePeriod !== 'all') {
-        webhookQuery = webhookQuery.gte('started_at', dateFilter);
+        query = query.gte('started_at', dateFilter);
       }
 
       if (selectedDatasetId) {
-        webhookQuery = webhookQuery.eq('dataset_id', selectedDatasetId);
+        query = query.eq('dataset_id', selectedDatasetId);
       }
 
-      const { data: webhookStats, error: webhookError } = await webhookQuery
-        .order('started_at', { ascending: false });
+      const { data: webhookStats, error } = await query.order('started_at', { ascending: false });
 
-      if (webhookError) {
-        console.error('❌ Error fetching webhook stats:', webhookError);
-        throw webhookError;
+      if (error) {
+        console.error('Error fetching webhook stats:', error);
+        throw error;
       }
 
-      console.log('📊 Webhook stats found:', webhookStats?.length || 0);
+      // Compter les leads de manière simple
+      const { count: totalLeads } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true });
 
-      // Traitement séquentiel simple
-      const statsWithLeads: DatasetProcessingStats[] = [];
+      // Transformer les données
+      const statsData: DatasetProcessingStats[] = (webhookStats || []).map(stat => ({
+        dataset_id: stat.dataset_id,
+        processing_date: stat.started_at.split('T')[0],
+        total_records: stat.total_received || 0,
+        raw_posts_stored: stat.stored_raw || 0,
+        posts_stored: stat.successfully_inserted || 0,
+        leads_created: 0 // Sera mis à jour si nécessaire
+      }));
 
-      if (webhookStats && webhookStats.length > 0) {
-        for (const stat of webhookStats) {
-          const leadsCount = await countLeadsForDataset(stat.dataset_id);
-          
-          statsWithLeads.push({
-            dataset_id: stat.dataset_id,
-            processing_date: stat.started_at.split('T')[0],
-            total_records: stat.total_received || 0,
-            raw_posts_stored: stat.stored_raw || 0,
-            posts_stored: stat.successfully_inserted || 0,
-            leads_created: leadsCount
-          });
-        }
-      }
-
-      // Calcul des stats globales
-      const totalRecords = statsWithLeads.reduce((sum, s) => sum + s.total_records, 0);
-      const totalRawPosts = statsWithLeads.reduce((sum, s) => sum + s.raw_posts_stored, 0);
-      const totalPosts = statsWithLeads.reduce((sum, s) => sum + s.posts_stored, 0);
-      const totalLeads = statsWithLeads.reduce((sum, s) => sum + s.leads_created, 0);
-      const datasetsCount = statsWithLeads.length;
+      // Stats globales
+      const totalRecords = statsData.reduce((sum, s) => sum + s.total_records, 0);
+      const totalRawPosts = statsData.reduce((sum, s) => sum + s.raw_posts_stored, 0);
+      const totalPosts = statsData.reduce((sum, s) => sum + s.posts_stored, 0);
 
       const globalStatsData: GlobalProcessingStats = {
         period: selectedDatasetId 
@@ -122,27 +97,19 @@ export const useDatasetProcessingStats = (
         total_records: totalRecords,
         raw_posts_stored: totalRawPosts,
         posts_stored: totalPosts,
-        leads_created: totalLeads,
-        datasets_processed: datasetsCount
+        leads_created: totalLeads || 0,
+        datasets_processed: statsData.length
       };
 
-      // Mise à jour des états
       setGlobalStats([globalStatsData]);
-      setEvolutionData(statsWithLeads);
+      setEvolutionData(statsData);
+      setDatasetHistory(statsData);
       
-      // Historique trié par date
-      const sortedHistory = [...statsWithLeads].sort((a, b) => 
-        new Date(b.processing_date).getTime() - new Date(a.processing_date).getTime()
-      );
-      setDatasetHistory(sortedHistory);
-
-      // Liste des datasets uniques
-      const uniqueDatasets = Array.from(new Set(statsWithLeads.map(s => s.dataset_id))).sort();
+      const uniqueDatasets = Array.from(new Set(statsData.map(s => s.dataset_id))).sort();
       setDatasetsList(uniqueDatasets);
 
     } catch (error) {
-      console.error('💥 Error fetching dataset processing stats:', error);
-      // Valeurs par défaut en cas d'erreur
+      console.error('Error fetching stats:', error);
       setGlobalStats([]);
       setEvolutionData([]);
       setDatasetHistory([]);
