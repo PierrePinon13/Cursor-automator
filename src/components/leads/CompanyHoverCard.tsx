@@ -68,7 +68,7 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
               )}
             </div>
             
-            {/* ✅ CORRECTION : Affichage de la description de l'entreprise */}
+            {/* Affichage de la description de l'entreprise */}
             {company.description && (
               <p className="text-sm text-gray-600 leading-relaxed">
                 {company.description}
@@ -91,10 +91,10 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
                 </div>
               )}
               
-              {company.location && (
+              {company.headquarters && (
                 <div className="flex items-center gap-2 text-gray-600">
                   <MapPin className="h-3 w-3" />
-                  <span>{company.location}</span>
+                  <span>{company.headquarters}</span>
                 </div>
               )}
               
@@ -107,10 +107,10 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
                 </div>
               )}
               
-              {company.founded_year && (
+              {company.follower_count && (
                 <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar className="h-3 w-3" />
-                  <span>Fondé en {company.founded_year}</span>
+                  <Users className="h-3 w-3" />
+                  <span>{company.follower_count.toLocaleString()} abonnés</span>
                 </div>
               )}
             </div>
