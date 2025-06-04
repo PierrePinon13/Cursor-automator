@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { UnipileScrapingResult } from './unipile-scraper.ts';
 import { ClientMatchResult } from './client-matching.ts';
@@ -64,6 +63,9 @@ export async function createOrUpdateLead(
       author_profile_id: post.author_profile_id,
       author_profile_url: post.author_profile_url,
       
+      // ✅ CORRECTION MAJEURE : Ajouter le dataset_id
+      apify_dataset_id: post.apify_dataset_id,
+      
       // Informations personnelles
       author_name: post.author_name,
       author_headline: post.author_headline,
@@ -121,6 +123,7 @@ export async function createOrUpdateLead(
 
     console.log('📋 Lead data prepared:', {
       profile_id: leadData.author_profile_id,
+      dataset_id: leadData.apify_dataset_id, // ✅ Nouveau log
       name: leadData.author_name,
       company: leadData.company_name,
       company_id: leadData.company_id,

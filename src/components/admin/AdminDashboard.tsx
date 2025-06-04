@@ -9,10 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export default function AdminDashboard() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Administration</h1>
-      </div>
-
       <Tabs defaultValue="hr-providers" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="hr-providers">Prestataires RH</TabsTrigger>
