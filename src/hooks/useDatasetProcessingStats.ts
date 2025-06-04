@@ -54,13 +54,7 @@ export const useDatasetProcessingStats = (
       // Récupérer les stats des webhooks avec filtre de période
       let webhookQuery = supabase
         .from('apify_webhook_stats')
-        .select(`
-          dataset_id,
-          started_at,
-          total_received,
-          stored_raw,
-          successfully_inserted
-        `);
+        .select('dataset_id, started_at, total_received, stored_raw, successfully_inserted');
 
       if (dateFilter && timePeriod !== 'all') {
         webhookQuery = webhookQuery.gte('started_at', dateFilter);
@@ -87,16 +81,17 @@ export const useDatasetProcessingStats = (
         for (const stat of webhookStats) {
           console.log('📈 Processing dataset:', stat.dataset_id);
           
-          // Compter les leads créés pour ce dataset spécifique
-          const { count: leadsCount, error: leadsError } = await supabase
+          // Compter les leads créés pour ce dataset spécifique - simplifier la requête
+          const { data: leadsData, error: leadsError } = await supabase
             .from('leads')
-            .select('*', { count: 'exact', head: true })
+            .select('id')
             .eq('apify_dataset_id', stat.dataset_id);
 
           if (leadsError) {
             console.error('❌ Error counting leads for dataset', stat.dataset_id, ':', leadsError);
           }
 
+          const leadsCount = leadsData?.length || 0;
           console.log('👥 Leads found for', stat.dataset_id, ':', leadsCount);
 
           statsWithLeads.push({
@@ -105,7 +100,7 @@ export const useDatasetProcessingStats = (
             total_records: stat.total_received || 0,
             raw_posts_stored: stat.stored_raw || 0,
             posts_stored: stat.successfully_inserted || 0,
-            leads_created: leadsCount || 0
+            leads_created: leadsCount
           });
         }
       }
