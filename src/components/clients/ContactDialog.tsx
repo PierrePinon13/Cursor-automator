@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useClientContacts } from '@/hooks/useClientContacts';
-import { Loader2, User, Mail, Phone, Briefcase, Globe, FileText, ArrowLeft, Trash2 } from 'lucide-react';
+import { ContactWorkHistory } from './ContactWorkHistory';
+import { Loader2, User, Mail, Phone, Briefcase, Globe, FileText, ArrowLeft, Trash2, Building } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface ContactDialogProps {
@@ -169,7 +171,7 @@ export function ContactDialog({ open, onOpenChange, clientId, contact }: Contact
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -276,133 +278,149 @@ export function ContactDialog({ open, onOpenChange, clientId, contact }: Contact
 
         {/* Étape 2: Détails du contact */}
         {step === 'details' && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {extractedData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-green-800 flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  Données extraites de LinkedIn avec succès !
-                </p>
-              </div>
-            )}
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="basic">Informations de base</TabsTrigger>
+              <TabsTrigger value="history" disabled={!contact}>
+                <Building className="h-4 w-4 mr-2" />
+                Historique professionnel
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Nom et Prénom */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">Prénom *</Label>
-                <Input
-                  id="first_name"
-                  value={formData.first_name}
-                  onChange={(e) => handleInputChange('first_name', e.target.value)}
-                  required
-                  placeholder="Jean"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Nom *</Label>
-                <Input
-                  id="last_name"
-                  value={formData.last_name}
-                  onChange={(e) => handleInputChange('last_name', e.target.value)}
-                  required
-                  placeholder="Dupont"
-                />
-              </div>
-            </div>
+            <TabsContent value="basic" className="space-y-4">
+              {extractedData && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-green-800 flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Données extraites de LinkedIn avec succès !
+                  </p>
+                </div>
+              )}
 
-            {/* URL LinkedIn */}
-            <div className="space-y-2">
-              <Label htmlFor="linkedin_url_display" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                URL LinkedIn
-              </Label>
-              <Input
-                id="linkedin_url_display"
-                value={formData.linkedin_url}
-                onChange={(e) => handleInputChange('linkedin_url', e.target.value)}
-                placeholder="https://linkedin.com/in/..."
-                type="url"
-              />
-            </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Nom et Prénom */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="first_name">Prénom *</Label>
+                    <Input
+                      id="first_name"
+                      value={formData.first_name}
+                      onChange={(e) => handleInputChange('first_name', e.target.value)}
+                      required
+                      placeholder="Jean"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="last_name">Nom *</Label>
+                    <Input
+                      id="last_name"
+                      value={formData.last_name}
+                      onChange={(e) => handleInputChange('last_name', e.target.value)}
+                      required
+                      placeholder="Dupont"
+                    />
+                  </div>
+                </div>
 
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="jean.dupont@example.com"
-              />
-            </div>
+                {/* URL LinkedIn */}
+                <div className="space-y-2">
+                  <Label htmlFor="linkedin_url_display" className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    URL LinkedIn
+                  </Label>
+                  <Input
+                    id="linkedin_url_display"
+                    value={formData.linkedin_url}
+                    onChange={(e) => handleInputChange('linkedin_url', e.target.value)}
+                    placeholder="https://linkedin.com/in/..."
+                    type="url"
+                  />
+                </div>
 
-            {/* Téléphone */}
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Téléphone
-              </Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="+33 6 12 34 56 78"
-              />
-            </div>
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    placeholder="jean.dupont@example.com"
+                  />
+                </div>
 
-            {/* Poste */}
-            <div className="space-y-2">
-              <Label htmlFor="position" className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                Poste
-              </Label>
-              <Input
-                id="position"
-                value={formData.position}
-                onChange={(e) => handleInputChange('position', e.target.value)}
-                placeholder="Directeur des Ressources Humaines"
-              />
-            </div>
+                {/* Téléphone */}
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Téléphone
+                  </Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    placeholder="+33 6 12 34 56 78"
+                  />
+                </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Notes
-              </Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                placeholder="Notes personnelles sur ce contact..."
-                rows={3}
-              />
-            </div>
+                {/* Poste */}
+                <div className="space-y-2">
+                  <Label htmlFor="position" className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4" />
+                    Poste
+                  </Label>
+                  <Input
+                    id="position"
+                    value={formData.position}
+                    onChange={(e) => handleInputChange('position', e.target.value)}
+                    placeholder="Directeur des Ressources Humaines"
+                  />
+                </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1"
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || !formData.first_name || !formData.last_name}
-                className="flex-1"
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {contact ? 'Modifier' : 'Créer'}
-              </Button>
-            </div>
-          </form>
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Notes
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                    placeholder="Notes personnelles sur ce contact..."
+                    rows={3}
+                  />
+                </div>
+                
+                {/* Actions */}
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="flex-1"
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading || !formData.first_name || !formData.last_name}
+                    className="flex-1"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {contact ? 'Modifier' : 'Créer'}
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="history">
+              {contact && <ContactWorkHistory contactId={contact.id} />}
+            </TabsContent>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>

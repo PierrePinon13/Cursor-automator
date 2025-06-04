@@ -113,6 +113,28 @@ serve(async (req) => {
       position
     });
 
+    // Extract work experience
+    const workExperiences = [];
+    const experiences = unipileData.work_experience || unipileData.linkedin_profile?.experience || [];
+    
+    console.log('💼 Found', experiences.length, 'work experiences');
+    
+    for (const exp of experiences) {
+      const experience = {
+        company_name: exp.company || exp.companyName || '',
+        position: exp.position || exp.title || '',
+        start_date: exp.start || exp.startDate || null,
+        end_date: exp.end || exp.endDate || null,
+        is_current: !exp.end || exp.end === null || exp.end === '',
+        company_linkedin_id: exp.company_id || exp.companyId || null,
+        duration_months: calculateDurationInMonths(exp.start || exp.startDate, exp.end || exp.endDate)
+      };
+      
+      if (experience.company_name) {
+        workExperiences.push(experience);
+      }
+    }
+
     // Prepare extracted data
     const extractedData = {
       linkedin_profile_id: profileId,
@@ -139,6 +161,33 @@ serve(async (req) => {
         throw updateError;
       }
 
+      // Sauvegarder l'historique professionnel
+      if (workExperiences.length > 0) {
+        console.log('💼 Saving work history...');
+        
+        // Supprimer l'historique existant
+        await supabase
+          .from('contact_work_history')
+          .delete()
+          .eq('contact_id', contact_id);
+
+        // Insérer le nouvel historique
+        const { error: historyError } = await supabase
+          .from('contact_work_history')
+          .insert(
+            workExperiences.map(exp => ({
+              contact_id: contact_id,
+              ...exp
+            }))
+          );
+
+        if (historyError) {
+          console.error('❌ Error saving work history:', historyError);
+        } else {
+          console.log('✅ Work history saved successfully');
+        }
+      }
+
       console.log('✅ Contact updated successfully with LinkedIn data');
     }
 
@@ -146,6 +195,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         extracted_data: extractedData,
+        work_experiences: workExperiences,
         message: 'LinkedIn profile data extracted successfully'
       }),
       { 
@@ -169,3 +219,15 @@ serve(async (req) => {
     );
   }
 });
+
+function calculateDurationInMonths(startDate: string | null, endDate: string | null): number | null {
+  if (!startDate) return null;
+  
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : new Date();
+  
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
+  
+  return yearDiff * 12 + monthDiff;
+}

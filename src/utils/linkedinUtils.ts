@@ -10,6 +10,8 @@ export function extractLinkedInPublicIdentifier(url: string): string | null {
     const patterns = [
       /linkedin\.com\/company\/([^\/\?]+)/,
       /linkedin\.com\/company\/([^\/\?]+)\//,
+      /linkedin\.com\/showcase\/([^\/\?]+)/,  // Support pour les pages showcase
+      /linkedin\.com\/showcase\/([^\/\?]+)\//,
     ];
     
     for (const pattern of patterns) {
@@ -28,4 +30,8 @@ export function extractLinkedInPublicIdentifier(url: string): string | null {
 
 export function buildLinkedInCompanyUrl(publicIdentifier: string): string {
   return `https://www.linkedin.com/company/${publicIdentifier}`;
+}
+
+export function isShowcaseUrl(url: string): boolean {
+  return url.toLowerCase().includes('/showcase/');
 }
