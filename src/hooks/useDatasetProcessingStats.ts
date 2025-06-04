@@ -81,17 +81,16 @@ export const useDatasetProcessingStats = (
       console.log('📊 Webhook stats found:', webhookStats?.length);
 
       // Pour chaque dataset, compter les leads créés dans la table leads
-      const statsWithLeads = await Promise.all(
-        (webhookStats || []).map(async (stat) => {
+      const statsWithLeads: DatasetProcessingStats[] = [];
+
+      if (webhookStats && webhookStats.length > 0) {
+        for (const stat of webhookStats) {
           console.log('📈 Processing dataset:', stat.dataset_id);
           
           // Compter les leads créés pour ce dataset spécifique
-          let leadsQuery = supabase
+          const { count: leadsCount, error: leadsError } = await supabase
             .from('leads')
-            .select('*', { count: 'exact', head: true });
-
-          // Utiliser apify_dataset_id si disponible, sinon essayer avec d'autres champs
-          const { count: leadsCount, error: leadsError } = await leadsQuery
+            .select('*', { count: 'exact', head: true })
             .eq('apify_dataset_id', stat.dataset_id);
 
           if (leadsError) {
@@ -100,16 +99,16 @@ export const useDatasetProcessingStats = (
 
           console.log('👥 Leads found for', stat.dataset_id, ':', leadsCount);
 
-          return {
+          statsWithLeads.push({
             dataset_id: stat.dataset_id,
             processing_date: stat.started_at.split('T')[0],
             total_records: stat.total_received || 0,
             raw_posts_stored: stat.stored_raw || 0,
             posts_stored: stat.successfully_inserted || 0,
             leads_created: leadsCount || 0
-          };
-        })
-      );
+          });
+        }
+      }
 
       console.log('📋 Final stats with leads:', statsWithLeads);
 

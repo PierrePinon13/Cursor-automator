@@ -22,30 +22,29 @@ export const useContactWorkHistory = (contactId: string) => {
   const { toast } = useToast();
 
   const fetchWorkHistory = async () => {
-    if (!contactId) return;
+    if (!contactId) {
+      setLoading(false);
+      return;
+    }
     
     try {
-      // Utiliser une requête SQL brute pour éviter les problèmes de types TypeScript
-      const { data, error } = await supabase.rpc('get_contact_work_history', {
-        p_contact_id: contactId
-      });
+      console.log('🔍 Fetching work history for contact:', contactId);
+      
+      const { data, error } = await supabase
+        .from('contact_work_history')
+        .select('*')
+        .eq('contact_id', contactId)
+        .order('start_date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching work history:', error);
-        // Fallback: essayer une requête directe
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('contact_work_history' as any)
-          .select('*')
-          .eq('contact_id', contactId)
-          .order('start_date', { ascending: false });
-
-        if (fallbackError) throw fallbackError;
-        setWorkHistory(fallbackData || []);
-      } else {
-        setWorkHistory(data || []);
+        console.error('❌ Error fetching work history:', error);
+        throw error;
       }
+
+      console.log('📋 Work history found:', data?.length || 0);
+      setWorkHistory(data || []);
     } catch (error) {
-      console.error('Error fetching work history:', error);
+      console.error('💥 Error fetching work history:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger l'historique professionnel.",
@@ -60,9 +59,11 @@ export const useContactWorkHistory = (contactId: string) => {
     if (!contactId || !experiences.length) return;
 
     try {
+      console.log('💾 Saving work history for contact:', contactId, 'experiences:', experiences.length);
+      
       // Supprimer l'historique existant
       const { error: deleteError } = await supabase
-        .from('contact_work_history' as any)
+        .from('contact_work_history')
         .delete()
         .eq('contact_id', contactId);
 
@@ -70,7 +71,7 @@ export const useContactWorkHistory = (contactId: string) => {
 
       // Insérer le nouvel historique
       const { error: insertError } = await supabase
-        .from('contact_work_history' as any)
+        .from('contact_work_history')
         .insert(
           experiences.map(exp => ({
             contact_id: contactId,
@@ -93,7 +94,7 @@ export const useContactWorkHistory = (contactId: string) => {
         description: "Historique professionnel sauvegardé.",
       });
     } catch (error) {
-      console.error('Error saving work history:', error);
+      console.error('💥 Error saving work history:', error);
       toast({
         title: "Erreur",
         description: "Impossible de sauvegarder l'historique professionnel.",
