@@ -260,21 +260,45 @@ serve(async (req) => {
       console.log(`✅ Raw storage completed: ${rawStoredCount}/${validRawData.length} records stored`)
     }
 
-    // 🚀 NOUVELLE PHASE : Classification et insertion MASSIVE avec filtres simples
+    // 🚀 CORRECTION MAJEURE : Récupérer TOUS les raw_data sans limitation à 1000
     console.log('🚀 Starting FAST classification and insertion...')
     
-    // Récupérer les données depuis la base
-    const { data: rawData, error: fetchError } = await supabaseClient
-      .from('linkedin_posts_raw')
-      .select('raw_data')
-      .eq('apify_dataset_id', datasetId)
+    // ✅ FIX CRITIQUE : Utiliser la pagination pour récupérer TOUS les items
+    let allRawData: any[] = []
+    let page = 0
+    const PAGE_SIZE = 1000
+    
+    console.log('📥 Fetching ALL raw data from database (no 1000 limit)...')
+    
+    while (true) {
+      const { data: rawDataPage, error: fetchError } = await supabaseClient
+        .from('linkedin_posts_raw')
+        .select('raw_data')
+        .eq('apify_dataset_id', datasetId)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    if (fetchError) {
-      throw new Error(`Error fetching raw data: ${fetchError.message}`)
+      if (fetchError) {
+        throw new Error(`Error fetching raw data page ${page}: ${fetchError.message}`)
+      }
+
+      if (!rawDataPage || rawDataPage.length === 0) {
+        console.log(`📄 No more raw data - stopping at page ${page}`)
+        break
+      }
+
+      console.log(`📥 Fetched page ${page + 1}: ${rawDataPage.length} raw records`)
+      allRawData = allRawData.concat(rawDataPage.map(item => item.raw_data))
+      
+      if (rawDataPage.length < PAGE_SIZE) {
+        console.log(`📄 Last page reached (${rawDataPage.length} < ${PAGE_SIZE})`)
+        break
+      }
+      
+      page++
     }
 
-    allDatasetItems = rawData?.map(item => item.raw_data) || []
-    console.log(`📊 Processing ${allDatasetItems.length} items from database`)
+    allDatasetItems = allRawData
+    console.log(`📊 Processing ${allDatasetItems.length} items from database (NO 1000 LIMIT!)`)
 
     // Filtres simples et rapides
     let queuedCount = 0
@@ -454,6 +478,7 @@ serve(async (req) => {
         '🔄 NO MORE TIMEOUTS: Eliminated complex auto-resume logic',
         '🛡️ SIMPLE & ROBUST: Focused on data ingestion only',
         '🚀 SCALABLE ARCHITECTURE: Queue manager handles all processing',
+        '✅ FIXED 1000-LIMIT BUG: Now processes ALL raw data items',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',
