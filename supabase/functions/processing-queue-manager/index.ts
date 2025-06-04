@@ -248,13 +248,13 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
 
   console.log(`📊 Found ${allPendingPosts.length} TOTAL pending posts (NO 1000 LIMIT!)`);
 
-  // 🚀 NOUVELLE STRATÉGIE ANTI-TIMEOUT : Traitement asynchrone
+  // 🚀 NOUVELLE STRATÉGIE : Utiliser les workers spécialisés
   const MEGA_BATCH_SIZE = timeoutProtection ? 50 : 100;
   let queuedCount = 0;
   
   // 🔥 SOLUTION ANTI-TIMEOUT : Lancer le traitement en arrière-plan
   const backgroundProcessing = async () => {
-    console.log('🚀 Starting BACKGROUND processing to avoid timeout...');
+    console.log('🚀 Starting BACKGROUND processing with specialized workers...');
     
     for (let i = 0; i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
       const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
@@ -264,12 +264,11 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
       console.log(`🚀 Processing BACKGROUND batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
       
       try {
-        // Déclencher le traitement en mode batch
-        const workerPromise = supabaseClient.functions.invoke('specialized-openai-worker', {
+        // ✅ AMÉLIORATION : Utiliser le nouveau worker Step 1 spécialisé
+        const workerPromise = supabaseClient.functions.invoke('openai-step1-worker', {
           body: { 
             post_ids: batch.map(p => p.id),
             dataset_id: batch[0]?.apify_dataset_id,
-            step: 'step1',
             batch_mode: true,
             timeout_protection: timeoutProtection
           }
@@ -288,32 +287,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
       }
     }
     
-    console.log('✅ Background processing initiated for all batches');
-    
-    // Déclencher les étapes suivantes avec des délais
-    setTimeout(() => {
-      supabaseClient.functions.invoke('processing-queue-manager', {
-        body: { action: 'process_next_batch', task_type: 'openai_step2' }
-      }).catch(() => {});
-    }, 15000); // 15 secondes
-    
-    setTimeout(() => {
-      supabaseClient.functions.invoke('processing-queue-manager', {
-        body: { action: 'process_next_batch', task_type: 'openai_step3' }
-      }).catch(() => {});
-    }, 30000); // 30 secondes
-    
-    setTimeout(() => {
-      supabaseClient.functions.invoke('processing-queue-manager', {
-        body: { action: 'process_next_batch', task_type: 'unipile_scraping' }
-      }).catch(() => {});
-    }, 45000); // 45 secondes
-    
-    setTimeout(() => {
-      supabaseClient.functions.invoke('processing-queue-manager', {
-        body: { action: 'process_next_batch', task_type: 'lead_creation' }
-      }).catch(() => {});
-    }, 60000); // 60 secondes
+    console.log('✅ Background processing initiated for all batches with specialized workers');
   };
 
   // Lancer le traitement en arrière-plan
@@ -334,12 +308,11 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
     console.log(`🚀 Processing IMMEDIATE batch ${batchNumber}/${IMMEDIATE_BATCHES} (${batch.length} posts)`);
     
     try {
-      // Déclencher le traitement en mode batch synchrone pour les premiers batches
-      await supabaseClient.functions.invoke('specialized-openai-worker', {
+      // ✅ AMÉLIORATION : Utiliser le nouveau worker Step 1 spécialisé
+      await supabaseClient.functions.invoke('openai-step1-worker', {
         body: { 
           post_ids: batch.map(p => p.id),
           dataset_id: batch[0]?.apify_dataset_id,
-          step: 'step1',
           batch_mode: true,
           timeout_protection: true
         }
@@ -362,7 +335,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
     background_batches: Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE) - IMMEDIATE_BATCHES,
     timeout_protection: timeoutProtection,
     hybrid_processing: true,
-    fixed_1000_limit: true
+    using_specialized_workers: true
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
