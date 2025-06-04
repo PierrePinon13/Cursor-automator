@@ -65,76 +65,80 @@ serve(async (req) => {
 
         console.log(`✅ OpenAI ${step} BATCH completed: ${batchResult.success} success, ${batchResult.failed} failed`);
 
-        // 🚀 CORRECTION CRITIQUE : Déclencher immédiatement l'étape suivante en arrière-plan
+        // 🚀 SOLUTION ROBUSTE : Déclenchement en arrière-plan SANS bloquer la réponse
         const triggerNextStepAsync = async () => {
           try {
-            console.log(`🔄 Triggering next step after ${step} batch completion...`);
+            console.log(`🔄 Background: Triggering next step after ${step} batch completion...`);
             
-            // Délai de sécurité avant de déclencher l'étape suivante
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Marquer les posts réussis comme completed AVANT de déclencher l'étape suivante
+            const successfulPostIds = batchResult.results
+              .filter(result => result.success)
+              .map(result => result.post_id);
             
-            let nextStepAction = '';
+            if (successfulPostIds.length > 0) {
+              await supabaseClient
+                .from('linkedin_posts')
+                .update({ processing_status: 'completed' })
+                .in('id', successfulPostIds);
+              
+              console.log(`✅ Background: Marked ${successfulPostIds.length} posts as completed`);
+            }
+            
+            // Délai de sécurité
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Déclencher l'étape suivante selon le step actuel
             switch (step) {
               case 'step1':
-                nextStepAction = 'process_next_batch';
                 await supabaseClient.functions.invoke('processing-queue-manager', {
                   body: { 
-                    action: nextStepAction,
+                    action: 'process_next_batch',
                     task_type: 'openai_step2',
                     dataset_id: dataset_id
                   }
                 });
-                console.log(`✅ Triggered Step 2 processing for dataset: ${dataset_id}`);
+                console.log(`✅ Background: Triggered Step 2 processing for dataset: ${dataset_id}`);
                 break;
                 
               case 'step2':
-                nextStepAction = 'process_next_batch';
                 await supabaseClient.functions.invoke('processing-queue-manager', {
                   body: { 
-                    action: nextStepAction,
+                    action: 'process_next_batch',
                     task_type: 'openai_step3',
                     dataset_id: dataset_id
                   }
                 });
-                console.log(`✅ Triggered Step 3 processing for dataset: ${dataset_id}`);
+                console.log(`✅ Background: Triggered Step 3 processing for dataset: ${dataset_id}`);
                 break;
                 
               case 'step3':
-                nextStepAction = 'process_next_batch';
                 await supabaseClient.functions.invoke('processing-queue-manager', {
                   body: { 
-                    action: nextStepAction,
+                    action: 'process_next_batch',
                     task_type: 'unipile_scraping',
                     dataset_id: dataset_id
                   }
                 });
-                console.log(`✅ Triggered Unipile scraping for dataset: ${dataset_id}`);
+                console.log(`✅ Background: Triggered Unipile scraping for dataset: ${dataset_id}`);
                 break;
             }
           } catch (error) {
-            console.error(`❌ Error triggering next step after ${step}:`, error);
+            console.error(`❌ Background: Error triggering next step after ${step}:`, error);
+            // Ne pas faire échouer le traitement principal à cause d'une erreur de déclenchement
           }
         };
 
-        // Lancer le déclenchement en arrière-plan
-        if ((globalThis as any).EdgeRuntime?.waitUntil) {
-          (globalThis as any).EdgeRuntime.waitUntil(triggerNextStepAsync());
-          console.log(`🚀 Next step trigger scheduled in background for ${step}`);
-        } else {
-          // Fallback si EdgeRuntime n'est pas disponible
-          triggerNextStepAsync().catch(console.error);
-          console.log(`🚀 Next step trigger started as fallback for ${step}`);
-        }
-
-        // Gérer les erreurs individuelles des posts dans le batch
+        // Gérer les erreurs individuelles des posts dans le batch AVANT le déclenchement
+        const failedPostIds = [];
         for (const result of batchResult.results) {
           if (!result.success) {
-            // Gérer les erreurs pour les posts échoués
+            failedPostIds.push(result.post_id);
             await handleOpenAIError(supabaseClient, result.post_id, step, new Error(result.error || 'Unknown error'));
           }
         }
 
-        return new Response(JSON.stringify({ 
+        // 🎯 RETOUR IMMÉDIAT pour éviter les timeouts
+        const responsePromise = new Response(JSON.stringify({ 
           success: true, 
           batch_mode: true,
           step,
@@ -142,10 +146,24 @@ serve(async (req) => {
           success_count: batchResult.success,
           failed_count: batchResult.failed,
           dataset_id,
-          next_step_triggered: true
+          next_step_will_be_triggered: true
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+
+        // Lancer le déclenchement en arrière-plan APRÈS avoir préparé la réponse
+        if ((globalThis as any).EdgeRuntime?.waitUntil) {
+          (globalThis as any).EdgeRuntime.waitUntil(triggerNextStepAsync());
+          console.log(`🚀 Next step trigger scheduled in background for ${step}`);
+        } else {
+          // Fallback : lancer sans attendre
+          triggerNextStepAsync().catch(err => 
+            console.error(`❌ Fallback trigger error for ${step}:`, err)
+          );
+          console.log(`🚀 Next step trigger started as fallback for ${step}`);
+        }
+
+        return responsePromise;
 
       } catch (error) {
         console.error(`❌ OpenAI ${step} BATCH failed:`, error);
