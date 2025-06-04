@@ -1,186 +1,213 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { UnipileScrapingResult } from './unipile-scraper.ts';
-import { ClientMatchResult } from './client-matching.ts';
-import { CompanyInfoResult } from './company-info-step.ts';
-
-export interface LeadCreationResult {
-  success: boolean;
-  leadId?: string;
-  action: 'created' | 'updated' | 'error';
-  error?: string;
-}
+import { ProcessingContext } from './types.ts';
 
 export async function createOrUpdateLead(
-  supabaseClient: ReturnType<typeof createClient>,
+  supabaseClient: any,
   post: any,
-  scrapingResult: UnipileScrapingResult,
-  clientMatch: ClientMatchResult,
-  companyInfo: CompanyInfoResult,
+  scrapingResult: any,
+  clientMatch: any,
+  companyInfoResult: any,
   approachMessage?: string
-): Promise<LeadCreationResult> {
+) {
   try {
-    console.log('🏗️ Creating or updating lead for profile:', post.author_profile_id);
-    console.log('📊 Debug - Post data verification:', {
+    console.log('🏗️ Creating/updating lead with complete data...');
+    console.log('📊 Post data for lead creation:', {
       id: post.id,
-      categorie: post.openai_step3_categorie,
-      postes: post.openai_step3_postes_selectionnes,
-      justification: post.openai_step3_justification,
-      text_preview: post.text?.substring(0, 100) || 'NO TEXT',
-      url: post.url || 'NO URL',
-      author_name: post.author_name || 'NO NAME'
+      author_profile_id: post.author_profile_id,
+      apify_dataset_id: post.apify_dataset_id,
+      text_length: post.text?.length || 0,
+      has_url: !!post.url,
+      has_approach_message: !!approachMessage
     });
-    
-    if (!post.author_profile_id) {
-      console.log('❌ No author_profile_id found, cannot create lead');
-      return {
-        success: false,
-        action: 'error',
-        error: 'No LinkedIn profile ID available for lead creation'
-      };
-    }
 
-    // ✅ VÉRIFICATION CRITIQUE : S'assurer que les données essentielles sont présentes
-    if (!post.openai_step3_postes_selectionnes || post.openai_step3_postes_selectionnes.length === 0) {
-      console.log('⚠️ Warning: No specific job positions found in step3 data');
-    }
-
-    if (!post.text || post.text === 'Content unavailable') {
-      console.log('⚠️ Warning: No valid post text found - this will affect display');
-    }
-
-    // ✅ AMÉLIORATION : Vérifier d'abord si le lead existe pour implémenter un upsert
-    console.log('🔍 Checking if lead already exists for profile:', post.author_profile_id);
-    
-    const { data: existingLead, error: fetchError } = await supabaseClient
+    // Vérifier si un lead existe déjà pour ce author_profile_id
+    const { data: existingLead, error: checkError } = await supabaseClient
       .from('leads')
-      .select('id, created_at, updated_at, author_name, latest_post_date')
+      .select('id, latest_post_date, posted_at_timestamp')
       .eq('author_profile_id', post.author_profile_id)
       .single();
 
-    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('❌ Error checking for existing lead:', fetchError);
-      return {
-        success: false,
-        action: 'error',
-        error: `Failed to check for existing lead: ${fetchError.message}`
-      };
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
+      console.error('❌ Error checking existing lead:', checkError);
+      throw new Error(`Failed to check existing lead: ${checkError.message}`);
     }
 
-    // Extract work history from Unipile data
-    const companyData = await extractWorkHistoryForLead(scrapingResult, supabaseClient);
+    // Déterminer la date du post pour comparaison
+    let postTimestamp = null;
+    let postDate = null;
+    
+    if (post.posted_at_timestamp) {
+      postTimestamp = post.posted_at_timestamp;
+      postDate = new Date(post.posted_at_timestamp);
+    } else if (post.posted_at_iso) {
+      postDate = new Date(post.posted_at_iso);
+      postTimestamp = postDate.getTime();
+    }
 
-    // ✅ CORRECTION MAJEURE : Préparer les données du lead avec validation complète
+    // ✅ CORRECTION MAJEURE : Préparer les données complètes du lead avec TOUTES les informations
     const leadData = {
-      // Identifiants
-      author_profile_id: post.author_profile_id,
-      author_profile_url: post.author_profile_url,
-      
-      // Dataset ID
+      // Données de base du post LinkedIn - CORRECTION : Inclure apify_dataset_id
       apify_dataset_id: post.apify_dataset_id,
-      
-      // Informations personnelles
-      author_name: post.author_name || 'Unknown author',
-      author_headline: post.author_headline,
-      
-      // ✅ CORRECTION CRITIQUE : S'assurer que le contenu de la publication est copié correctement
-      text: post.text && post.text !== 'Content unavailable' ? post.text : null,
+      text: post.text || 'Content unavailable',
       title: post.title || null,
-      url: post.url || '',
-      posted_at_iso: post.posted_at_iso,
-      posted_at_timestamp: post.posted_at_timestamp,
+      url: post.url || null,
+      posted_at_iso: post.posted_at_iso || null,
+      posted_at_timestamp: postTimestamp,
+      latest_post_date: postDate?.toISOString() || null,
+      latest_post_urn: post.urn || null,
+      latest_post_url: post.url || null,
       
-      // ✅ CORRECTION MAJEURE : Données OpenAI step3 avec validation et fallbacks
-      openai_step2_localisation: post.openai_step2_localisation || null,
+      // Données de l'auteur
+      author_profile_id: post.author_profile_id,
+      author_name: post.author_name || 'Unknown author',
+      author_headline: post.author_headline || null,
+      author_profile_url: post.author_profile_url || null,
+      
+      // Données OpenAI Steps
       openai_step3_categorie: post.openai_step3_categorie || null,
-      openai_step3_postes_selectionnes: Array.isArray(post.openai_step3_postes_selectionnes) && post.openai_step3_postes_selectionnes.length > 0 
-        ? post.openai_step3_postes_selectionnes 
-        : null,
+      openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes || null,
       openai_step3_justification: post.openai_step3_justification || null,
       
-      // Informations entreprise (Unipile)
-      company_name: scrapingResult.company || post.unipile_company || null,
-      company_position: scrapingResult.position || post.unipile_position || null,
-      company_linkedin_id: scrapingResult.company_id || post.unipile_company_linkedin_id || null,
-      unipile_company: scrapingResult.company || post.unipile_company || null,
-      unipile_position: scrapingResult.position || post.unipile_position || null,
-      unipile_company_linkedin_id: scrapingResult.company_id || post.unipile_company_linkedin_id || null,
-      
-      // Référence à l'entreprise dans la table companies
-      company_id: companyInfo.success && companyInfo.companyId ? companyInfo.companyId : null,
+      // Données Unipile (du scraping)
+      unipile_company: scrapingResult?.company || null,
+      unipile_position: scrapingResult?.position || null,
+      unipile_company_linkedin_id: scrapingResult?.company_linkedin_id || null,
       
       // Message d'approche
       approach_message: approachMessage || null,
       approach_message_generated: !!approachMessage,
       approach_message_generated_at: approachMessage ? new Date().toISOString() : null,
       
-      // Correspondance client
-      is_client_lead: clientMatch.isClientLead,
-      matched_client_id: clientMatch.clientId || null,
-      matched_client_name: clientMatch.clientName || null,
+      // Informations client
+      is_client_lead: clientMatch?.isClientLead || false,
+      matched_client_id: clientMatch?.clientId || null,
+      matched_client_name: clientMatch?.clientName || null,
+      has_previous_client_company: clientMatch?.hasPreviousClientCompany || false,
+      previous_client_companies: clientMatch?.previousClientCompanies || null,
       
-      // Informations du post le plus récent
-      latest_post_date: post.posted_at_iso,
-      latest_post_url: post.url,
-      latest_post_urn: post.urn,
+      // Informations de l'entreprise (depuis company info step)
+      company_id: companyInfoResult?.companyId || null,
+      company_name: companyInfoResult?.companyName || scrapingResult?.company || null,
+      company_linkedin_id: companyInfoResult?.linkedinId || scrapingResult?.company_linkedin_id || null,
       
-      // Historique professionnel (5 entreprises max)
-      ...companyData.workHistory,
+      // Historique professionnel (jusqu'à 5 entreprises)
+      company_1_name: scrapingResult?.work_history?.[0]?.company || null,
+      company_1_position: scrapingResult?.work_history?.[0]?.position || null,
+      company_1_start_date: scrapingResult?.work_history?.[0]?.start_date || null,
+      company_1_end_date: scrapingResult?.work_history?.[0]?.end_date || null,
+      company_1_is_current: scrapingResult?.work_history?.[0]?.is_current || false,
+      company_1_duration_months: scrapingResult?.work_history?.[0]?.duration_months || null,
+      company_1_linkedin_id: scrapingResult?.work_history?.[0]?.company_linkedin_id || null,
+      company_1_linkedin_url: scrapingResult?.work_history?.[0]?.company_linkedin_url || null,
       
-      // Détection des entreprises clientes précédentes
-      has_previous_client_company: companyData.hasPreviousClient,
-      previous_client_companies: companyData.previousClientCompanies,
+      company_2_name: scrapingResult?.work_history?.[1]?.company || null,
+      company_2_position: scrapingResult?.work_history?.[1]?.position || null,
+      company_2_start_date: scrapingResult?.work_history?.[1]?.start_date || null,
+      company_2_end_date: scrapingResult?.work_history?.[1]?.end_date || null,
+      company_2_is_current: scrapingResult?.work_history?.[1]?.is_current || false,
+      company_2_duration_months: scrapingResult?.work_history?.[1]?.duration_months || null,
+      company_2_linkedin_id: scrapingResult?.work_history?.[1]?.company_linkedin_id || null,
+      company_2_linkedin_url: scrapingResult?.work_history?.[1]?.company_linkedin_url || null,
+      
+      company_3_name: scrapingResult?.work_history?.[2]?.company || null,
+      company_3_position: scrapingResult?.work_history?.[2]?.position || null,
+      company_3_start_date: scrapingResult?.work_history?.[2]?.start_date || null,
+      company_3_end_date: scrapingResult?.work_history?.[2]?.end_date || null,
+      company_3_is_current: scrapingResult?.work_history?.[2]?.is_current || false,
+      company_3_duration_months: scrapingResult?.work_history?.[2]?.duration_months || null,
+      company_3_linkedin_id: scrapingResult?.work_history?.[2]?.company_linkedin_id || null,
+      company_3_linkedin_url: scrapingResult?.work_history?.[2]?.company_linkedin_url || null,
+      
+      company_4_name: scrapingResult?.work_history?.[3]?.company || null,
+      company_4_position: scrapingResult?.work_history?.[3]?.position || null,
+      company_4_start_date: scrapingResult?.work_history?.[3]?.start_date || null,
+      company_4_end_date: scrapingResult?.work_history?.[3]?.end_date || null,
+      company_4_is_current: scrapingResult?.work_history?.[3]?.is_current || false,
+      company_4_duration_months: scrapingResult?.work_history?.[3]?.duration_months || null,
+      company_4_linkedin_id: scrapingResult?.work_history?.[3]?.company_linkedin_id || null,
+      company_4_linkedin_url: scrapingResult?.work_history?.[3]?.company_linkedin_url || null,
+      
+      company_5_name: scrapingResult?.work_history?.[4]?.company || null,
+      company_5_position: scrapingResult?.work_history?.[4]?.position || null,
+      company_5_start_date: scrapingResult?.work_history?.[4]?.start_date || null,
+      company_5_end_date: scrapingResult?.work_history?.[4]?.end_date || null,
+      company_5_is_current: scrapingResult?.work_history?.[4]?.is_current || false,
+      company_5_duration_months: scrapingResult?.work_history?.[4]?.duration_months || null,
+      company_5_linkedin_id: scrapingResult?.work_history?.[4]?.company_linkedin_id || null,
+      company_5_linkedin_url: scrapingResult?.work_history?.[4]?.company_linkedin_url || null,
       
       // Métadonnées
       processing_status: 'completed',
-      last_updated_at: new Date().toISOString()
+      last_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
-    console.log('📋 Lead data prepared:', {
-      profile_id: leadData.author_profile_id,
-      dataset_id: leadData.apify_dataset_id,
-      name: leadData.author_name,
-      company: leadData.company_name,
-      company_id: leadData.company_id,
-      position: leadData.company_position,
-      category: leadData.openai_step3_categorie,
-      jobs: leadData.openai_step3_postes_selectionnes,
-      is_client: leadData.is_client_lead,
-      client_name: leadData.matched_client_name,
-      has_previous_client: leadData.has_previous_client_company,
-      previous_clients: leadData.previous_client_companies,
+    console.log('📝 Prepared lead data:', {
+      apify_dataset_id: leadData.apify_dataset_id,
       text_length: leadData.text?.length || 0,
       has_url: !!leadData.url,
-      has_valid_text: !!leadData.text && leadData.text !== 'Content unavailable'
+      author_profile_id: leadData.author_profile_id,
+      company_name: leadData.company_name,
+      unipile_company: leadData.unipile_company
     });
 
-    let leadId: string;
-    let action: 'created' | 'updated';
-
     if (existingLead) {
-      // ✅ MISE À JOUR : Lead existant trouvé, on le met à jour
-      console.log('📝 Updating existing lead:', existingLead.id);
+      console.log('🔄 Updating existing lead:', existingLead.id);
       
-      const { error: updateError } = await supabaseClient
-        .from('leads')
-        .update(leadData)
-        .eq('id', existingLead.id);
+      // Vérifier si ce post est plus récent
+      const existingTimestamp = existingLead.posted_at_timestamp || 0;
+      const newTimestamp = postTimestamp || 0;
+      
+      if (newTimestamp > existingTimestamp) {
+        console.log('📅 New post is more recent, updating lead data');
+        
+        const { error: updateError } = await supabaseClient
+          .from('leads')
+          .update(leadData)
+          .eq('id', existingLead.id);
 
-      if (updateError) {
-        console.error('❌ Error updating existing lead:', updateError);
+        if (updateError) {
+          console.error('❌ Error updating existing lead:', updateError);
+          throw new Error(`Failed to update existing lead: ${updateError.message}`);
+        }
+
+        // Mettre à jour le linkedin_posts avec le lead_id
+        await supabaseClient
+          .from('linkedin_posts')
+          .update({ 
+            lead_id: existingLead.id,
+            last_updated_at: new Date().toISOString()
+          })
+          .eq('id', post.id);
+
+        console.log('✅ Existing lead updated successfully');
         return {
-          success: false,
-          action: 'error',
-          error: `Failed to update existing lead: ${updateError.message}`
+          success: true,
+          action: 'updated',
+          leadId: existingLead.id,
+          message: 'Lead updated with newer post data'
+        };
+      } else {
+        console.log('📅 Existing post is more recent, keeping existing data');
+        
+        // Juste lier le post au lead existant
+        await supabaseClient
+          .from('linkedin_posts')
+          .update({ 
+            lead_id: existingLead.id,
+            last_updated_at: new Date().toISOString()
+          })
+          .eq('id', post.id);
+
+        return {
+          success: true,
+          action: 'linked',
+          leadId: existingLead.id,
+          message: 'Post linked to existing lead'
         };
       }
-
-      leadId = existingLead.id;
-      action = 'updated';
-      console.log('✅ Existing lead updated successfully:', leadId);
     } else {
-      // ✅ CRÉATION : Nouveau lead
-      console.log('✨ Creating new lead');
+      console.log('➕ Creating new lead...');
       
       const { data: newLead, error: insertError } = await supabaseClient
         .from('leads')
@@ -188,139 +215,34 @@ export async function createOrUpdateLead(
         .select('id')
         .single();
 
-      if (insertError || !newLead) {
+      if (insertError) {
         console.error('❌ Error creating new lead:', insertError);
-        return {
-          success: false,
-          action: 'error',
-          error: `Failed to create new lead: ${insertError?.message}`
-        };
+        throw new Error(`Failed to create new lead: ${insertError.message}`);
       }
 
-      leadId = newLead.id;
-      action = 'created';
-      console.log('✅ New lead created successfully:', leadId);
+      // Mettre à jour le linkedin_posts avec le lead_id
+      await supabaseClient
+        .from('linkedin_posts')
+        .update({ 
+          lead_id: newLead.id,
+          last_updated_at: new Date().toISOString()
+        })
+        .eq('id', post.id);
+
+      console.log('✅ New lead created successfully:', newLead.id);
+      return {
+        success: true,
+        action: 'created',
+        leadId: newLead.id,
+        message: 'New lead created successfully'
+      };
     }
-
-    // Lier le post actuel au lead (nouveau ou existant)
-    const { error: linkError } = await supabaseClient
-      .from('linkedin_posts')
-      .update({ 
-        lead_id: leadId,
-        processing_status: 'completed',
-        last_updated_at: new Date().toISOString()
-      })
-      .eq('id', post.id);
-
-    if (linkError) {
-      console.error('⚠️ Error linking post to lead:', linkError);
-      // Ne pas considérer cela comme une erreur fatale
-    }
-
-    return {
-      success: true,
-      leadId: leadId,
-      action: action
-    };
-
   } catch (error: any) {
-    console.error('❌ Error in lead creation/update:', error);
+    console.error('❌ Error in createOrUpdateLead:', error);
     return {
       success: false,
       action: 'error',
       error: error.message || 'Unknown error during lead creation/update'
     };
   }
-}
-
-async function extractWorkHistoryForLead(
-  scrapingResult: UnipileScrapingResult,
-  supabaseClient: ReturnType<typeof createClient>
-) {
-  console.log('💼 Extracting work history for lead...');
-  
-  const workHistory: any = {};
-  let hasPreviousClient = false;
-  const previousClientCompanies: string[] = [];
-  
-  // Get client companies for comparison
-  const { data: clientCompanies, error: clientError } = await supabaseClient
-    .from('clients')
-    .select('company_name, company_linkedin_id, company_linkedin_url');
-  
-  if (clientError) {
-    console.error('⚠️ Error fetching client companies:', clientError);
-  }
-  
-  // Extract work experience from Unipile profile data
-  const experiences = scrapingResult.profile?.work_experience || 
-                    scrapingResult.profile?.linkedin_profile?.experience || 
-                    [];
-  
-  console.log('💼 Found', experiences.length, 'work experiences for lead');
-  
-  for (let i = 0; i < Math.min(experiences.length, 5); i++) {
-    const exp = experiences[i];
-    const companyIndex = i + 1;
-    
-    const companyName = exp.company || exp.companyName || '';
-    const companyLinkedInId = exp.company_id || exp.companyId || '';
-    let companyLinkedInUrl = exp.company_url || '';
-    
-    // Generate LinkedIn URL if we have ID but no URL
-    if (companyLinkedInId && !companyLinkedInUrl) {
-      companyLinkedInUrl = `https://www.linkedin.com/company/${companyLinkedInId}`;
-    }
-    
-    workHistory[`company_${companyIndex}_name`] = companyName;
-    workHistory[`company_${companyIndex}_position`] = exp.position || exp.title || '';
-    workHistory[`company_${companyIndex}_start_date`] = exp.start || exp.startDate || null;
-    workHistory[`company_${companyIndex}_end_date`] = exp.end || exp.endDate || null;
-    workHistory[`company_${companyIndex}_is_current`] = !exp.end || exp.end === null || exp.end === '';
-    workHistory[`company_${companyIndex}_duration_months`] = calculateDurationInMonths(
-      exp.start || exp.startDate, 
-      exp.end || exp.endDate
-    );
-    workHistory[`company_${companyIndex}_linkedin_id`] = companyLinkedInId;
-    workHistory[`company_${companyIndex}_linkedin_url`] = companyLinkedInUrl;
-    
-    // Check if this company is a client
-    if (clientCompanies && companyName) {
-      const matchingClient = clientCompanies.find(client => 
-        client.company_name?.toLowerCase() === companyName.toLowerCase() ||
-        client.company_linkedin_id === companyLinkedInId ||
-        client.company_linkedin_url === companyLinkedInUrl
-      );
-      
-      if (matchingClient) {
-        hasPreviousClient = true;
-        previousClientCompanies.push(companyName);
-        console.log(`🎯 Found previous client company: ${companyName}`);
-      }
-    }
-  }
-  
-  console.log('📊 Work history extracted:', {
-    companies: Math.min(experiences.length, 5),
-    hasPreviousClient,
-    previousClientCompanies
-  });
-  
-  return {
-    workHistory,
-    hasPreviousClient,
-    previousClientCompanies
-  };
-}
-
-function calculateDurationInMonths(startDate: string | null, endDate: string | null): number | null {
-  if (!startDate) return null;
-  
-  const start = new Date(startDate);
-  const end = endDate ? new Date(endDate) : new Date();
-  
-  const yearDiff = end.getFullYear() - start.getFullYear();
-  const monthDiff = end.getMonth() - start.getMonth();
-  
-  return yearDiff * 12 + monthDiff;
 }
