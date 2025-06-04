@@ -21,9 +21,9 @@ export function ClientManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
-  // Count incomplete clients
+  // Count incomplete clients - ONLY those missing LinkedIn ID
   const incompleteCount = clients.filter(client => 
-    !client.company_linkedin_url || !client.company_linkedin_id
+    !client.company_linkedin_id
   ).length;
 
   const unqualifiedCount = getUnqualifiedClients().length;
@@ -75,7 +75,7 @@ export function ClientManagement() {
               className="flex items-center gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
             >
               <AlertCircle className="h-4 w-4" />
-              Comptes incomplets ({incompleteCount})
+              LinkedIn ID manquant ({incompleteCount})
             </Button>
           )}
           <Button

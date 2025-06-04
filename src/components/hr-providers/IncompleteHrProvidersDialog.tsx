@@ -32,9 +32,9 @@ export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }:
   });
   const [loadingAuto, setLoadingAuto] = useState<string | null>(null);
 
-  // Filter providers that are missing LinkedIn URL or ID
+  // Filter providers that are missing LinkedIn ID (critical field)
   const incompleteProviders = hrProviders.filter(provider => 
-    !provider.company_linkedin_url || !provider.company_linkedin_id
+    !provider.company_linkedin_id
   );
 
   const handleEdit = (provider: HrProvider) => {
@@ -74,11 +74,10 @@ export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }:
         description: "Fonction de complétion automatique via Unipile en développement.",
       });
       
-      // TODO: Implement Unipile API call
-      // const { data, error } = await supabase.functions.invoke('linkedin-company-info', {
+      // TODO: Implement Unipile API call to extract LinkedIn ID from URL
+      // const { data, error } = await supabase.functions.invoke('unipile-company-enrichment', {
       //   body: { 
-      //     company_url: provider.company_linkedin_url,
-      //     company_id: provider.company_linkedin_id 
+      //     company_url: provider.company_linkedin_url
       //   }
       // });
       
@@ -94,14 +93,7 @@ export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }:
   };
 
   const canAutoComplete = (provider: HrProvider) => {
-    return provider.company_linkedin_url || provider.company_linkedin_id;
-  };
-
-  const getMissingInfo = (provider: HrProvider) => {
-    const missing = [];
-    if (!provider.company_linkedin_url) missing.push('URL');
-    if (!provider.company_linkedin_id) missing.push('ID');
-    return missing;
+    return provider.company_linkedin_url && !provider.company_linkedin_id;
   };
 
   return (
@@ -109,142 +101,143 @@ export function IncompleteHrProvidersDialog({ open, onOpenChange, hrProviders }:
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Prestataires RH incomplets ({incompleteProviders.length})
+            Prestataires RH - LinkedIn ID manquant ({incompleteProviders.length})
           </DialogTitle>
         </DialogHeader>
 
         {incompleteProviders.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            Tous les prestataires RH ont des informations LinkedIn complètes !
+            Tous les prestataires RH ont un LinkedIn ID !
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom de l'entreprise</TableHead>
-                <TableHead>Informations manquantes</TableHead>
-                <TableHead>URL LinkedIn</TableHead>
-                <TableHead>ID LinkedIn</TableHead>
-                <TableHead className="w-[200px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {incompleteProviders.map((provider) => (
-                <TableRow key={provider.id}>
-                  <TableCell className="font-medium">
-                    {provider.company_name}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {getMissingInfo(provider).map((info) => (
-                        <Badge key={info} variant="destructive" className="text-xs">
-                          {info}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {editingProvider === provider.id ? (
-                      <Input
-                        value={editData.company_linkedin_url}
-                        onChange={(e) => setEditData(prev => ({ 
-                          ...prev, 
-                          company_linkedin_url: e.target.value 
-                        }))}
-                        placeholder="https://www.linkedin.com/company/..."
-                        className="w-full"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        {provider.company_linkedin_url ? (
-                          <>
-                            <span className="truncate max-w-[200px]">
-                              {provider.company_linkedin_url}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(provider.company_linkedin_url!, '_blank')}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          </>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingProvider === provider.id ? (
-                      <Input
-                        value={editData.company_linkedin_id}
-                        onChange={(e) => setEditData(prev => ({ 
-                          ...prev, 
-                          company_linkedin_id: e.target.value 
-                        }))}
-                        placeholder="ID LinkedIn"
-                        className="w-full"
-                      />
-                    ) : (
-                      provider.company_linkedin_id ? (
-                        <Badge variant="secondary">
-                          {provider.company_linkedin_id}
-                        </Badge>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <strong>Important :</strong> Le LinkedIn ID est essentiel pour filtrer automatiquement les leads provenant de prestataires RH.
+            </div>
+            
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom de l'entreprise</TableHead>
+                  <TableHead>URL LinkedIn</TableHead>
+                  <TableHead>LinkedIn ID</TableHead>
+                  <TableHead className="w-[200px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {incompleteProviders.map((provider) => (
+                  <TableRow key={provider.id}>
+                    <TableCell className="font-medium">
+                      {provider.company_name}
+                    </TableCell>
+                    <TableCell>
                       {editingProvider === provider.id ? (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSave(provider.id)}
-                          >
-                            Sauvegarder
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingProvider(null)}
-                          >
-                            Annuler
-                          </Button>
-                        </>
+                        <Input
+                          value={editData.company_linkedin_url}
+                          onChange={(e) => setEditData(prev => ({ 
+                            ...prev, 
+                            company_linkedin_url: e.target.value 
+                          }))}
+                          placeholder="https://www.linkedin.com/company/..."
+                          className="w-full"
+                        />
                       ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(provider)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {canAutoComplete(provider) && (
+                        <div className="flex items-center gap-2">
+                          {provider.company_linkedin_url ? (
+                            <>
+                              <span className="truncate max-w-[200px]">
+                                {provider.company_linkedin_url}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(provider.company_linkedin_url!, '_blank')}
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">
+                              URL manquante
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingProvider === provider.id ? (
+                        <Input
+                          value={editData.company_linkedin_id}
+                          onChange={(e) => setEditData(prev => ({ 
+                            ...prev, 
+                            company_linkedin_id: e.target.value 
+                          }))}
+                          placeholder="LinkedIn ID"
+                          className="w-full"
+                        />
+                      ) : (
+                        provider.company_linkedin_id ? (
+                          <Badge variant="secondary">
+                            {provider.company_linkedin_id}
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            ID manquant
+                          </Badge>
+                        )
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {editingProvider === provider.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave(provider.id)}
+                            >
+                              Sauvegarder
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleAutoComplete(provider)}
-                              disabled={loadingAuto === provider.id}
+                              onClick={() => setEditingProvider(null)}
                             >
-                              {loadingAuto === provider.id ? (
-                                <RefreshCw className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="h-4 w-4" />
-                              )}
+                              Annuler
                             </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(provider)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {canAutoComplete(provider) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAutoComplete(provider)}
+                                disabled={loadingAuto === provider.id}
+                                title="Enrichir l'ID LinkedIn via Unipile"
+                              >
+                                {loadingAuto === provider.id ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </DialogContent>
     </Dialog>

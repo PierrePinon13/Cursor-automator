@@ -15,9 +15,9 @@ export const HrProvidersManagement = () => {
   const [isIncompleteDialogOpen, setIsIncompleteDialogOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<any>(null);
 
-  // Count incomplete providers
+  // Count incomplete providers - ONLY those missing LinkedIn ID
   const incompleteCount = hrProviders.filter(provider => 
-    !provider.company_linkedin_url || !provider.company_linkedin_id
+    !provider.company_linkedin_id
   ).length;
 
   if (loading) {
@@ -44,7 +44,7 @@ export const HrProvidersManagement = () => {
               className="flex items-center gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
             >
               <AlertCircle className="h-4 w-4" />
-              Comptes incomplets ({incompleteCount})
+              LinkedIn ID manquant ({incompleteCount})
             </Button>
           )}
           <Button

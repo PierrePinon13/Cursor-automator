@@ -5,6 +5,7 @@ import { executeOpenAIStep2 } from './openai-step2.ts';
 import { executeOpenAIStep3 } from './openai-step3.ts';
 import { executeUnipileScraping } from './unipile-scraper.ts';
 import { executeClientMatching } from './client-matching.ts';
+import { executeHrProviderMatching } from './hr-provider-matching.ts';
 import { executeMessageGeneration } from './message-generation.ts';
 import { createOrUpdateLead } from './lead-creation.ts';
 import { executeCompanyInfoStep } from './company-info-step.ts';
@@ -16,6 +17,7 @@ export {
   executeOpenAIStep3,
   executeUnipileScraping,
   executeClientMatching,
+  executeHrProviderMatching,
   executeMessageGeneration,
   executeCompanyInfoStep
 };
@@ -26,10 +28,21 @@ export async function executeLeadCreation(
   step3Result: any,
   scrapingResult: any,
   clientMatch: any,
+  hrProviderMatch: any,
   approachMessage?: string
 ) {
   try {
     console.log('🏗️ Starting unified lead creation/update step...');
+    
+    // Check if this is an HR provider lead - if so, don't create a lead
+    if (hrProviderMatch?.isHrProviderLead) {
+      console.log('🚫 Skipping lead creation - HR provider match detected');
+      return {
+        success: true,
+        action: 'filtered_hr_provider',
+        message: 'Lead filtered due to HR provider match'
+      };
+    }
     
     // ✅ CORRECTION : Mettre à jour le post avec les données step3 AVANT la création du lead
     console.log('📝 Updating post with step3 data before lead creation...');
