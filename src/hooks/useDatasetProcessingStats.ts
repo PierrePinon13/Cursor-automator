@@ -70,7 +70,7 @@ export const useDatasetProcessingStats = (
         throw webhookError;
       }
 
-      // ✅ CORRECTION MAJEURE : Compter les leads par dataset_id
+      // ✅ CORRECTION : Requête simplifiée pour les leads avec gestion d'erreur
       let leadsQuery = supabase
         .from('leads')
         .select('apify_dataset_id, created_at');
@@ -87,19 +87,21 @@ export const useDatasetProcessingStats = (
 
       if (leadsError) {
         console.error('Error fetching leads data:', leadsError);
-        throw leadsError;
+        // Ne pas faire échouer complètement la requête si les leads échouent
       }
 
       console.log('✅ Fetched leads data with dataset_id:', leadsData?.length || 0);
 
-      // Grouper les leads par dataset_id
-      const leadsByDataset = (leadsData || []).reduce((acc: Record<string, number>, lead) => {
-        const datasetId = lead.apify_dataset_id;
-        if (datasetId) {
-          acc[datasetId] = (acc[datasetId] || 0) + 1;
-        }
-        return acc;
-      }, {});
+      // Grouper les leads par dataset_id (seulement si on a des données)
+      const leadsByDataset: Record<string, number> = {};
+      if (leadsData && !leadsError) {
+        leadsData.forEach(lead => {
+          const datasetId = lead.apify_dataset_id;
+          if (datasetId) {
+            leadsByDataset[datasetId] = (leadsByDataset[datasetId] || 0) + 1;
+          }
+        });
+      }
 
       console.log('📊 Leads grouped by dataset:', leadsByDataset);
 

@@ -832,6 +832,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          apify_dataset_id: string | null
           approach_message: string | null
           approach_message_generated: boolean | null
           approach_message_generated_at: string | null
@@ -924,6 +925,7 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          apify_dataset_id?: string | null
           approach_message?: string | null
           approach_message_generated?: boolean | null
           approach_message_generated_at?: string | null
@@ -1016,6 +1018,7 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          apify_dataset_id?: string | null
           approach_message?: string | null
           approach_message_generated?: boolean | null
           approach_message_generated_at?: string | null
