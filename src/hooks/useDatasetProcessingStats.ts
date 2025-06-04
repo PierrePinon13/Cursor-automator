@@ -4,11 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface DatasetProcessingStats {
   dataset_id: string;
+  processing_date: string;
   total_records: number;
   raw_posts_stored: number;
   posts_stored: number;
   leads_created: number;
-  processing_date: string;
 }
 
 export interface GlobalProcessingStats {
@@ -20,30 +20,18 @@ export interface GlobalProcessingStats {
   datasets_processed: number;
 }
 
-export interface DatasetHistoryItem {
-  dataset_id: string;
-  processing_date: string;
-  total_records: number;
-  raw_posts_stored: number;
-  posts_stored: number;
-  leads_created: number;
-}
-
-type TimePeriod = '24h' | '7d' | '30d' | 'all';
-type DisplayMode = 'stats' | 'evolution';
-
 export const useDatasetProcessingStats = (
-  timePeriod: TimePeriod = '7d',
-  displayMode: DisplayMode = 'stats',
+  timePeriod: string = '7d',
+  displayMode: string = 'stats',
   selectedDatasetId?: string
 ) => {
   const [globalStats, setGlobalStats] = useState<GlobalProcessingStats[]>([]);
   const [evolutionData, setEvolutionData] = useState<DatasetProcessingStats[]>([]);
-  const [datasetHistory, setDatasetHistory] = useState<DatasetHistoryItem[]>([]);
+  const [datasetHistory, setDatasetHistory] = useState<DatasetProcessingStats[]>([]);
   const [datasetsList, setDatasetsList] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const getDateFilter = (period: TimePeriod) => {
+  const getDateFilter = (period: string) => {
     const now = new Date();
     switch (period) {
       case '24h':
@@ -57,278 +45,121 @@ export const useDatasetProcessingStats = (
     }
   };
 
-  const fetchProcessingStats = async () => {
+  const fetchStats = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      console.log('🔍 Starting stats fetch with accurate counting...', { timePeriod, displayMode, selectedDatasetId });
-      
       const dateFilter = getDateFilter(timePeriod);
-      console.log('📅 Date filter:', dateFilter);
+      console.log('🔍 Fetching stats for period:', timePeriod, 'Date filter:', dateFilter);
+      
+      // Récupérer les stats des webhooks avec filtre de période
+      let webhookQuery = supabase
+        .from('apify_webhook_stats')
+        .select(`
+          dataset_id,
+          started_at,
+          total_received,
+          stored_raw,
+          successfully_inserted
+        `);
+
+      if (dateFilter && timePeriod !== 'all') {
+        webhookQuery = webhookQuery.gte('started_at', dateFilter);
+      }
 
       // Si un dataset spécifique est sélectionné
       if (selectedDatasetId) {
-        await fetchSpecificDatasetStats(selectedDatasetId, dateFilter);
-        return;
+        webhookQuery = webhookQuery.eq('dataset_id', selectedDatasetId);
       }
 
-      // Étape 1: Compter les posts raw avec count exact
-      let rawPostsCountQuery = supabase
-        .from('linkedin_posts_raw')
-        .select('*', { count: 'exact', head: true })
-        .not('apify_dataset_id', 'is', null);
+      const { data: webhookStats, error: webhookError } = await webhookQuery.order('started_at', { ascending: false });
 
-      if (dateFilter) {
-        rawPostsCountQuery = rawPostsCountQuery.gte('created_at', dateFilter);
+      if (webhookError) {
+        console.error('❌ Error fetching webhook stats:', webhookError);
+        throw webhookError;
       }
 
-      const { count: rawPostsCount, error: rawPostsError } = await rawPostsCountQuery;
-      if (rawPostsError) {
-        console.error('❌ Error counting raw posts:', rawPostsError);
-        throw rawPostsError;
-      }
+      console.log('📊 Webhook stats found:', webhookStats?.length);
 
-      console.log('📊 Raw posts count (exact):', rawPostsCount);
+      // Pour chaque dataset, compter les leads créés dans la table leads
+      const statsWithLeads = await Promise.all(
+        (webhookStats || []).map(async (stat) => {
+          console.log('📈 Processing dataset:', stat.dataset_id);
+          
+          // Compter les leads créés pour ce dataset spécifique
+          let leadsQuery = supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true });
 
-      // Étape 2: Compter les posts filtrés avec count exact
-      let filteredPostsCountQuery = supabase
-        .from('linkedin_posts')
-        .select('*', { count: 'exact', head: true })
-        .not('apify_dataset_id', 'is', null);
+          // Utiliser apify_dataset_id si disponible, sinon essayer avec d'autres champs
+          const { count: leadsCount, error: leadsError } = await leadsQuery
+            .eq('apify_dataset_id', stat.dataset_id);
 
-      if (dateFilter) {
-        filteredPostsCountQuery = filteredPostsCountQuery.gte('created_at', dateFilter);
-      }
+          if (leadsError) {
+            console.error('❌ Error counting leads for dataset', stat.dataset_id, ':', leadsError);
+          }
 
-      const { count: filteredPostsCount, error: filteredPostsError } = await filteredPostsCountQuery;
-      if (filteredPostsError) {
-        console.error('❌ Error counting filtered posts:', filteredPostsError);
-        throw filteredPostsError;
-      }
+          console.log('👥 Leads found for', stat.dataset_id, ':', leadsCount);
 
-      console.log('📊 Filtered posts count (exact):', filteredPostsCount);
+          return {
+            dataset_id: stat.dataset_id,
+            processing_date: stat.started_at.split('T')[0],
+            total_records: stat.total_received || 0,
+            raw_posts_stored: stat.stored_raw || 0,
+            posts_stored: stat.successfully_inserted || 0,
+            leads_created: leadsCount || 0
+          };
+        })
+      );
 
-      // Étape 3: Compter les leads avec count exact
-      let leadsCountQuery = supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .neq('openai_step3_categorie', 'Autre')
-        .not('openai_step3_categorie', 'is', null);
+      console.log('📋 Final stats with leads:', statsWithLeads);
 
-      if (dateFilter) {
-        leadsCountQuery = leadsCountQuery.gte('created_at', dateFilter);
-      }
+      // Si on filtre par dataset, on ne garde que celui-ci
+      const filteredStats = selectedDatasetId 
+        ? statsWithLeads.filter(s => s.dataset_id === selectedDatasetId)
+        : statsWithLeads;
 
-      const { count: leadsCount, error: leadsError } = await leadsCountQuery;
-      if (leadsError) {
-        console.error('❌ Error counting leads:', leadsError);
-        throw leadsError;
-      }
-
-      console.log('📊 Leads count (exact):', leadsCount);
-
-      // Récupérer la liste des datasets uniques (limité à 1000 pour la liste)
-      let datasetsQuery = supabase
-        .from('linkedin_posts_raw')
-        .select('apify_dataset_id, created_at')
-        .not('apify_dataset_id', 'is', null)
-        .order('created_at', { ascending: false });
-
-      if (dateFilter) {
-        datasetsQuery = datasetsQuery.gte('created_at', dateFilter);
-      }
-
-      const { data: datasetsData, error: datasetsError } = await datasetsQuery.limit(1000);
-      if (datasetsError) {
-        console.error('❌ Error fetching datasets:', datasetsError);
-        throw datasetsError;
-      }
-
-      // Extraire les datasets uniques
-      const uniqueDatasets = Array.from(new Set(datasetsData?.map(d => d.apify_dataset_id) || []));
-      setDatasetsList(uniqueDatasets);
-      console.log('📋 Unique datasets:', uniqueDatasets.length);
-
-      // Créer les stats globales
-      const totalStats = {
-        total_records: rawPostsCount || 0,
-        raw_posts_stored: rawPostsCount || 0,
-        posts_stored: filteredPostsCount || 0,
-        leads_created: leadsCount || 0,
-        datasets_processed: uniqueDatasets.length
-      };
-
-      const globalStatsData: GlobalProcessingStats[] = [{
-        period: timePeriod === 'all' ? 'Toute la période' : `Derniers ${timePeriod}`,
-        ...totalStats
-      }];
-
-      setGlobalStats(globalStatsData);
-
-      // Pour l'évolution, créer des données basées sur les stats globales
-      const evolutionDataArray: DatasetProcessingStats[] = [{
-        dataset_id: 'global',
-        processing_date: new Date().toISOString().split('T')[0],
-        ...totalStats
-      }];
-
-      setEvolutionData(evolutionDataArray);
-
-      // Créer l'historique des datasets (récupérer les plus récents avec leurs stats)
-      const datasetHistoryData: DatasetHistoryItem[] = [];
-      
-      // Pour chaque dataset unique, récupérer ses stats
-      for (const datasetId of uniqueDatasets.slice(0, 20)) { // Limiter à 20 datasets pour la performance
-        try {
-          // Compter les posts raw pour ce dataset
-          const { count: datasetRawCount } = await supabase
-            .from('linkedin_posts_raw')
-            .select('*', { count: 'exact', head: true })
-            .eq('apify_dataset_id', datasetId)
-            .gte('created_at', dateFilter || '2020-01-01');
-
-          // Compter les posts filtrés pour ce dataset
-          const { count: datasetFilteredCount } = await supabase
-            .from('linkedin_posts')
-            .select('*', { count: 'exact', head: true })
-            .eq('apify_dataset_id', datasetId)
-            .gte('created_at', dateFilter || '2020-01-01');
-
-          // Récupérer la date de traitement la plus récente
-          const { data: datasetInfo } = await supabase
-            .from('linkedin_posts_raw')
-            .select('created_at')
-            .eq('apify_dataset_id', datasetId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          // Estimation des leads pour ce dataset (proportionnelle)
-          const estimatedLeads = uniqueDatasets.length > 0 
-            ? Math.floor((leadsCount || 0) / uniqueDatasets.length)
-            : 0;
-
-          datasetHistoryData.push({
-            dataset_id: datasetId,
-            processing_date: datasetInfo?.created_at || new Date().toISOString(),
-            total_records: datasetRawCount || 0,
-            raw_posts_stored: datasetRawCount || 0,
-            posts_stored: datasetFilteredCount || 0,
-            leads_created: estimatedLeads
-          });
-
-        } catch (error) {
-          console.error(`❌ Error fetching stats for dataset ${datasetId}:`, error);
+      // Calculer les stats globales
+      const globalStatsData = filteredStats.reduce(
+        (acc, stat) => ({
+          period: selectedDatasetId ? `Dataset ${selectedDatasetId.substring(0, 8)}...` : `Derniers ${timePeriod}`,
+          total_records: acc.total_records + stat.total_records,
+          raw_posts_stored: acc.raw_posts_stored + stat.raw_posts_stored,
+          posts_stored: acc.posts_stored + stat.posts_stored,
+          leads_created: acc.leads_created + stat.leads_created,
+          datasets_processed: acc.datasets_processed + 1
+        }),
+        {
+          period: selectedDatasetId ? `Dataset ${selectedDatasetId.substring(0, 8)}...` : `Derniers ${timePeriod}`,
+          total_records: 0,
+          raw_posts_stored: 0,
+          posts_stored: 0,
+          leads_created: 0,
+          datasets_processed: 0
         }
-      }
+      );
 
-      setDatasetHistory(datasetHistoryData.sort((a, b) => 
+      setGlobalStats([globalStatsData]);
+      setEvolutionData(filteredStats);
+      
+      // Pour l'historique, on affiche tous les datasets (pas de filtre)
+      const allHistory = [...statsWithLeads].sort((a, b) => 
         new Date(b.processing_date).getTime() - new Date(a.processing_date).getTime()
-      ));
+      );
+      setDatasetHistory(allHistory);
 
-      console.log('✅ Processing complete with exact counts:', {
-        rawPostsCount,
-        filteredPostsCount,
-        leadsCount,
-        datasetsCount: uniqueDatasets.length,
-        historyCount: datasetHistoryData.length
-      });
+      // Liste des datasets uniques
+      const uniqueDatasets = [...new Set(statsWithLeads.map(s => s.dataset_id))].sort();
+      setDatasetsList(uniqueDatasets);
 
     } catch (error) {
-      console.error('💥 Error fetching processing stats:', error);
+      console.error('💥 Error fetching dataset processing stats:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSpecificDatasetStats = async (datasetId: string, dateFilter: string | null) => {
-    try {
-      console.log('🎯 Fetching specific dataset stats for:', datasetId);
-
-      // Compter les posts raw pour ce dataset avec count exact
-      let rawQuery = supabase
-        .from('linkedin_posts_raw')
-        .select('*', { count: 'exact', head: true })
-        .eq('apify_dataset_id', datasetId);
-
-      if (dateFilter) {
-        rawQuery = rawQuery.gte('created_at', dateFilter);
-      }
-
-      const { count: rawCount } = await rawQuery;
-
-      // Compter les posts filtrés pour ce dataset avec count exact
-      let filteredQuery = supabase
-        .from('linkedin_posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('apify_dataset_id', datasetId);
-
-      if (dateFilter) {
-        filteredQuery = filteredQuery.gte('created_at', dateFilter);
-      }
-
-      const { count: filteredCount } = await filteredQuery;
-
-      // Estimation des leads pour ce dataset
-      let leadsQuery = supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .neq('openai_step3_categorie', 'Autre')
-        .not('openai_step3_categorie', 'is', null);
-
-      if (dateFilter) {
-        leadsQuery = leadsQuery.gte('created_at', dateFilter);
-      }
-
-      const { count: totalLeadsCount } = await leadsQuery;
-      
-      // Estimation: ce dataset représente une portion des leads totaux
-      const estimatedLeads = Math.floor((totalLeadsCount || 0) * 0.1); // 10% comme estimation
-
-      console.log('📊 Specific dataset stats:', {
-        datasetId,
-        rawCount,
-        filteredCount,
-        estimatedLeads
-      });
-
-      const datasetStats: DatasetProcessingStats[] = [{
-        dataset_id: datasetId,
-        total_records: rawCount || 0,
-        raw_posts_stored: rawCount || 0,
-        posts_stored: filteredCount || 0,
-        leads_created: estimatedLeads,
-        processing_date: new Date().toISOString().split('T')[0]
-      }];
-
-      setEvolutionData(datasetStats);
-      
-      const globalStatsData: GlobalProcessingStats[] = [{
-        period: 'Dataset sélectionné',
-        total_records: rawCount || 0,
-        raw_posts_stored: rawCount || 0,
-        posts_stored: filteredCount || 0,
-        leads_created: estimatedLeads,
-        datasets_processed: 1
-      }];
-
-      setGlobalStats(globalStatsData);
-
-      setDatasetHistory([{
-        dataset_id: datasetId,
-        processing_date: new Date().toISOString().split('T')[0],
-        total_records: rawCount || 0,
-        raw_posts_stored: rawCount || 0,
-        posts_stored: filteredCount || 0,
-        leads_created: estimatedLeads
-      }]);
-
-    } catch (error) {
-      console.error('💥 Error fetching specific dataset stats:', error);
-    }
-  };
-
   useEffect(() => {
-    fetchProcessingStats();
+    fetchStats();
   }, [timePeriod, displayMode, selectedDatasetId]);
 
   return {
@@ -337,6 +168,6 @@ export const useDatasetProcessingStats = (
     datasetHistory,
     datasetsList,
     loading,
-    refetch: fetchProcessingStats,
+    refetch: fetchStats
   };
 };

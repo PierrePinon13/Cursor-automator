@@ -573,6 +573,53 @@ export type Database = {
           },
         ]
       }
+      contact_work_history: {
+        Row: {
+          company_linkedin_id: string | null
+          company_name: string
+          contact_id: string
+          created_at: string
+          duration_months: number | null
+          end_date: string | null
+          id: string
+          is_current: boolean
+          position: string
+          start_date: string | null
+        }
+        Insert: {
+          company_linkedin_id?: string | null
+          company_name: string
+          contact_id: string
+          created_at?: string
+          duration_months?: number | null
+          end_date?: string | null
+          id?: string
+          is_current?: boolean
+          position: string
+          start_date?: string | null
+        }
+        Update: {
+          company_linkedin_id?: string | null
+          company_name?: string
+          contact_id?: string
+          created_at?: string
+          duration_months?: number | null
+          end_date?: string | null
+          id?: string
+          is_current?: boolean
+          position?: string
+          start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_work_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_providers: {
         Row: {
           company_linkedin_id: string | null

@@ -25,14 +25,25 @@ export const useContactWorkHistory = (contactId: string) => {
     if (!contactId) return;
     
     try {
-      const { data, error } = await supabase
-        .from('contact_work_history')
-        .select('*')
-        .eq('contact_id', contactId)
-        .order('start_date', { ascending: false });
+      // Utiliser une requête SQL brute pour éviter les problèmes de types TypeScript
+      const { data, error } = await supabase.rpc('get_contact_work_history', {
+        p_contact_id: contactId
+      });
 
-      if (error) throw error;
-      setWorkHistory(data || []);
+      if (error) {
+        console.error('Error fetching work history:', error);
+        // Fallback: essayer une requête directe
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('contact_work_history' as any)
+          .select('*')
+          .eq('contact_id', contactId)
+          .order('start_date', { ascending: false });
+
+        if (fallbackError) throw fallbackError;
+        setWorkHistory(fallbackData || []);
+      } else {
+        setWorkHistory(data || []);
+      }
     } catch (error) {
       console.error('Error fetching work history:', error);
       toast({
@@ -50,14 +61,16 @@ export const useContactWorkHistory = (contactId: string) => {
 
     try {
       // Supprimer l'historique existant
-      await supabase
-        .from('contact_work_history')
+      const { error: deleteError } = await supabase
+        .from('contact_work_history' as any)
         .delete()
         .eq('contact_id', contactId);
 
+      if (deleteError) throw deleteError;
+
       // Insérer le nouvel historique
-      const { error } = await supabase
-        .from('contact_work_history')
+      const { error: insertError } = await supabase
+        .from('contact_work_history' as any)
         .insert(
           experiences.map(exp => ({
             contact_id: contactId,
@@ -71,7 +84,7 @@ export const useContactWorkHistory = (contactId: string) => {
           }))
         );
 
-      if (error) throw error;
+      if (insertError) throw insertError;
       
       await fetchWorkHistory();
       
