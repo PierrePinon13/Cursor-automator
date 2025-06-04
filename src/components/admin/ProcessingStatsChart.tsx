@@ -46,35 +46,6 @@ const ProcessingStatsChart = ({ viewMode, globalStats, evolutionData, loading }:
     );
   }
 
-  const renderGlobalView = () => {
-    if (globalStats.length === 0) {
-      return (
-        <div className="text-center text-gray-500 py-8">
-          Aucune donnée disponible pour cette période
-        </div>
-      );
-    }
-
-    return (
-      <ChartContainer config={chartConfig} className="h-96">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={globalStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="period" />
-            <YAxis />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <ChartLegend content={<ChartLegendContent />} />
-            
-            <Bar dataKey="total_records" fill={chartConfig.total_records.color} name="total_records" />
-            <Bar dataKey="raw_posts_stored" fill={chartConfig.raw_posts_stored.color} name="raw_posts_stored" />
-            <Bar dataKey="posts_stored" fill={chartConfig.posts_stored.color} name="posts_stored" />
-            <Bar dataKey="leads_created" fill={chartConfig.leads_created.color} name="leads_created" />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartContainer>
-    );
-  };
-
   const renderEvolutionView = () => {
     if (evolutionData.length === 0) {
       return (
@@ -169,10 +140,10 @@ const ProcessingStatsChart = ({ viewMode, globalStats, evolutionData, loading }:
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Statistiques de traitement</CardTitle>
+        <CardTitle>Évolution des statistiques de traitement</CardTitle>
       </CardHeader>
       <CardContent>
-        {viewMode === 'global' ? renderGlobalView() : renderEvolutionView()}
+        {renderEvolutionView()}
       </CardContent>
     </Card>
   );

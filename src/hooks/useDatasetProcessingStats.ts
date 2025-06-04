@@ -30,11 +30,11 @@ export interface DatasetHistoryItem {
 }
 
 type TimePeriod = '24h' | '7d' | '30d' | 'all';
-type ViewMode = 'global' | 'evolution';
+type DisplayMode = 'stats' | 'evolution';
 
 export const useDatasetProcessingStats = (
   timePeriod: TimePeriod = '7d',
-  viewMode: ViewMode = 'global',
+  displayMode: DisplayMode = 'stats',
   selectedDatasetId?: string
 ) => {
   const [globalStats, setGlobalStats] = useState<GlobalProcessingStats[]>([]);
@@ -60,6 +60,7 @@ export const useDatasetProcessingStats = (
   const fetchProcessingStats = async () => {
     try {
       setLoading(true);
+      console.log('Fetching processing stats with params:', { timePeriod, displayMode, selectedDatasetId });
       
       const dateFilter = getDateFilter(timePeriod);
       
@@ -69,7 +70,7 @@ export const useDatasetProcessingStats = (
         return;
       }
 
-      // Récupérer les stats des webhooks Apify (sans limite)
+      // Récupérer les stats des webhooks Apify pour les records reçus
       let webhookQuery = supabase
         .from('apify_webhook_stats')
         .select('*')
@@ -80,9 +81,14 @@ export const useDatasetProcessingStats = (
       }
 
       const { data: webhookStats, error: webhookError } = await webhookQuery;
-      if (webhookError) throw webhookError;
+      if (webhookError) {
+        console.error('Error fetching webhook stats:', webhookError);
+        throw webhookError;
+      }
 
-      // Récupérer les posts LinkedIn raw (sans limite)
+      console.log('Webhook stats:', webhookStats?.length || 0, 'records');
+
+      // Récupérer les posts LinkedIn raw
       let rawPostsQuery = supabase
         .from('linkedin_posts_raw')
         .select('apify_dataset_id, created_at')
@@ -93,9 +99,14 @@ export const useDatasetProcessingStats = (
       }
 
       const { data: rawPostsData, error: rawPostsError } = await rawPostsQuery;
-      if (rawPostsError) throw rawPostsError;
+      if (rawPostsError) {
+        console.error('Error fetching raw posts:', rawPostsError);
+        throw rawPostsError;
+      }
 
-      // Récupérer les posts LinkedIn filtrés (sans limite)
+      console.log('Raw posts:', rawPostsData?.length || 0, 'records');
+
+      // Récupérer les posts LinkedIn filtrés
       let postsQuery = supabase
         .from('linkedin_posts')
         .select('apify_dataset_id, created_at')
@@ -106,9 +117,14 @@ export const useDatasetProcessingStats = (
       }
 
       const { data: postsData, error: postsError } = await postsQuery;
-      if (postsError) throw postsError;
+      if (postsError) {
+        console.error('Error fetching posts:', postsError);
+        throw postsError;
+      }
 
-      // Récupérer les leads créés (sans catégorie "Autre" et sans limite)
+      console.log('Filtered posts:', postsData?.length || 0, 'records');
+
+      // Récupérer les leads créés (excluant la catégorie "Autre")
       let leadsQuery = supabase
         .from('leads')
         .select('created_at, openai_step3_categorie')
@@ -121,26 +137,34 @@ export const useDatasetProcessingStats = (
       }
 
       const { data: leadsData, error: leadsError } = await leadsQuery;
-      if (leadsError) throw leadsError;
+      if (leadsError) {
+        console.error('Error fetching leads:', leadsError);
+        throw leadsError;
+      }
+
+      console.log('Leads created (excluding Autre):', leadsData?.length || 0, 'records');
 
       // Créer un map des datasets avec leurs stats
-      const datasetMap = new Map<string, DatasetProcessingStats>();
+      const datasetStatsMap = new Map<string, DatasetProcessingStats>();
       
       // Traiter les stats webhook (records reçus)
       (webhookStats || []).forEach(stat => {
         const date = new Date(stat.created_at).toISOString().split('T')[0];
         const key = `${stat.dataset_id}-${date}`;
         
-        if (!datasetMap.has(key)) {
-          datasetMap.set(key, {
+        if (!datasetStatsMap.has(key)) {
+          datasetStatsMap.set(key, {
             dataset_id: stat.dataset_id,
-            total_records: stat.total_received || 0,
+            total_records: 0,
             raw_posts_stored: 0,
             posts_stored: 0,
             leads_created: 0,
             processing_date: date
           });
         }
+        
+        const existingStats = datasetStatsMap.get(key)!;
+        existingStats.total_records += stat.total_received || 0;
       });
 
       // Compter les posts raw par dataset et date
@@ -148,18 +172,18 @@ export const useDatasetProcessingStats = (
         const date = new Date(post.created_at).toISOString().split('T')[0];
         const key = `${post.apify_dataset_id}-${date}`;
         
-        if (datasetMap.has(key)) {
-          datasetMap.get(key)!.raw_posts_stored++;
-        } else {
-          datasetMap.set(key, {
+        if (!datasetStatsMap.has(key)) {
+          datasetStatsMap.set(key, {
             dataset_id: post.apify_dataset_id,
             total_records: 0,
-            raw_posts_stored: 1,
+            raw_posts_stored: 0,
             posts_stored: 0,
             leads_created: 0,
             processing_date: date
           });
         }
+        
+        datasetStatsMap.get(key)!.raw_posts_stored++;
       });
 
       // Compter les posts filtrés par dataset et date
@@ -167,16 +191,16 @@ export const useDatasetProcessingStats = (
         const date = new Date(post.created_at).toISOString().split('T')[0];
         const key = `${post.apify_dataset_id}-${date}`;
         
-        if (datasetMap.has(key)) {
-          datasetMap.get(key)!.posts_stored++;
+        if (datasetStatsMap.has(key)) {
+          datasetStatsMap.get(key)!.posts_stored++;
         }
       });
 
-      // Compter les leads créés par date (approximatif)
+      // Estimer les leads créés par date (approximatif)
       (leadsData || []).forEach(lead => {
         const date = new Date(lead.created_at).toISOString().split('T')[0];
-        // Trouver le dataset correspondant (approximatif par date)
-        for (const [key, stats] of datasetMap.entries()) {
+        // Trouver le dataset le plus proche dans le temps
+        for (const [key, stats] of datasetStatsMap.entries()) {
           if (stats.processing_date === date) {
             stats.leads_created++;
             break;
@@ -184,52 +208,52 @@ export const useDatasetProcessingStats = (
         }
       });
 
-      const allStats = Array.from(datasetMap.values()).sort((a, b) => 
+      const allStats = Array.from(datasetStatsMap.values()).sort((a, b) => 
         new Date(b.processing_date).getTime() - new Date(a.processing_date).getTime()
       );
+      
+      console.log('Final stats processed:', allStats.length, 'dataset-date combinations');
       
       setEvolutionData(allStats);
 
       // Créer les stats globales par période
-      if (viewMode === 'global') {
-        const periodGroups = new Map<string, DatasetProcessingStats[]>();
+      const periodGroups = new Map<string, DatasetProcessingStats[]>();
+      
+      allStats.forEach(stat => {
+        let periodKey: string;
+        const date = new Date(stat.processing_date);
         
-        allStats.forEach(stat => {
-          let periodKey: string;
-          const date = new Date(stat.processing_date);
-          
-          switch (timePeriod) {
-            case '24h':
-              periodKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-              break;
-            case '7d':
-              periodKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-              break;
-            case '30d':
-              periodKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-              break;
-            default:
-              periodKey = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-              break;
-          }
-          
-          if (!periodGroups.has(periodKey)) {
-            periodGroups.set(periodKey, []);
-          }
-          periodGroups.get(periodKey)!.push(stat);
-        });
+        switch (timePeriod) {
+          case '24h':
+            periodKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit' });
+            break;
+          case '7d':
+            periodKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+            break;
+          case '30d':
+            periodKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+            break;
+          default:
+            periodKey = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+            break;
+        }
+        
+        if (!periodGroups.has(periodKey)) {
+          periodGroups.set(periodKey, []);
+        }
+        periodGroups.get(periodKey)!.push(stat);
+      });
 
-        const globalStatsData: GlobalProcessingStats[] = Array.from(periodGroups.entries()).map(([period, stats]) => ({
-          period,
-          total_records: stats.reduce((sum, s) => sum + s.total_records, 0),
-          raw_posts_stored: stats.reduce((sum, s) => sum + s.raw_posts_stored, 0),
-          posts_stored: stats.reduce((sum, s) => sum + s.posts_stored, 0),
-          leads_created: stats.reduce((sum, s) => sum + s.leads_created, 0),
-          datasets_processed: stats.length
-        })).sort((a, b) => a.period.localeCompare(b.period));
+      const globalStatsData: GlobalProcessingStats[] = Array.from(periodGroups.entries()).map(([period, stats]) => ({
+        period,
+        total_records: stats.reduce((sum, s) => sum + s.total_records, 0),
+        raw_posts_stored: stats.reduce((sum, s) => sum + s.raw_posts_stored, 0),
+        posts_stored: stats.reduce((sum, s) => sum + s.posts_stored, 0),
+        leads_created: stats.reduce((sum, s) => sum + s.leads_created, 0),
+        datasets_processed: new Set(stats.map(s => s.dataset_id)).size
+      })).sort((a, b) => a.period.localeCompare(b.period));
 
-        setGlobalStats(globalStatsData);
-      }
+      setGlobalStats(globalStatsData);
 
       // Créer l'historique des datasets
       const datasetHistoryMap = new Map<string, DatasetHistoryItem>();
@@ -257,6 +281,13 @@ export const useDatasetProcessingStats = (
       const uniqueDatasets = Array.from(new Set(allStats.map(s => s.dataset_id)));
       setDatasetsList(uniqueDatasets);
 
+      console.log('Processing complete:', {
+        globalStats: globalStatsData.length,
+        evolutionData: allStats.length,
+        datasetHistory: historyData.length,
+        datasetsList: uniqueDatasets.length
+      });
+
     } catch (error) {
       console.error('Error fetching processing stats:', error);
     } finally {
@@ -266,6 +297,8 @@ export const useDatasetProcessingStats = (
 
   const fetchSpecificDatasetStats = async (datasetId: string, dateFilter: string | null) => {
     try {
+      console.log('Fetching specific dataset stats for:', datasetId);
+
       // Stats webhook pour ce dataset
       let webhookQuery = supabase
         .from('apify_webhook_stats')
@@ -303,7 +336,7 @@ export const useDatasetProcessingStats = (
 
       const { data: postsData } = await postsQuery;
 
-      // Leads créés (approximatif par période)
+      // Leads créés dans la période
       let leadsQuery = supabase
         .from('leads')
         .select('created_at')
@@ -321,6 +354,14 @@ export const useDatasetProcessingStats = (
       const rawPostsCount = rawPostsData?.length || 0;
       const postsCount = postsData?.length || 0;
       const leadsCount = leadsData?.length || 0;
+
+      console.log('Specific dataset stats:', {
+        datasetId,
+        totalRecords,
+        rawPostsCount,
+        postsCount,
+        leadsCount
+      });
 
       const datasetStats: DatasetProcessingStats[] = [{
         dataset_id: datasetId,
@@ -351,7 +392,7 @@ export const useDatasetProcessingStats = (
 
   useEffect(() => {
     fetchProcessingStats();
-  }, [timePeriod, viewMode, selectedDatasetId]);
+  }, [timePeriod, displayMode, selectedDatasetId]);
 
   return {
     globalStats,

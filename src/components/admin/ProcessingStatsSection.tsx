@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, BarChart, TrendingUp } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useDatasetProcessingStats } from '@/hooks/useDatasetProcessingStats';
 import ProcessingStatsChart from './ProcessingStatsChart';
 import ProcessingStatsTable from './ProcessingStatsTable';
@@ -12,12 +12,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 
 type TimePeriod = '24h' | '7d' | '30d' | 'all';
-type ViewMode = 'global' | 'evolution';
 type DisplayMode = 'stats' | 'evolution';
 
 const ProcessingStatsSection = () => {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('7d');
-  const [viewMode, setViewMode] = useState<ViewMode>('global');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('stats');
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | undefined>(undefined);
 
@@ -28,7 +26,7 @@ const ProcessingStatsSection = () => {
     datasetsList, 
     loading, 
     refetch 
-  } = useDatasetProcessingStats(timePeriod, viewMode, selectedDatasetId);
+  } = useDatasetProcessingStats(timePeriod, displayMode, selectedDatasetId);
 
   const timeOptions = [
     { value: '24h', label: '24h' },
@@ -63,7 +61,6 @@ const ProcessingStatsSection = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h3 className="text-lg font-semibold">Statistiques d'exécutions</h3>
         <div className="flex gap-2 flex-wrap">
           <Select 
             value={selectedDatasetId || 'all'} 
@@ -97,23 +94,6 @@ const ProcessingStatsSection = () => {
               ))}
             </SelectContent>
           </Select>
-          
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'global' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('global')}
-            >
-              Global
-            </Button>
-            <Button
-              variant={viewMode === 'evolution' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('evolution')}
-            >
-              Évolution
-            </Button>
-          </div>
 
           <DisplayModeSelector 
             mode={displayMode} 
@@ -178,14 +158,14 @@ const ProcessingStatsSection = () => {
       {/* Graphique ou tableau selon le mode d'affichage */}
       {displayMode === 'evolution' ? (
         <ProcessingStatsChart
-          viewMode={viewMode}
+          viewMode="evolution"
           globalStats={globalStats}
           evolutionData={evolutionData}
           loading={loading}
         />
       ) : (
         <ProcessingStatsTable
-          viewMode={viewMode}
+          viewMode="global"
           globalStats={globalStats}
           evolutionData={evolutionData}
           loading={loading}
@@ -193,12 +173,18 @@ const ProcessingStatsSection = () => {
       )}
 
       {/* Historique des datasets */}
-      {!selectedDatasetId && datasetHistory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Historique des datasets traités</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Historique des datasets traités</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">Chargement...</div>
+          ) : datasetHistory.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              Aucun dataset trouvé pour cette période
+            </div>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -253,9 +239,9 @@ const ProcessingStatsSection = () => {
                 })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
