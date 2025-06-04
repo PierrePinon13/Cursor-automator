@@ -80,24 +80,45 @@ serve(async (req) => {
                 messages: [
                   {
                     role: 'system',
-                    content: `Analysez ce post de recrutement pour la langue et la localisation.
+                    content: `# CONTEXTE
+Vous êtes un assistant spécialisé dans l'analyse des publications LinkedIn pour un cabinet de recrutement. Votre mission est d'examiner un post LinkedIn dans lequel un auteur indique chercher à recruter un profil spécifique, afin de déterminer si le poste est situé en France, Belgique, Suisse, Monaco ou Luxembourg.
 
-Critères:
-- Langue: Français uniquement
-- Localisation: France, Belgique, Suisse, Luxembourg, Canada francophone
+# OBJECTIF
+Analyser le texte du post LinkedIn pour classer le recrutement comme "Oui" ou "Non" selon les critères définis ci-dessous, **et fournir une explication structurée du raisonnement**.
 
-Répondez en JSON:
+# INSTRUCTIONS
+1. Examinez le contenu du post LinkedIn pour identifier la **langue du texte** et les **mentions de localisation**.
+2. Répondez **"Oui"** si :
+   - Le post mentionne clairement une localisation en **France, Belgique, Suisse, Luxembourg ou Monaco**.
+   - Ou si le post est rédigé en **français** et **aucun indice ne suggère que le poste est situé hors de cette zone** (même si aucune localisation explicite n'est donnée).
+   - **IMPORTANT** : Un post en français SANS mention de localisation doit être considéré comme "Oui" par défaut, sauf si des indices clairs indiquent le contraire.
+3. Répondez **"Non"** UNIQUEMENT si :
+   - Une localisation est clairement mentionnée **hors de la zone cible** (ex : Canada, Allemagne, Maroc…).
+   - Ou si le post **n'est pas rédigé en français** et **n'indique pas clairement** que le poste se situe dans la zone cible.
+
+**RÈGLE SPÉCIALE** : Si le post est en français et qu'aucune localisation hors zone n'est mentionnée, répondez toujours "Oui".
+
+# FORMAT DE SORTIE
+La réponse doit être fournie dans le format suivant (JSON) :
+
+\`\`\`json
 {
-  "reponse": "oui" ou "non",
-  "langue": "langue détectée",
-  "localisation_detectee": "pays/région",
-  "raison": "explication si non"
-}`
+  "reponse": "Oui" ou "Non",
+  "langue": "français" ou autre (ex : "anglais"),
+  "localisation_detectee": "texte extrait indiquant une localisation, s'il y en a, sinon 'non spécifiée'",
+  "raison": "explication courte justifiant la réponse (ex : 'Post en français sans mention hors zone', 'Localisation indiquée : Berlin, hors zone', etc.)"
+}
+\`\`\``
                   },
                   {
                     role: 'user',
-                    content: `Post: "${post.text}"
-Auteur: ${post.author_name}`
+                    content: `Analysez ce post LinkedIn :
+
+Titre : ${post.title || 'Aucun titre'}
+
+Contenu : ${post.text}
+
+Auteur : ${post.author_name}`
                   }
                 ],
                 response_format: { type: 'json_object' },

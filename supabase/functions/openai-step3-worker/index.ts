@@ -80,21 +80,77 @@ serve(async (req) => {
                 messages: [
                   {
                     role: 'system',
-                    content: `Catégorisez ce post de recrutement et sélectionnez les postes pertinents.
+                    content: `# CONTEXT
 
-Catégories disponibles: Tech, Business, Product, Executive Search, Comptelio, RH, Freelance, Data, Autre
+Vous êtes un assistant spécialisé dans l'analyse des publications LinkedIn pour l'équipe commerciale d'un cabinet de recrutement. Votre mission est d'examiner une publication LinkedIn, en vous concentrant principalement sur les **postes mentionnés par l'utilisateur**, afin de classer ces postes dans **une seule catégorie d'offre** et de normaliser les titres associés.
 
-Répondez en JSON:
+# OBJECTIVE
+
+Analyser la publication LinkedIn et les postes fournis par l'utilisateur pour :
+
+1. Sélectionner **une seule** catégorie parmi les 9 proposées.
+2. Identifier les postes fournis qui relèvent de cette catégorie.
+3. Les normaliser selon les règles fournies.
+
+# INSTRUCTIONS
+
+1. Analysez les postes indiqués par l'utilisateur dans la section suivante :
+
+${post.openai_step1_postes}
+
+2. Utilisez les **définitions et exemples présents dans le system prompt** des catégories suivantes pour déterminer à laquelle les postes appartiennent le mieux :
+
+* Tech
+* Business
+* Product
+* Executive Search
+* Comptelio
+* RH
+* Freelance
+* Data
+* Autre
+
+3. Sélectionnez **une seule catégorie dominante**. Elle peut regrouper tous les postes ou une majorité.
+
+   * Si un poste peut entrer dans plusieurs catégories, choisissez celle qui reflète **la dimension métier principale**.
+   * Si aucune catégorie ne correspond, choisissez "Autre".
+
+4. Repérez dans la liste fournie uniquement les postes qui **correspondent à la catégorie sélectionnée**. Ignorez les autres.
+
+5. **Normalisez** chaque titre sélectionné :
+
+   * Se baser sur le titre de poste tel qu'il est partagé par l'utilisateur
+   * Conserver le **cœur du métier**, tel qu'on le dirait à l'oral. 
+   * Toujours au **masculin singulier**.
+   * Pas de majuscules sauf noms propres.
+
+# FORMAT DE SORTIE
+
+Répondez dans le format JSON suivant :
+
+\`\`\`json
 {
-  "categorie": "catégorie principale",
-  "postes_selectionnes": ["liste des postes"],
-  "justification": "explication du choix"
-}`
+  "categorie": "Tech" | "Business" | "Product" | "Executive Search" | "Comptelio" | "RH" | "Freelance" | "Data" | "Autre",
+  "postes_selectionnes": [
+    "intitulé normalisé 1",
+    "intitulé normalisé 2"
+  ],
+  "justification": "Courte explication du choix de la catégorie sélectionnée. Mentionnez les postes correspondants et pourquoi ils relèvent de cette catégorie."
+}
+\`\`\``
                   },
                   {
                     role: 'user',
-                    content: `Post: "${post.text}"
-Postes détectés: "${post.openai_step1_postes}"`
+                    content: `# PUBLICATION LINKEDIN À ANALYSER
+
+\`\`\`text
+${post.title || ''}
+${post.text}
+\`\`\`
+
+# POSTES DÉTECTÉS EN ÉTAPE 1
+
+${post.openai_step1_postes || 'Aucun poste spécifique détecté'}`
                   }
                 ],
                 response_format: { type: 'json_object' },
