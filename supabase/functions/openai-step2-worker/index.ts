@@ -30,11 +30,11 @@ serve(async (req) => {
     if (action === 'process_batch') {
       console.log(`🔍 Looking for posts ready for Step 2 (dataset: ${dataset_id})`);
       
-      // Récupérer les posts qui ont passé Step 1
+      // ✅ CORRECTION : Requête insensible à la casse pour Step 1
       const { data: posts, error: fetchError } = await supabaseClient
         .from('linkedin_posts')
         .select('*')
-        .eq('openai_step1_recrute_poste', 'oui')
+        .ilike('openai_step1_recrute_poste', 'oui') // insensible à la casse
         .is('openai_step2_reponse', null)
         .eq('processing_status', 'processing')
         .eq('apify_dataset_id', dataset_id)
@@ -46,6 +46,29 @@ serve(async (req) => {
 
       if (!posts || posts.length === 0) {
         console.log('📝 No posts ready for Step 2');
+        
+        // ✅ DEBUG : Vérifier combien de posts ont passé Step 1
+        const { data: debugPosts, error: debugError } = await supabaseClient
+          .from('linkedin_posts')
+          .select('id, openai_step1_recrute_poste, openai_step2_reponse, processing_status')
+          .eq('apify_dataset_id', dataset_id)
+          .not('openai_step1_recrute_poste', 'is', null);
+        
+        if (!debugError && debugPosts) {
+          console.log(`🔍 DEBUG: Found ${debugPosts.length} posts with Step 1 results for dataset ${dataset_id}`);
+          const step1OuiPosts = debugPosts.filter(p => p.openai_step1_recrute_poste?.toLowerCase() === 'oui');
+          console.log(`🔍 DEBUG: ${step1OuiPosts.length} posts have Step 1 = "oui" (case insensitive)`);
+          
+          if (step1OuiPosts.length > 0) {
+            console.log(`🔍 DEBUG: Example posts with Step 1 "oui":`, step1OuiPosts.slice(0, 3).map(p => ({
+              id: p.id,
+              step1_result: p.openai_step1_recrute_poste,
+              step2_result: p.openai_step2_reponse,
+              status: p.processing_status
+            })));
+          }
+        }
+        
         return new Response(JSON.stringify({ 
           success: true,
           message: 'No posts ready for Step 2',
@@ -129,21 +152,25 @@ Auteur : ${post.author_name}`
             const data = await response.json();
             const result = JSON.parse(data.choices[0].message.content);
 
+            // ✅ CORRECTION : Normaliser la réponse et utiliser le bon statut
+            const normalizedResponse = result.reponse?.toLowerCase() === 'oui' ? 'oui' : 'non';
+            const newStatus = normalizedResponse === 'oui' ? 'processing' : 'filtered_out';
+
             // Sauvegarder les résultats
             await supabaseClient
               .from('linkedin_posts')
               .update({
-                openai_step2_reponse: result.reponse,
+                openai_step2_reponse: normalizedResponse,
                 openai_step2_langue: result.langue,
                 openai_step2_localisation: result.localisation_detectee,
                 openai_step2_raison: result.raison,
                 openai_step2_response: data,
-                processing_status: result.reponse === 'oui' ? 'processing' : 'filtered_out',
+                processing_status: newStatus,
                 last_updated_at: new Date().toISOString()
               })
               .eq('id', post.id);
 
-            console.log(`✅ Step 2 completed for post: ${post.id} - ${result.reponse}`);
+            console.log(`✅ Step 2 completed for post: ${post.id} - ${normalizedResponse} (status: ${newStatus})`);
             successCount++;
 
           } catch (error) {

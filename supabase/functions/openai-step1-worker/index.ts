@@ -137,19 +137,23 @@ Auteur : ${post.author_name}`
             const data = await response.json();
             const result = JSON.parse(data.choices[0].message.content);
 
+            // ✅ CORRECTION : Normaliser la réponse et utiliser le bon statut
+            const normalizedResponse = result.recrute_poste?.toLowerCase() === 'oui' ? 'oui' : 'non';
+            const newStatus = normalizedResponse === 'oui' ? 'processing' : 'not_job_posting';
+
             // Sauvegarder les résultats
             await supabaseClient
               .from('linkedin_posts')
               .update({
-                openai_step1_recrute_poste: result.recrute_poste,
+                openai_step1_recrute_poste: normalizedResponse,
                 openai_step1_postes: result.postes,
                 openai_step1_response: data,
-                processing_status: result.recrute_poste === 'oui' ? 'processing' : 'not_job_posting',
+                processing_status: newStatus,
                 last_updated_at: new Date().toISOString()
               })
               .eq('id', post.id);
 
-            console.log(`✅ Step 1 completed for post: ${post.id} - ${result.recrute_poste}`);
+            console.log(`✅ Step 1 completed for post: ${post.id} - ${normalizedResponse} (status: ${newStatus})`);
             successCount++;
 
           } catch (error) {

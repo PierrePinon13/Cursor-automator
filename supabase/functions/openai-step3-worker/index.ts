@@ -30,11 +30,11 @@ serve(async (req) => {
     if (action === 'process_batch') {
       console.log(`🔍 Looking for posts ready for Step 3 (dataset: ${dataset_id})`);
       
-      // Récupérer les posts qui ont passé Step 2
+      // ✅ CORRECTION : Requête insensible à la casse pour Step 2
       const { data: posts, error: fetchError } = await supabaseClient
         .from('linkedin_posts')
         .select('*')
-        .eq('openai_step2_reponse', 'oui')
+        .ilike('openai_step2_reponse', 'oui') // insensible à la casse
         .is('openai_step3_categorie', null)
         .eq('processing_status', 'processing')
         .eq('apify_dataset_id', dataset_id)
@@ -46,6 +46,29 @@ serve(async (req) => {
 
       if (!posts || posts.length === 0) {
         console.log('📝 No posts ready for Step 3');
+        
+        // ✅ DEBUG : Vérifier combien de posts ont passé Step 2
+        const { data: debugPosts, error: debugError } = await supabaseClient
+          .from('linkedin_posts')
+          .select('id, openai_step2_reponse, openai_step3_categorie, processing_status')
+          .eq('apify_dataset_id', dataset_id)
+          .not('openai_step2_reponse', 'is', null);
+        
+        if (!debugError && debugPosts) {
+          console.log(`🔍 DEBUG: Found ${debugPosts.length} posts with Step 2 results for dataset ${dataset_id}`);
+          const step2OuiPosts = debugPosts.filter(p => p.openai_step2_reponse?.toLowerCase() === 'oui');
+          console.log(`🔍 DEBUG: ${step2OuiPosts.length} posts have Step 2 = "oui" (case insensitive)`);
+          
+          if (step2OuiPosts.length > 0) {
+            console.log(`🔍 DEBUG: Example posts with Step 2 "oui":`, step2OuiPosts.slice(0, 3).map(p => ({
+              id: p.id,
+              step2_result: p.openai_step2_reponse,
+              step3_result: p.openai_step3_categorie,
+              status: p.processing_status
+            })));
+          }
+        }
+        
         return new Response(JSON.stringify({ 
           success: true,
           message: 'No posts ready for Step 3',
@@ -161,7 +184,7 @@ ${post.openai_step1_postes || 'Aucun poste spécifique détecté'}`
             const data = await response.json();
             const result = JSON.parse(data.choices[0].message.content);
 
-            // Sauvegarder les résultats
+            // Sauvegarder les résultats avec le statut processing maintenu
             await supabaseClient
               .from('linkedin_posts')
               .update({
@@ -169,6 +192,7 @@ ${post.openai_step1_postes || 'Aucun poste spécifique détecté'}`
                 openai_step3_postes_selectionnes: result.postes_selectionnes,
                 openai_step3_justification: result.justification,
                 openai_step3_response: data,
+                processing_status: 'processing', // Continuer vers Unipile
                 last_updated_at: new Date().toISOString()
               })
               .eq('id', post.id);
