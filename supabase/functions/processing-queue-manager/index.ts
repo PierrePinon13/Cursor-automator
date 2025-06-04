@@ -248,91 +248,120 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
 
   console.log(`📊 Found ${allPendingPosts.length} TOTAL pending posts (NO 1000 LIMIT!)`);
 
-  // 🚀 STRATÉGIE ANTI-TIMEOUT : Batches plus petits si protection activée
+  // 🚀 NOUVELLE STRATÉGIE ANTI-TIMEOUT : Traitement asynchrone
   const MEGA_BATCH_SIZE = timeoutProtection ? 50 : 100;
   let queuedCount = 0;
   
-  // Traiter par méga-batches plus petits si timeout protection
-  for (let i = 0; i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
-    const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
-    const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE);
+  // 🔥 SOLUTION ANTI-TIMEOUT : Lancer le traitement en arrière-plan
+  const backgroundProcessing = async () => {
+    console.log('🚀 Starting BACKGROUND processing to avoid timeout...');
     
-    console.log(`🚀 Processing ${timeoutProtection ? 'PROTECTED' : 'MEGA'} batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
-    
-    try {
-      // Déclencher le traitement en mode batch
-      const workerPromise = supabaseClient.functions.invoke('specialized-openai-worker', {
-        body: { 
-          post_ids: batch.map(p => p.id),
-          dataset_id: batch[0]?.apify_dataset_id,
-          step: 'step1',
-          batch_mode: true,
-          timeout_protection: timeoutProtection
-        }
-      });
-
-      if (timeoutProtection) {
-        // En mode protection, ne pas attendre la réponse
-        workerPromise.catch((err: any) => {
-          console.error(`⚠️ Error triggering protected batch ${batchNumber}:`, err);
+    for (let i = 0; i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
+      const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
+      const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE);
+      
+      console.log(`🚀 Processing BACKGROUND batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
+      
+      try {
+        // Déclencher le traitement en mode batch
+        const workerPromise = supabaseClient.functions.invoke('specialized-openai-worker', {
+          body: { 
+            post_ids: batch.map(p => p.id),
+            dataset_id: batch[0]?.apify_dataset_id,
+            step: 'step1',
+            batch_mode: true,
+            timeout_protection: timeoutProtection
+          }
         });
-      } else {
-        // En mode normal, attendre
-        await workerPromise;
-      }
 
-      queuedCount += batch.length;
-      
-      // Pause adaptée au mode
-      if (i + MEGA_BATCH_SIZE < allPendingPosts.length) {
-        await new Promise(resolve => setTimeout(resolve, timeoutProtection ? 200 : 100));
+        // Ne pas attendre la réponse pour éviter les timeouts
+        workerPromise.catch((err: any) => {
+          console.error(`⚠️ Error triggering background batch ${batchNumber}:`, err);
+        });
+
+        // Petit délai entre les batches
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error) {
+        console.error(`❌ Error queuing background batch ${batchNumber}:`, error);
       }
-      
-    } catch (error) {
-      console.error(`❌ Error queuing batch ${batchNumber}:`, error);
     }
-  }
-
-  // 🔥 DÉCLENCHEMENT EN CASCADE ADAPTATIF
-  if (!timeoutProtection) {
-    console.log('🔥 Triggering CASCADE processing for all steps...');
     
-    // Délais adaptés pour éviter les conflits
+    console.log('✅ Background processing initiated for all batches');
+    
+    // Déclencher les étapes suivantes avec des délais
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'openai_step2' }
       }).catch(() => {});
-    }, 10000); // 10 secondes
+    }, 15000); // 15 secondes
     
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'openai_step3' }
       }).catch(() => {});
-    }, 20000); // 20 secondes
+    }, 30000); // 30 secondes
     
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'unipile_scraping' }
       }).catch(() => {});
-    }, 30000); // 30 secondes
+    }, 45000); // 45 secondes
     
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'lead_creation' }
       }).catch(() => {});
-    }, 40000); // 40 secondes
+    }, 60000); // 60 secondes
+  };
+
+  // Lancer le traitement en arrière-plan
+  if ((globalThis as any).EdgeRuntime?.waitUntil) {
+    (globalThis as any).EdgeRuntime.waitUntil(backgroundProcessing());
+  } else {
+    // Fallback si EdgeRuntime n'est pas disponible
+    backgroundProcessing().catch(console.error);
   }
 
-  console.log(`✅ ${timeoutProtection ? 'PROTECTED' : 'OPTIMIZED'} queuing: ${queuedCount} posts queued in ${Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE)} batches`);
+  // Traiter quelques batches en mode synchrone pour la réponse immédiate
+  const IMMEDIATE_BATCHES = Math.min(3, Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE));
+  
+  for (let i = 0; i < IMMEDIATE_BATCHES * MEGA_BATCH_SIZE && i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
+    const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
+    const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
+    
+    console.log(`🚀 Processing IMMEDIATE batch ${batchNumber}/${IMMEDIATE_BATCHES} (${batch.length} posts)`);
+    
+    try {
+      // Déclencher le traitement en mode batch synchrone pour les premiers batches
+      await supabaseClient.functions.invoke('specialized-openai-worker', {
+        body: { 
+          post_ids: batch.map(p => p.id),
+          dataset_id: batch[0]?.apify_dataset_id,
+          step: 'step1',
+          batch_mode: true,
+          timeout_protection: true
+        }
+      });
+
+      queuedCount += batch.length;
+      
+    } catch (error) {
+      console.error(`❌ Error queuing immediate batch ${batchNumber}:`, error);
+    }
+  }
+
+  console.log(`✅ HYBRID queuing: ${queuedCount} posts queued immediately, ${allPendingPosts.length - queuedCount} in background`);
   
   return new Response(JSON.stringify({ 
     success: true, 
     queued_count: queuedCount,
     total_pending: allPendingPosts.length,
-    batch_count: Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE),
+    immediate_batches: IMMEDIATE_BATCHES,
+    background_batches: Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE) - IMMEDIATE_BATCHES,
     timeout_protection: timeoutProtection,
-    cascade_triggered: !timeoutProtection,
+    hybrid_processing: true,
     fixed_1000_limit: true
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
