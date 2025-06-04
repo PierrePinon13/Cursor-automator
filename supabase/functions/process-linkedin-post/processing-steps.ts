@@ -75,7 +75,7 @@ export async function executeLeadCreation(
       console.log('✅ Post updated with step3 data successfully');
     }
 
-    // ✅ CORRECTION : Récupérer le post mis à jour avec un select complet
+    // ✅ CORRECTION : Récupérer le post mis à jour avec un select complet et plus de champs critiques
     console.log('📥 Fetching updated post data with complete fields...');
     const { data: updatedPost, error: fetchError } = await context.supabaseClient
       .from('linkedin_posts')
@@ -89,8 +89,15 @@ export async function executeLeadCreation(
         url,
         author_name,
         author_profile_id,
+        author_profile_url,
+        author_headline,
         unipile_company,
-        unipile_position
+        unipile_position,
+        unipile_company_linkedin_id,
+        posted_at_iso,
+        posted_at_timestamp,
+        urn,
+        apify_dataset_id
       `)
       .eq('id', context.postId)
       .single();
@@ -107,15 +114,23 @@ export async function executeLeadCreation(
       company: updatedPost.unipile_company,
       position: updatedPost.unipile_position,
       text_length: updatedPost.text?.length || 0,
-      has_url: !!updatedPost.url
+      has_url: !!updatedPost.url,
+      has_author_profile_id: !!updatedPost.author_profile_id,
+      has_valid_text: !!updatedPost.text && updatedPost.text !== 'Content unavailable'
     });
 
-    // ✅ CORRECTION : Assurer que les données essentielles sont présentes
-    if (!updatedPost.text || !updatedPost.url) {
-      console.error('❌ Missing essential post data:', {
-        hasText: !!updatedPost.text,
-        hasUrl: !!updatedPost.url
-      });
+    // ✅ CORRECTION CRITIQUE : Assurer que les données essentielles sont présentes
+    if (!updatedPost.author_profile_id) {
+      console.error('❌ Critical: Missing author_profile_id after update');
+      throw new Error('Author profile ID is required for lead creation');
+    }
+
+    if (!updatedPost.text || updatedPost.text === 'Content unavailable') {
+      console.log('⚠️ Warning: Post has no valid text content');
+    }
+
+    if (!updatedPost.url) {
+      console.log('⚠️ Warning: Post has no URL');
     }
 
     // First, execute company info step
@@ -132,7 +147,7 @@ export async function executeLeadCreation(
     console.log('👤 Creating/updating lead with all data...');
     const leadResult = await createOrUpdateLead(
       context.supabaseClient,
-      updatedPost, // Utiliser les données mises à jour
+      updatedPost, // Utiliser les données mises à jour avec tous les champs
       scrapingResult,
       clientMatch,
       companyInfoResult,

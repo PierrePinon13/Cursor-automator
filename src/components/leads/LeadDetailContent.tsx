@@ -104,18 +104,6 @@ const LeadDetailContent = ({
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Alert entreprise cliente */}
-      {lead.has_previous_client_company && (
-        <div className="bg-blue-100 border border-blue-300 p-3 mx-6 mt-4 rounded-lg">
-          <div className="flex items-center gap-2 text-blue-800">
-            <Crown className="h-4 w-4" />
-            <span className="font-medium">
-              A travaillé dans une entreprise cliente : {lead.previous_client_companies?.join(', ')}
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Layout 3 colonnes */}
       <div className="flex-1 flex overflow-hidden">
         {/* COLONNE GAUCHE - Poste recherché + Publication */}
@@ -130,7 +118,7 @@ const LeadDetailContent = ({
                 <h3 className="font-semibold text-green-800">Poste recherché</h3>
               </div>
               
-              {/* ✅ CORRECTION : Logique d'affichage améliorée pour les postes */}
+              {/* ✅ CORRECTION MAJEURE : Logique d'affichage améliorée pour les postes */}
               {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
                 <div className="space-y-2">
                   {lead.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
@@ -149,6 +137,26 @@ const LeadDetailContent = ({
                 </div>
               )}
             </div>
+
+            {/* ✅ NOUVEAU : Encart d'alerte pour entreprise cliente */}
+            {lead.has_previous_client_company && (
+              <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Crown className="h-4 w-4 text-blue-600" />
+                  <h4 className="font-semibold text-blue-800">Entreprise cliente détectée</h4>
+                </div>
+                <p className="text-sm text-blue-700 mb-2">
+                  Cette personne a travaillé dans une de vos entreprises clientes :
+                </p>
+                <div className="space-y-1">
+                  {lead.previous_client_companies?.map((company: string, index: number) => (
+                    <div key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                      🏢 {company}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Publication LinkedIn */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">

@@ -40,13 +40,13 @@ export async function createOrUpdateLead(
       };
     }
 
-    // ✅ VÉRIFICATION : S'assurer que les données essentielles sont présentes
+    // ✅ VÉRIFICATION CRITIQUE : S'assurer que les données essentielles sont présentes
     if (!post.openai_step3_postes_selectionnes || post.openai_step3_postes_selectionnes.length === 0) {
       console.log('⚠️ Warning: No specific job positions found in step3 data');
     }
 
-    if (!post.text) {
-      console.log('⚠️ Warning: No post text found - this will affect display');
+    if (!post.text || post.text === 'Content unavailable') {
+      console.log('⚠️ Warning: No valid post text found - this will affect display');
     }
 
     // ✅ AMÉLIORATION : Vérifier d'abord si le lead existe pour implémenter un upsert
@@ -70,7 +70,7 @@ export async function createOrUpdateLead(
     // Extract work history from Unipile data
     const companyData = await extractWorkHistoryForLead(scrapingResult, supabaseClient);
 
-    // ✅ CORRECTION MAJEURE : Préparer les données du lead avec validation
+    // ✅ CORRECTION MAJEURE : Préparer les données du lead avec validation complète
     const leadData = {
       // Identifiants
       author_profile_id: post.author_profile_id,
@@ -83,17 +83,19 @@ export async function createOrUpdateLead(
       author_name: post.author_name || 'Unknown author',
       author_headline: post.author_headline,
       
-      // ✅ CORRECTION CRITIQUE : S'assurer que le contenu de la publication est copié
-      text: post.text || 'Content unavailable',
-      title: post.title,
+      // ✅ CORRECTION CRITIQUE : S'assurer que le contenu de la publication est copié correctement
+      text: post.text && post.text !== 'Content unavailable' ? post.text : null,
+      title: post.title || null,
       url: post.url || '',
       posted_at_iso: post.posted_at_iso,
       posted_at_timestamp: post.posted_at_timestamp,
       
-      // ✅ CORRECTION MAJEURE : Données OpenAI step3 avec validation
+      // ✅ CORRECTION MAJEURE : Données OpenAI step3 avec validation et fallbacks
       openai_step2_localisation: post.openai_step2_localisation || null,
       openai_step3_categorie: post.openai_step3_categorie || null,
-      openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes || null,
+      openai_step3_postes_selectionnes: Array.isArray(post.openai_step3_postes_selectionnes) && post.openai_step3_postes_selectionnes.length > 0 
+        ? post.openai_step3_postes_selectionnes 
+        : null,
       openai_step3_justification: post.openai_step3_justification || null,
       
       // Informations entreprise (Unipile)
@@ -148,7 +150,8 @@ export async function createOrUpdateLead(
       has_previous_client: leadData.has_previous_client_company,
       previous_clients: leadData.previous_client_companies,
       text_length: leadData.text?.length || 0,
-      has_url: !!leadData.url
+      has_url: !!leadData.url,
+      has_valid_text: !!leadData.text && leadData.text !== 'Content unavailable'
     });
 
     let leadId: string;

@@ -57,7 +57,7 @@ serve(async (req) => {
       resumed_from_batch: resumeFromBatch
     }
 
-    // ÉTAPE 0: Vérifier les métadonnées du dataset Apify
+    // ✅ CORRECTION MAJEURE : Améliorer la vérification des métadonnées du dataset Apify
     console.log('🔍 Checking Apify dataset metadata...')
     try {
       const metadataResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}`, {
@@ -73,17 +73,88 @@ serve(async (req) => {
         console.log(`   📊 Total items: ${stats.apify_item_count}`)
         console.log(`   🧹 Clean items: ${stats.apify_clean_item_count}`)
         
+        // ✅ NOUVEAU : Vérification critique si le dataset est vide
+        if (stats.apify_item_count === 0) {
+          console.log(`🚨 CRITICAL: Dataset is empty (0 items)!`)
+          console.log(`   🔍 This could mean:`)
+          console.log(`   - The scraping job hasn't finished yet`)
+          console.log(`   - The scraping job failed or was cancelled`)
+          console.log(`   - The dataset ID is incorrect`)
+          console.log(`   - The dataset was cleared/deleted`)
+          
+          // Pour un webhook, on délègue quand même au cas où
+          if (webhook_triggered) {
+            console.log(`⚡ WEBHOOK with empty dataset: Still delegating to queue manager`)
+            
+            try {
+              const queueResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
+                body: {
+                  action: 'fast_webhook_processing_empty',
+                  dataset_id: datasetId,
+                  apify_api_key: apifyApiKey,
+                  force_all: forceAll,
+                  empty_dataset: true
+                }
+              });
+              
+              console.log(`✅ WEBHOOK: Empty dataset processing delegated`)
+              
+              return new Response(JSON.stringify({ 
+                success: true,
+                action: 'webhook_empty_dataset_delegation',
+                dataset_id: datasetId,
+                warning: 'Dataset appears to be empty (0 items)',
+                message: 'Processing delegated but dataset may need verification'
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              });
+              
+            } catch (error) {
+              console.error('❌ Error delegating empty dataset processing:', error?.message);
+            }
+          }
+          
+          // Pour un traitement manuel, on retourne une erreur informationnelle
+          return new Response(JSON.stringify({ 
+            success: false,
+            action: 'empty_dataset_detected',
+            dataset_id: datasetId,
+            error: 'Dataset is empty',
+            diagnostics: {
+              apify_total_items: stats.apify_item_count,
+              apify_clean_items: stats.apify_clean_item_count,
+              possible_causes: [
+                'Scraping job still in progress',
+                'Scraping job failed or was cancelled',
+                'Incorrect dataset ID',
+                'Dataset was cleared or deleted'
+              ],
+              recommendations: [
+                'Check the scraping job status in Apify Console',
+                'Verify the dataset ID is correct',
+                'Wait if the scraping job is still running',
+                'Restart the scraping job if it failed'
+              ]
+            }
+          }), {
+            status: 422,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        
         if (stats.apify_item_count !== stats.apify_clean_item_count) {
           console.log(`⚠️ WARNING: ${stats.apify_item_count - stats.apify_clean_item_count} items are empty/invalid`)
         }
       } else {
-        console.log('⚠️ Could not fetch dataset metadata')
+        console.log('⚠️ Could not fetch dataset metadata, status:', metadataResponse.status)
+        const errorText = await metadataResponse.text()
+        console.log('Error details:', errorText)
       }
     } catch (error) {
       console.log('❌ Error fetching metadata:', error?.message || 'Unknown error')
     }
 
-    // Phase 1: Cleanup existing data if requested (seulement si pas en mode reprise)
+    // ✅ CORRECTION : Phase 1 - Cleanup existing data if requested (seulement si pas en mode reprise)
     if (cleanupExisting && resumeFromBatch === 0) {
       console.log('🧹 Cleaning up existing data for dataset:', datasetId)
       
@@ -117,7 +188,8 @@ serve(async (req) => {
             action: 'fast_webhook_processing',
             dataset_id: datasetId,
             apify_api_key: apifyApiKey,
-            force_all: forceAll
+            force_all: forceAll,
+            expected_items: stats.apify_item_count
           }
         });
         
@@ -127,6 +199,7 @@ serve(async (req) => {
           success: true,
           action: 'webhook_fast_delegation',
           dataset_id: datasetId,
+          expected_items: stats.apify_item_count,
           message: 'Processing delegated to avoid webhook timeout'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -138,7 +211,7 @@ serve(async (req) => {
       }
     }
 
-    // Mode normal pour reprocessing manuel
+    // ✅ Mode normal pour reprocessing manuel avec meilleure gestion des datasets vides
     console.log('🚀 MANUAL MODE: Full processing pipeline')
 
     // Phase 2: Récupération et stockage UNIQUEMENT (pas de traitement)
@@ -540,7 +613,8 @@ serve(async (req) => {
     console.error('❌ Error in process-dataset function:', error?.message || 'Unknown error')
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error?.message || 'Unknown error occurred'
+      message: error?.message || 'Unknown error occurred',
+      details: 'Check the function logs for more information'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
