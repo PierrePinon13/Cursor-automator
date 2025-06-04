@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search, Play, Shield } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Database, CheckCircle, XCircle, Search, Play, Shield, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ReprocessingResult {
@@ -51,6 +52,8 @@ interface ReprocessingResult {
     delegation_time_ms: number;
   };
   message?: string;
+  force_openai_restart?: boolean;
+  enhancements?: string[];
 }
 
 export function DatasetReprocessing() {
@@ -58,6 +61,7 @@ export function DatasetReprocessing() {
   const [cleanupExisting, setCleanupExisting] = useState(false);
   const [forceAll, setForceAll] = useState(false);
   const [bypassMetadataCheck, setBypassMetadataCheck] = useState(false);
+  const [forceOpenAIRestart, setForceOpenAIRestart] = useState(false);
   const [resumeFromBatch, setResumeFromBatch] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ReprocessingResult | null>(null);
@@ -72,7 +76,10 @@ export function DatasetReprocessing() {
     setResult(null);
 
     try {
-      console.log('🔄 Starting enhanced dataset processing with bypass:', bypassMetadataCheck);
+      console.log('🔄 Starting enhanced dataset processing with options:', { 
+        bypassMetadataCheck, 
+        forceOpenAIRestart 
+      });
       
       const { data, error } = await supabase.functions.invoke('process-dataset', {
         body: {
@@ -80,7 +87,8 @@ export function DatasetReprocessing() {
           cleanupExisting: isResume ? false : cleanupExisting,
           forceAll,
           resumeFromBatch: isResume ? resumeFromBatch : 0,
-          bypassMetadataCheck
+          bypassMetadataCheck,
+          forceOpenAIRestart
         }
       });
 
@@ -96,7 +104,9 @@ export function DatasetReprocessing() {
       if (data.success) {
         const retrievalRate = data.diagnostics?.retrieval_rate_percent ? parseFloat(data.diagnostics.retrieval_rate_percent) : 0;
         
-        if (data.diagnostics?.metadata_bypass_used) {
+        if (data.force_openai_restart) {
+          toast.success(`🚀 Dataset retraité avec redémarrage OpenAI forcé! Traitement relancé`);
+        } else if (data.diagnostics?.metadata_bypass_used) {
           toast.success(`✅ Dataset retraité avec bypass metadata! Délégué au gestionnaire de queue`);
         } else if (data.diagnostics?.metadata_corrected) {
           toast.warning(`⚠️ Métadonnées Apify corrigées! Dataset retraité: ${data.statistics.queued_for_processing || 0} posts`);
@@ -181,6 +191,23 @@ export function DatasetReprocessing() {
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <Switch
+                  id="forceOpenAIRestart"
+                  checked={forceOpenAIRestart}
+                  onCheckedChange={setForceOpenAIRestart}
+                />
+                <div className="flex-1">
+                  <label htmlFor="forceOpenAIRestart" className="text-sm font-medium flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                    Forcer le redémarrage OpenAI
+                  </label>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Force la suppression complète des données et relance le traitement OpenAI Step 1
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="border-t pt-4">
@@ -240,10 +267,26 @@ export function DatasetReprocessing() {
             </div>
           )}
 
+          {forceOpenAIRestart && (
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <Zap className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <div className="font-medium">🚀 Redémarrage OpenAI forcé activé</div>
+                <div>Le système supprimera complètement toutes les données (posts + leads) et relancera automatiquement le traitement OpenAI Step 1. Parfait pour re-traiter un dataset déjà analysé.</div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="font-medium">Ce processus va :</div>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              {bypassMetadataCheck ? (
+              {forceOpenAIRestart ? (
+                <>
+                  <li>🚀 <strong>FORCE RESTART:</strong> Supprimer complètement tous les données (posts + leads)</li>
+                  <li>⚡ Relancer automatiquement le traitement OpenAI Step 1</li>
+                  <li>🔄 Déclencher le gestionnaire de queue après 10 secondes</li>
+                </>
+              ) : bypassMetadataCheck ? (
                 <>
                   <li>🚨 <strong>BYPASS:</strong> Ignorer complètement les métadonnées Apify</li>
                   <li>🚀 Procéder directement à la récupération des données</li>
@@ -268,7 +311,7 @@ export function DatasetReprocessing() {
               onClick={() => startReprocessing(false)}
               disabled={isProcessing || !datasetId.trim()}
               className="flex-1"
-              variant={bypassMetadataCheck ? "default" : "default"}
+              variant={forceOpenAIRestart ? "destructive" : bypassMetadataCheck ? "default" : "default"}
             >
               {isProcessing ? (
                 <>
@@ -277,12 +320,14 @@ export function DatasetReprocessing() {
                 </>
               ) : (
                 <>
-                  {bypassMetadataCheck ? (
+                  {forceOpenAIRestart ? (
+                    <Zap className="h-4 w-4 mr-2" />
+                  ) : bypassMetadataCheck ? (
                     <Shield className="h-4 w-4 mr-2" />
                   ) : (
                     <Database className="h-4 w-4 mr-2" />
                   )}
-                  {bypassMetadataCheck ? 'Lancer avec bypass métadonnées' : 'Lancer le retraitement robuste'}
+                  {forceOpenAIRestart ? 'Forcer redémarrage OpenAI' : bypassMetadataCheck ? 'Lancer avec bypass métadonnées' : 'Lancer le retraitement robuste'}
                 </>
               )}
             </Button>
@@ -320,6 +365,12 @@ export function DatasetReprocessing() {
                   Bypass métadonnées
                 </Badge>
               )}
+              {result.force_openai_restart && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Redémarrage OpenAI
+                </Badge>
+              )}
               {result.diagnostics?.metadata_corrected && (
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                   Métadonnées corrigées
@@ -341,6 +392,9 @@ export function DatasetReprocessing() {
                   <div className="text-sm text-blue-700 mt-2">
                     Le dataset a été délégué au gestionnaire de queue spécialisé en {result.optimization.delegation_time_ms}ms. 
                     Le traitement continue en arrière-plan.
+                    {result.force_openai_restart && (
+                      <div className="mt-2 font-medium">⚡ Redémarrage OpenAI forcé : toutes les données ont été supprimées et le Step 1 sera relancé automatiquement.</div>
+                    )}
                   </div>
                   {result.queue_response && (
                     <div className="text-xs text-blue-600 mt-2">
@@ -429,6 +483,13 @@ export function DatasetReprocessing() {
                     </div>
                   )}
                   
+                  {result.force_openai_restart && (
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <Zap className="h-3 w-3" />
+                      <span className="text-xs font-medium">Redémarrage OpenAI forcé activé</span>
+                    </div>
+                  )}
+                  
                   {result.diagnostics.metadata_corrected && (
                     <div className="flex items-center gap-2 text-blue-700">
                       <CheckCircle className="h-3 w-3" />
@@ -471,6 +532,20 @@ export function DatasetReprocessing() {
               </div>
             )}
 
+            {result.enhancements && result.enhancements.length > 0 && (
+              <div className="space-y-2">
+                <div className="font-medium">Améliorations techniques:</div>
+                <div className="space-y-1">
+                  {result.enhancements.map((enhancement, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Zap className="h-3 w-3 text-blue-600" />
+                      <span className="text-sm">{enhancement}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {result.message && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-sm text-blue-800">{result.message}</div>
@@ -488,6 +563,9 @@ export function DatasetReprocessing() {
               )}
               {result.statistics.bypass_metadata_check && (
                 <> | Mode bypass: activé</>
+              )}
+              {result.force_openai_restart && (
+                <> | Redémarrage OpenAI: forcé</>
               )}
               {result.optimization && (
                 <> | Optimisation: {result.optimization.strategy}</>
