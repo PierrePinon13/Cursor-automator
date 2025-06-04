@@ -80,12 +80,12 @@ const LeadDetailHeader = ({
             </a>
           </div>
           
-          {/* Deuxième ligne : Poste @ Entreprise */}
+          {/* ✅ CORRECTION : Deuxième ligne avec position ET entreprise */}
           <div className="text-gray-600 flex items-center gap-1">
             {lead.unipile_position && (
               <span className="font-medium text-gray-700">{lead.unipile_position}</span>
             )}
-            {lead.unipile_position && companyName && <span className="mx-1 text-gray-500">@</span>}
+            {lead.unipile_position && companyName && <span className="mx-1 text-gray-500">chez</span>}
             {companyName && (
               <CompanyHoverCard 
                 companyId={companyId} 

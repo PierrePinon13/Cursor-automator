@@ -12,6 +12,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import CompanyHoverCard from './CompanyHoverCard';
+import ReminderDialog from './ReminderDialog';
+import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
+import { useEffect, useState } from 'react';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -41,6 +44,44 @@ const LeadDetailContent = ({
   const { toast } = useToast();
   const { user } = useAuth();
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
+  const { sendMessage, loading: linkedInSending } = useLinkedInMessage();
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [isGeneratingMessage, setIsGeneratingMessage] = useState(false);
+
+  // ✅ CORRECTION : Générer le message d'approche avec OpenAI au chargement
+  useEffect(() => {
+    const generateApproachMessage = async () => {
+      if (!lead.approach_message || lead.approach_message === '') {
+        console.log('🤖 Generating approach message for lead:', lead.id);
+        setIsGeneratingMessage(true);
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('regenerate-approach-message', {
+            body: { 
+              leadId: lead.id,
+              regenerate: false // Générer seulement si pas déjà existant
+            }
+          });
+
+          if (error) {
+            console.error('Error generating approach message:', error);
+          } else if (data?.approach_message) {
+            onMessageChange(data.approach_message);
+            console.log('✅ Approach message generated successfully');
+          }
+        } catch (error) {
+          console.error('Error calling regenerate-approach-message:', error);
+        } finally {
+          setIsGeneratingMessage(false);
+        }
+      } else {
+        // Utiliser le message existant
+        onMessageChange(lead.approach_message);
+      }
+    };
+
+    generateApproachMessage();
+  }, [lead.id, lead.approach_message, onMessageChange]);
 
   const handleRetrievePhone = async () => {
     try {
@@ -76,8 +117,10 @@ const LeadDetailContent = ({
         .insert({
           lead_id: lead.id,
           author_name: lead.author_name,
+          author_profile_url: lead.author_profile_url,
           reason: 'Publication signalée comme mal ciblée',
-          reported_by_user_id: user.id
+          reported_by_user_id: user.id,
+          reported_by_user_name: user.user_metadata?.full_name || user.email
         });
       
       toast({
@@ -92,6 +135,80 @@ const LeadDetailContent = ({
         title: "Erreur",
         description: "Impossible de signaler cette publication",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handleHrProvider = async () => {
+    try {
+      if (!user) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté pour effectuer cette action",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Ajouter à la liste des prestataires RH
+      await supabase
+        .from('hr_providers')
+        .insert({
+          lead_id: lead.id,
+          author_name: lead.author_name,
+          author_profile_url: lead.author_profile_url,
+          company_name: lead.company_name || lead.unipile_company,
+          reported_by_user_id: user.id,
+          reported_by_user_name: user.user_metadata?.full_name || user.email,
+          reason: 'Signalé comme prestataire RH'
+        });
+      
+      toast({
+        title: "Prestataire RH signalé",
+        description: "Cette personne a été ajoutée à la liste des prestataires RH",
+      });
+      
+      onAction('hr_provider');
+    } catch (error) {
+      console.error('Error reporting HR provider:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de signaler ce prestataire RH",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // ✅ CORRECTION : Utiliser la fonction sendMessage existante
+  const handleSendLinkedInMessage = async () => {
+    if (!customMessage.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le message ne peut pas être vide",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (customMessage.length > 300) {
+      toast({
+        title: "Erreur",
+        description: "Le message dépasse la limite de 300 caractères",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const success = await sendMessage(lead.id, customMessage, {
+      author_name: lead.author_name,
+      author_profile_url: lead.author_profile_url
+    });
+
+    if (success) {
+      onActionCompleted();
+      toast({
+        title: "Message envoyé",
+        description: "Votre message LinkedIn a été envoyé avec succès",
       });
     }
   };
@@ -118,7 +235,6 @@ const LeadDetailContent = ({
                 <h3 className="font-semibold text-green-800">Poste recherché</h3>
               </div>
               
-              {/* ✅ CORRECTION MAJEURE : Logique d'affichage améliorée pour les postes */}
               {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
                 <div className="space-y-2">
                   {lead.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
@@ -138,7 +254,7 @@ const LeadDetailContent = ({
               )}
             </div>
 
-            {/* ✅ NOUVEAU : Encart d'alerte pour entreprise cliente */}
+            {/* Encart d'alerte pour entreprise cliente */}
             {lead.has_previous_client_company && (
               <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -170,12 +286,12 @@ const LeadDetailContent = ({
                 <p className="text-sm text-gray-600 mt-1">Contenu de la publication</p>
               </div>
               <div className="p-4">
-                {/* ✅ CORRECTION : Affichage amélioré du contenu avec fallback */}
-                {lead.text && lead.text !== 'Content unavailable' ? (
+                {/* ✅ CORRECTION : Affichage correct du contenu de la publication */}
+                {lead.text && lead.text !== 'Content unavailable' && lead.text.trim() !== '' ? (
                   <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
                     {lead.text}
                   </div>
-                ) : lead.title ? (
+                ) : lead.title && lead.title.trim() !== '' ? (
                   <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
                     <strong>Titre :</strong> {lead.title}
                   </div>
@@ -195,13 +311,13 @@ const LeadDetailContent = ({
               <Button
                 variant="outline"
                 className="w-full justify-center"
-                onClick={() => window.open(lead.latest_post_url || lead.url, '_blank')}
-                disabled={!lead.latest_post_url && !lead.url}
+                onClick={() => window.open(lead.url || lead.latest_post_url, '_blank')}
+                disabled={!lead.url && !lead.latest_post_url}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Voir la publication
               </Button>
-              {(!lead.latest_post_url && !lead.url) && (
+              {(!lead.url && !lead.latest_post_url) && (
                 <p className="text-xs text-gray-500 text-center mt-2">
                   Lien non disponible
                 </p>
@@ -217,8 +333,13 @@ const LeadDetailContent = ({
               <div className="flex items-center gap-2 mb-2">
                 <Send className="h-5 w-5 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">Message d'approche</h3>
+                {isGeneratingMessage && (
+                  <div className="ml-2 animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                )}
               </div>
-              <p className="text-sm text-gray-600">Personnalisez votre message LinkedIn</p>
+              <p className="text-sm text-gray-600">
+                {isGeneratingMessage ? 'Génération du message personnalisé...' : 'Personnalisez votre message LinkedIn'}
+              </p>
             </div>
             
             <div className="flex-1 flex flex-col">
@@ -226,8 +347,9 @@ const LeadDetailContent = ({
                 <Textarea
                   value={customMessage}
                   onChange={(e) => onMessageChange(e.target.value)}
-                  placeholder="Rédigez votre message LinkedIn personnalisé..."
+                  placeholder={isGeneratingMessage ? "Génération en cours..." : "Rédigez votre message LinkedIn personnalisé..."}
                   className="w-full h-full resize-none border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                  disabled={isGeneratingMessage}
                 />
               </div>
               
@@ -263,15 +385,17 @@ const LeadDetailContent = ({
                 </div>
               </div>
               
+              {/* ✅ CORRECTION : Bouton LinkedIn cliquable avec la bonne fonction */}
               <Button
-                onClick={onSendLinkedInMessage}
-                disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                onClick={handleSendLinkedInMessage}
+                disabled={linkedInSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage || isGeneratingMessage}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
                 size="lg"
               >
                 <Send className="h-4 w-4 mr-2" />
-                {messageSending ? 'Envoi en cours...' : 
+                {linkedInSending ? 'Envoi en cours...' : 
                  hasLinkedInMessage ? 'Message déjà envoyé' : 
+                 isGeneratingMessage ? 'Génération...' :
                  'Envoyer le message LinkedIn'}
               </Button>
               
@@ -304,10 +428,10 @@ const LeadDetailContent = ({
               )}
             </div>
 
-            {/* Planifier un rappel */}
+            {/* ✅ CORRECTION : Planifier un rappel avec dialog */}
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
               <Button
-                onClick={() => onAction('schedule_reminder')}
+                onClick={() => setReminderDialogOpen(true)}
                 className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-medium"
                 size="lg"
               >
@@ -336,7 +460,7 @@ const LeadDetailContent = ({
                 </Button>
                 
                 <Button
-                  onClick={() => onAction('hr_provider')}
+                  onClick={handleHrProvider}
                   variant="outline"
                   className="w-full h-10 justify-start bg-white hover:bg-orange-50 border-orange-200"
                 >
@@ -348,6 +472,14 @@ const LeadDetailContent = ({
           </div>
         </div>
       </div>
+
+      {/* ✅ CORRECTION : Dialog de rappel */}
+      <ReminderDialog
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        leadId={lead.id}
+        leadName={lead.author_name}
+      />
     </div>
   );
 };

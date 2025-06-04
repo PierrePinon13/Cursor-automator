@@ -68,6 +68,7 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
               )}
             </div>
             
+            {/* ✅ CORRECTION : Affichage de la description de l'entreprise */}
             {company.description && (
               <p className="text-sm text-gray-600 leading-relaxed">
                 {company.description}
@@ -84,65 +85,41 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
               )}
               
               {company.company_size && (
-                <div className="flex items-center gap-2 text-gray-500">
+                <div className="flex items-center gap-2 text-gray-600">
                   <Users className="h-3 w-3" />
-                  <span>{company.company_size}</span>
+                  <span>{company.company_size} employés</span>
                 </div>
               )}
               
-              {company.headquarters && (
-                <div className="flex items-center gap-2 text-gray-500">
+              {company.location && (
+                <div className="flex items-center gap-2 text-gray-600">
                   <MapPin className="h-3 w-3" />
-                  <span>{company.headquarters}</span>
+                  <span>{company.location}</span>
                 </div>
               )}
               
               {company.website && (
-                <div className="flex items-center gap-2 text-gray-500">
+                <div className="flex items-center gap-2 text-gray-600">
                   <Globe className="h-3 w-3" />
-                  <a 
-                    href={company.website} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline truncate"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {company.website}
+                  <a href={company.website} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 underline">
+                    Site web
                   </a>
                 </div>
               )}
               
-              {company.follower_count && (
-                <div className="flex items-center gap-2 text-gray-500">
-                  <span className="text-blue-600">👥</span>
-                  <span>{company.follower_count.toLocaleString()} abonnés LinkedIn</span>
+              {company.founded_year && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Calendar className="h-3 w-3" />
+                  <span>Fondé en {company.founded_year}</span>
                 </div>
               )}
-            </div>
-            
-            {company.last_updated_at && (
-              <div className="pt-2 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Calendar className="h-3 w-3" />
-                  <span>Mis à jour le {new Date(company.last_updated_at).toLocaleDateString('fr-FR')}</span>
-                </div>
-              </div>
-            )}
-            
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-xs text-blue-600 font-medium">
-                Cliquez pour voir le profil LinkedIn
-              </p>
             </div>
           </div>
         ) : (
           <div className="text-center py-4">
-            <p className="text-sm text-gray-500">Informations sur l'entreprise non disponibles</p>
-            {company?.linkedin_id && (
-              <p className="text-xs text-blue-600 mt-2">
-                Cliquez pour voir le profil LinkedIn
-              </p>
-            )}
+            <Building className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">{companyName}</p>
+            <p className="text-xs text-gray-400">Informations non disponibles</p>
           </div>
         )}
       </HoverCardContent>
