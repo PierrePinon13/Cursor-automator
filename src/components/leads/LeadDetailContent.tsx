@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Calendar, MapPin, User, ExternalLink, Building, Phone, Crown } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import LeadActions from './LeadActions';
+import LeadActionsSection from './LeadActionsSection';
 import LeadMessageSection from './LeadMessageSection';
 import PhoneContactStatus from './PhoneContactStatus';
 import { LeadWorkHistory } from './LeadWorkHistory';
@@ -15,9 +15,27 @@ interface LeadDetailContentProps {
   lead: any;
   onActionCompleted: () => void;
   isAdmin?: boolean;
+  customMessage: string;
+  onMessageChange: (message: string) => void;
+  onSendLinkedInMessage: () => void;
+  onAction: (actionName: string) => void;
+  messageSending: boolean;
+  onPhoneRetrieved?: (phoneNumber: string | null) => void;
+  onContactUpdate?: () => void;
 }
 
-const LeadDetailContent = ({ lead, onActionCompleted, isAdmin }: LeadDetailContentProps) => {
+const LeadDetailContent = ({ 
+  lead, 
+  onActionCompleted, 
+  isAdmin,
+  customMessage,
+  onMessageChange,
+  onSendLinkedInMessage,
+  onAction,
+  messageSending,
+  onPhoneRetrieved,
+  onContactUpdate
+}: LeadDetailContentProps) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Non disponible';
     try {
@@ -163,16 +181,21 @@ const LeadDetailContent = ({ lead, onActionCompleted, isAdmin }: LeadDetailConte
           leadId={lead.id}
           phoneNumber={lead.phone_number}
           currentStatus={lead.phone_contact_status}
-          onStatusUpdate={onActionCompleted}
+          onStatusUpdate={() => onContactUpdate?.()}
         />
       )}
 
       <Separator />
 
       {/* Actions */}
-      <LeadActions 
+      <LeadActionsSection 
         lead={lead} 
-        onAction={() => onActionCompleted()} 
+        onAction={onAction}
+        onSendLinkedInMessage={onSendLinkedInMessage}
+        messageSending={messageSending}
+        customMessage={customMessage}
+        onPhoneRetrieved={onPhoneRetrieved}
+        onContactUpdate={onContactUpdate}
       />
 
       <Separator />
@@ -180,8 +203,8 @@ const LeadDetailContent = ({ lead, onActionCompleted, isAdmin }: LeadDetailConte
       {/* Message LinkedIn */}
       <LeadMessageSection 
         lead={lead} 
-        customMessage={lead.approach_message || ''}
-        onMessageChange={() => {}} 
+        customMessage={customMessage}
+        onMessageChange={onMessageChange} 
       />
     </div>
   );
