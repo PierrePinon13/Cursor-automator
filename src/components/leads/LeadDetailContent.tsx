@@ -48,7 +48,7 @@ const LeadDetailContent = ({
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [isGeneratingMessage, setIsGeneratingMessage] = useState(false);
 
-  // ✅ CORRECTION : Générer le message d'approche avec OpenAI au chargement
+  // Générer le message d'approche avec OpenAI au chargement
   useEffect(() => {
     const generateApproachMessage = async () => {
       if (!lead.approach_message || lead.approach_message === '') {
@@ -179,7 +179,7 @@ const LeadDetailContent = ({
     }
   };
 
-  // ✅ CORRECTION : Utiliser la fonction sendMessage existante
+  // Utiliser la fonction sendMessage pour LinkedIn
   const handleSendLinkedInMessage = async () => {
     if (!customMessage.trim()) {
       toast({
@@ -286,9 +286,9 @@ const LeadDetailContent = ({
                 <p className="text-sm text-gray-600 mt-1">Contenu de la publication</p>
               </div>
               <div className="p-4">
-                {/* ✅ CORRECTION : Affichage correct du contenu de la publication */}
+                {/* Affichage correct du contenu de la publication */}
                 {lead.text && lead.text !== 'Content unavailable' && lead.text.trim() !== '' ? (
-                  <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
+                  <div className="text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto whitespace-pre-wrap">
                     {lead.text}
                   </div>
                 ) : lead.title && lead.title.trim() !== '' ? (
@@ -385,7 +385,7 @@ const LeadDetailContent = ({
                 </div>
               </div>
               
-              {/* ✅ CORRECTION : Bouton LinkedIn cliquable avec la bonne fonction */}
+              {/* Bouton LinkedIn cliquable avec la bonne fonction */}
               <Button
                 onClick={handleSendLinkedInMessage}
                 disabled={linkedInSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage || isGeneratingMessage}
@@ -428,7 +428,7 @@ const LeadDetailContent = ({
               )}
             </div>
 
-            {/* ✅ CORRECTION : Planifier un rappel avec dialog */}
+            {/* Planifier un rappel avec dialog */}
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
               <Button
                 onClick={() => setReminderDialogOpen(true)}
@@ -473,7 +473,7 @@ const LeadDetailContent = ({
         </div>
       </div>
 
-      {/* ✅ CORRECTION : Dialog de rappel */}
+      {/* Dialog de rappel */}
       <ReminderDialog
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}

@@ -80,7 +80,7 @@ const LeadDetailHeader = ({
             </a>
           </div>
           
-          {/* ✅ CORRECTION : Deuxième ligne avec position ET entreprise */}
+          {/* Deuxième ligne avec position ET entreprise */}
           <div className="text-gray-600 flex items-center gap-1">
             {lead.unipile_position && (
               <span className="font-medium text-gray-700">{lead.unipile_position}</span>
