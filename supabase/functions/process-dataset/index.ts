@@ -86,28 +86,19 @@ serve(async (req) => {
       console.log('🚨 BYPASS MODE: Skipping metadata checks completely')
     }
 
-    // ✅ PHASE 3: DÉLÉGATION IMMÉDIATE au gestionnaire spécialisé
-    console.log('🚀 IMMEDIATE DELEGATION to specialized processing queue...')
+    // ✅ PHASE 3: DÉLÉGATION IMMÉDIATE avec action corrigée
+    console.log('🚀 IMMEDIATE DELEGATION to fast webhook processing...')
     
     try {
-      const delegationPayload = {
-        action: 'full_dataset_processing',
-        dataset_id: datasetId,
-        apify_api_key: apifyApiKey,
-        options: {
-          force_all: forceAll,
-          resume_from_batch: resumeFromBatch,
-          bypass_metadata_check: bypassMetadataCheck,
-          webhook_triggered,
-          expected_items: metadataInfo.itemCount
-        },
-        optimization: 'cpu_timeout_prevention'
-      }
-
-      console.log('📤 Delegating with payload:', JSON.stringify(delegationPayload, null, 2))
+      console.log('📤 Delegating to fast_webhook_processing action...')
 
       const { data: queueResponse, error: queueError } = await supabaseClient.functions.invoke('processing-queue-manager', {
-        body: delegationPayload
+        body: {
+          action: 'fast_webhook_processing',
+          dataset_id: datasetId,
+          apify_api_key: apifyApiKey,
+          force_all: forceAll
+        }
       })
 
       if (queueError) {
