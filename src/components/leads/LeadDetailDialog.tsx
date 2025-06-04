@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -195,6 +194,7 @@ const LeadDetailDialog = ({
         <div className="flex-1 overflow-hidden">
           <LeadDetailContent
             lead={currentLeads[selectedLeadIndex]}
+            onActionCompleted={onActionCompleted}
             customMessage={customMessage}
             onMessageChange={setCustomMessage}
             onSendLinkedInMessage={handleSendLinkedInMessage}
