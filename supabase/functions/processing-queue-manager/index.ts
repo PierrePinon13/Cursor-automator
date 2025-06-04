@@ -174,14 +174,16 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
       
       console.log(`✅ Background task completed: ${qualifiedPosts.length} posts queued`);
       
-      // Déclencher le traitement OpenAI avec délai
+      // ✅ CORRECTION : Déclencher le traitement OpenAI Step 1 directement
       setTimeout(async () => {
         try {
+          console.log('🚀 Triggering OpenAI Step 1 processing...');
           await supabaseClient.functions.invoke('processing-queue-manager', {
             body: { action: 'queue_posts', dataset_id: datasetId, timeout_protection: true }
           });
+          console.log('✅ OpenAI Step 1 processing triggered successfully');
         } catch (error) {
-          console.error('❌ Error triggering delayed processing:', error);
+          console.error('❌ Error triggering OpenAI Step 1 processing:', error);
         }
       }, 5000); // 5 secondes de délai
       
@@ -248,6 +250,18 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
 
   console.log(`📊 Found ${allPendingPosts.length} TOTAL pending posts (NO 1000 LIMIT!)`);
 
+  if (allPendingPosts.length === 0) {
+    console.log('📝 No pending posts found for Step 1 processing');
+    return new Response(JSON.stringify({ 
+      success: true, 
+      queued_count: 0,
+      total_pending: 0,
+      message: 'No pending posts found'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   // 🚀 NOUVELLE STRATÉGIE : Utiliser les workers spécialisés
   const MEGA_BATCH_SIZE = timeoutProtection ? 50 : 100;
   let queuedCount = 0;
@@ -256,35 +270,61 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
   const backgroundProcessing = async () => {
     console.log('🚀 Starting BACKGROUND processing with specialized workers...');
     
-    for (let i = 0; i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
-      const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
-      const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
-      const totalBatches = Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE);
-      
-      console.log(`🚀 Processing BACKGROUND batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
-      
-      try {
-        // ✅ AMÉLIORATION : Utiliser le nouveau worker Step 1 spécialisé
-        const workerPromise = supabaseClient.functions.invoke('openai-step1-worker', {
-          body: { 
-            post_ids: batch.map(p => p.id),
-            dataset_id: batch[0]?.apify_dataset_id,
-            batch_mode: true,
-            timeout_protection: timeoutProtection
-          }
-        });
-
-        // Ne pas attendre la réponse pour éviter les timeouts
-        workerPromise.catch((err: any) => {
-          console.error(`⚠️ Error triggering background batch ${batchNumber}:`, err);
-        });
-
-        // Petit délai entre les batches
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-      } catch (error) {
-        console.error(`❌ Error queuing background batch ${batchNumber}:`, error);
+    // Regrouper par dataset pour un traitement plus efficace
+    const postsByDataset = allPendingPosts.reduce((acc, post) => {
+      const datasetId = post.apify_dataset_id;
+      if (!acc[datasetId]) {
+        acc[datasetId] = [];
       }
+      acc[datasetId].push(post);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    const datasets = Object.keys(postsByDataset);
+    console.log(`📊 Processing ${datasets.length} datasets in background`);
+
+    for (const datasetId of datasets) {
+      const datasetPosts = postsByDataset[datasetId];
+      console.log(`🔄 Processing dataset ${datasetId}: ${datasetPosts.length} posts`);
+      
+      for (let i = 0; i < datasetPosts.length; i += MEGA_BATCH_SIZE) {
+        const batch = datasetPosts.slice(i, i + MEGA_BATCH_SIZE);
+        const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(datasetPosts.length / MEGA_BATCH_SIZE);
+        
+        console.log(`🚀 Processing BACKGROUND batch ${batchNumber}/${totalBatches} for dataset ${datasetId} (${batch.length} posts)`);
+        
+        try {
+          // ✅ AMÉLIORATION : Utiliser le worker Step 1 spécialisé avec logs détaillés
+          console.log(`📤 Invoking openai-step1-worker for batch ${batchNumber}...`);
+          console.log(`📋 Post IDs in batch: ${batch.map(p => p.id).slice(0, 5).join(', ')}${batch.length > 5 ? '...' : ''}`);
+          
+          const workerPromise = supabaseClient.functions.invoke('openai-step1-worker', {
+            body: { 
+              post_ids: batch.map(p => p.id),
+              dataset_id: datasetId,
+              batch_mode: true,
+              timeout_protection: timeoutProtection
+            }
+          });
+
+          // ✅ CORRECTION : Ajouter un traitement de la réponse pour diagnostiquer
+          workerPromise.then((response: any) => {
+            console.log(`✅ Worker Step 1 response for batch ${batchNumber}:`, response.data || response);
+          }).catch((err: any) => {
+            console.error(`⚠️ Error triggering background batch ${batchNumber}:`, err);
+          });
+
+          // Petit délai entre les batches
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (error) {
+          console.error(`❌ Error queuing background batch ${batchNumber} for dataset ${datasetId}:`, error);
+        }
+      }
+      
+      // Délai entre les datasets
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     console.log('✅ Background processing initiated for all batches with specialized workers');
@@ -299,7 +339,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
   }
 
   // Traiter quelques batches en mode synchrone pour la réponse immédiate
-  const IMMEDIATE_BATCHES = Math.min(3, Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE));
+  const IMMEDIATE_BATCHES = Math.min(2, Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE));
   
   for (let i = 0; i < IMMEDIATE_BATCHES * MEGA_BATCH_SIZE && i < allPendingPosts.length; i += MEGA_BATCH_SIZE) {
     const batch = allPendingPosts.slice(i, i + MEGA_BATCH_SIZE);
@@ -308,8 +348,9 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
     console.log(`🚀 Processing IMMEDIATE batch ${batchNumber}/${IMMEDIATE_BATCHES} (${batch.length} posts)`);
     
     try {
-      // ✅ AMÉLIORATION : Utiliser le nouveau worker Step 1 spécialisé
-      await supabaseClient.functions.invoke('openai-step1-worker', {
+      // ✅ AMÉLIORATION : Utiliser le worker Step 1 spécialisé avec attente de réponse
+      console.log(`📤 Invoking openai-step1-worker for immediate batch ${batchNumber}...`);
+      const response = await supabaseClient.functions.invoke('openai-step1-worker', {
         body: { 
           post_ids: batch.map(p => p.id),
           dataset_id: batch[0]?.apify_dataset_id,
@@ -318,6 +359,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
         }
       });
 
+      console.log(`✅ Immediate batch ${batchNumber} response:`, response.data || response);
       queuedCount += batch.length;
       
     } catch (error) {
@@ -335,7 +377,11 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
     background_batches: Math.ceil(allPendingPosts.length / MEGA_BATCH_SIZE) - IMMEDIATE_BATCHES,
     timeout_protection: timeoutProtection,
     hybrid_processing: true,
-    using_specialized_workers: true
+    using_specialized_workers: true,
+    datasets_processed: Object.keys(allPendingPosts.reduce((acc, post) => {
+      acc[post.apify_dataset_id] = true;
+      return acc;
+    }, {} as Record<string, boolean>)).length
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
