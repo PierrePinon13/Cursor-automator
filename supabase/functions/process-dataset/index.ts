@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -101,9 +100,41 @@ serve(async (req) => {
       console.log(`✅ Cleanup completed: ${stats.cleaned_existing} records deleted`)
     }
 
-    // 🚀 NOUVELLE APPROCHE : DÉLÉGATION COMPLÈTE AU PROCESSING-QUEUE-MANAGER
-    console.log('🚀 NEW APPROACH: Full delegation to specialized queue manager')
-    
+    // 🚀 STRATÉGIE ANTI-TIMEOUT : Mode rapide pour webhooks
+    if (webhook_triggered) {
+      console.log('⚡ WEBHOOK MODE: Ultra-fast processing to avoid timeout')
+      
+      // Déléguer immédiatement au processing-queue-manager
+      try {
+        const queueResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
+          body: {
+            action: 'fast_webhook_processing',
+            dataset_id: datasetId,
+            apify_api_key: apifyApiKey,
+            force_all: forceAll
+          }
+        });
+        
+        console.log(`✅ WEBHOOK: Fast processing delegated to queue manager`)
+        
+        return new Response(JSON.stringify({ 
+          success: true,
+          action: 'webhook_fast_delegation',
+          dataset_id: datasetId,
+          message: 'Processing delegated to avoid webhook timeout'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+        
+      } catch (error) {
+        console.error('❌ Error delegating webhook processing:', error);
+        throw error;
+      }
+    }
+
+    // Mode normal pour reprocessing manuel
+    console.log('🚀 MANUAL MODE: Full processing pipeline')
+
     // Phase 2: Récupération et stockage UNIQUEMENT (pas de traitement)
     let allDatasetItems: any[] = []
     
@@ -409,15 +440,16 @@ serve(async (req) => {
     console.log(`   ❌ Excluded (Missing fields): ${excludedByMissingFields}`)
     console.log(`   📊 Qualification rate: ${uniqueItems.length > 0 ? ((queuedCount / uniqueItems.length) * 100).toFixed(1) : 0}%`)
 
-    // 🚀 DÉLÉGATION COMPLÈTE : Déclencher le processing-queue-manager
-    console.log('🚀 DELEGATING to processing-queue-manager for specialized processing...')
+    // 🚀 DÉLÉGATION OPTIMISÉE : Déclencher le processing avec timeout management
+    console.log('🚀 DELEGATING to processing-queue-manager with TIMEOUT PROTECTION...')
     
     // Déclencher immédiatement le queue manager pour traiter les posts en attente
     try {
       const queueResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
         body: { 
           action: 'queue_posts',
-          dataset_id: datasetId
+          dataset_id: datasetId,
+          timeout_protection: true // Nouveau flag pour gestion des timeouts
         }
       })
       
@@ -446,7 +478,7 @@ serve(async (req) => {
         processing_completed: true
       }, { onConflict: 'dataset_id' })
 
-    console.log(`🚀 FAST PROCESSING COMPLETE:`)
+    console.log(`🚀 MANUAL PROCESSING COMPLETE:`)
     console.log(`📊 Dataset ID: ${datasetId}`)
     console.log(`📥 Total fetched: ${stats.total_fetched} / ${stats.apify_item_count} expected`)
     console.log(`💾 Stored raw: ${stats.stored_raw}`)
@@ -479,6 +511,7 @@ serve(async (req) => {
         '🛡️ SIMPLE & ROBUST: Focused on data ingestion only',
         '🚀 SCALABLE ARCHITECTURE: Queue manager handles all processing',
         '✅ FIXED 1000-LIMIT BUG: Now processes ALL raw data items',
+        '⚡ WEBHOOK TIMEOUT PROTECTION: Fast delegation mode for webhooks',
         'Enhanced diagnostic with Apify metadata verification',
         'Upsert logic for raw data to handle duplicates',
         'Detailed classification breakdown and exclusion tracking',

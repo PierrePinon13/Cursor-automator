@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -20,11 +19,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, task_type, post_id, dataset_id, force_reprocess = false } = await req.json();
+    const { action, task_type, post_id, dataset_id, force_reprocess = false, timeout_protection = false, apify_api_key, force_all = false } = await req.json();
 
     switch (action) {
+      case 'fast_webhook_processing':
+        return await fastWebhookProcessing(supabaseClient, dataset_id, apify_api_key, force_all);
+      
       case 'queue_posts':
-        return await queuePendingPosts(supabaseClient);
+        return await queuePendingPosts(supabaseClient, timeout_protection);
       
       case 'process_next_batch':
         return await processNextBatch(supabaseClient, task_type);
@@ -51,15 +53,171 @@ serve(async (req) => {
   }
 });
 
-async function queuePendingPosts(supabaseClient: any) {
+async function fastWebhookProcessing(supabaseClient: any, datasetId: string, apifyApiKey: string, forceAll: boolean) {
+  console.log('⚡ FAST WEBHOOK PROCESSING: Starting background task to avoid timeout');
+  
+  // Lancer le traitement en arrière-plan avec EdgeRuntime.waitUntil pour éviter les timeouts
+  const backgroundTask = async () => {
+    try {
+      console.log('🔄 Background task: Starting full dataset processing...');
+      
+      // Récupérer les données Apify rapidement
+      const limit = 1000;
+      let offset = 0;
+      let allItems: any[] = [];
+      let batchCount = 0;
+
+      while (true) {
+        batchCount++;
+        console.log(`📥 Background: Fetching batch ${batchCount}`);
+        
+        let apiUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?offset=${offset}&limit=${limit}&desc=1`;
+        if (!forceAll) {
+          apiUrl += '&skipEmpty=true';
+        }
+        
+        const response = await fetch(apiUrl, {
+          headers: { 'Authorization': `Bearer ${apifyApiKey}` }
+        });
+        
+        if (!response.ok) break;
+        
+        const items = await response.json();
+        if (!items || items.length === 0) break;
+        
+        allItems = allItems.concat(items);
+        offset += limit;
+        
+        if (items.length < limit) break;
+        
+        // Petite pause pour éviter la surcharge
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      console.log(`📊 Background: Collected ${allItems.length} items`);
+      
+      // Stocker en base rapidement
+      const validRawData = allItems
+        .filter(item => item && item.urn)
+        .reduce((acc, item) => {
+          if (!acc.find(existing => existing.urn === item.urn)) {
+            acc.push({
+              apify_dataset_id: datasetId,
+              urn: item.urn,
+              text: item.text || null,
+              title: item.title || null,
+              url: item.url,
+              posted_at_timestamp: item.postedAtTimestamp || null,
+              posted_at_iso: item.postedAt || null,
+              author_type: item.authorType || null,
+              author_profile_url: item.authorProfileUrl || null,
+              author_profile_id: item.authorProfileId || null,
+              author_name: item.authorName || null,
+              author_headline: item.authorHeadline || null,
+              is_repost: item.isRepost || false,
+              raw_data: item,
+              updated_at: new Date().toISOString()
+            });
+          }
+          return acc;
+        }, []);
+
+      // Stockage par batches de 500
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < validRawData.length; i += BATCH_SIZE) {
+        const batch = validRawData.slice(i, i + BATCH_SIZE);
+        
+        await supabaseClient
+          .from('linkedin_posts_raw')
+          .upsert(batch, { onConflict: 'urn', ignoreDuplicates: false });
+        
+        console.log(`💾 Background: Stored batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(validRawData.length / BATCH_SIZE)}`);
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      // Classification et insertion des posts
+      const qualifiedPosts = [];
+      for (const item of allItems) {
+        if (item && item.urn && item.url && item.authorType !== 'Company') {
+          qualifiedPosts.push({
+            apify_dataset_id: datasetId,
+            urn: item.urn,
+            text: item.text || 'Content unavailable',
+            title: item.title || null,
+            url: item.url,
+            posted_at_timestamp: item.postedAtTimestamp || null,
+            posted_at_iso: item.postedAt || null,
+            author_type: item.authorType,
+            author_profile_url: item.authorProfileUrl || 'Unknown',
+            author_profile_id: item.authorProfileId || null,
+            author_name: item.authorName || 'Unknown author',
+            author_headline: item.authorHeadline || null,
+            processing_status: 'pending',
+            raw_data: item
+          });
+        }
+      }
+      
+      // Insertion des posts qualifiés par batches
+      for (let i = 0; i < qualifiedPosts.length; i += BATCH_SIZE) {
+        const batch = qualifiedPosts.slice(i, i + BATCH_SIZE);
+        
+        await supabaseClient
+          .from('linkedin_posts')
+          .upsert(batch, { onConflict: 'urn', ignoreDuplicates: true });
+        
+        console.log(`🚀 Background: Queued batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(qualifiedPosts.length / BATCH_SIZE)}`);
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      console.log(`✅ Background task completed: ${qualifiedPosts.length} posts queued`);
+      
+      // Déclencher le traitement OpenAI avec délai
+      setTimeout(async () => {
+        try {
+          await supabaseClient.functions.invoke('processing-queue-manager', {
+            body: { action: 'queue_posts', dataset_id: datasetId, timeout_protection: true }
+          });
+        } catch (error) {
+          console.error('❌ Error triggering delayed processing:', error);
+        }
+      }, 5000); // 5 secondes de délai
+      
+    } catch (error) {
+      console.error('❌ Background task error:', error);
+    }
+  };
+
+  // Démarrer la tâche en arrière-plan
+  if ((globalThis as any).EdgeRuntime?.waitUntil) {
+    (globalThis as any).EdgeRuntime.waitUntil(backgroundTask());
+  } else {
+    // Fallback si EdgeRuntime n'est pas disponible
+    backgroundTask().catch(console.error);
+  }
+
+  return new Response(JSON.stringify({ 
+    success: true,
+    message: 'Fast webhook processing started in background',
+    dataset_id: datasetId
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean = false) {
   console.log('📥 Starting OPTIMIZED queuing of pending posts...');
+  
+  const batchLimit = timeoutProtection ? 500 : 1000; // Limite réduite si protection timeout
   
   const { data: pendingPosts, error } = await supabaseClient
     .from('linkedin_posts')
     .select('*')
     .eq('processing_status', 'pending')
     .order('created_at', { ascending: true })
-    .limit(1000); // Augmenté pour traiter plus de posts
+    .limit(batchLimit);
 
   if (error) {
     throw new Error(`Error fetching pending posts: ${error.message}`);
@@ -67,86 +225,91 @@ async function queuePendingPosts(supabaseClient: any) {
 
   console.log(`📊 Found ${pendingPosts.length} pending posts`);
 
-  // 🚀 NOUVELLE STRATÉGIE : Traitement immédiat par GROS batches
-  const MEGA_BATCH_SIZE = 100; // Augmenté de 30 à 100
+  // 🚀 STRATÉGIE ANTI-TIMEOUT : Batches plus petits si protection activée
+  const MEGA_BATCH_SIZE = timeoutProtection ? 50 : 100;
   let queuedCount = 0;
   
-  // Traiter par méga-batches de 100 pour l'étape 1
+  // Traiter par méga-batches plus petits si timeout protection
   for (let i = 0; i < pendingPosts.length; i += MEGA_BATCH_SIZE) {
     const batch = pendingPosts.slice(i, i + MEGA_BATCH_SIZE);
     const batchNumber = Math.floor(i / MEGA_BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE);
     
-    console.log(`🚀 Processing MEGA batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
+    console.log(`🚀 Processing ${timeoutProtection ? 'PROTECTED' : 'MEGA'} batch ${batchNumber}/${totalBatches} (${batch.length} posts)`);
     
     try {
-      // Déclencher le traitement en mode méga-batch sans attendre
-      supabaseClient.functions.invoke('specialized-openai-worker', {
+      // Déclencher le traitement en mode batch
+      const workerPromise = supabaseClient.functions.invoke('specialized-openai-worker', {
         body: { 
           post_ids: batch.map(p => p.id),
           dataset_id: batch[0]?.apify_dataset_id,
           step: 'step1',
           batch_mode: true,
-          mega_batch: true // Nouveau paramètre pour indiquer un méga-batch
+          timeout_protection: timeoutProtection
         }
-      }).catch((err: any) => {
-        console.error(`⚠️ Error triggering OpenAI mega batch ${batchNumber}:`, err);
       });
+
+      if (timeoutProtection) {
+        // En mode protection, ne pas attendre la réponse
+        workerPromise.catch((err: any) => {
+          console.error(`⚠️ Error triggering protected batch ${batchNumber}:`, err);
+        });
+      } else {
+        // En mode normal, attendre
+        await workerPromise;
+      }
 
       queuedCount += batch.length;
       
-      // Pause très courte entre les méga-batches
+      // Pause adaptée au mode
       if (i + MEGA_BATCH_SIZE < pendingPosts.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, timeoutProtection ? 200 : 100));
       }
       
     } catch (error) {
-      console.error(`❌ Error queuing mega batch ${batchNumber}:`, error);
+      console.error(`❌ Error queuing batch ${batchNumber}:`, error);
     }
   }
 
-  // 🔥 DÉCLENCHEMENT EN CASCADE : Lancer immédiatement les autres étapes
-  console.log('🔥 Triggering CASCADE processing for all steps...');
-  
-  // Délai de 5 secondes pour laisser le step1 commencer
-  setTimeout(() => {
-    // Step 2
-    supabaseClient.functions.invoke('processing-queue-manager', {
-      body: { action: 'process_next_batch', task_type: 'openai_step2' }
-    }).catch(() => {});
+  // 🔥 DÉCLENCHEMENT EN CASCADE ADAPTATIF
+  if (!timeoutProtection) {
+    console.log('🔥 Triggering CASCADE processing for all steps...');
     
-    // Step 3
+    // Délais adaptés pour éviter les conflits
+    setTimeout(() => {
+      supabaseClient.functions.invoke('processing-queue-manager', {
+        body: { action: 'process_next_batch', task_type: 'openai_step2' }
+      }).catch(() => {});
+    }, 10000); // 10 secondes
+    
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'openai_step3' }
       }).catch(() => {});
-    }, 2000);
+    }, 20000); // 20 secondes
     
-    // Unipile scraping
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'unipile_scraping' }
       }).catch(() => {});
-    }, 4000);
+    }, 30000); // 30 secondes
     
-    // Lead creation
     setTimeout(() => {
       supabaseClient.functions.invoke('processing-queue-manager', {
         body: { action: 'process_next_batch', task_type: 'lead_creation' }
       }).catch(() => {});
-    }, 6000);
-    
-  }, 5000);
+    }, 40000); // 40 secondes
+  }
 
-  console.log(`✅ OPTIMIZED queuing: ${queuedCount} posts queued in ${Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE)} mega-batches`);
-  console.log(`🔥 CASCADE processing triggered for all steps`);
+  console.log(`✅ ${timeoutProtection ? 'PROTECTED' : 'OPTIMIZED'} queuing: ${queuedCount} posts queued in ${Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE)} batches`);
   
   return new Response(JSON.stringify({ 
     success: true, 
     queued_count: queuedCount,
     total_pending: pendingPosts.length,
-    mega_batch_count: Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE),
-    cascade_triggered: true
+    batch_count: Math.ceil(pendingPosts.length / MEGA_BATCH_SIZE),
+    timeout_protection: timeoutProtection,
+    cascade_triggered: !timeoutProtection
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
