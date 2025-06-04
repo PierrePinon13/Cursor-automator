@@ -8,6 +8,8 @@ import { useDatasetProcessingStats } from '@/hooks/useDatasetProcessingStats';
 import ProcessingStatsChart from './ProcessingStatsChart';
 import ProcessingStatsTable from './ProcessingStatsTable';
 import { DisplayModeSelector } from '@/components/dashboard/DisplayModeSelector';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type TimePeriod = '24h' | '7d' | '30d' | 'all';
 type ViewMode = 'global' | 'evolution';
@@ -17,14 +19,16 @@ const ProcessingStatsSection = () => {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('7d');
   const [viewMode, setViewMode] = useState<ViewMode>('global');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('stats');
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | undefined>(undefined);
 
   const { 
     globalStats, 
     evolutionData, 
+    datasetHistory,
     datasetsList, 
     loading, 
     refetch 
-  } = useDatasetProcessingStats(timePeriod, viewMode);
+  } = useDatasetProcessingStats(timePeriod, viewMode, selectedDatasetId);
 
   const timeOptions = [
     { value: '24h', label: '24h' },
@@ -48,11 +52,36 @@ const ProcessingStatsSection = () => {
     datasets_processed: 0
   });
 
+  const handleDatasetSelect = (datasetId: string) => {
+    if (datasetId === 'all') {
+      setSelectedDatasetId(undefined);
+    } else {
+      setSelectedDatasetId(datasetId);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h3 className="text-lg font-semibold">Statistiques d'exécutions</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Select 
+            value={selectedDatasetId || 'all'} 
+            onValueChange={handleDatasetSelect}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Sélectionner un dataset" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les datasets</SelectItem>
+              {datasetsList.map((datasetId) => (
+                <SelectItem key={datasetId} value={datasetId}>
+                  {datasetId.substring(0, 12)}...
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select 
             value={timePeriod} 
             onValueChange={(value: TimePeriod) => setTimePeriod(value)}
@@ -163,28 +192,67 @@ const ProcessingStatsSection = () => {
         />
       )}
 
-      {/* Info sur les datasets disponibles */}
-      {datasetsList.length > 0 && (
+      {/* Historique des datasets */}
+      {!selectedDatasetId && datasetHistory.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Datasets traités récemment</CardTitle>
+            <CardTitle>Historique des datasets traités</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {datasetsList.slice(0, 10).map((datasetId) => (
-                <span 
-                  key={datasetId}
-                  className="text-xs bg-gray-100 px-2 py-1 rounded font-mono"
-                >
-                  {datasetId.substring(0, 8)}...
-                </span>
-              ))}
-              {datasetsList.length > 10 && (
-                <span className="text-xs text-gray-500">
-                  +{datasetsList.length - 10} autres
-                </span>
-              )}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Dataset ID</TableHead>
+                  <TableHead>Date traitement</TableHead>
+                  <TableHead>Records reçus</TableHead>
+                  <TableHead>Posts raw</TableHead>
+                  <TableHead>Posts filtrés</TableHead>
+                  <TableHead>Leads créés</TableHead>
+                  <TableHead>Taux conversion</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {datasetHistory.map((dataset) => {
+                  const conversionRate = dataset.total_records > 0 
+                    ? ((dataset.leads_created / dataset.total_records) * 100).toFixed(1)
+                    : '0';
+                  
+                  return (
+                    <TableRow 
+                      key={dataset.dataset_id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleDatasetSelect(dataset.dataset_id)}
+                    >
+                      <TableCell className="font-mono text-xs">
+                        <Button variant="link" className="p-0 h-auto font-mono text-xs">
+                          {dataset.dataset_id.substring(0, 12)}...
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(dataset.processing_date).toLocaleDateString('fr-FR')}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {dataset.total_records.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-blue-600">
+                        {dataset.raw_posts_stored.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-green-600">
+                        {dataset.posts_stored.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-purple-600 font-medium">
+                        {dataset.leads_created.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={parseFloat(conversionRate) > 5 ? "default" : "secondary"}>
+                          {conversionRate}%
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
