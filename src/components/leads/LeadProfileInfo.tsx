@@ -25,49 +25,46 @@ const LeadProfileInfo = ({ lead }: LeadProfileInfoProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-gray-500">Nom complet</label>
-            <p className="text-sm text-gray-900">{lead.full_name || 'Non renseigné'}</p>
+            <p className="text-sm text-gray-900">{lead.author_name || 'Non renseigné'}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-500">Titre du poste</label>
-            <p className="text-sm text-gray-900">{lead.job_title || 'Non renseigné'}</p>
+            <p className="text-sm text-gray-900">{lead.unipile_position || 'Non renseigné'}</p>
           </div>
         </div>
 
         {/* Entreprise actuelle */}
-        {lead.current_company_name && (
+        {lead.unipile_company && (
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-500 flex items-center gap-1">
               <Building2 className="h-4 w-4" />
               Entreprise actuelle
             </label>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">{lead.current_company_name}</Badge>
+              <Badge variant="outline">{lead.unipile_company}</Badge>
               {lead.is_client_lead && (
                 <Badge className="bg-blue-100 text-blue-800">Client</Badge>
-              )}
-              {lead.is_hr_provider_lead && (
-                <Badge className="bg-purple-100 text-purple-800">Prestataire RH</Badge>
               )}
             </div>
           </div>
         )}
 
         {/* Localisation */}
-        {lead.location && (
+        {lead.openai_step2_localisation && (
           <div>
             <label className="text-sm font-medium text-gray-500 flex items-center gap-1">
               <MapPin className="h-4 w-4" />
               Localisation
             </label>
-            <p className="text-sm text-gray-900">{lead.location}</p>
+            <p className="text-sm text-gray-900">{lead.openai_step2_localisation}</p>
           </div>
         )}
 
         {/* Catégorie */}
-        {lead.job_category && (
+        {lead.openai_step3_categorie && (
           <div>
             <label className="text-sm font-medium text-gray-500">Catégorie</label>
-            <Badge variant="secondary">{lead.job_category}</Badge>
+            <Badge variant="secondary">{lead.openai_step3_categorie}</Badge>
           </div>
         )}
 

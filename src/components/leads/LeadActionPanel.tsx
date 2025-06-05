@@ -39,17 +39,6 @@ const LeadActionPanel = ({
           <CardTitle className="text-lg">Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Statut du lead */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-500">Statut</label>
-            <Badge 
-              variant={lead.status === 'new' ? 'default' : 'secondary'}
-              className="w-fit"
-            >
-              {lead.status || 'Nouveau'}
-            </Badge>
-          </div>
-
           {/* Message d'approche */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-500">
@@ -115,11 +104,11 @@ const LeadActionPanel = ({
             </div>
           )}
 
-          {lead.last_contacted_at && (
+          {lead.last_contact_at && (
             <div className="p-3 bg-blue-50 rounded-lg">
               <label className="text-sm font-medium text-blue-800">Dernier contact</label>
               <p className="text-sm text-blue-700">
-                {new Date(lead.last_contacted_at).toLocaleDateString('fr-FR')}
+                {new Date(lead.last_contact_at).toLocaleDateString('fr-FR')}
               </p>
             </div>
           )}

@@ -10,7 +10,7 @@ interface LeadPostContentProps {
 }
 
 const LeadPostContent = ({ lead }: LeadPostContentProps) => {
-  if (!lead.post_content) {
+  if (!lead.text) {
     return null;
   }
 
@@ -22,13 +22,13 @@ const LeadPostContent = ({ lead }: LeadPostContentProps) => {
       <CardContent>
         <div className="prose prose-sm max-w-none">
           <p className="whitespace-pre-wrap text-gray-700">
-            {lead.post_content}
+            {lead.text}
           </p>
         </div>
-        {lead.post_url && (
+        {lead.url && (
           <div className="mt-4">
             <a 
-              href={lead.post_url} 
+              href={lead.url} 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-800 text-sm underline"
