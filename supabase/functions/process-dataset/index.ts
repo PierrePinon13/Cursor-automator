@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Process Dataset - NEW BATCH PIPELINE VERSION')
+    console.log('🔄 Process Dataset - FIXED DUPLICATE HANDLING VERSION')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -123,55 +123,23 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 3: Vérification complète des doublons existants
-    console.log('🔍 Checking for existing URNs in linkedin_posts_raw...')
+    // ✅ PHASE 3: Déduplication interne uniquement (pas de vérification en base)
+    console.log('🔍 Internal deduplication only...')
     
-    const incomingUrns = allItems.map(item => item.urn).filter(Boolean)
-    console.log(`📊 Checking ${incomingUrns.length} URNs for duplicates...`)
-
-    let existingUrns = new Set()
-    if (incomingUrns.length > 0) {
-      // Vérifier TOUS les URNs en une seule fois pour éviter les problèmes de concurrence
-      const BATCH_SIZE = 1000
-      for (let i = 0; i < incomingUrns.length; i += BATCH_SIZE) {
-        const batch = incomingUrns.slice(i, i + BATCH_SIZE)
-        
-        try {
-          const { data: existingPosts } = await supabaseClient
-            .from('linkedin_posts_raw')
-            .select('urn')
-            .in('urn', batch)
-
-          if (existingPosts) {
-            existingPosts.forEach(post => existingUrns.add(post.urn))
-          }
-        } catch (error) {
-          console.error(`❌ Error checking URNs batch ${i}-${i + batch.length}:`, error?.message)
-        }
-      }
-    }
-
-    console.log(`🔍 Found ${existingUrns.size} existing URNs out of ${incomingUrns.length}`)
-
-    // ✅ PHASE 4: Filtrer les nouveaux items et déduplication interne
-    let newItems = allItems.filter(item => !existingUrns.has(item.urn))
-    console.log(`📊 ${newItems.length} new items after existing duplicates removal`)
-
-    // Déduplication interne (au cas où il y aurait des doublons dans le dataset Apify)
     const seenUrns = new Set()
-    newItems = newItems.filter(item => {
-      if (seenUrns.has(item.urn)) {
+    const uniqueItems = allItems.filter(item => {
+      if (!item.urn || seenUrns.has(item.urn)) {
         return false
       }
       seenUrns.add(item.urn)
       return true
     })
-    console.log(`📊 ${newItems.length} items after internal deduplication`)
+    
+    console.log(`📊 After internal deduplication: ${uniqueItems.length} unique items (${allItems.length - uniqueItems.length} internal duplicates removed)`)
 
-    if (newItems.length === 0) {
-      console.log('✅ No new items to process - all were duplicates')
+    if (uniqueItems.length === 0) {
+      console.log('✅ No valid unique items to process')
       
-      // Démarrer quand même le pipeline pour traiter les données existantes non traitées
       try {
         const { error: pipelineError } = await supabaseClient.functions.invoke('batch-pipeline-orchestrator', {
           body: { 
@@ -183,7 +151,7 @@ serve(async (req) => {
         if (pipelineError) {
           console.error('❌ Pipeline start failed:', pipelineError)
         } else {
-          console.log('✅ Batch pipeline started for existing unprocessed data')
+          console.log('✅ Batch pipeline started for existing data')
         }
       } catch (pipelineError) {
         console.error('❌ Error starting pipeline:', pipelineError?.message)
@@ -191,20 +159,20 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ 
         success: true,
-        message: 'All items were duplicates, but pipeline started for existing unprocessed data',
+        message: 'No valid unique items, but pipeline started for existing data',
         dataset_id: datasetId,
         total_received: allItems.length,
-        duplicates_skipped: allItems.length,
+        internal_duplicates_removed: allItems.length - uniqueItems.length,
         new_items_stored: 0
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // ✅ PHASE 5: Insertion sécurisée avec gestion des conflits
-    console.log(`💾 Storing ${newItems.length} new items in linkedin_posts_raw...`)
+    // ✅ PHASE 4: Insertion avec ON CONFLICT DO NOTHING (solution atomique)
+    console.log(`💾 Storing ${uniqueItems.length} items using conflict-safe insertion...`)
     
-    const rawPostsToInsert = newItems.map(item => ({
+    const rawPostsToInsert = uniqueItems.map(item => ({
       apify_dataset_id: datasetId,
       urn: item.urn,
       text: item.text,
@@ -222,37 +190,45 @@ serve(async (req) => {
       raw_data: item
     }))
 
-    let storedRawCount = 0
-    const STORAGE_BATCH_SIZE = 100 // Réduire la taille des batches pour éviter les conflits
+    let totalInserted = 0
+    const BATCH_SIZE = 50 // Taille réduite pour plus de fiabilité
 
-    for (let i = 0; i < rawPostsToInsert.length; i += STORAGE_BATCH_SIZE) {
-      const batch = rawPostsToInsert.slice(i, i + STORAGE_BATCH_SIZE)
+    for (let i = 0; i < rawPostsToInsert.length; i += BATCH_SIZE) {
+      const batch = rawPostsToInsert.slice(i, i + BATCH_SIZE)
       
       try {
-        // Utiliser upsert avec ignoreDuplicates pour gérer les conflits
-        const { error: insertError, count } = await supabaseClient
-          .from('linkedin_posts_raw')
-          .upsert(batch, { 
-            onConflict: 'urn',
-            ignoreDuplicates: true,
-            count: 'exact'
-          })
+        // Utilisation d'une requête SQL native avec ON CONFLICT DO NOTHING
+        const values = batch.map(item => 
+          `('${datasetId}', '${item.urn}', ${item.text ? `'${item.text.replace(/'/g, "''")}'` : 'NULL'}, ${item.title ? `'${item.title.replace(/'/g, "''")}'` : 'NULL'}, '${item.url}', ${item.posted_at_iso ? `'${item.posted_at_iso}'` : 'NULL'}, ${item.posted_at_timestamp || 'NULL'}, ${item.author_type ? `'${item.author_type}'` : 'NULL'}, ${item.author_profile_url ? `'${item.author_profile_url}'` : 'NULL'}, ${item.author_profile_id ? `'${item.author_profile_id}'` : 'NULL'}, ${item.author_name ? `'${item.author_name.replace(/'/g, "''")}'` : 'NULL'}, ${item.author_headline ? `'${item.author_headline.replace(/'/g, "''")}'` : 'NULL'}, ${item.is_repost}, false, '${JSON.stringify(item.raw_data).replace(/'/g, "''")}')`
+        ).join(',')
+
+        const insertQuery = `
+          INSERT INTO linkedin_posts_raw (
+            apify_dataset_id, urn, text, title, url, posted_at_iso, posted_at_timestamp,
+            author_type, author_profile_url, author_profile_id, author_name, author_headline,
+            is_repost, processed, raw_data
+          ) VALUES ${values}
+          ON CONFLICT (urn) DO NOTHING
+        `
+
+        const { error: insertError } = await supabaseClient.rpc('execute_sql', { query: insertQuery })
 
         if (insertError) {
           console.error(`❌ Error inserting batch ${i}-${i + batch.length}:`, insertError.message)
+          // Continue with next batch instead of failing completely
         } else {
-          const insertedCount = count || 0
-          storedRawCount += insertedCount
-          console.log(`✅ Stored batch ${i}-${i + batch.length} (${insertedCount} new, ${storedRawCount}/${rawPostsToInsert.length} total)`)
+          console.log(`✅ Batch ${i}-${i + batch.length} processed successfully (conflicts ignored)`)
+          totalInserted += batch.length
         }
       } catch (error) {
         console.error(`❌ Batch insert error:`, error?.message)
+        // Continue with next batch
       }
     }
 
-    console.log(`💾 Stored ${storedRawCount} new raw posts (duplicates safely ignored)`)
+    console.log(`💾 Processing completed. ${totalInserted} items processed (duplicates safely ignored)`)
 
-    // ✅ PHASE 6: Démarrage du pipeline par batches
+    // ✅ PHASE 5: Démarrage du pipeline par batches
     console.log('🚀 Starting batch processing pipeline...')
     
     try {
@@ -280,9 +256,9 @@ serve(async (req) => {
       webhook_triggered,
       cleaned_existing: cleanedCount,
       total_received: allItems.length,
-      duplicates_skipped: allItems.length - newItems.length,
-      stored_raw: storedRawCount,
-      pipeline_version: 'batch_pipeline_v2_improved',
+      internal_duplicates_removed: allItems.length - uniqueItems.length,
+      items_processed: totalInserted,
+      pipeline_version: 'conflict_safe_v1',
       completed_at: new Date().toISOString()
     }
 
@@ -294,24 +270,22 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 NEW BATCH PIPELINE: Dataset processing completed successfully')
+    console.log('🎉 CONFLICT-SAFE PIPELINE: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'batch_pipeline_dataset_processing',
+      action: 'conflict_safe_dataset_processing',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'batch_pipeline_v2_improved',
-      message: `Dataset ${datasetId} processed with improved batch pipeline. ${storedRawCount} new items stored and pipeline started.`,
-      enhancements: [
-        'Full batch processing pipeline',
-        'Natural filtering at each step',
-        'Efficient rate limiting',
-        'Sequential step triggering',
-        'Complete data flow redesign',
-        'Improved duplicate detection and handling',
-        'Safe upsert with conflict resolution',
-        'Reduced batch sizes for stability'
+      pipeline_version: 'conflict_safe_v1',
+      message: `Dataset ${datasetId} processed with conflict-safe insertion. ${totalInserted} items processed and pipeline started.`,
+      improvements: [
+        'ON CONFLICT DO NOTHING for atomic duplicate handling',
+        'Eliminated pre-insertion duplicate checking',
+        'Smaller batch sizes for reliability',
+        'Continue processing even if some batches fail',
+        'Internal deduplication only',
+        'SQL-native conflict resolution'
       ]
     }), { 
       status: 200,
@@ -319,11 +293,11 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in batch pipeline process-dataset:', error?.message)
+    console.error('❌ Error in conflict-safe process-dataset:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'batch_pipeline_v2_improved'
+      pipeline_version: 'conflict_safe_v1'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
