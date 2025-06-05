@@ -173,19 +173,44 @@ export async function updatePostWithCorrelation(
   correlationId: string,
   updates: any
 ) {
-  const finalUpdates = {
-    ...updates,
-    correlation_id: correlationId,
-    last_updated_at: new Date().toISOString()
-  };
+  try {
+    const finalUpdates = {
+      ...updates,
+      correlation_id: correlationId,
+      last_updated_at: new Date().toISOString()
+    };
 
-  const { error } = await supabaseClient
-    .from('linkedin_posts')
-    .update(finalUpdates)
-    .eq('id', postId);
+    const { error } = await supabaseClient
+      .from('linkedin_posts')
+      .update(finalUpdates)
+      .eq('id', postId);
 
-  if (error) {
-    console.error(`[${correlationId}] Failed to update post ${postId}:`, error);
+    if (error) {
+      console.error(`[${correlationId}] Failed to update post ${postId}:`, error);
+      // ✅ CORRECTION CRITIQUE : Ne pas throw si c'est juste un problème de logging
+      // Le traitement principal doit continuer même si le logging échoue
+      if (error.code === 'PGRST204' || error.message.includes('correlation_id')) {
+        console.warn(`[${correlationId}] Correlation logging failed, but continuing processing for post ${postId}`);
+        
+        // Essayer sans correlation_id en fallback
+        const fallbackUpdates = { ...updates, last_updated_at: new Date().toISOString() };
+        const { error: fallbackError } = await supabaseClient
+          .from('linkedin_posts')
+          .update(fallbackUpdates)
+          .eq('id', postId);
+        
+        if (fallbackError) {
+          console.error(`[${correlationId}] Fallback update also failed for post ${postId}:`, fallbackError);
+          throw fallbackError;
+        } else {
+          console.info(`[${correlationId}] Fallback update successful for post ${postId}`);
+        }
+      } else {
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error(`[${correlationId}] Critical error updating post ${postId}:`, error);
     throw error;
   }
 }
@@ -199,10 +224,31 @@ export async function handleWorkerError(
 ) {
   console.error(`[${correlationId}] [${step}] [${postId}] Worker error:`, error);
   
-  await updatePostWithCorrelation(supabaseClient, postId, correlationId, {
-    processing_status: 'error',
-    retry_count: supabaseClient.rpc('increment', { x: 1 }),
-    last_retry_at: new Date().toISOString(),
-    error_details: error.message || error.toString()
-  });
+  try {
+    await updatePostWithCorrelation(supabaseClient, postId, correlationId, {
+      processing_status: 'error',
+      retry_count: supabaseClient.rpc('increment', { x: 1 }),
+      last_retry_at: new Date().toISOString(),
+      error_details: error.message || error.toString()
+    });
+  } catch (updateError) {
+    console.error(`[${correlationId}] Failed to update error status for post ${postId}:`, updateError);
+    
+    // ✅ FALLBACK CRITIQUE : Essayer une mise à jour minimale en cas d'échec
+    try {
+      const { error: minimalError } = await supabaseClient
+        .from('linkedin_posts')
+        .update({ 
+          processing_status: 'error',
+          last_updated_at: new Date().toISOString() 
+        })
+        .eq('id', postId);
+      
+      if (minimalError) {
+        console.error(`[${correlationId}] Even minimal error update failed for post ${postId}:`, minimalError);
+      }
+    } catch (criticalError) {
+      console.error(`[${correlationId}] Critical error handling failed for post ${postId}:`, criticalError);
+    }
+  }
 }

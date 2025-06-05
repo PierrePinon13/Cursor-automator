@@ -1275,6 +1275,7 @@ export type Database = {
           author_type: string
           company_scraping_status: string | null
           company_verified_at: string | null
+          correlation_id: string | null
           created_at: string | null
           id: string
           is_client_lead: boolean | null
@@ -1333,6 +1334,7 @@ export type Database = {
           author_type: string
           company_scraping_status?: string | null
           company_verified_at?: string | null
+          correlation_id?: string | null
           created_at?: string | null
           id?: string
           is_client_lead?: boolean | null
@@ -1391,6 +1393,7 @@ export type Database = {
           author_type?: string
           company_scraping_status?: string | null
           company_verified_at?: string | null
+          correlation_id?: string | null
           created_at?: string | null
           id?: string
           is_client_lead?: boolean | null
