@@ -123,10 +123,77 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 3: Stockage en masse dans linkedin_posts_raw
-    console.log('💾 Storing items in linkedin_posts_raw...')
+    // ✅ PHASE 3: Vérifier les doublons existants dans linkedin_posts_raw
+    console.log('🔍 Checking for existing URNs in linkedin_posts_raw...')
     
-    const rawPostsToInsert = allItems.map(item => ({
+    const incomingUrns = allItems.map(item => item.urn).filter(Boolean)
+    console.log(`📊 Checking ${incomingUrns.length} URNs for duplicates...`)
+
+    let existingUrns = new Set()
+    if (incomingUrns.length > 0) {
+      // Vérifier les URNs par batches pour éviter les requêtes trop longues
+      const BATCH_SIZE = 1000
+      for (let i = 0; i < incomingUrns.length; i += BATCH_SIZE) {
+        const batch = incomingUrns.slice(i, i + BATCH_SIZE)
+        
+        try {
+          const { data: existingPosts } = await supabaseClient
+            .from('linkedin_posts_raw')
+            .select('urn')
+            .in('urn', batch)
+
+          if (existingPosts) {
+            existingPosts.forEach(post => existingUrns.add(post.urn))
+          }
+        } catch (error) {
+          console.error(`❌ Error checking URNs batch ${i}-${i + batch.length}:`, error?.message)
+        }
+      }
+    }
+
+    console.log(`🔍 Found ${existingUrns.size} existing URNs out of ${incomingUrns.length}`)
+
+    // ✅ PHASE 4: Filtrer les nouveaux items seulement
+    const newItems = allItems.filter(item => !existingUrns.has(item.urn))
+    console.log(`📊 ${newItems.length} new items to insert (${allItems.length - newItems.length} duplicates skipped)`)
+
+    if (newItems.length === 0) {
+      console.log('✅ No new items to process - all were duplicates')
+      
+      // Démarrer quand même le pipeline pour traiter les données existantes non traitées
+      try {
+        const { error: pipelineError } = await supabaseClient.functions.invoke('batch-pipeline-orchestrator', {
+          body: { 
+            action: 'start_pipeline',
+            dataset_id: datasetId
+          }
+        })
+
+        if (pipelineError) {
+          console.error('❌ Pipeline start failed:', pipelineError)
+        } else {
+          console.log('✅ Batch pipeline started for existing unprocessed data')
+        }
+      } catch (pipelineError) {
+        console.error('❌ Error starting pipeline:', pipelineError?.message)
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        message: 'All items were duplicates, but pipeline started for existing unprocessed data',
+        dataset_id: datasetId,
+        total_received: allItems.length,
+        duplicates_skipped: allItems.length,
+        new_items_stored: 0
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // ✅ PHASE 5: Stockage en masse des nouveaux items dans linkedin_posts_raw
+    console.log(`💾 Storing ${newItems.length} new items in linkedin_posts_raw...`)
+    
+    const rawPostsToInsert = newItems.map(item => ({
       apify_dataset_id: datasetId,
       urn: item.urn,
       text: item.text,
@@ -140,14 +207,15 @@ serve(async (req) => {
       author_name: item.authorName,
       author_headline: item.authorHeadline,
       is_repost: item.isRepost || false,
+      processed: false,
       raw_data: item
     }))
 
     let storedRawCount = 0
-    const BATCH_SIZE = 500
+    const STORAGE_BATCH_SIZE = 500
 
-    for (let i = 0; i < rawPostsToInsert.length; i += BATCH_SIZE) {
-      const batch = rawPostsToInsert.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < rawPostsToInsert.length; i += STORAGE_BATCH_SIZE) {
+      const batch = rawPostsToInsert.slice(i, i + STORAGE_BATCH_SIZE)
       
       try {
         const { error: insertError } = await supabaseClient
@@ -165,9 +233,9 @@ serve(async (req) => {
       }
     }
 
-    console.log(`💾 Stored ${storedRawCount} raw posts`)
+    console.log(`💾 Stored ${storedRawCount} new raw posts`)
 
-    // ✅ PHASE 4: Démarrage du pipeline par batches
+    // ✅ PHASE 6: Démarrage du pipeline par batches
     console.log('🚀 Starting batch processing pipeline...')
     
     try {
@@ -195,6 +263,7 @@ serve(async (req) => {
       webhook_triggered,
       cleaned_existing: cleanedCount,
       total_received: allItems.length,
+      duplicates_skipped: allItems.length - newItems.length,
       stored_raw: storedRawCount,
       pipeline_version: 'batch_pipeline_v2',
       completed_at: new Date().toISOString()
@@ -216,13 +285,14 @@ serve(async (req) => {
       dataset_id: datasetId,
       statistics: stats,
       pipeline_version: 'batch_pipeline_v2',
-      message: `Dataset ${datasetId} processed with new batch pipeline. ${storedRawCount} items stored and pipeline started.`,
+      message: `Dataset ${datasetId} processed with new batch pipeline. ${storedRawCount} new items stored and pipeline started.`,
       enhancements: [
         'Full batch processing pipeline',
         'Natural filtering at each step',
         'Efficient rate limiting',
         'Sequential step triggering',
-        'Complete data flow redesign'
+        'Complete data flow redesign',
+        'Improved duplicate detection and handling'
       ]
     }), { 
       status: 200,

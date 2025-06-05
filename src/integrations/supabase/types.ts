@@ -1469,6 +1469,7 @@ export type Database = {
           is_repost: boolean | null
           posted_at_iso: string | null
           posted_at_timestamp: number | null
+          processed: boolean | null
           raw_data: Json
           text: string | null
           title: string | null
@@ -1488,6 +1489,7 @@ export type Database = {
           is_repost?: boolean | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
+          processed?: boolean | null
           raw_data: Json
           text?: string | null
           title?: string | null
@@ -1507,6 +1509,7 @@ export type Database = {
           is_repost?: boolean | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
+          processed?: boolean | null
           raw_data?: Json
           text?: string | null
           title?: string | null
