@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AlertTriangle, Clock, CheckCircle, XCircle, RotateCcw, Search } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, XCircle, RotateCcw, Search, RefreshCw, TestTube } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface WorkflowEvent {
   id: string;
   post_id: string;
   correlation_id: string;
-  event_type: string; // Allow any string from database
+  event_type: string;
   step_name: string;
   created_at: string;
   duration_ms?: number;
@@ -35,6 +35,7 @@ const WorkflowEventsMonitoring = () => {
   const [stepMetrics, setStepMetrics] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [searchPostId, setSearchPostId] = useState('');
+  const [totalEvents, setTotalEvents] = useState(0);
   const { toast } = useToast();
 
   const loadWorkflowEvents = async (postId?: string) => {
@@ -46,19 +47,29 @@ const WorkflowEventsMonitoring = () => {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (postId) {
-        query = query.eq('post_id', postId);
+      if (postId && postId.trim()) {
+        query = query.eq('post_id', postId.trim());
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
       setEvents(data || []);
+
+      // Compter le total d'événements
+      const { count, error: countError } = await supabase
+        .from('workflow_events')
+        .select('*', { count: 'exact', head: true });
+
+      if (!countError) {
+        setTotalEvents(count || 0);
+      }
+
     } catch (error) {
       console.error('Error loading workflow events:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de charger les événements workflow",
+        description: `Impossible de charger les événements workflow: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -68,36 +79,96 @@ const WorkflowEventsMonitoring = () => {
 
   const loadBottlenecks = async () => {
     try {
-      // Get bottlenecks via edge function for complex analysis
+      // Essayer d'abord avec l'edge function analytics
       const { data, error } = await supabase.functions.invoke('workflow-analytics', {
         body: { action: 'get_bottlenecks' }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Analytics function error:', error);
+        // Fallback: basic stuck posts detection
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: fallbackData } = await supabase
+          .from('workflow_events')
+          .select('*')
+          .eq('event_type', 'step_started')
+          .lt('created_at', oneHourAgo)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (fallbackData) {
+          const stuck = fallbackData.map(event => ({
+            post_id: event.post_id,
+            stuck_at_step: event.step_name,
+            stuck_since: event.created_at,
+            correlation_id: event.correlation_id
+          }));
+          setStuckPosts(stuck);
+        }
+        return;
+      }
       
       setStuckPosts(data?.stuck_posts || []);
       setStepMetrics(data?.step_metrics || {});
     } catch (error) {
       console.error('Error loading bottlenecks:', error);
-      // Fallback: basic stuck posts detection
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { data } = await supabase
-        .from('workflow_events')
-        .select('*')
-        .eq('event_type', 'step_started')
-        .lt('created_at', oneHourAgo)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      toast({
+        title: "Avertissement",
+        description: "Impossible de charger les métriques avancées, fallback activé",
+        variant: "default"
+      });
+    }
+  };
 
-      if (data) {
-        const stuck = data.map(event => ({
-          post_id: event.post_id,
-          stuck_at_step: event.step_name,
-          stuck_since: event.created_at,
-          correlation_id: event.correlation_id
-        }));
-        setStuckPosts(stuck);
-      }
+  const testWorkflowEvents = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('test-workflow-events', {
+        body: { action: 'test' }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Test réussi",
+        description: `${data.events_inserted} événements de test insérés`,
+        variant: "default"
+      });
+
+      // Recharger les événements
+      await loadWorkflowEvents();
+    } catch (error) {
+      console.error('Error testing workflow events:', error);
+      toast({
+        title: "Erreur de test",
+        description: `Échec du test: ${error.message}`,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkTableStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('test-workflow-events', {
+        body: { action: 'check_table' }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Statut de la table",
+        description: `${data.total_records} enregistrements trouvés. Table accessible: ${data.table_accessible}`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Error checking table:', error);
+      toast({
+        title: "Erreur de vérification",
+        description: `Impossible de vérifier la table: ${error.message}`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -115,11 +186,7 @@ const WorkflowEventsMonitoring = () => {
   }, []);
 
   const handleSearchPost = () => {
-    if (searchPostId.trim()) {
-      loadWorkflowEvents(searchPostId.trim());
-    } else {
-      loadWorkflowEvents();
-    }
+    loadWorkflowEvents(searchPostId);
   };
 
   const getEventIcon = (eventType: string) => {
@@ -154,7 +221,10 @@ const WorkflowEventsMonitoring = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Monitoring Workflow Events</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Monitoring Workflow Events</h2>
+          <p className="text-sm text-gray-600">Total: {totalEvents} événements dans la base</p>
+        </div>
         <div className="flex gap-2">
           <Input
             placeholder="ID du post..."
@@ -165,8 +235,31 @@ const WorkflowEventsMonitoring = () => {
           <Button onClick={handleSearchPost} variant="outline" size="icon">
             <Search className="h-4 w-4" />
           </Button>
+          <Button onClick={() => loadWorkflowEvents()} variant="outline" size="icon">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button onClick={testWorkflowEvents} variant="outline" size="icon">
+            <TestTube className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+
+      {/* Test & Debug Actions */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="text-blue-800">Actions de Diagnostic</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Button onClick={checkTableStatus} variant="outline">
+              Vérifier la Table
+            </Button>
+            <Button onClick={testWorkflowEvents} variant="outline">
+              Tester l'Insertion
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stuck Posts Alert */}
       {stuckPosts.length > 0 && (
@@ -230,7 +323,14 @@ const WorkflowEventsMonitoring = () => {
           {loading ? (
             <div className="text-center py-8">Chargement...</div>
           ) : events.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">Aucun événement trouvé</div>
+            <div className="text-center py-8 text-gray-500">
+              Aucun événement trouvé
+              {totalEvents === 0 && (
+                <div className="mt-2 text-sm">
+                  La table workflow_events semble vide. Utilisez les outils de test ci-dessus.
+                </div>
+              )}
+            </div>
           ) : (
             <div className="space-y-2">
               {events.map((event) => (
@@ -246,6 +346,11 @@ const WorkflowEventsMonitoring = () => {
                       <Badge variant="outline" className="text-xs">
                         {event.event_type.replace('step_', '')}
                       </Badge>
+                      {event.dataset_id && (
+                        <Badge variant="secondary" className="text-xs">
+                          {event.dataset_id.slice(0, 8)}...
+                        </Badge>
+                      )}
                     </div>
                     
                     <div className="text-xs text-gray-500 mt-1">
@@ -257,6 +362,12 @@ const WorkflowEventsMonitoring = () => {
                     {event.error_message && (
                       <div className="text-xs text-red-600 mt-1 truncate">
                         Erreur: {event.error_message}
+                      </div>
+                    )}
+
+                    {event.event_data && (
+                      <div className="text-xs text-gray-400 mt-1 truncate">
+                        Data: {JSON.stringify(event.event_data).substring(0, 100)}...
                       </div>
                     )}
                   </div>

@@ -39,7 +39,7 @@ serve(async (req) => {
         postId: 'BATCH',
         step: 'step1_batch',
         datasetId: cleanDatasetId
-      });
+      }, supabaseClient);
 
       logger.info(`Processing Step 1 BATCH: ${post_ids.length} posts`);
       
@@ -186,7 +186,7 @@ async function processSinglePost(
     postId: post.id,
     step: 'step1',
     datasetId
-  });
+  }, supabaseClient);
 
   const startTime = Date.now();
   

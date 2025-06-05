@@ -10,8 +10,8 @@ export interface CorrelationContext {
 }
 
 export class CorrelationLogger {
-  private context: CorrelationContext;
-  private eventEmitter: WorkflowEventEmitter;
+  public context: CorrelationContext;
+  private eventEmitter?: WorkflowEventEmitter;
 
   constructor(context: CorrelationContext, supabaseClient?: any) {
     this.context = context;
@@ -48,12 +48,16 @@ export class CorrelationLogger {
     
     // Emit workflow event
     if (this.eventEmitter) {
-      await this.eventEmitter.emitStepStarted(
-        this.context.postId,
-        this.context.correlationId,
-        this.mapStepName(this.context.step),
-        { dataset_id: this.context.datasetId, metadata }
-      );
+      try {
+        await this.eventEmitter.emitStepStarted(
+          this.context.postId,
+          this.context.correlationId,
+          this.mapStepName(this.context.step),
+          { dataset_id: this.context.datasetId, metadata }
+        );
+      } catch (error) {
+        console.error('Failed to emit step started event:', error);
+      }
     }
   }
 
@@ -65,13 +69,17 @@ export class CorrelationLogger {
 
     // Emit workflow event
     if (this.eventEmitter && duration) {
-      await this.eventEmitter.emitStepCompleted(
-        this.context.postId,
-        this.context.correlationId,
-        this.mapStepName(this.context.step),
-        duration,
-        this.summarizeResult(result)
-      );
+      try {
+        await this.eventEmitter.emitStepCompleted(
+          this.context.postId,
+          this.context.correlationId,
+          this.mapStepName(this.context.step),
+          duration,
+          this.summarizeResult(result)
+        );
+      } catch (error) {
+        console.error('Failed to emit step completed event:', error);
+      }
     }
   }
 
@@ -83,13 +91,17 @@ export class CorrelationLogger {
 
     // Emit workflow event
     if (this.eventEmitter && duration) {
-      await this.eventEmitter.emitStepFailed(
-        this.context.postId,
-        this.context.correlationId,
-        this.mapStepName(this.context.step),
-        duration,
-        error
-      );
+      try {
+        await this.eventEmitter.emitStepFailed(
+          this.context.postId,
+          this.context.correlationId,
+          this.mapStepName(this.context.step),
+          duration,
+          error
+        );
+      } catch (error) {
+        console.error('Failed to emit step failed event:', error);
+      }
     }
   }
 
@@ -100,13 +112,17 @@ export class CorrelationLogger {
 
     // Emit workflow event
     if (this.eventEmitter) {
-      await this.eventEmitter.emitStepRetried(
-        this.context.postId,
-        this.context.correlationId,
-        this.mapStepName(this.context.step),
-        retryCount,
-        error
-      );
+      try {
+        await this.eventEmitter.emitStepRetried(
+          this.context.postId,
+          this.context.correlationId,
+          this.mapStepName(this.context.step),
+          retryCount,
+          error
+        );
+      } catch (error) {
+        console.error('Failed to emit step retry event:', error);
+      }
     }
   }
 
