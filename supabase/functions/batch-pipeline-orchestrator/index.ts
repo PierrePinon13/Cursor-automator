@@ -53,18 +53,28 @@ async function startFullPipeline(supabaseClient: any, datasetId: string) {
   
   // Étape 1: Filtrage et mise en queue
   console.log('📥 Step 1: Filter and Queue Posts');
-  const { error: filterError } = await supabaseClient.functions.invoke('filter-and-queue-posts', {
+  
+  const { data: filterResult, error: filterError } = await supabaseClient.functions.invoke('filter-and-queue-posts', {
     body: { dataset_id: datasetId, batch_size: 100 }
   });
 
   if (filterError) {
+    console.error('❌ Filter and queue error details:', filterError);
     throw new Error(`Filter and queue failed: ${filterError.message}`);
   }
+
+  if (!filterResult?.success) {
+    console.error('❌ Filter and queue returned unsuccessful result:', filterResult);
+    throw new Error(`Filter and queue failed: ${filterResult?.error || 'Unknown error'}`);
+  }
+
+  console.log('✅ Filter and queue completed successfully:', filterResult);
 
   return new Response(JSON.stringify({
     success: true,
     action: 'pipeline_started',
     dataset_id: datasetId,
+    filter_result: filterResult,
     message: 'Pipeline started with filter and queue step'
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -142,7 +152,7 @@ async function continuePipeline(supabaseClient: any, datasetId: string) {
       if (functionName) {
         console.log(`🚀 Triggering ${functionName} for dataset: ${datasetId}`);
         
-        const { error } = await supabaseClient.functions.invoke(functionName, {
+        const { data: result, error } = await supabaseClient.functions.invoke(functionName, {
           body: { dataset_id: datasetId, batch_size: batchSize }
         });
 
@@ -150,10 +160,18 @@ async function continuePipeline(supabaseClient: any, datasetId: string) {
           step,
           function: functionName,
           success: !error,
-          error: error?.message
+          error: error?.message,
+          result: result
         });
+
+        if (error) {
+          console.error(`❌ Error triggering ${functionName}:`, error);
+        } else {
+          console.log(`✅ Successfully triggered ${functionName}`);
+        }
       }
     } catch (error) {
+      console.error(`❌ Exception while triggering step ${step}:`, error);
       triggerResults.push({
         step,
         success: false,
