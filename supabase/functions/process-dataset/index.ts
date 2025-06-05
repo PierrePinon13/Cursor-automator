@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Process Dataset - FIXED DUPLICATE HANDLING VERSION')
+    console.log('🔄 Process Dataset - RELIABLE UPSERT VERSION')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -123,8 +123,8 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 3: Déduplication interne uniquement (pas de vérification en base)
-    console.log('🔍 Internal deduplication only...')
+    // ✅ PHASE 3: Déduplication interne
+    console.log('🔍 Internal deduplication...')
     
     const seenUrns = new Set()
     const uniqueItems = allItems.filter(item => {
@@ -169,8 +169,8 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 4: Insertion avec ON CONFLICT DO NOTHING (solution atomique)
-    console.log(`💾 Storing ${uniqueItems.length} items using conflict-safe insertion...`)
+    // ✅ PHASE 4: Insertion avec upsert (gestion automatique des conflits)
+    console.log(`💾 Storing ${uniqueItems.length} items using reliable upsert...`)
     
     const rawPostsToInsert = uniqueItems.map(item => ({
       apify_dataset_id: datasetId,
@@ -190,43 +190,38 @@ serve(async (req) => {
       raw_data: item
     }))
 
-    let totalInserted = 0
-    const BATCH_SIZE = 50 // Taille réduite pour plus de fiabilité
+    let totalProcessed = 0
+    const BATCH_SIZE = 100 // Taille optimisée
 
     for (let i = 0; i < rawPostsToInsert.length; i += BATCH_SIZE) {
       const batch = rawPostsToInsert.slice(i, i + BATCH_SIZE)
       
       try {
-        // Utilisation d'une requête SQL native avec ON CONFLICT DO NOTHING
-        const values = batch.map(item => 
-          `('${datasetId}', '${item.urn}', ${item.text ? `'${item.text.replace(/'/g, "''")}'` : 'NULL'}, ${item.title ? `'${item.title.replace(/'/g, "''")}'` : 'NULL'}, '${item.url}', ${item.posted_at_iso ? `'${item.posted_at_iso}'` : 'NULL'}, ${item.posted_at_timestamp || 'NULL'}, ${item.author_type ? `'${item.author_type}'` : 'NULL'}, ${item.author_profile_url ? `'${item.author_profile_url}'` : 'NULL'}, ${item.author_profile_id ? `'${item.author_profile_id}'` : 'NULL'}, ${item.author_name ? `'${item.author_name.replace(/'/g, "''")}'` : 'NULL'}, ${item.author_headline ? `'${item.author_headline.replace(/'/g, "''")}'` : 'NULL'}, ${item.is_repost}, false, '${JSON.stringify(item.raw_data).replace(/'/g, "''")}')`
-        ).join(',')
-
-        const insertQuery = `
-          INSERT INTO linkedin_posts_raw (
-            apify_dataset_id, urn, text, title, url, posted_at_iso, posted_at_timestamp,
-            author_type, author_profile_url, author_profile_id, author_name, author_headline,
-            is_repost, processed, raw_data
-          ) VALUES ${values}
-          ON CONFLICT (urn) DO NOTHING
-        `
-
-        const { error: insertError } = await supabaseClient.rpc('execute_sql', { query: insertQuery })
+        console.log(`💾 Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(rawPostsToInsert.length/BATCH_SIZE)} (${batch.length} items)`)
+        
+        // Utilisation d'upsert avec ignoreDuplicates pour gérer automatiquement les conflits
+        const { error: insertError, count } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .upsert(batch, { 
+            onConflict: 'urn',
+            ignoreDuplicates: true,
+            count: 'exact'
+          })
 
         if (insertError) {
           console.error(`❌ Error inserting batch ${i}-${i + batch.length}:`, insertError.message)
-          // Continue with next batch instead of failing completely
+          // Continue avec le batch suivant
         } else {
-          console.log(`✅ Batch ${i}-${i + batch.length} processed successfully (conflicts ignored)`)
-          totalInserted += batch.length
+          console.log(`✅ Batch ${i}-${i + batch.length} processed successfully (${count || batch.length} items)`)
+          totalProcessed += batch.length
         }
       } catch (error) {
         console.error(`❌ Batch insert error:`, error?.message)
-        // Continue with next batch
+        // Continue avec le batch suivant
       }
     }
 
-    console.log(`💾 Processing completed. ${totalInserted} items processed (duplicates safely ignored)`)
+    console.log(`💾 Processing completed. ${totalProcessed} items processed successfully`)
 
     // ✅ PHASE 5: Démarrage du pipeline par batches
     console.log('🚀 Starting batch processing pipeline...')
@@ -257,8 +252,8 @@ serve(async (req) => {
       cleaned_existing: cleanedCount,
       total_received: allItems.length,
       internal_duplicates_removed: allItems.length - uniqueItems.length,
-      items_processed: totalInserted,
-      pipeline_version: 'conflict_safe_v1',
+      items_processed: totalProcessed,
+      pipeline_version: 'reliable_upsert_v1',
       completed_at: new Date().toISOString()
     }
 
@@ -270,22 +265,22 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 CONFLICT-SAFE PIPELINE: Dataset processing completed successfully')
+    console.log('🎉 RELIABLE UPSERT PIPELINE: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'conflict_safe_dataset_processing',
+      action: 'reliable_upsert_dataset_processing',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'conflict_safe_v1',
-      message: `Dataset ${datasetId} processed with conflict-safe insertion. ${totalInserted} items processed and pipeline started.`,
+      pipeline_version: 'reliable_upsert_v1',
+      message: `Dataset ${datasetId} processed with reliable upsert. ${totalProcessed} items processed and pipeline started.`,
       improvements: [
-        'ON CONFLICT DO NOTHING for atomic duplicate handling',
-        'Eliminated pre-insertion duplicate checking',
-        'Smaller batch sizes for reliability',
+        'Using Supabase upsert with ignoreDuplicates for reliable conflict handling',
+        'Eliminated custom SQL execution that was causing errors',
+        'Optimized batch size to 100 for better performance',
         'Continue processing even if some batches fail',
-        'Internal deduplication only',
-        'SQL-native conflict resolution'
+        'Internal deduplication before insertion',
+        'Native Supabase conflict resolution'
       ]
     }), { 
       status: 200,
@@ -293,11 +288,11 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in conflict-safe process-dataset:', error?.message)
+    console.error('❌ Error in reliable-upsert process-dataset:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'conflict_safe_v1'
+      pipeline_version: 'reliable_upsert_v1'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
