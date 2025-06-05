@@ -59,7 +59,6 @@ serve(async (req) => {
 async function fastWebhookProcessing(supabaseClient: any, datasetId: string, apifyApiKey: string, forceAll: boolean) {
   console.log('⚡ FAST WEBHOOK PROCESSING: Starting background task to avoid timeout');
   
-  // Lancer le traitement en arrière-plan avec EdgeRuntime.waitUntil pour éviter les timeouts
   const backgroundTask = async () => {
     try {
       console.log('🔄 Background task: Starting full dataset processing...');
@@ -93,7 +92,6 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
         
         if (items.length < limit) break;
         
-        // Petite pause pour éviter la surcharge
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
@@ -183,13 +181,36 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
       
       console.log(`✅ Background task completed: ${insertedPosts.length} posts queued`);
       
-      // ✅ CORRECTION MAJEURE : Utiliser les IDs réels des posts insérés
+      // ✅ CORRECTION MAJEURE : Attendre un peu puis déclencher le traitement avec les vrais IDs
       if (insertedPosts.length > 0) {
         console.log('🚀 Triggering OpenAI Step 1 worker directly...');
         
+        // Attendre 2 secondes pour s'assurer que les posts sont bien insérés
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Récupérer les posts pending pour ce dataset pour avoir les vrais IDs
+        const { data: pendingPosts, error: fetchError } = await supabaseClient
+          .from('linkedin_posts')
+          .select('id')
+          .eq('apify_dataset_id', datasetId)
+          .eq('processing_status', 'pending')
+          .order('created_at', { ascending: true });
+        
+        if (fetchError) {
+          console.error('❌ Error fetching pending posts:', fetchError);
+          return;
+        }
+        
+        if (!pendingPosts || pendingPosts.length === 0) {
+          console.log('ℹ️ No pending posts found for dataset:', datasetId);
+          return;
+        }
+        
+        console.log(`📋 Found ${pendingPosts.length} pending posts to process`);
+        
         // Grouper les posts par batches optimales pour le worker
         const WORKER_BATCH_SIZE = 50;
-        const realPostIds = insertedPosts.map(p => p.id).filter(id => id); // Filtrer les IDs valides
+        const realPostIds = pendingPosts.map(p => p.id).filter(id => id);
         
         for (let i = 0; i < realPostIds.length; i += WORKER_BATCH_SIZE) {
           const batchIds = realPostIds.slice(i, i + WORKER_BATCH_SIZE);
@@ -198,12 +219,12 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
           
           try {
             console.log(`📤 Invoking openai-step1-worker for batch ${batchNumber}/${totalBatches} (${batchIds.length} posts)`);
+            console.log(`🔍 First 3 post IDs in batch: ${batchIds.slice(0, 3).join(', ')}`);
             
-            // ✅ Invocation directe du worker Step 1 avec dataset_id correct
             const workerResponse = await supabaseClient.functions.invoke('openai-step1-worker', {
               body: { 
                 post_ids: batchIds,
-                dataset_id: datasetId || null, // ✅ Correction : s'assurer que ce n'est pas la chaîne "null"
+                dataset_id: datasetId,
                 batch_mode: true,
                 timeout_protection: true,
                 workflow_enabled: true
@@ -212,7 +233,6 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
             
             console.log(`✅ OpenAI Step 1 worker batch ${batchNumber} triggered:`, workerResponse.data?.success ? 'SUCCESS' : 'PENDING');
             
-            // Pause entre les batches pour éviter la surcharge
             if (i + WORKER_BATCH_SIZE < realPostIds.length) {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
@@ -234,7 +254,6 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
   if ((globalThis as any).EdgeRuntime?.waitUntil) {
     (globalThis as any).EdgeRuntime.waitUntil(backgroundTask());
   } else {
-    // Fallback si EdgeRuntime n'est pas disponible
     backgroundTask().catch(console.error);
   }
 
@@ -336,12 +355,27 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
         
         try {
           console.log(`📤 Invoking openai-step1-worker for batch ${batchNumber}...`);
-          console.log(`📋 Post IDs in batch: ${batch.map(p => p.id).slice(0, 5).join(', ')}${batch.length > 5 ? '...' : ''}`);
+          
+          // ✅ VALIDATION CRITIQUE : Vérifier que tous les IDs sont des UUIDs valides
+          const validPostIds = batch
+            .map(p => p.id)
+            .filter(id => {
+              if (!id || typeof id !== 'string') return false;
+              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              return uuidRegex.test(id);
+            });
+
+          if (validPostIds.length === 0) {
+            console.error(`❌ No valid post IDs in batch ${batchNumber}`);
+            continue;
+          }
+
+          console.log(`📋 Valid post IDs in batch: ${validPostIds.slice(0, 5).join(', ')}${validPostIds.length > 5 ? '...' : ''}`);
           
           const workerPromise = supabaseClient.functions.invoke('openai-step1-worker', {
             body: { 
-              post_ids: batch.map(p => p.id),
-              dataset_id: datasetId || null, // ✅ Correction : s'assurer que ce n'est pas la chaîne "null"
+              post_ids: validPostIds,
+              dataset_id: datasetId || null,
               batch_mode: true,
               timeout_protection: timeoutProtection,
               workflow_enabled: true
@@ -385,10 +419,25 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
     
     try {
       console.log(`📤 Invoking openai-step1-worker for immediate batch ${batchNumber}...`);
+      
+      // ✅ VALIDATION CRITIQUE : Vérifier que tous les IDs sont des UUIDs valides
+      const validPostIds = batch
+        .map(p => p.id)
+        .filter(id => {
+          if (!id || typeof id !== 'string') return false;
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          return uuidRegex.test(id);
+        });
+
+      if (validPostIds.length === 0) {
+        console.error(`❌ No valid post IDs in immediate batch ${batchNumber}`);
+        continue;
+      }
+
       const response = await supabaseClient.functions.invoke('openai-step1-worker', {
         body: { 
-          post_ids: batch.map(p => p.id),
-          dataset_id: batch[0]?.apify_dataset_id || null, // ✅ Correction : gérer les dataset_id nuls
+          post_ids: validPostIds,
+          dataset_id: batch[0]?.apify_dataset_id || null,
           batch_mode: true,
           timeout_protection: true,
           workflow_enabled: true
@@ -396,7 +445,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
       });
 
       console.log(`✅ Immediate batch ${batchNumber} response:`, response.data || response);
-      queuedCount += batch.length;
+      queuedCount += validPostIds.length;
       
     } catch (error) {
       console.error(`❌ Error queuing immediate batch ${batchNumber}:`, error);
@@ -486,7 +535,7 @@ async function processNextBatch(supabaseClient: any, taskType: string, datasetId
         await supabaseClient.functions.invoke(workerName, {
           body: { 
             post_ids: posts.map(p => p.id),
-            dataset_id: posts[0]?.apify_dataset_id || null, // ✅ Correction : gérer les dataset_id nuls
+            dataset_id: posts[0]?.apify_dataset_id || null,
             batch_mode: true,
             mega_batch: true,
             workflow_enabled: true
@@ -621,7 +670,7 @@ async function triggerSpecializedWorker(supabaseClient: any, taskType: string, p
   await supabaseClient.functions.invoke(workerName, {
     body: { 
       post_id: post.id, 
-      dataset_id: post.apify_dataset_id || null, // ✅ Correction : gérer les dataset_id nuls
+      dataset_id: post.apify_dataset_id || null,
       task_type: taskType,
       workflow_trigger: true
     }

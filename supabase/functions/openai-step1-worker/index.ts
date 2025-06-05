@@ -43,29 +43,67 @@ serve(async (req) => {
 
       logger.info(`Processing Step 1 BATCH: ${post_ids.length} posts`);
       
-      // ✅ CORRECTION : Filtrer les IDs valides et vérifier qu'ils sont bien des UUIDs
-      const validPostIds = post_ids.filter(id => {
-        // Vérifier que c'est un UUID valide
+      // ✅ VALIDATION AMÉLIORÉE : Filtrer les IDs valides et diagnostiquer les problèmes
+      const validPostIds = [];
+      const invalidPostIds = [];
+      
+      for (const id of post_ids) {
+        if (!id) {
+          invalidPostIds.push({ id: id, reason: 'null_or_undefined' });
+          continue;
+        }
+        
+        if (typeof id !== 'string') {
+          invalidPostIds.push({ id: id, reason: 'not_string', type: typeof id });
+          continue;
+        }
+        
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return id && typeof id === 'string' && uuidRegex.test(id);
-      });
+        if (!uuidRegex.test(id)) {
+          invalidPostIds.push({ id: id, reason: 'invalid_uuid_format' });
+          continue;
+        }
+        
+        validPostIds.push(id);
+      }
+
+      // Log détaillé des problèmes de validation
+      if (invalidPostIds.length > 0) {
+        logger.error(`Found ${invalidPostIds.length} invalid post IDs:`, invalidPostIds.slice(0, 5));
+      }
 
       if (validPostIds.length === 0) {
-        logger.error('No valid post IDs provided');
+        logger.error('No valid post IDs provided', { 
+          total_received: post_ids.length,
+          sample_invalid: invalidPostIds.slice(0, 3),
+          dataset_id: cleanDatasetId
+        });
         throw new Error('No valid post IDs provided');
       }
 
       logger.info(`Found ${validPostIds.length} valid post IDs out of ${post_ids.length}`);
       
+      // ✅ CORRECTION : Récupérer les posts avec gestion d'erreur améliorée
       const { data: posts, error: fetchError } = await supabaseClient
         .from('linkedin_posts')
         .select('*')
         .in('id', validPostIds);
 
-      if (fetchError || !posts) {
-        logger.error(`Failed to fetch posts: ${fetchError?.message}`);
-        throw new Error(`Failed to fetch posts: ${fetchError?.message}`);
+      if (fetchError) {
+        logger.error(`Failed to fetch posts: ${fetchError.message}`, fetchError);
+        throw new Error(`Failed to fetch posts: ${fetchError.message}`);
       }
+
+      if (!posts || posts.length === 0) {
+        logger.error('No posts found with provided IDs', { 
+          valid_ids_count: validPostIds.length,
+          sample_ids: validPostIds.slice(0, 3),
+          dataset_id: cleanDatasetId
+        });
+        throw new Error(`No posts found with provided IDs`);
+      }
+
+      logger.info(`Successfully fetched ${posts.length} posts from database`);
 
       const results = await processBatch(posts, supabaseClient, cleanDatasetId, workflow_enabled, correlationId);
       
@@ -77,7 +115,13 @@ serve(async (req) => {
         processed_count: posts.length,
         success_count: results.successCount,
         error_count: results.errorCount,
-        step: 'step1'
+        step: 'step1',
+        validation_summary: {
+          total_ids_received: post_ids.length,
+          valid_ids: validPostIds.length,
+          invalid_ids: invalidPostIds.length,
+          posts_found: posts.length
+        }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -339,7 +383,7 @@ async function triggerWorkflowIfEnabled(
       await supabaseClient.functions.invoke('openai-step2-worker', {
         body: { 
           post_id: postId,
-          dataset_id: datasetId || null, // ✅ Correction : gérer les dataset_id nuls
+          dataset_id: datasetId || null,
           workflow_trigger: true
         }
       });
