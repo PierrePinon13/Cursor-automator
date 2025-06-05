@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -181,7 +180,7 @@ async function runHealthCheck(supabaseClient: any) {
     overall_status: 'healthy'
   };
 
-  // Vérifier la queue (sans processing_priority)
+  // Vérifier la queue
   try {
     const { data: queueStats } = await supabaseClient
       .from('linkedin_posts')

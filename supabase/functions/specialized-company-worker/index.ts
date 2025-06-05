@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { orchestrateWorkflow } from '../processing-queue-manager/workflow-orchestrator.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,8 +59,20 @@ async function processSingleCompany(supabaseClient: any, postId: string, dataset
     if (!companyLinkedInId) {
       console.log(`⚠️ No company LinkedIn ID found for post ${postId}, skipping company verification`);
       
+      // Déclencher l'étape suivante si c'est un workflow (simplifié)
       if (workflowTrigger) {
-        await orchestrateWorkflow(supabaseClient, postId, 'company_completed', { skipped: true }, datasetId);
+        try {
+          await supabaseClient.functions.invoke('specialized-lead-worker', {
+            body: { 
+              post_id: postId,
+              dataset_id: datasetId,
+              workflow_trigger: true
+            }
+          });
+          console.log(`✅ Lead creation triggered for post: ${postId}`);
+        } catch (error) {
+          console.error(`❌ Error triggering lead creation for post ${postId}:`, error);
+        }
       }
       
       return new Response(JSON.stringify({
@@ -120,12 +131,20 @@ async function processSingleCompany(supabaseClient: any, postId: string, dataset
 
     console.log(`✅ Company verification completed for post ${postId}: ${action}`);
 
-    // Déclencher l'étape suivante si c'est un workflow
+    // Déclencher l'étape suivante si c'est un workflow (simplifié)
     if (workflowTrigger) {
-      await orchestrateWorkflow(supabaseClient, postId, 'company_completed', { 
-        company_data: companyData,
-        action: action
-      }, datasetId);
+      try {
+        await supabaseClient.functions.invoke('specialized-lead-worker', {
+          body: { 
+            post_id: postId,
+            dataset_id: datasetId,
+            workflow_trigger: true
+          }
+        });
+        console.log(`✅ Lead creation triggered for post: ${postId}`);
+      } catch (error) {
+        console.error(`❌ Error triggering lead creation for post ${postId}:`, error);
+      }
     }
 
     return new Response(JSON.stringify({
