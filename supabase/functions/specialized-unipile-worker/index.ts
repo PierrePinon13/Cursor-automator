@@ -1,9 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getAvailableUnipileAccount, applyRateLimit, updateLastCallTime } from './rate-limiter.ts'
-import { scrapeWithRateLimit, extractProfileData } from './profile-scraper.ts'
-import { handleUnipileError, triggerLeadCreation } from './error-handler.ts'
+import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,250 +13,278 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔍 Specialized Unipile Worker started');
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const requestBody = await req.json();
-    console.log('📥 Request body received:', JSON.stringify(requestBody, null, 2));
-    
-    const { post_id, dataset_id, batch_mode = false, task_type } = requestBody;
-    
-    // ✅ CORRECTION : Vérification et gestion des paramètres
-    if (!post_id && !dataset_id && !batch_mode) {
-      console.error('❌ Missing required parameters: post_id, dataset_id, or batch_mode');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Missing required parameters: post_id, dataset_id, or batch_mode' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const { post_id, dataset_id, batch_mode = false, workflow_trigger = false } = await req.json();
 
-    // Mode batch ou dataset_id fourni sans post_id spécifique
-    if (batch_mode || (dataset_id && !post_id)) {
-      console.log(`📦 Processing batch Unipile scraping for dataset: ${dataset_id}`);
+    if (batch_mode) {
       return await processBatchUnipile(supabaseClient, dataset_id);
     } else if (post_id) {
-      console.log(`🎯 Processing single post Unipile scraping for post: ${post_id}`);
-      return await processSinglePost(supabaseClient, post_id, dataset_id);
+      return await processSingleUnipile(supabaseClient, post_id, dataset_id, workflow_trigger);
     } else {
-      console.error('❌ Invalid request: no valid processing mode detected');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Invalid request: no valid processing mode detected' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      throw new Error('Either post_id or batch_mode must be provided');
     }
 
   } catch (error) {
     console.error('❌ Error in specialized-unipile-worker:', error);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: error.message 
-    }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
 
-async function processSinglePost(supabaseClient: any, postId: string, datasetId?: string) {
-  // ✅ AMÉLIORATION : Validation du postId
-  if (!postId || postId === 'undefined' || postId === 'null') {
-    console.error('❌ Invalid post ID received:', postId);
-    throw new Error(`Invalid post ID: ${postId}`);
-  }
+async function processSingleUnipile(supabaseClient: any, postId: string, datasetId?: string, workflowTrigger = false) {
+  const correlationId = CorrelationLogger.generateCorrelationId();
+  const logger = new CorrelationLogger({
+    correlationId,
+    postId,
+    step: 'unipile_scraping',
+    datasetId
+  });
 
-  console.log(`🎯 Processing Unipile scraping for post: ${postId}`);
-
-  // Récupérer le post
-  const { data: post, error: fetchError } = await supabaseClient
-    .from('linkedin_posts')
-    .select('*')
-    .eq('id', postId)
-    .single();
-
-  if (fetchError || !post) {
-    console.error(`❌ Post not found or error fetching post ${postId}:`, fetchError);
-    throw new Error(`Post not found: ${postId}`);
-  }
-
-  console.log(`📋 Post found: ${post.author_name} - ${post.title?.substring(0, 50) || 'No title'}...`);
-
-  if (!post.author_profile_id) {
-    console.log(`⚠️ No author_profile_id for post ${postId}, marking as scraped with null data`);
-    await supabaseClient
-      .from('linkedin_posts')
-      .update({
-        unipile_profile_scraped: true,
-        unipile_profile_scraped_at: new Date().toISOString(),
-        unipile_company: null,
-        unipile_position: null
-      })
-      .eq('id', postId);
-    
-    // Déclencher la création de lead
-    await triggerLeadCreation(supabaseClient, postId, datasetId || post.apify_dataset_id);
-    
-    return new Response(JSON.stringify({ 
-      success: true, 
-      skipped: true,
-      post_id: postId,
-      reason: 'No author_profile_id'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  // Récupérer un compte Unipile disponible
-  const accountId = await getAvailableUnipileAccount(supabaseClient);
-  if (!accountId) {
-    console.error('❌ No Unipile accounts available');
-    throw new Error('No Unipile accounts available');
-  }
-
-  console.log(`🔑 Using Unipile account: ${accountId}`);
-
+  const startTime = Date.now();
+  
   try {
-    const scrapingResult = await scrapeWithRateLimit(
-      supabaseClient, 
-      accountId, 
-      post.author_profile_id, 
-      postId
-    );
+    await logger.logStepStart();
+    
+    // Récupérer le post
+    const { data: post, error: postError } = await supabaseClient
+      .from('linkedin_posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
 
-    console.log(`✅ Scraping completed for post ${postId}`);
+    if (postError || !post) {
+      throw new Error(`Post not found: ${postId}`);
+    }
 
-    // Déclencher la création de lead
-    await triggerLeadCreation(supabaseClient, postId, datasetId || post.apify_dataset_id);
+    if (!post.author_profile_id) {
+      logger.warn('No author_profile_id available for scraping');
+      const duration = Date.now() - startTime;
+      await logger.logStepEnd({ skipped: true }, duration);
+      
+      if (workflowTrigger) {
+        await triggerNextStep(supabaseClient, postId, datasetId, logger);
+      }
+      
+      return new Response(JSON.stringify({
+        success: false,
+        reason: 'No author_profile_id available',
+        post_id: postId,
+        correlation_id: correlationId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Récupérer un compte Unipile disponible
+    const accountId = await getAvailableUnipileAccount(supabaseClient, logger);
+    if (!accountId) {
+      throw new Error('No Unipile account available for scraping');
+    }
+    
+    // Appeler unipile-queue pour le scraping de profil
+    logger.info('Calling unipile-queue for profile scraping');
+    const { data: queueResult, error: queueError } = await supabaseClient.functions.invoke('unipile-queue', {
+      body: {
+        action: 'execute',
+        account_id: accountId,
+        operation: 'scrape_profile',
+        payload: {
+          authorProfileId: post.author_profile_id
+        },
+        priority: false
+      }
+    });
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    if (queueError || !queueResult?.success) {
+      throw new Error(`Failed to scrape profile via unipile-queue: ${queueError?.message || queueResult?.error || 'Unknown error'}`);
+    }
+
+    const unipileData = queueResult.result;
+    const extractedData = extractProfileData(unipileData);
+
+    // Mettre à jour le post avec les résultats du scraping
+    const updateData: any = {
+      unipile_profile_scraped: true,
+      unipile_profile_scraped_at: new Date().toISOString(),
+      unipile_response: unipileData,
+      unipile_company: extractedData.company,
+      unipile_position: extractedData.position,
+      unipile_company_linkedin_id: extractedData.company_id
+    };
+
+    if (extractedData.phone) {
+      updateData.phone_number = extractedData.phone;
+      updateData.phone_retrieved_at = new Date().toISOString();
+    }
+
+    await updatePostWithCorrelation(supabaseClient, postId, correlationId, updateData);
+
+    const duration = Date.now() - startTime;
+    await logger.logStepEnd({
+      success: true,
+      company: extractedData.company,
+      position: extractedData.position,
+      phone_found: !!extractedData.phone
+    }, duration);
+
+    // Déclencher l'étape suivante si c'est un workflow
+    if (workflowTrigger) {
+      await triggerNextStep(supabaseClient, postId, datasetId, logger);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      extracted_data: extractedData,
       post_id: postId,
-      scraping_result: scrapingResult,
-      account_used: accountId
+      dataset_id: datasetId,
+      correlation_id: correlationId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error(`❌ Scraping failed for post ${postId}:`, error);
-    await handleUnipileError(supabaseClient, postId, error);
-    throw error;
+    const duration = Date.now() - startTime;
+    await logger.logStepError(error, duration);
+    await handleWorkerError(supabaseClient, postId, correlationId, 'unipile_scraping', error);
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message,
+      post_id: postId,
+      correlation_id: correlationId
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 }
 
-async function processBatchUnipile(supabaseClient: any, datasetId?: string) {
-  console.log('📦 Processing batch Unipile scraping...');
+async function getAvailableUnipileAccount(supabaseClient: any, logger: CorrelationLogger): Promise<string | null> {
+  logger.info('Fetching available Unipile accounts');
+  
+  const { data: accounts, error } = await supabaseClient
+    .from('profiles')
+    .select('unipile_account_id')
+    .not('unipile_account_id', 'is', null);
 
-  // ✅ AMÉLIORATION : Requête plus spécifique pour les posts prêts pour Unipile
+  if (error) {
+    logger.error('Error fetching Unipile accounts', error);
+    return null;
+  }
+
+  if (!accounts || accounts.length === 0) {
+    logger.error('No Unipile accounts found');
+    return null;
+  }
+
+  const selectedAccount = accounts[0].unipile_account_id;
+  logger.info('Selected Unipile account', { account_id: selectedAccount });
+  
+  return selectedAccount;
+}
+
+function extractProfileData(unipileData: any) {
+  let company = null;
+  let position = null;
+  let company_id = null;
+  
+  const experiences = unipileData.work_experience || unipileData.linkedin_profile?.experience || [];
+  
+  if (experiences.length > 0) {
+    const currentExperience = experiences.find((exp: any) => 
+      !exp.end || exp.end === null || exp.end === ''
+    ) || experiences[0];
+
+    if (currentExperience) {
+      company = currentExperience.company || currentExperience.companyName || null;
+      position = currentExperience.position || currentExperience.title || null;
+      company_id = currentExperience.company_id || currentExperience.companyId || null;
+    }
+  }
+
+  const phone = unipileData.phone_numbers?.[0] || unipileData.phone;
+
+  return { company, position, company_id, phone };
+}
+
+async function triggerNextStep(supabaseClient: any, postId: string, datasetId?: string, logger?: CorrelationLogger) {
+  try {
+    await supabaseClient.functions.invoke('specialized-company-worker', {
+      body: { 
+        post_id: postId,
+        dataset_id: datasetId,
+        workflow_trigger: true
+      }
+    });
+    logger?.success('Company verification triggered');
+  } catch (error) {
+    logger?.error('Error triggering company verification', error);
+  }
+}
+
+// ... keep existing code (processBatchUnipile function)
+async function processBatchUnipile(supabaseClient: any, datasetId?: string) {
+  const correlationId = CorrelationLogger.generateCorrelationId();
+  const logger = new CorrelationLogger({
+    correlationId,
+    postId: 'BATCH',
+    step: 'unipile_batch',
+    datasetId
+  });
+
+  logger.info(`Processing Unipile batch for dataset: ${datasetId}`);
+  
   let query = supabaseClient
     .from('linkedin_posts')
     .select('*')
-    .eq('processing_status', 'processing')
-    .eq('openai_step2_reponse', 'oui')
+    .eq('openai_step3_categorie', 'Développeur')
     .eq('unipile_profile_scraped', false)
-    .not('author_profile_id', 'is', null);
+    .not('author_profile_id', 'is', null)
+    .limit(20);
 
   if (datasetId) {
     query = query.eq('apify_dataset_id', datasetId);
   }
 
-  const { data: posts, error } = await query
-    .order('created_at', { ascending: true })
-    .limit(50); // Réduire la limite pour éviter les timeouts
+  const { data: posts, error } = await query;
 
   if (error) {
-    console.error('❌ Error fetching posts for Unipile scraping:', error);
     throw new Error(`Error fetching posts for Unipile scraping: ${error.message}`);
   }
 
-  console.log(`🔄 Found ${posts.length} posts ready for Unipile scraping`);
+  logger.info(`Found ${posts.length} posts for Unipile processing`);
 
-  if (posts.length === 0) {
-    return new Response(JSON.stringify({
-      success: true,
-      batch_size: 0,
-      success_count: 0,
-      error_count: 0,
-      message: 'No posts ready for Unipile scraping'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
+  let processed = 0;
+  let errors = 0;
 
-  // Récupérer tous les comptes Unipile disponibles
-  const { data: accounts, error: accountsError } = await supabaseClient
-    .from('profiles')
-    .select('unipile_account_id')
-    .not('unipile_account_id', 'is', null);
-
-  if (accountsError || !accounts?.length) {
-    console.error('❌ No Unipile accounts available:', accountsError);
-    throw new Error('No Unipile accounts available');
-  }
-
-  console.log(`🔑 Found ${accounts.length} Unipile accounts`);
-
-  // Distribuer les posts entre les comptes disponibles
-  const accountIds = accounts.map(acc => acc.unipile_account_id);
-  const results = [];
-
-  let successCount = 0;
-  let errorCount = 0;
-
-  // Traitement séquentiel pour éviter les problèmes de rate limiting
-  for (let i = 0; i < posts.length; i++) {
-    const post = posts[i];
-    const accountId = accountIds[i % accountIds.length]; // Distribution round-robin
-
+  // Traitement séquentiel pour respecter le rate limiting
+  for (const post of posts) {
     try {
-      console.log(`🔍 Processing post ${i + 1}/${posts.length}: ${post.id}`);
+      await processSingleUnipile(supabaseClient, post.id, post.apify_dataset_id, false);
+      processed++;
       
-      const scrapingResult = await scrapeWithRateLimit(
-        supabaseClient, 
-        accountId, 
-        post.author_profile_id, 
-        post.id
-      );
-
-      successCount++;
-      console.log(`✅ Post ${post.id} processed successfully`);
-
-      // Déclencher la création de lead
-      triggerLeadCreation(supabaseClient, post.id, datasetId || post.apify_dataset_id).catch(err => {
-        console.error(`Error triggering lead creation for ${post.id}:`, err);
-      });
-
+      // Délai entre chaque requête pour rate limiting
+      await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (error) {
-      errorCount++;
-      console.error(`❌ Error processing post ${post.id}:`, error);
-      
-      // Gérer l'erreur pour ce post spécifique
-      await handleUnipileError(supabaseClient, post.id, error);
-    }
-
-    // Petite pause entre les posts pour éviter la surcharge
-    if (i < posts.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      logger.error(`Error processing Unipile for post ${post.id}`, error);
+      errors++;
     }
   }
-
-  console.log(`📊 Batch completed: ${successCount} success, ${errorCount} errors`);
 
   return new Response(JSON.stringify({
     success: true,
-    batch_size: posts.length,
-    success_count: successCount,
-    error_count: errorCount,
-    accounts_used: accountIds.length
+    batch_mode: true,
+    dataset_id: datasetId,
+    processed_count: processed,
+    error_count: errors,
+    total_found: posts.length,
+    correlation_id: correlationId
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });

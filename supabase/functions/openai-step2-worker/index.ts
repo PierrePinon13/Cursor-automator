@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
 import { triggerWorkflowIfEnabled } from './workflow-integration.ts'
 
 const corsHeaders = {
@@ -16,8 +17,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🤖 OpenAI Step 2 Worker started');
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -48,9 +47,19 @@ serve(async (req) => {
 });
 
 async function processSingleStep2(supabaseClient: any, postId: string, datasetId?: string, workflowTrigger = false) {
-  console.log(`🤖 Processing Step 2 for post: ${postId}, dataset: ${datasetId}`);
+  const correlationId = CorrelationLogger.generateCorrelationId();
+  const logger = new CorrelationLogger({
+    correlationId,
+    postId,
+    step: 'step2',
+    datasetId
+  });
+
+  const startTime = Date.now();
   
   try {
+    await logger.logStepStart();
+    
     // Récupérer le post
     const { data: post, error: postError } = await supabaseClient
       .from('linkedin_posts')
@@ -64,17 +73,19 @@ async function processSingleStep2(supabaseClient: any, postId: string, datasetId
 
     // Vérifier que Step 1 a été validé
     if (post.openai_step1_recrute_poste !== 'oui') {
-      console.log(`⚠️ Skipping Step 2 for post ${postId} - Step 1 not validated`);
+      logger.warn('Skipping Step 2 - Step 1 not validated');
       return new Response(JSON.stringify({
         success: false,
         reason: 'Step 1 not validated',
-        post_id: postId
+        post_id: postId,
+        correlation_id: correlationId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     // Appel OpenAI Step 2
+    logger.info('Calling OpenAI Step 2 API');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -161,19 +172,16 @@ Cherchez les indices de localisation :
     const normalizedResponse = result.reponse?.toLowerCase() === 'oui' ? 'oui' : 'non';
 
     // Sauvegarder les résultats
-    await supabaseClient
-      .from('linkedin_posts')
-      .update({
-        openai_step2_reponse: normalizedResponse,
-        openai_step2_langue: result.langue,
-        openai_step2_localisation: result.localisation_detectee,
-        openai_step2_raison: result.raison,
-        openai_step2_response: data,
-        last_updated_at: new Date().toISOString()
-      })
-      .eq('id', postId);
+    await updatePostWithCorrelation(supabaseClient, postId, correlationId, {
+      openai_step2_reponse: normalizedResponse,
+      openai_step2_langue: result.langue,
+      openai_step2_localisation: result.localisation_detectee,
+      openai_step2_raison: result.raison,
+      openai_step2_response: data
+    });
 
-    console.log(`✅ Step 2 completed for post: ${postId} - ${normalizedResponse}`);
+    const duration = Date.now() - startTime;
+    await logger.logStepEnd(result, duration);
 
     // Déclencher l'étape suivante si c'est un workflow
     if (workflowTrigger) {
@@ -184,28 +192,22 @@ Cherchez les indices de localisation :
       success: true,
       result: result,
       post_id: postId,
-      dataset_id: datasetId
+      dataset_id: datasetId,
+      correlation_id: correlationId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error(`❌ Error processing Step 2 for post ${postId}:`, error);
-    
-    await supabaseClient
-      .from('linkedin_posts')
-      .update({
-        processing_status: 'error',
-        retry_count: supabaseClient.rpc('increment', { x: 1 }),
-        last_retry_at: new Date().toISOString(),
-        last_updated_at: new Date().toISOString()
-      })
-      .eq('id', postId);
+    const duration = Date.now() - startTime;
+    await logger.logStepError(error, duration);
+    await handleWorkerError(supabaseClient, postId, correlationId, 'step2', error);
 
     return new Response(JSON.stringify({
       success: false,
       error: error.message,
-      post_id: postId
+      post_id: postId,
+      correlation_id: correlationId
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -214,7 +216,15 @@ Cherchez les indices de localisation :
 }
 
 async function processBatchStep2(supabaseClient: any, datasetId?: string) {
-  console.log(`🤖 Processing Step 2 batch for dataset: ${datasetId}`);
+  const correlationId = CorrelationLogger.generateCorrelationId();
+  const logger = new CorrelationLogger({
+    correlationId,
+    postId: 'BATCH',
+    step: 'step2_batch',
+    datasetId
+  });
+
+  logger.info(`Processing Step 2 batch for dataset: ${datasetId}`);
   
   let query = supabaseClient
     .from('linkedin_posts')
@@ -233,7 +243,7 @@ async function processBatchStep2(supabaseClient: any, datasetId?: string) {
     throw new Error(`Error fetching posts for Step 2: ${error.message}`);
   }
 
-  console.log(`📊 Found ${posts.length} posts for Step 2 processing`);
+  logger.info(`Found ${posts.length} posts for Step 2 processing`);
 
   let processed = 0;
   let errors = 0;
@@ -249,7 +259,7 @@ async function processBatchStep2(supabaseClient: any, datasetId?: string) {
         await processSingleStep2(supabaseClient, post.id, post.apify_dataset_id, false);
         processed++;
       } catch (error) {
-        console.error(`❌ Error processing Step 2 for post ${post.id}:`, error);
+        logger.error(`Error processing Step 2 for post ${post.id}`, error);
         errors++;
       }
     }));
@@ -266,7 +276,8 @@ async function processBatchStep2(supabaseClient: any, datasetId?: string) {
     dataset_id: datasetId,
     processed_count: processed,
     error_count: errors,
-    total_found: posts.length
+    total_found: posts.length,
+    correlation_id: correlationId
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });

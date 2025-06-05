@@ -1,6 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,9 +47,19 @@ serve(async (req) => {
 });
 
 async function processSingleStep3(supabaseClient: any, postId: string, datasetId?: string, workflowTrigger = false) {
-  console.log(`🤖 Processing Step 3 for post: ${postId}, dataset: ${datasetId}`);
+  const correlationId = CorrelationLogger.generateCorrelationId();
+  const logger = new CorrelationLogger({
+    correlationId,
+    postId,
+    step: 'step3',
+    datasetId
+  });
+
+  const startTime = Date.now();
   
   try {
+    await logger.logStepStart();
+    
     // Récupérer le post
     const { data: post, error: postError } = await supabaseClient
       .from('linkedin_posts')
@@ -63,17 +73,19 @@ async function processSingleStep3(supabaseClient: any, postId: string, datasetId
 
     // Vérifier que Step 2 a été validé
     if (post.openai_step2_reponse !== 'oui') {
-      console.log(`⚠️ Skipping Step 3 for post ${postId} - Step 2 not validated`);
+      logger.warn('Skipping Step 3 - Step 2 not validated');
       return new Response(JSON.stringify({
         success: false,
         reason: 'Step 2 not validated',
-        post_id: postId
+        post_id: postId,
+        correlation_id: correlationId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     // Appel OpenAI Step 3
+    logger.info('Calling OpenAI Step 3 API');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -154,18 +166,15 @@ Retourner un objet JSON avec les champs suivants :
     const result = JSON.parse(data.choices[0].message.content);
 
     // Sauvegarder les résultats
-    await supabaseClient
-      .from('linkedin_posts')
-      .update({
-        openai_step3_categorie: result.categorie,
-        openai_step3_postes_selectionnes: result.postes_selectionnes,
-        openai_step3_justification: result.justification,
-        openai_step3_response: data,
-        last_updated_at: new Date().toISOString()
-      })
-      .eq('id', postId);
+    await updatePostWithCorrelation(supabaseClient, postId, correlationId, {
+      openai_step3_categorie: result.categorie,
+      openai_step3_postes_selectionnes: result.postes_selectionnes,
+      openai_step3_justification: result.justification,
+      openai_step3_response: data
+    });
 
-    console.log(`✅ Step 3 completed for post: ${postId} - Category: ${result.categorie}`);
+    const duration = Date.now() - startTime;
+    await logger.logStepEnd(result, duration);
 
     // Déclencher l'étape suivante si c'est un workflow (simplifié)
     if (workflowTrigger) {
@@ -177,9 +186,9 @@ Retourner un objet JSON avec les champs suivants :
             workflow_trigger: true
           }
         });
-        console.log(`✅ Step 4 (Unipile) triggered for post: ${postId}`);
+        logger.success('Step 4 (Unipile) triggered');
       } catch (error) {
-        console.error(`❌ Error triggering Step 4 for post ${postId}:`, error);
+        logger.error('Error triggering Step 4', error);
       }
     }
 
@@ -187,28 +196,22 @@ Retourner un objet JSON avec les champs suivants :
       success: true,
       result: result,
       post_id: postId,
-      dataset_id: datasetId
+      dataset_id: datasetId,
+      correlation_id: correlationId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error(`❌ Error processing Step 3 for post ${postId}:`, error);
-    
-    await supabaseClient
-      .from('linkedin_posts')
-      .update({
-        processing_status: 'error',
-        retry_count: supabaseClient.rpc('increment', { x: 1 }),
-        last_retry_at: new Date().toISOString(),
-        last_updated_at: new Date().toISOString()
-      })
-      .eq('id', postId);
+    const duration = Date.now() - startTime;
+    await logger.logStepError(error, duration);
+    await handleWorkerError(supabaseClient, postId, correlationId, 'step3', error);
 
     return new Response(JSON.stringify({
       success: false,
       error: error.message,
-      post_id: postId
+      post_id: postId,
+      correlation_id: correlationId
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -217,7 +220,15 @@ Retourner un objet JSON avec les champs suivants :
 }
 
 async function processBatchStep3(supabaseClient: any, datasetId?: string) {
-  console.log(`🤖 Processing Step 3 batch for dataset: ${datasetId}`);
+  const correlationId = CorrelationLogger.generateCorrelationId();
+  const logger = new CorrelationLogger({
+    correlationId,
+    postId: 'BATCH',
+    step: 'step3_batch',
+    datasetId
+  });
+
+  logger.info(`Processing Step 3 batch for dataset: ${datasetId}`);
   
   let query = supabaseClient
     .from('linkedin_posts')
@@ -236,7 +247,7 @@ async function processBatchStep3(supabaseClient: any, datasetId?: string) {
     throw new Error(`Error fetching posts for Step 3: ${error.message}`);
   }
 
-  console.log(`📊 Found ${posts.length} posts for Step 3 processing`);
+  logger.info(`Found ${posts.length} posts for Step 3 processing`);
 
   let processed = 0;
   let errors = 0;
@@ -252,7 +263,7 @@ async function processBatchStep3(supabaseClient: any, datasetId?: string) {
         await processSingleStep3(supabaseClient, post.id, post.apify_dataset_id, false);
         processed++;
       } catch (error) {
-        console.error(`❌ Error processing Step 3 for post ${post.id}:`, error);
+        logger.error(`Error processing Step 3 for post ${post.id}`, error);
         errors++;
       }
     }));
@@ -269,7 +280,8 @@ async function processBatchStep3(supabaseClient: any, datasetId?: string) {
     dataset_id: datasetId,
     processed_count: processed,
     error_count: errors,
-    total_found: posts.length
+    total_found: posts.length,
+    correlation_id: correlationId
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
