@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { orchestrateWorkflow } from '../processing-queue-manager/workflow-orchestrator.ts'
+import { triggerWorkflowIfEnabled } from './workflow-integration.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -177,7 +177,7 @@ Cherchez les indices de localisation :
 
     // Déclencher l'étape suivante si c'est un workflow
     if (workflowTrigger) {
-      await orchestrateWorkflow(supabaseClient, postId, 'step2_completed', result, datasetId);
+      await triggerWorkflowIfEnabled(supabaseClient, postId, result, datasetId, true);
     }
 
     return new Response(JSON.stringify({
