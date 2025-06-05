@@ -59,39 +59,38 @@ const LeadDetailHeader = ({
     navigate('/profile');
   };
 
-  // Déterminer quel nom d'entreprise utiliser et quel ID
   const companyName = lead.company_name || lead.unipile_company;
   const companyId = lead.company_id;
 
   return (
-    <div className="px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
+    <div className="px-6 py-4 bg-white border-b border-gray-100">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           {/* Première ligne : Nom + LinkedIn */}
           <div className="flex items-center gap-3 mb-2">
-            <h3 className="font-semibold text-xl text-gray-900">{lead.author_name || 'N/A'}</h3>
+            <h3 className="font-medium text-lg text-gray-900">{lead.author_name || 'N/A'}</h3>
             <a
               href={lead.author_profile_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 transition-colors hover:scale-110 transform duration-200"
+              className="text-blue-600 hover:text-blue-700 transition-colors"
             >
-              <Linkedin className="h-5 w-5" />
+              <Linkedin className="h-4 w-4" />
             </a>
           </div>
           
-          {/* Deuxième ligne avec position ET entreprise */}
-          <div className="text-gray-600 flex items-center gap-1">
+          {/* Deuxième ligne : Poste @ Entreprise */}
+          <div className="text-sm text-gray-600 flex items-center gap-1">
             {lead.unipile_position && (
-              <span className="font-medium text-gray-700">{lead.unipile_position}</span>
+              <span className="text-gray-700">{lead.unipile_position}</span>
             )}
-            {lead.unipile_position && companyName && <span className="mx-1 text-gray-500">chez</span>}
+            {lead.unipile_position && companyName && <span className="mx-1 text-gray-400">@</span>}
             {companyName && (
               <CompanyHoverCard 
                 companyId={companyId} 
                 companyName={companyName}
               >
-                <span className="font-semibold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline transition-all duration-200 bg-blue-50 px-2 py-1 rounded">
+                <span className="text-blue-600 hover:text-blue-700 cursor-pointer hover:underline transition-colors">
                   {companyName}
                 </span>
               </CompanyHoverCard>
@@ -109,7 +108,6 @@ const LeadDetailHeader = ({
             onNext={onNext}
           />
           
-          {/* Boutons de notifications et profil */}
           <div className="flex items-center gap-2">
             <NotificationButton />
             
@@ -142,7 +140,7 @@ const LeadDetailHeader = ({
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="h-8 w-8 p-0 border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            className="h-8 w-8 p-0"
           >
             <X className="h-4 w-4" />
           </Button>
