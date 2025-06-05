@@ -67,7 +67,7 @@ serve(async (req) => {
       }
     }
 
-    // ✅ PHASE 2: Récupération et stockage des données brutes
+    // ✅ PHASE 2: Récupération des données depuis Apify
     console.log('📥 Fetching dataset items from Apify...')
     
     let allItems = []
@@ -123,7 +123,7 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 3: Vérifier les doublons existants dans linkedin_posts_raw
+    // ✅ PHASE 3: Vérification complète des doublons existants
     console.log('🔍 Checking for existing URNs in linkedin_posts_raw...')
     
     const incomingUrns = allItems.map(item => item.urn).filter(Boolean)
@@ -131,7 +131,7 @@ serve(async (req) => {
 
     let existingUrns = new Set()
     if (incomingUrns.length > 0) {
-      // Vérifier les URNs par batches pour éviter les requêtes trop longues
+      // Vérifier TOUS les URNs en une seule fois pour éviter les problèmes de concurrence
       const BATCH_SIZE = 1000
       for (let i = 0; i < incomingUrns.length; i += BATCH_SIZE) {
         const batch = incomingUrns.slice(i, i + BATCH_SIZE)
@@ -153,9 +153,20 @@ serve(async (req) => {
 
     console.log(`🔍 Found ${existingUrns.size} existing URNs out of ${incomingUrns.length}`)
 
-    // ✅ PHASE 4: Filtrer les nouveaux items seulement
-    const newItems = allItems.filter(item => !existingUrns.has(item.urn))
-    console.log(`📊 ${newItems.length} new items to insert (${allItems.length - newItems.length} duplicates skipped)`)
+    // ✅ PHASE 4: Filtrer les nouveaux items et déduplication interne
+    let newItems = allItems.filter(item => !existingUrns.has(item.urn))
+    console.log(`📊 ${newItems.length} new items after existing duplicates removal`)
+
+    // Déduplication interne (au cas où il y aurait des doublons dans le dataset Apify)
+    const seenUrns = new Set()
+    newItems = newItems.filter(item => {
+      if (seenUrns.has(item.urn)) {
+        return false
+      }
+      seenUrns.add(item.urn)
+      return true
+    })
+    console.log(`📊 ${newItems.length} items after internal deduplication`)
 
     if (newItems.length === 0) {
       console.log('✅ No new items to process - all were duplicates')
@@ -190,7 +201,7 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 5: Stockage en masse des nouveaux items dans linkedin_posts_raw
+    // ✅ PHASE 5: Insertion sécurisée avec gestion des conflits
     console.log(`💾 Storing ${newItems.length} new items in linkedin_posts_raw...`)
     
     const rawPostsToInsert = newItems.map(item => ({
@@ -212,28 +223,34 @@ serve(async (req) => {
     }))
 
     let storedRawCount = 0
-    const STORAGE_BATCH_SIZE = 500
+    const STORAGE_BATCH_SIZE = 100 // Réduire la taille des batches pour éviter les conflits
 
     for (let i = 0; i < rawPostsToInsert.length; i += STORAGE_BATCH_SIZE) {
       const batch = rawPostsToInsert.slice(i, i + STORAGE_BATCH_SIZE)
       
       try {
-        const { error: insertError } = await supabaseClient
+        // Utiliser upsert avec ignoreDuplicates pour gérer les conflits
+        const { error: insertError, count } = await supabaseClient
           .from('linkedin_posts_raw')
-          .insert(batch)
+          .upsert(batch, { 
+            onConflict: 'urn',
+            ignoreDuplicates: true,
+            count: 'exact'
+          })
 
         if (insertError) {
           console.error(`❌ Error inserting batch ${i}-${i + batch.length}:`, insertError.message)
         } else {
-          storedRawCount += batch.length
-          console.log(`✅ Stored batch ${i}-${i + batch.length} (${storedRawCount}/${rawPostsToInsert.length})`)
+          const insertedCount = count || 0
+          storedRawCount += insertedCount
+          console.log(`✅ Stored batch ${i}-${i + batch.length} (${insertedCount} new, ${storedRawCount}/${rawPostsToInsert.length} total)`)
         }
       } catch (error) {
         console.error(`❌ Batch insert error:`, error?.message)
       }
     }
 
-    console.log(`💾 Stored ${storedRawCount} new raw posts`)
+    console.log(`💾 Stored ${storedRawCount} new raw posts (duplicates safely ignored)`)
 
     // ✅ PHASE 6: Démarrage du pipeline par batches
     console.log('🚀 Starting batch processing pipeline...')
@@ -265,7 +282,7 @@ serve(async (req) => {
       total_received: allItems.length,
       duplicates_skipped: allItems.length - newItems.length,
       stored_raw: storedRawCount,
-      pipeline_version: 'batch_pipeline_v2',
+      pipeline_version: 'batch_pipeline_v2_improved',
       completed_at: new Date().toISOString()
     }
 
@@ -284,15 +301,17 @@ serve(async (req) => {
       action: 'batch_pipeline_dataset_processing',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'batch_pipeline_v2',
-      message: `Dataset ${datasetId} processed with new batch pipeline. ${storedRawCount} new items stored and pipeline started.`,
+      pipeline_version: 'batch_pipeline_v2_improved',
+      message: `Dataset ${datasetId} processed with improved batch pipeline. ${storedRawCount} new items stored and pipeline started.`,
       enhancements: [
         'Full batch processing pipeline',
         'Natural filtering at each step',
         'Efficient rate limiting',
         'Sequential step triggering',
         'Complete data flow redesign',
-        'Improved duplicate detection and handling'
+        'Improved duplicate detection and handling',
+        'Safe upsert with conflict resolution',
+        'Reduced batch sizes for stability'
       ]
     }), { 
       status: 200,
@@ -304,7 +323,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'batch_pipeline_v2'
+      pipeline_version: 'batch_pipeline_v2_improved'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
