@@ -1,4 +1,6 @@
 
+import { WorkflowEventEmitter } from './workflow-events.ts';
+
 // Shared correlation logging utilities
 export interface CorrelationContext {
   correlationId: string;
@@ -9,9 +11,13 @@ export interface CorrelationContext {
 
 export class CorrelationLogger {
   private context: CorrelationContext;
+  private eventEmitter: WorkflowEventEmitter;
 
-  constructor(context: CorrelationContext) {
+  constructor(context: CorrelationContext, supabaseClient?: any) {
     this.context = context;
+    if (supabaseClient) {
+      this.eventEmitter = new WorkflowEventEmitter(supabaseClient);
+    }
   }
 
   static generateCorrelationId(): string {
@@ -39,6 +45,16 @@ export class CorrelationLogger {
       dataset_id: this.context.datasetId,
       metadata
     });
+    
+    // Emit workflow event
+    if (this.eventEmitter) {
+      await this.eventEmitter.emitStepStarted(
+        this.context.postId,
+        this.context.correlationId,
+        this.mapStepName(this.context.step),
+        { dataset_id: this.context.datasetId, metadata }
+      );
+    }
   }
 
   async logStepEnd(result: any, duration?: number) {
@@ -46,6 +62,17 @@ export class CorrelationLogger {
       duration_ms: duration,
       result_summary: this.summarizeResult(result)
     });
+
+    // Emit workflow event
+    if (this.eventEmitter && duration) {
+      await this.eventEmitter.emitStepCompleted(
+        this.context.postId,
+        this.context.correlationId,
+        this.mapStepName(this.context.step),
+        duration,
+        this.summarizeResult(result)
+      );
+    }
   }
 
   async logStepError(error: any, duration?: number) {
@@ -53,6 +80,57 @@ export class CorrelationLogger {
       duration_ms: duration,
       error: error.message || error.toString()
     });
+
+    // Emit workflow event
+    if (this.eventEmitter && duration) {
+      await this.eventEmitter.emitStepFailed(
+        this.context.postId,
+        this.context.correlationId,
+        this.mapStepName(this.context.step),
+        duration,
+        error
+      );
+    }
+  }
+
+  async logStepRetry(error: any, retryCount: number) {
+    this.warn(`Step ${this.context.step} retry ${retryCount}`, {
+      error: error.message || error.toString()
+    });
+
+    // Emit workflow event
+    if (this.eventEmitter) {
+      await this.eventEmitter.emitStepRetried(
+        this.context.postId,
+        this.context.correlationId,
+        this.mapStepName(this.context.step),
+        retryCount,
+        error
+      );
+    }
+  }
+
+  private mapStepName(step: string): 'step1' | 'step2' | 'step3' | 'unipile_scraping' | 'company_verification' | 'lead_creation' {
+    switch (step) {
+      case 'step1':
+      case 'step1_batch':
+        return 'step1';
+      case 'step2':
+      case 'step2_batch':
+        return 'step2';
+      case 'step3':
+      case 'step3_batch':
+        return 'step3';
+      case 'unipile_scraping':
+      case 'unipile_batch':
+        return 'unipile_scraping';
+      case 'company_verification':
+        return 'company_verification';
+      case 'lead_creation':
+        return 'lead_creation';
+      default:
+        return 'step1'; // fallback
+    }
   }
 
   private summarizeResult(result: any): any {

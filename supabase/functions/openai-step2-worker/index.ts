@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
@@ -53,7 +52,7 @@ async function processSingleStep2(supabaseClient: any, postId: string, datasetId
     postId,
     step: 'step2',
     datasetId
-  });
+  }, supabaseClient);
 
   const startTime = Date.now();
   
@@ -222,7 +221,7 @@ async function processBatchStep2(supabaseClient: any, datasetId?: string) {
     postId: 'BATCH',
     step: 'step2_batch',
     datasetId
-  });
+  }, supabaseClient);
 
   logger.info(`Processing Step 2 batch for dataset: ${datasetId}`);
   

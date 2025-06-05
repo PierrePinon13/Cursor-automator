@@ -1785,6 +1785,51 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_events: {
+        Row: {
+          correlation_id: string
+          created_at: string
+          dataset_id: string | null
+          duration_ms: number | null
+          error_message: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          post_id: string
+          retry_count: number | null
+          step_name: string
+          user_id: string | null
+        }
+        Insert: {
+          correlation_id: string
+          created_at?: string
+          dataset_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          post_id: string
+          retry_count?: number | null
+          step_name: string
+          user_id?: string | null
+        }
+        Update: {
+          correlation_id?: string
+          created_at?: string
+          dataset_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          post_id?: string
+          retry_count?: number | null
+          step_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
