@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getAvailableUnipileAccount, applyRateLimit, scrapeCompanyInfo } from './multi-account-manager.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,7 +52,7 @@ serve(async (req) => {
 
       let successCount = 0;
       let errorCount = 0;
-      const CONCURRENT_LIMIT = 3; // Plus conservative pour Unipile
+      const CONCURRENT_LIMIT = 2; // Réduit pour respecter rate limiting
       
       for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
         const batch = posts.slice(i, i + CONCURRENT_LIMIT);
@@ -69,7 +70,7 @@ serve(async (req) => {
         await Promise.allSettled(promises);
         
         if (i + CONCURRENT_LIMIT < posts.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Plus de délai pour Unipile
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Délai entre batches
         }
       }
 
@@ -135,21 +136,18 @@ async function processSinglePost(post: any, supabaseClient: any, datasetId?: str
   }
 
   try {
-    // Récupérer un compte Unipile disponible
-    const { data: accounts, error: accountError } = await supabaseClient
-      .from('profiles')
-      .select('unipile_account_id')
-      .not('unipile_account_id', 'is', null)
-      .limit(1);
-
-    if (accountError || !accounts || accounts.length === 0) {
+    // Récupérer un compte Unipile disponible avec rotation
+    const accountId = await getAvailableUnipileAccount(supabaseClient);
+    if (!accountId) {
       throw new Error('No Unipile account available');
     }
 
-    const accountId = accounts[0].unipile_account_id;
     console.log(`🔑 Using Unipile account: ${accountId}`);
 
-    // Appeler unipile-queue pour le scraping
+    // Appliquer le rate limiting
+    await applyRateLimit(accountId);
+
+    // Appeler unipile-queue pour le scraping de profil
     const { data: scrapeResult, error: scrapeError } = await supabaseClient.functions.invoke('unipile-queue', {
       body: {
         action: 'execute',
@@ -193,7 +191,31 @@ async function processSinglePost(post: any, supabaseClient: any, datasetId?: str
 
     console.log(`✅ Unipile completed for post: ${post.id}`);
 
-    // 🔥 NOUVEAU : Déclenchement immédiat des workers suivants
+    // 🆕 Scraper les informations de l'entreprise si on a un LinkedIn ID
+    if (extractedData.company_id) {
+      try {
+        console.log(`🏢 Scraping company info for LinkedIn ID: ${extractedData.company_id}`);
+        const companyData = await scrapeCompanyInfo(supabaseClient, accountId, extractedData.company_id);
+        
+        // Sauvegarder les données d'entreprise
+        await supabaseClient
+          .from('linkedin_posts')
+          .update({
+            company_info_scraped: true,
+            company_info_scraped_at: new Date().toISOString(),
+            company_data: companyData,
+            last_updated_at: new Date().toISOString()
+          })
+          .eq('id', post.id);
+        
+        console.log(`✅ Company info scraped for post: ${post.id}`);
+      } catch (companyError) {
+        console.error(`❌ Company scraping failed for post ${post.id}:`, companyError);
+        // Ne pas faire échouer le processus principal si le scraping entreprise échoue
+      }
+    }
+
+    // 🔥 Déclenchement immédiat des workers suivants
     console.log(`🚀 Triggering company verification and lead creation for post ${post.id}`);
     
     // Déclencher la vérification d'entreprise

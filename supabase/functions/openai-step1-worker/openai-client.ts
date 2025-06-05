@@ -48,7 +48,7 @@ Le post :
 
 Le post :
 * Provient d'un **freelance, ESN, ou cabinet** qui recrute pour un **client externe**.
-* Est écrit par quelqu'un **à la recherche d'un emploi** (ex : "je cherche un CDI", "je recherche une alternance").
+* Est écrit par quelqu'un **à la recherche d'un emploi** (ex : "je cherche un CDI").
 * Concerne uniquement des **stages, alternances, techniciens, assistants**.
 * Mentionne **plus de 3 postes** (même s'ils sont clairs et précis).
 * Est **vague, non ciblé ou purement théorique**.

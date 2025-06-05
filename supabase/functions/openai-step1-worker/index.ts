@@ -1,7 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
+import { callOpenAIStep1 } from './openai-client.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -193,7 +193,7 @@ async function processSinglePost(
   try {
     await logger.logStepStart({ author: post.author_name, title: post.title?.substring(0, 50) });
     
-    const { result, fullResponse } = await callOpenAIStep1(post, logger);
+    const { result, fullResponse } = await callOpenAIStep1(post);
     const { normalizedResponse } = await updatePostStep1Results(supabaseClient, post.id, result, fullResponse, corrId);
     
     const duration = Date.now() - startTime;
@@ -265,7 +265,7 @@ async function processBatch(
   return { successCount, errorCount };
 }
 
-async function callOpenAIStep1(post: any, logger: CorrelationLogger) {
+async function callOpenAIStep1(post: any) {
   logger.info('Calling OpenAI Step 1 API');
   
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
