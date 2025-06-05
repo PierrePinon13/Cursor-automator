@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
@@ -29,29 +28,46 @@ serve(async (req) => {
       workflow_enabled = false
     } = await req.json();
 
+    // ✅ CORRECTION CRITIQUE : Validation et nettoyage des paramètres
+    const cleanDatasetId = dataset_id && dataset_id !== 'null' && dataset_id !== null ? dataset_id : null;
+
     // Mode batch
-    if (batch_mode && post_ids) {
+    if (batch_mode && post_ids && Array.isArray(post_ids) && post_ids.length > 0) {
       const correlationId = CorrelationLogger.generateCorrelationId();
       const logger = new CorrelationLogger({
         correlationId,
         postId: 'BATCH',
         step: 'step1_batch',
-        datasetId: dataset_id
+        datasetId: cleanDatasetId
       });
 
       logger.info(`Processing Step 1 BATCH: ${post_ids.length} posts`);
       
+      // ✅ CORRECTION : Filtrer les IDs valides et vérifier qu'ils sont bien des UUIDs
+      const validPostIds = post_ids.filter(id => {
+        // Vérifier que c'est un UUID valide
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return id && typeof id === 'string' && uuidRegex.test(id);
+      });
+
+      if (validPostIds.length === 0) {
+        logger.error('No valid post IDs provided');
+        throw new Error('No valid post IDs provided');
+      }
+
+      logger.info(`Found ${validPostIds.length} valid post IDs out of ${post_ids.length}`);
+      
       const { data: posts, error: fetchError } = await supabaseClient
         .from('linkedin_posts')
         .select('*')
-        .in('id', post_ids);
+        .in('id', validPostIds);
 
       if (fetchError || !posts) {
         logger.error(`Failed to fetch posts: ${fetchError?.message}`);
         throw new Error(`Failed to fetch posts: ${fetchError?.message}`);
       }
 
-      const results = await processBatch(posts, supabaseClient, dataset_id, workflow_enabled, correlationId);
+      const results = await processBatch(posts, supabaseClient, cleanDatasetId, workflow_enabled, correlationId);
       
       logger.success(`Batch completed: ${results.successCount} success, ${results.errorCount} errors`);
 
@@ -71,6 +87,12 @@ serve(async (req) => {
     if (post_id) {
       const correlationId = CorrelationLogger.generateCorrelationId();
       
+      // ✅ CORRECTION : Validation de l'UUID du post
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!post_id || typeof post_id !== 'string' || !uuidRegex.test(post_id)) {
+        throw new Error(`Invalid post ID format: ${post_id}`);
+      }
+      
       const { data: post, error: fetchError } = await supabaseClient
         .from('linkedin_posts')
         .select('*')
@@ -81,7 +103,7 @@ serve(async (req) => {
         throw new Error(`Failed to fetch post: ${fetchError?.message}`);
       }
 
-      const result = await processSinglePost(post, supabaseClient, dataset_id, workflow_enabled, correlationId);
+      const result = await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled, correlationId);
 
       return new Response(JSON.stringify({ 
         success: true,
@@ -163,7 +185,7 @@ async function processBatch(
     const promises = batch.map(async (post) => {
       try {
         const postCorrelationId = `${batchCorrelationId}_${post.id}`;
-        await processSinglePost(supabaseClient, post.id, datasetId, workflowEnabled, postCorrelationId);
+        await processSinglePost(post, supabaseClient, datasetId, workflowEnabled, postCorrelationId);
         successCount++;
       } catch (error) {
         errorCount++;
@@ -317,7 +339,7 @@ async function triggerWorkflowIfEnabled(
       await supabaseClient.functions.invoke('openai-step2-worker', {
         body: { 
           post_id: postId,
-          dataset_id: datasetId,
+          dataset_id: datasetId || null, // ✅ Correction : gérer les dataset_id nuls
           workflow_trigger: true
         }
       });

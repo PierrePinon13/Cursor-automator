@@ -15,27 +15,113 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🤖 OpenAI Step 3 Worker started');
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     const { 
+      post_ids, 
       post_id, 
       dataset_id, 
       batch_mode = false,
-      workflow_trigger = false
+      workflow_enabled = false 
     } = await req.json();
 
-    if (batch_mode) {
-      return await processBatchStep3(supabaseClient, dataset_id);
-    } else if (post_id) {
-      return await processSingleStep3(supabaseClient, post_id, dataset_id, workflow_trigger);
-    } else {
-      throw new Error('Either post_id or batch_mode must be provided');
+    // ✅ CORRECTION CRITIQUE : Validation et nettoyage des paramètres
+    const cleanDatasetId = dataset_id && dataset_id !== 'null' && dataset_id !== null ? dataset_id : null;
+
+    // Mode batch
+    if (batch_mode && post_ids && Array.isArray(post_ids) && post_ids.length > 0) {
+      console.log(`🏷️ Processing Step 3 BATCH: ${post_ids.length} posts`);
+      
+      // ✅ CORRECTION : Filtrer les IDs valides et vérifier qu'ils sont bien des UUIDs
+      const validPostIds = post_ids.filter(id => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return id && typeof id === 'string' && uuidRegex.test(id);
+      });
+
+      if (validPostIds.length === 0) {
+        throw new Error('No valid post IDs provided');
+      }
+
+      const { data: posts, error: fetchError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('*')
+        .in('id', validPostIds);
+
+      if (fetchError || !posts) {
+        throw new Error(`Failed to fetch posts: ${fetchError?.message}`);
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const CONCURRENT_LIMIT = 5;
+      
+      for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
+        const batch = posts.slice(i, i + CONCURRENT_LIMIT);
+        
+        const promises = batch.map(async (post) => {
+          try {
+            await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled);
+            successCount++;
+          } catch (error) {
+            console.error(`❌ Step 3 failed for post ${post.id}:`, error);
+            errorCount++;
+          }
+        });
+
+        await Promise.allSettled(promises);
+        
+        if (i + CONCURRENT_LIMIT < posts.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        processed_count: posts.length,
+        success_count: successCount,
+        error_count: errorCount,
+        step: 'step3'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
+
+    // Mode single post
+    if (post_id) {
+      // ✅ CORRECTION : Validation de l'UUID du post
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!post_id || typeof post_id !== 'string' || !uuidRegex.test(post_id)) {
+        throw new Error(`Invalid post ID format: ${post_id}`);
+      }
+      
+      const { data: post, error: fetchError } = await supabaseClient
+        .from('linkedin_posts')
+        .select('*')
+        .eq('id', post_id)
+        .single();
+
+      if (fetchError || !post) {
+        throw new Error(`Failed to fetch post: ${fetchError?.message}`);
+      }
+
+      const result = await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled);
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        processed_count: 1,
+        success_count: 1,
+        error_count: 0,
+        step: 'step3',
+        result: result
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    throw new Error('Either post_id or post_ids must be provided');
 
   } catch (error) {
     console.error('❌ Error in openai-step3-worker:', error);
@@ -46,60 +132,49 @@ serve(async (req) => {
   }
 });
 
-async function processSingleStep3(supabaseClient: any, postId: string, datasetId?: string, workflowTrigger = false) {
-  const correlationId = CorrelationLogger.generateCorrelationId();
-  const logger = new CorrelationLogger({
-    correlationId,
-    postId,
-    step: 'step3',
-    datasetId
-  });
-
-  const startTime = Date.now();
+async function processSinglePost(post: any, supabaseClient: any, datasetId?: string, workflowEnabled = false) {
+  console.log(`🏷️ Processing Step 3 for post: ${post.id}`);
   
-  try {
-    await logger.logStepStart();
-    
-    // Récupérer le post
-    const { data: post, error: postError } = await supabaseClient
-      .from('linkedin_posts')
-      .select('*')
-      .eq('id', postId)
-      .single();
-
-    if (postError || !post) {
-      throw new Error(`Post not found: ${postId}`);
-    }
-
-    // Vérifier que Step 2 a été validé
-    if (post.openai_step2_reponse !== 'oui') {
-      logger.warn('Skipping Step 3 - Step 2 not validated');
-      return new Response(JSON.stringify({
-        success: false,
-        reason: 'Step 2 not validated',
-        post_id: postId,
-        correlation_id: correlationId
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  const { result, fullResponse } = await callOpenAIStep3(post);
+  await updatePostStep3Results(supabaseClient, post.id, result, fullResponse);
+  
+  console.log(`✅ Step 3 completed for post: ${post.id} - ${result.categorie}`);
+  
+  // Déclencher workflow si activé
+  if (workflowEnabled) {
+    try {
+      await supabaseClient.functions.invoke('specialized-unipile-worker', {
+        body: { 
+          post_id: post.id,
+          dataset_id: datasetId || null, // ✅ Correction : gérer les dataset_id nuls
+          workflow_trigger: true
+        }
       });
+    } catch (error) {
+      console.error('❌ Error triggering Unipile scraping:', error);
     }
+  }
+  
+  return { post_id: post.id, success: true, analysis: result };
+}
 
-    // Appel OpenAI Step 3
-    logger.info('Calling OpenAI Step 3 API');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `### 💼 CONTEXTE
+async function callOpenAIStep3(post: any) {
+  console.log('🏷️ Calling OpenAI Step 3 API');
+  
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `### 🏷️ CONTEXTE
 
-Vous analysez une **offre d'emploi validée** pour la **catégoriser** et **sélectionner les postes** les plus pertinents.
+Vous devez catégoriser une offre d'emploi LinkedIn et sélectionner les postes les plus pertinents.
 
 ---
 
@@ -109,180 +184,70 @@ Retourner un objet JSON avec les champs suivants :
 
 \`\`\`json
 {
-  "categorie": "Développeur" | "Data" | "IA/ML" | "Sécurité" | "DevOps/Infra" | "Product/UX" | "RH/Admin" | "Direction" | "Autre",
-  "postes_selectionnes": ["poste1", "poste2", "poste3"],
-  "justification": "explication courte du choix de catégorie"
+  "categorie": "Vente" | "Marketing" | "Tech" | "RH" | "Finance" | "Autre",
+  "postes_selectionnes": ["poste1", "poste2"],
+  "justification": "Explication courte du choix"
 }
 \`\`\`
 
----
+### 📋 CATÉGORIES :
 
-### 📋 CATÉGORIES DISPONIBLES
+* **Vente** : Commercial, Account Manager, Sales, Business Developer
+* **Marketing** : Marketing Manager, Communication, Brand Manager, Growth
+* **Tech** : Développeur, Data, Product Manager, DevOps, CTO
+* **RH** : Recruteur, HR Manager, People & Culture
+* **Finance** : Contrôleur, CFO, Comptable, Finance Manager
+* **Autre** : Si aucune catégorie ne correspond
 
-1. **"Développeur"** : Développement logiciel (web, mobile, backend, frontend, fullstack)
-2. **"Data"** : Data science, data analyst, data engineer, business intelligence
-3. **"IA/ML"** : Intelligence artificielle, machine learning, deep learning
-4. **"Sécurité"** : Cybersécurité, sécurité informatique, pentesting, RSSI
-5. **"DevOps/Infra"** : DevOps, infrastructure, cloud, système, réseau
-6. **"Product/UX"** : Product manager, UX/UI designer, chef de produit
-7. **"RH/Admin"** : Ressources humaines, administration, finance, juridique
-8. **"Direction"** : CTO, CEO, directeur technique, lead technique
-9. **"Autre"** : Tous les autres postes (commerciaux, marketing, etc.)
+### 🎯 SÉLECTION DES POSTES :
 
----
+Sélectionnez max 2 postes les plus pertinents parmi ceux identifiés à l'étape 1.
+Privilégiez les postes séniors et managériaux.`
+        },
+        {
+          role: 'user',
+          content: `Catégorisez cette offre :
 
-### 🔍 SÉLECTION DES POSTES
+Titre : ${post.title || 'Aucun titre'}
 
-- Extraire **jusqu'à 3 postes** les plus pertinents mentionnés dans l'offre
-- Privilégier les postes **techniques et qualifiés**
-- Ignorer les postes trop juniors (stagiaires, alternants, assistants)
-- Reformuler en termes standards si nécessaire
+Contenu : ${post.text}
 
----
+Postes identifiés : ${post.openai_step1_postes || 'Non spécifiés'}`
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1
+    }),
+  });
 
-### ⚠️ RÈGLES IMPORTANTES
+  const data = await response.json();
+  
+  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    throw new Error('Invalid OpenAI response');
+  }
+  
+  let result;
+  try {
+    result = JSON.parse(data.choices[0].message.content);
+  } catch (parseError) {
+    throw new Error('Failed to parse OpenAI response as JSON');
+  }
+  
+  return { result, fullResponse: data };
+}
 
-- Si **aucun poste technique** n'est mentionné clairement → **"Autre"**
-- Si **plus de 3 postes différents** → sélectionner les 3 plus pertinents
-- Privilégier la **catégorie dominante** si plusieurs sont présentes`
-          },
-          {
-            role: 'user',
-            content: `Analysez cette offre d'emploi :
-
-**Titre :** ${post.title || 'Aucun titre'}
-
-**Contenu :** ${post.text}
-
-**Postes identifiés précédemment :** ${post.openai_step1_postes || 'Aucun'}`
-          }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1
-      }),
-    });
-
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
-
-    // Sauvegarder les résultats
-    await updatePostWithCorrelation(supabaseClient, postId, correlationId, {
+async function updatePostStep3Results(supabaseClient: any, postId: string, result: any, fullResponse: any) {
+  await supabaseClient
+    .from('linkedin_posts')
+    .update({
       openai_step3_categorie: result.categorie,
       openai_step3_postes_selectionnes: result.postes_selectionnes,
       openai_step3_justification: result.justification,
-      openai_step3_response: data
-    });
+      openai_step3_response: fullResponse,
+      processing_status: 'processing',
+      last_updated_at: new Date().toISOString()
+    })
+    .eq('id', postId);
 
-    const duration = Date.now() - startTime;
-    await logger.logStepEnd(result, duration);
-
-    // Déclencher l'étape suivante si c'est un workflow (simplifié)
-    if (workflowTrigger) {
-      try {
-        await supabaseClient.functions.invoke('specialized-unipile-worker', {
-          body: { 
-            post_id: postId,
-            dataset_id: datasetId,
-            workflow_trigger: true
-          }
-        });
-        logger.success('Step 4 (Unipile) triggered');
-      } catch (error) {
-        logger.error('Error triggering Step 4', error);
-      }
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      result: result,
-      post_id: postId,
-      dataset_id: datasetId,
-      correlation_id: correlationId
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    await logger.logStepError(error, duration);
-    await handleWorkerError(supabaseClient, postId, correlationId, 'step3', error);
-
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message,
-      post_id: postId,
-      correlation_id: correlationId
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-}
-
-async function processBatchStep3(supabaseClient: any, datasetId?: string) {
-  const correlationId = CorrelationLogger.generateCorrelationId();
-  const logger = new CorrelationLogger({
-    correlationId,
-    postId: 'BATCH',
-    step: 'step3_batch',
-    datasetId
-  });
-
-  logger.info(`Processing Step 3 batch for dataset: ${datasetId}`);
-  
-  let query = supabaseClient
-    .from('linkedin_posts')
-    .select('*')
-    .eq('openai_step2_reponse', 'oui')
-    .is('openai_step3_categorie', null)
-    .limit(50);
-
-  if (datasetId) {
-    query = query.eq('apify_dataset_id', datasetId);
-  }
-
-  const { data: posts, error } = await query;
-
-  if (error) {
-    throw new Error(`Error fetching posts for Step 3: ${error.message}`);
-  }
-
-  logger.info(`Found ${posts.length} posts for Step 3 processing`);
-
-  let processed = 0;
-  let errors = 0;
-
-  // Traiter en parallèle avec limite
-  const PARALLEL_LIMIT = 5;
-  
-  for (let i = 0; i < posts.length; i += PARALLEL_LIMIT) {
-    const batch = posts.slice(i, i + PARALLEL_LIMIT);
-    
-    await Promise.all(batch.map(async (post) => {
-      try {
-        await processSingleStep3(supabaseClient, post.id, post.apify_dataset_id, false);
-        processed++;
-      } catch (error) {
-        logger.error(`Error processing Step 3 for post ${post.id}`, error);
-        errors++;
-      }
-    }));
-    
-    // Petit délai entre les batches
-    if (i + PARALLEL_LIMIT < posts.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-  return new Response(JSON.stringify({
-    success: true,
-    batch_mode: true,
-    dataset_id: datasetId,
-    processed_count: processed,
-    error_count: errors,
-    total_found: posts.length,
-    correlation_id: correlationId
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
+  return { categorie: result.categorie };
 }

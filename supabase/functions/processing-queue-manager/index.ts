@@ -162,42 +162,48 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
         }
       }
       
-      // Insertion des posts qualifiés par batches
+      // ✅ CORRECTION CRITIQUE : Insertion des posts avec récupération des IDs
+      const insertedPosts = [];
       for (let i = 0; i < qualifiedPosts.length; i += BATCH_SIZE) {
         const batch = qualifiedPosts.slice(i, i + BATCH_SIZE);
         
-        await supabaseClient
+        const { data: insertedBatch, error } = await supabaseClient
           .from('linkedin_posts')
-          .upsert(batch, { onConflict: 'urn', ignoreDuplicates: true });
+          .upsert(batch, { onConflict: 'urn', ignoreDuplicates: true })
+          .select('id');
+        
+        if (insertedBatch) {
+          insertedPosts.push(...insertedBatch);
+        }
         
         console.log(`🚀 Background: Queued batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(qualifiedPosts.length / BATCH_SIZE)}`);
         
         await new Promise(resolve => setTimeout(resolve, 50));
       }
       
-      console.log(`✅ Background task completed: ${qualifiedPosts.length} posts queued`);
+      console.log(`✅ Background task completed: ${insertedPosts.length} posts queued`);
       
-      // ✅ CORRECTION MAJEURE : Déclencher directement openai-step1-worker au lieu de queue_posts
-      if (qualifiedPosts.length > 0) {
+      // ✅ CORRECTION MAJEURE : Utiliser les IDs réels des posts insérés
+      if (insertedPosts.length > 0) {
         console.log('🚀 Triggering OpenAI Step 1 worker directly...');
         
         // Grouper les posts par batches optimales pour le worker
         const WORKER_BATCH_SIZE = 50;
-        const postIds = qualifiedPosts.map(p => p.id);
+        const realPostIds = insertedPosts.map(p => p.id).filter(id => id); // Filtrer les IDs valides
         
-        for (let i = 0; i < postIds.length; i += WORKER_BATCH_SIZE) {
-          const batchIds = postIds.slice(i, i + WORKER_BATCH_SIZE);
+        for (let i = 0; i < realPostIds.length; i += WORKER_BATCH_SIZE) {
+          const batchIds = realPostIds.slice(i, i + WORKER_BATCH_SIZE);
           const batchNumber = Math.floor(i / WORKER_BATCH_SIZE) + 1;
-          const totalBatches = Math.ceil(postIds.length / WORKER_BATCH_SIZE);
+          const totalBatches = Math.ceil(realPostIds.length / WORKER_BATCH_SIZE);
           
           try {
             console.log(`📤 Invoking openai-step1-worker for batch ${batchNumber}/${totalBatches} (${batchIds.length} posts)`);
             
-            // ✅ Invocation directe du worker Step 1
+            // ✅ Invocation directe du worker Step 1 avec dataset_id correct
             const workerResponse = await supabaseClient.functions.invoke('openai-step1-worker', {
               body: { 
                 post_ids: batchIds,
-                dataset_id: datasetId,
+                dataset_id: datasetId || null, // ✅ Correction : s'assurer que ce n'est pas la chaîne "null"
                 batch_mode: true,
                 timeout_protection: true,
                 workflow_enabled: true
@@ -207,7 +213,7 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
             console.log(`✅ OpenAI Step 1 worker batch ${batchNumber} triggered:`, workerResponse.data?.success ? 'SUCCESS' : 'PENDING');
             
             // Pause entre les batches pour éviter la surcharge
-            if (i + WORKER_BATCH_SIZE < postIds.length) {
+            if (i + WORKER_BATCH_SIZE < realPostIds.length) {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
@@ -216,7 +222,7 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
           }
         }
         
-        console.log(`✅ All OpenAI Step 1 batches triggered for ${qualifiedPosts.length} posts`);
+        console.log(`✅ All OpenAI Step 1 batches triggered for ${realPostIds.length} posts`);
       }
       
     } catch (error) {
@@ -257,8 +263,8 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
       .order('created_at', { ascending: true })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    // ✅ NOUVEAU : Filtrer par dataset si spécifié
-    if (datasetId) {
+    // ✅ CORRECTION : Filtrer par dataset si spécifié et valide
+    if (datasetId && datasetId !== 'null' && datasetId !== null) {
       query = query.eq('apify_dataset_id', datasetId);
     }
 
@@ -329,14 +335,13 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
         console.log(`🚀 Processing BACKGROUND batch ${batchNumber}/${totalBatches} for dataset ${datasetId} (${batch.length} posts)`);
         
         try {
-          // ✅ CORRECTION : Utiliser openai-step1-worker au lieu de specialized-openai-worker
           console.log(`📤 Invoking openai-step1-worker for batch ${batchNumber}...`);
           console.log(`📋 Post IDs in batch: ${batch.map(p => p.id).slice(0, 5).join(', ')}${batch.length > 5 ? '...' : ''}`);
           
           const workerPromise = supabaseClient.functions.invoke('openai-step1-worker', {
             body: { 
               post_ids: batch.map(p => p.id),
-              dataset_id: datasetId,
+              dataset_id: datasetId || null, // ✅ Correction : s'assurer que ce n'est pas la chaîne "null"
               batch_mode: true,
               timeout_protection: timeoutProtection,
               workflow_enabled: true
@@ -383,7 +388,7 @@ async function queuePendingPosts(supabaseClient: any, timeoutProtection: boolean
       const response = await supabaseClient.functions.invoke('openai-step1-worker', {
         body: { 
           post_ids: batch.map(p => p.id),
-          dataset_id: batch[0]?.apify_dataset_id,
+          dataset_id: batch[0]?.apify_dataset_id || null, // ✅ Correction : gérer les dataset_id nuls
           batch_mode: true,
           timeout_protection: true,
           workflow_enabled: true
@@ -424,11 +429,10 @@ async function processNextBatch(supabaseClient: any, taskType: string, datasetId
   
   const batchSize = getOptimizedBatchSizeForTaskType(taskType);
   
-  // ✅ NOUVEAU : Logique de traitement par batch selon le type de tâche avec dataset_id
   let query = supabaseClient.from('linkedin_posts').select('*');
   
-  // Filtrer par dataset si spécifié
-  if (datasetId) {
+  // ✅ CORRECTION : Filtrer par dataset si spécifié et valide
+  if (datasetId && datasetId !== 'null' && datasetId !== null) {
     query = query.eq('apify_dataset_id', datasetId);
   }
   
@@ -448,7 +452,7 @@ async function processNextBatch(supabaseClient: any, taskType: string, datasetId
                   .eq('unipile_profile_scraped', false)
                   .eq('processing_status', 'processing');
       break;
-    case 'company_verification': // ✅ NOUVEAU : Ajout étape company
+    case 'company_verification':
       query = query.eq('unipile_profile_scraped', true)
                   .is('company_verified_at', null)
                   .eq('processing_status', 'processing');
@@ -473,7 +477,6 @@ async function processNextBatch(supabaseClient: any, taskType: string, datasetId
   let processedCount = 0;
   
   if (taskType.startsWith('openai_')) {
-    // ✅ CORRECTION : Utiliser les workers séparés pour OpenAI
     if (posts.length > 0) {
       const step = taskType.replace('openai_', '');
       try {
@@ -483,7 +486,7 @@ async function processNextBatch(supabaseClient: any, taskType: string, datasetId
         await supabaseClient.functions.invoke(workerName, {
           body: { 
             post_ids: posts.map(p => p.id),
-            dataset_id: posts[0]?.apify_dataset_id,
+            dataset_id: posts[0]?.apify_dataset_id || null, // ✅ Correction : gérer les dataset_id nuls
             batch_mode: true,
             mega_batch: true,
             workflow_enabled: true
@@ -530,13 +533,14 @@ async function requeueFailedPosts(supabaseClient: any, datasetId?: string) {
     .from('linkedin_posts')
     .select('*')
     .in('processing_status', ['error', 'failed_max_retries'])
-    .lt('retry_count', 3); // Réduit de 5 à 3 pour éviter les posts défaillants
+    .lt('retry_count', 3);
 
-  if (datasetId) {
+  // ✅ CORRECTION : Filtrer par dataset si spécifié et valide
+  if (datasetId && datasetId !== 'null' && datasetId !== null) {
     query = query.eq('apify_dataset_id', datasetId);
   }
 
-  const { data: failedPosts, error } = await query.limit(200); // Augmenté de 100 à 200
+  const { data: failedPosts, error } = await query.limit(200);
 
   if (error) {
     throw new Error(`Error fetching failed posts: ${error.message}`);
@@ -617,7 +621,7 @@ async function triggerSpecializedWorker(supabaseClient: any, taskType: string, p
   await supabaseClient.functions.invoke(workerName, {
     body: { 
       post_id: post.id, 
-      dataset_id: post.apify_dataset_id,
+      dataset_id: post.apify_dataset_id || null, // ✅ Correction : gérer les dataset_id nuls
       task_type: taskType,
       workflow_trigger: true
     }
@@ -675,7 +679,7 @@ async function fullWorkflowOrchestration(supabaseClient: any, datasetId?: string
 
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // ✅ NOUVEAU : Étape 5: Vérification des entreprises
+    // Étape 5: Vérification des entreprises
     console.log('🏢 Step 5: Processing company verification...');
     await processNextBatch(supabaseClient, 'company_verification', datasetId);
     results.steps.push({ step: 'company_verification', success: true, timestamp: new Date().toISOString() });
