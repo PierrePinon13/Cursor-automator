@@ -65,49 +65,58 @@ serve(async (req) => {
 
         console.log(`✅ OpenAI ${step} BATCH completed: ${batchResult.success} success, ${batchResult.failed} failed`);
 
-        // 🔧 CORRECTION CRITIQUE : Déclenchement automatique optimisé du step suivant
-        const triggerNextStepAsync = async () => {
+        // 🔧 CORRECTION CRITIQUE : Déclenchement immédiat et synchrone du step suivant
+        let nextStepTriggered = false;
+        
+        // Déclencher immédiatement le step suivant AVANT de répondre
+        if (step === 'step1' && batchResult.success > 0) {
+          console.log(`🚀 IMMEDIATE: Triggering Step 2 processing for dataset: ${dataset_id}`);
           try {
-            console.log(`🔄 Background: Triggering next step after ${step} batch completion...`);
-            
-            // Attendre un délai pour s'assurer que les mises à jour sont propagées
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Déclencher l'étape suivante selon le step actuel avec le processing queue manager
-            if (step === 'step1') {
-              console.log(`✅ Background: Triggering Step 2 processing for dataset: ${dataset_id}`);
-              await supabaseClient.functions.invoke('processing-queue-manager', {
-                body: { 
-                  action: 'process_next_batch',
-                  task_type: 'openai_step2',
-                  dataset_id: dataset_id
-                }
-              });
-            } else if (step === 'step2') {
-              console.log(`✅ Background: Triggering Step 3 processing for dataset: ${dataset_id}`);
-              await supabaseClient.functions.invoke('processing-queue-manager', {
-                body: { 
-                  action: 'process_next_batch',
-                  task_type: 'openai_step3',
-                  dataset_id: dataset_id
-                }
-              });
-            } else if (step === 'step3') {
-              console.log(`✅ Background: Triggering Unipile scraping for dataset: ${dataset_id}`);
-              await supabaseClient.functions.invoke('processing-queue-manager', {
-                body: { 
-                  action: 'process_next_batch',
-                  task_type: 'unipile_scraping',
-                  dataset_id: dataset_id
-                }
-              });
-            }
+            const step2Response = await supabaseClient.functions.invoke('processing-queue-manager', {
+              body: { 
+                action: 'process_next_batch',
+                task_type: 'openai_step2',
+                dataset_id: dataset_id
+              }
+            });
+            console.log(`✅ IMMEDIATE: Step 2 triggered successfully:`, step2Response.data);
+            nextStepTriggered = true;
           } catch (error) {
-            console.error(`❌ Background: Error triggering next step after ${step}:`, error);
+            console.error(`❌ IMMEDIATE: Error triggering Step 2:`, error);
           }
-        };
+        } else if (step === 'step2' && batchResult.success > 0) {
+          console.log(`🚀 IMMEDIATE: Triggering Step 3 processing for dataset: ${dataset_id}`);
+          try {
+            const step3Response = await supabaseClient.functions.invoke('processing-queue-manager', {
+              body: { 
+                action: 'process_next_batch',
+                task_type: 'openai_step3',
+                dataset_id: dataset_id
+              }
+            });
+            console.log(`✅ IMMEDIATE: Step 3 triggered successfully:`, step3Response.data);
+            nextStepTriggered = true;
+          } catch (error) {
+            console.error(`❌ IMMEDIATE: Error triggering Step 3:`, error);
+          }
+        } else if (step === 'step3' && batchResult.success > 0) {
+          console.log(`🚀 IMMEDIATE: Triggering Unipile scraping for dataset: ${dataset_id}`);
+          try {
+            const unipileResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
+              body: { 
+                action: 'process_next_batch',
+                task_type: 'unipile_scraping',
+                dataset_id: dataset_id
+              }
+            });
+            console.log(`✅ IMMEDIATE: Unipile scraping triggered successfully:`, unipileResponse.data);
+            nextStepTriggered = true;
+          } catch (error) {
+            console.error(`❌ IMMEDIATE: Error triggering Unipile scraping:`, error);
+          }
+        }
 
-        // Gérer les erreurs individuelles des posts dans le batch AVANT le déclenchement
+        // Gérer les erreurs individuelles des posts dans le batch
         const failedPostIds = [];
         for (const result of batchResult.results) {
           if (!result.success) {
@@ -116,8 +125,8 @@ serve(async (req) => {
           }
         }
 
-        // 🎯 RETOUR IMMÉDIAT pour éviter les timeouts
-        const responsePromise = new Response(JSON.stringify({ 
+        // 🎯 RETOUR IMMÉDIAT avec statut du déclenchement
+        return new Response(JSON.stringify({ 
           success: true, 
           batch_mode: true,
           step,
@@ -125,24 +134,11 @@ serve(async (req) => {
           success_count: batchResult.success,
           failed_count: batchResult.failed,
           dataset_id,
-          next_step_will_be_triggered: true
+          next_step_triggered: nextStepTriggered,
+          next_step_trigger_method: 'immediate_synchronous'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
-
-        // Lancer le déclenchement en arrière-plan APRÈS avoir préparé la réponse
-        if ((globalThis as any).EdgeRuntime?.waitUntil) {
-          (globalThis as any).EdgeRuntime.waitUntil(triggerNextStepAsync());
-          console.log(`🚀 Next step trigger scheduled in background for ${step}`);
-        } else {
-          // Fallback : lancer sans attendre
-          triggerNextStepAsync().catch(err => 
-            console.error(`❌ Fallback trigger error for ${step}:`, err)
-          );
-          console.log(`🚀 Next step trigger started as fallback for ${step}`);
-        }
-
-        return responsePromise;
 
       } catch (error) {
         console.error(`❌ OpenAI ${step} BATCH failed:`, error);
