@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
@@ -105,7 +106,7 @@ serve(async (req) => {
 
       logger.info(`Successfully fetched ${posts.length} posts from database`);
 
-      const results = await processBatch(posts, supabaseClient, cleanDatasetId, workflow_enabled, correlationId);
+      const results = await processBatch(posts, supabaseClient, cleanDatasetId, correlationId);
       
       logger.success(`Batch completed: ${results.successCount} success, ${results.errorCount} errors`);
 
@@ -147,7 +148,7 @@ serve(async (req) => {
         throw new Error(`Failed to fetch post: ${fetchError?.message}`);
       }
 
-      const result = await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled, correlationId);
+      const result = await processSinglePost(post, supabaseClient, cleanDatasetId, correlationId);
 
       return new Response(JSON.stringify({ 
         success: true,
@@ -177,7 +178,6 @@ async function processSinglePost(
   post: any, 
   supabaseClient: any, 
   datasetId?: string,
-  workflowEnabled = false,
   correlationId?: string
 ) {
   const corrId = correlationId || CorrelationLogger.generateCorrelationId();
@@ -199,8 +199,28 @@ async function processSinglePost(
     const duration = Date.now() - startTime;
     await logger.logStepEnd(result, duration);
     
-    // Déclencher workflow si activé
-    await triggerWorkflowIfEnabled(supabaseClient, post.id, result, datasetId, workflowEnabled, logger);
+    // 🔥 NOUVEAU : Déclenchement immédiat du Step 2 si succès
+    if (normalizedResponse === 'oui') {
+      console.log(`✅ Step 1 passed for post ${post.id}, triggering Step 2 IMMEDIATELY`);
+      try {
+        await supabaseClient.functions.invoke('openai-step2-worker', {
+          body: { 
+            post_id: post.id,
+            dataset_id: datasetId || null,
+            workflow_trigger: true
+          }
+        });
+        console.log(`🎯 Step 2 triggered immediately for post ${post.id}`);
+      } catch (error) {
+        console.error(`❌ Error triggering Step 2 for post ${post.id}:`, error);
+      }
+    } else {
+      console.log(`❌ Step 1 failed for post ${post.id}, marking as not_job_posting`);
+      await supabaseClient
+        .from('linkedin_posts')
+        .update({ processing_status: 'not_job_posting' })
+        .eq('id', post.id);
+    }
     
     return { post_id: post.id, success: true, analysis: result, correlation_id: corrId };
     
@@ -216,7 +236,6 @@ async function processBatch(
   posts: any[], 
   supabaseClient: any, 
   datasetId?: string,
-  workflowEnabled = false,
   batchCorrelationId: string
 ) {
   let successCount = 0;
@@ -229,7 +248,7 @@ async function processBatch(
     const promises = batch.map(async (post) => {
       try {
         const postCorrelationId = `${batchCorrelationId}_${post.id}`;
-        await processSinglePost(post, supabaseClient, datasetId, workflowEnabled, postCorrelationId);
+        await processSinglePost(post, supabaseClient, datasetId, postCorrelationId);
         successCount++;
       } catch (error) {
         errorCount++;
@@ -365,36 +384,4 @@ async function updatePostStep1Results(supabaseClient: any, postId: string, resul
   });
 
   return { normalizedResponse, newStatus };
-}
-
-async function triggerWorkflowIfEnabled(
-  supabaseClient: any, 
-  postId: string, 
-  result: any, 
-  datasetId?: string, 
-  workflowEnabled = false,
-  logger?: CorrelationLogger
-) {
-  if (!workflowEnabled) return;
-
-  try {
-    if (result.recrute_poste === 'oui' || result.recrute_poste === 'yes') {
-      logger?.info(`Step 1 passed, triggering Step 2`);
-      await supabaseClient.functions.invoke('openai-step2-worker', {
-        body: { 
-          post_id: postId,
-          dataset_id: datasetId || null,
-          workflow_trigger: true
-        }
-      });
-    } else {
-      logger?.info(`Step 1 failed, marking as not_job_posting`);
-      await updatePostWithCorrelation(supabaseClient, postId, logger?.context.correlationId || 'unknown', {
-        processing_status: 'not_job_posting'
-      });
-    }
-    logger?.success('Workflow triggered successfully');
-  } catch (error) {
-    logger?.error('Error triggering workflow', error);
-  }
 }

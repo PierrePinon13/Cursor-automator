@@ -1,7 +1,7 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
-import { triggerWorkflowIfEnabled } from './workflow-integration.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -64,7 +64,7 @@ serve(async (req) => {
         
         const promises = batch.map(async (post) => {
           try {
-            await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled);
+            await processSinglePost(post, supabaseClient, cleanDatasetId);
             successCount++;
           } catch (error) {
             console.error(`❌ Step 2 failed for post ${post.id}:`, error);
@@ -108,7 +108,7 @@ serve(async (req) => {
         throw new Error(`Failed to fetch post: ${fetchError?.message}`);
       }
 
-      const result = await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled);
+      const result = await processSinglePost(post, supabaseClient, cleanDatasetId);
 
       return new Response(JSON.stringify({ 
         success: true,
@@ -133,34 +133,42 @@ serve(async (req) => {
   }
 });
 
-async function processSinglePost(post: any, supabaseClient: any, datasetId?: string, workflowEnabled = false) {
-  console.log(`🤖 Processing Step 2 for post: ${post.id}`);
+async function processSinglePost(post: any, supabaseClient: any, datasetId?: string) {
+  console.log(`🌍 Processing Step 2 for post: ${post.id}`);
   
   const { result, fullResponse } = await callOpenAIStep2(post);
   await updatePostStep2Results(supabaseClient, post.id, result, fullResponse);
   
   console.log(`✅ Step 2 completed for post: ${post.id} - ${result.reponse}`);
   
-  // Déclencher workflow si activé
-  if (workflowEnabled && result.reponse === 'oui') {
+  // 🔥 NOUVEAU : Déclenchement immédiat du Step 3 si succès
+  if (result.reponse === 'oui') {
+    console.log(`✅ Step 2 passed for post ${post.id}, triggering Step 3 IMMEDIATELY`);
     try {
       await supabaseClient.functions.invoke('openai-step3-worker', {
         body: { 
           post_id: post.id,
-          dataset_id: datasetId || null, // ✅ Correction : gérer les dataset_id nuls
+          dataset_id: datasetId || null,
           workflow_trigger: true
         }
       });
+      console.log(`🎯 Step 3 triggered immediately for post ${post.id}`);
     } catch (error) {
-      console.error('❌ Error triggering Step 3:', error);
+      console.error(`❌ Error triggering Step 3 for post ${post.id}:`, error);
     }
+  } else {
+    console.log(`❌ Step 2 failed for post ${post.id}, marking as filtered_out`);
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({ processing_status: 'filtered_out' })
+      .eq('id', post.id);
   }
   
   return { post_id: post.id, success: true, analysis: result };
 }
 
 async function callOpenAIStep2(post: any) {
-  console.log('🤖 Calling OpenAI Step 2 API');
+  console.log('🌍 Calling OpenAI Step 2 API');
   
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

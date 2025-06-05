@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CorrelationLogger, updatePostWithCorrelation, handleWorkerError } from '../shared/correlation-logger.ts'
@@ -63,7 +64,7 @@ serve(async (req) => {
         
         const promises = batch.map(async (post) => {
           try {
-            await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled);
+            await processSinglePost(post, supabaseClient, cleanDatasetId);
             successCount++;
           } catch (error) {
             console.error(`❌ Step 3 failed for post ${post.id}:`, error);
@@ -107,7 +108,7 @@ serve(async (req) => {
         throw new Error(`Failed to fetch post: ${fetchError?.message}`);
       }
 
-      const result = await processSinglePost(post, supabaseClient, cleanDatasetId, workflow_enabled);
+      const result = await processSinglePost(post, supabaseClient, cleanDatasetId);
 
       return new Response(JSON.stringify({ 
         success: true,
@@ -132,7 +133,7 @@ serve(async (req) => {
   }
 });
 
-async function processSinglePost(post: any, supabaseClient: any, datasetId?: string, workflowEnabled = false) {
+async function processSinglePost(post: any, supabaseClient: any, datasetId?: string) {
   console.log(`🏷️ Processing Step 3 for post: ${post.id}`);
   
   const { result, fullResponse } = await callOpenAIStep3(post);
@@ -140,19 +141,19 @@ async function processSinglePost(post: any, supabaseClient: any, datasetId?: str
   
   console.log(`✅ Step 3 completed for post: ${post.id} - ${result.categorie}`);
   
-  // Déclencher workflow si activé
-  if (workflowEnabled) {
-    try {
-      await supabaseClient.functions.invoke('specialized-unipile-worker', {
-        body: { 
-          post_id: post.id,
-          dataset_id: datasetId || null, // ✅ Correction : gérer les dataset_id nuls
-          workflow_trigger: true
-        }
-      });
-    } catch (error) {
-      console.error('❌ Error triggering Unipile scraping:', error);
-    }
+  // 🔥 NOUVEAU : Déclenchement immédiat d'Unipile
+  console.log(`✅ Step 3 completed for post ${post.id}, triggering Unipile IMMEDIATELY`);
+  try {
+    await supabaseClient.functions.invoke('specialized-unipile-worker', {
+      body: { 
+        post_id: post.id,
+        dataset_id: datasetId || null,
+        workflow_trigger: true
+      }
+    });
+    console.log(`🎯 Unipile triggered immediately for post ${post.id}`);
+  } catch (error) {
+    console.error(`❌ Error triggering Unipile for post ${post.id}:`, error);
   }
   
   return { post_id: post.id, success: true, analysis: result };
