@@ -58,6 +58,32 @@ serve(async (req) => {
   }
 });
 
+// ✅ NOUVELLE FONCTION : Retry avec gestion des erreurs de cache
+async function retryWithSchemaCache(operation, maxRetries = 3, baseDelay = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.log(`⚠️ Attempt ${attempt}/${maxRetries} failed:`, error.message);
+      
+      // Si c'est une erreur de cache de schéma, attendre plus longtemps
+      if (error.code === 'PGRST002' || error.message?.includes('schema cache')) {
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt - 1); // Délai exponentiel
+          console.log(`🔄 Schema cache error, waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
+      
+      // Pour les autres erreurs, ne pas retry
+      if (attempt === maxRetries) {
+        throw error;
+      }
+    }
+  }
+}
+
 async function fastWebhookProcessing(supabaseClient, datasetId, apifyApiKey, forceAll) {
   console.log('⚡ FAST WEBHOOK PROCESSING: Starting optimized background task');
   
@@ -182,86 +208,89 @@ async function fastWebhookProcessing(supabaseClient, datasetId, apifyApiKey, for
       
       console.log(`✅ Background task completed: ${insertedPosts.length} posts queued`);
       
-      // ✅ CORRECTION CRITIQUE : Déclenchement optimisé des workers
+      // ✅ CORRECTION CRITIQUE : Déclenchement optimisé des workers avec retry
       if (insertedPosts.length > 0) {
         console.log('🚀 Triggering optimized OpenAI Step 1 workers...');
         
-        // Attendre plus longtemps pour s'assurer de la cohérence
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // ✅ OPTIMISATION : Récupération optimisée
-        const { data: pendingPosts, error: fetchError } = await supabaseClient
-          .from('linkedin_posts')
-          .select('id')
-          .eq('apify_dataset_id', datasetId)
-          .eq('processing_status', 'pending')
-          .order('created_at', { ascending: true })
-          .limit(2000); // Limite pour éviter les timeouts
-        
-        if (fetchError) {
-          console.error('❌ Error fetching pending posts:', fetchError);
-          return;
-        }
-        
-        if (!pendingPosts || pendingPosts.length === 0) {
-          console.log('ℹ️ No pending posts found for dataset:', datasetId);
-          return;
-        }
-        
-        console.log(`📋 Found ${pendingPosts.length} pending posts to process`);
-        
-        // ✅ OPTIMISATION : Batches plus grands pour les workers
-        const WORKER_BATCH_SIZE = 100; // Augmenté pour plus d'efficacité
-        const realPostIds = pendingPosts.map(p => p.id).filter(id => id);
-        
-        // ✅ LIMITE DE SÉCURITÉ : Traiter par chunks pour éviter les timeouts
-        const MAX_WORKER_BATCHES = 20;
-        const totalBatches = Math.min(MAX_WORKER_BATCHES, Math.ceil(realPostIds.length / WORKER_BATCH_SIZE));
-        
-        for (let i = 0; i < totalBatches * WORKER_BATCH_SIZE && i < realPostIds.length; i += WORKER_BATCH_SIZE) {
-          const batchIds = realPostIds.slice(i, i + WORKER_BATCH_SIZE);
-          const batchNumber = Math.floor(i / WORKER_BATCH_SIZE) + 1;
+        // ✅ AMÉLIORATION : Retry avec gestion du cache de schéma
+        await retryWithSchemaCache(async () => {
+          // Attendre plus longtemps pour s'assurer de la cohérence
+          await new Promise(resolve => setTimeout(resolve, 5000));
           
-          try {
-            console.log(`📤 Invoking optimized openai-step1-worker for batch ${batchNumber}/${totalBatches} (${batchIds.length} posts)`);
-            
-            // ✅ VALIDATION RENFORCÉE
-            const validIds = batchIds.filter(id => {
-              if (!id || typeof id !== 'string') return false;
-              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-              return uuidRegex.test(id);
-            });
-            
-            if (validIds.length === 0) {
-              console.error(`❌ No valid post IDs in batch ${batchNumber}`);
-              continue;
-            }
-            
-            console.log(`🔍 Processing ${validIds.length} valid IDs in batch: ${validIds.slice(0, 3).join(', ')}${validIds.length > 3 ? '...' : ''}`);
-            
-            const workerResponse = await supabaseClient.functions.invoke('openai-step1-worker', {
-              body: {
-                post_ids: validIds,
-                dataset_id: datasetId,
-                batch_mode: true,
-                timeout_protection: true,
-                workflow_enabled: true
-              }
-            });
-            
-            console.log(`✅ OpenAI Step 1 worker batch ${batchNumber} triggered:`, workerResponse.data?.success ? 'SUCCESS' : 'PENDING');
-            
-            // ✅ OPTIMISATION : Pause plus courte entre les batches
-            if (i + WORKER_BATCH_SIZE < totalBatches * WORKER_BATCH_SIZE) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
-            
-          } catch (error) {
-            console.error(`❌ Error triggering OpenAI Step 1 worker batch ${batchNumber}:`, error);
+          // ✅ OPTIMISATION : Récupération optimisée avec retry
+          const { data: pendingPosts, error: fetchError } = await supabaseClient
+            .from('linkedin_posts')
+            .select('id')
+            .eq('apify_dataset_id', datasetId)
+            .eq('processing_status', 'pending')
+            .order('created_at', { ascending: true })
+            .limit(2000); // Limite pour éviter les timeouts
+          
+          if (fetchError) {
+            console.error('❌ Error fetching pending posts:', fetchError);
+            throw fetchError;
           }
-        }
-        
-        console.log(`✅ All optimized OpenAI Step 1 batches triggered for ${Math.min(realPostIds.length, totalBatches * WORKER_BATCH_SIZE)} posts`);
+          
+          if (!pendingPosts || pendingPosts.length === 0) {
+            console.log('ℹ️ No pending posts found for dataset:', datasetId);
+            return;
+          }
+          
+          console.log(`📋 Found ${pendingPosts.length} pending posts to process`);
+          
+          // ✅ OPTIMISATION : Batches plus grands pour les workers
+          const WORKER_BATCH_SIZE = 100; // Augmenté pour plus d'efficacité
+          const realPostIds = pendingPosts.map(p => p.id).filter(id => id);
+          
+          // ✅ LIMITE DE SÉCURITÉ : Traiter par chunks pour éviter les timeouts
+          const MAX_WORKER_BATCHES = 20;
+          const totalBatches = Math.min(MAX_WORKER_BATCHES, Math.ceil(realPostIds.length / WORKER_BATCH_SIZE));
+          
+          for (let i = 0; i < totalBatches * WORKER_BATCH_SIZE && i < realPostIds.length; i += WORKER_BATCH_SIZE) {
+            const batchIds = realPostIds.slice(i, i + WORKER_BATCH_SIZE);
+            const batchNumber = Math.floor(i / WORKER_BATCH_SIZE) + 1;
+            
+            try {
+              console.log(`📤 Invoking optimized openai-step1-worker for batch ${batchNumber}/${totalBatches} (${batchIds.length} posts)`);
+              
+              // ✅ VALIDATION RENFORCÉE
+              const validIds = batchIds.filter(id => {
+                if (!id || typeof id !== 'string') return false;
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(id);
+              });
+              
+              if (validIds.length === 0) {
+                console.error(`❌ No valid post IDs in batch ${batchNumber}`);
+                continue;
+              }
+              
+              console.log(`🔍 Processing ${validIds.length} valid IDs in batch: ${validIds.slice(0, 3).join(', ')}${validIds.length > 3 ? '...' : ''}`);
+              
+              const workerResponse = await supabaseClient.functions.invoke('openai-step1-worker', {
+                body: {
+                  post_ids: validIds,
+                  dataset_id: datasetId,
+                  batch_mode: true,
+                  timeout_protection: true,
+                  workflow_enabled: true
+                }
+              });
+              
+              console.log(`✅ OpenAI Step 1 worker batch ${batchNumber} triggered:`, workerResponse.data?.success ? 'SUCCESS' : 'PENDING');
+              
+              // ✅ OPTIMISATION : Pause plus courte entre les batches
+              if (i + WORKER_BATCH_SIZE < totalBatches * WORKER_BATCH_SIZE) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+              
+            } catch (error) {
+              console.error(`❌ Error triggering OpenAI Step 1 worker batch ${batchNumber}:`, error);
+            }
+          }
+          
+          console.log(`✅ All optimized OpenAI Step 1 batches triggered for ${Math.min(realPostIds.length, totalBatches * WORKER_BATCH_SIZE)} posts`);
+        }, 3, 2000); // 3 tentatives avec délai de base de 2 secondes
       }
       
     } catch (error) {
