@@ -12,7 +12,7 @@ interface WorkflowEvent {
   id: string;
   post_id: string;
   correlation_id: string;
-  event_type: 'step_started' | 'step_completed' | 'step_failed' | 'step_retried';
+  event_type: string; // Allow any string from database
   step_name: string;
   created_at: string;
   duration_ms?: number;

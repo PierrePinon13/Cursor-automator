@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProcessingStatsSection from './ProcessingStatsSection';
-import DatasetReprocessing from './DatasetReprocessing';
-import AutomaticDatasetReprocessing from './AutomaticDatasetReprocessing';
+import { DatasetReprocessing } from './DatasetReprocessing';
+import { AutomaticDatasetReprocessing } from './AutomaticDatasetReprocessing';
 import DeepDataAnalysis from './DeepDataAnalysis';
 import DataProcessingDiagnostics from './DataProcessingDiagnostics';
 import ProcessingFunnel from './ProcessingFunnel';
 import MistargetedPostsSection from './MistargetedPostsSection';
-import HrProvidersManagement from './HrProvidersManagement';
+import { HrProvidersManagement } from './HrProvidersManagement';
 import WorkflowEventsMonitoring from './WorkflowEventsMonitoring';
 
 const AdminDashboard = () => {
