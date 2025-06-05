@@ -20,11 +20,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const unipileApiKey = Deno.env.get('UNIPILE_API_KEY');
-    if (!unipileApiKey) {
-      throw new Error('Unipile API key not configured');
-    }
-
     const { dataset_id, batch_size = 30 } = await req.json();
     
     console.log(`🎯 Processing Unipile batch for dataset: ${dataset_id}`);
@@ -83,38 +78,32 @@ serve(async (req) => {
 
     const processedPostIds = [];
 
-    // Traitement séquentiel pour Unipile (rate limiting)
+    // Traitement séquentiel utilisant unipile-queue pour la gestion du rate limiting
     for (const post of posts) {
       try {
         console.log(`🔍 Processing Unipile for post: ${post.id}`);
         
-        // Extraire l'ID LinkedIn du profil depuis l'URL
-        const profileIdMatch = post.author_profile_url?.match(/\/in\/([^\/]+)/);
-        if (!profileIdMatch) {
-          throw new Error('Could not extract LinkedIn profile ID from URL');
-        }
-
-        const linkedinProfileId = profileIdMatch[1];
-        console.log(`👤 Scraping LinkedIn profile: ${linkedinProfileId}`);
-
-        // Appel à l'API Unipile
-        const unipileResponse = await fetch(`https://api.unipile.com/api/v1/accounts/${accountId}/linkedin/profiles/${linkedinProfileId}`, {
-          method: 'GET',
-          headers: {
-            'X-API-KEY': unipileApiKey,
-            'Content-Type': 'application/json'
+        // Appel à unipile-queue avec l'opération scrape_profile
+        const { data: unipileResult, error: unipileError } = await supabaseClient.functions.invoke('unipile-queue', {
+          body: {
+            action: 'execute',
+            account_id: accountId,
+            operation: 'scrape_profile',
+            payload: {
+              profileUrl: post.author_profile_url
+            },
+            priority: false
           }
         });
 
-        if (!unipileResponse.ok) {
-          const errorText = await unipileResponse.text();
-          throw new Error(`Unipile API error (${unipileResponse.status}): ${errorText}`);
+        if (unipileError || !unipileResult?.success) {
+          throw new Error(`Unipile queue error: ${unipileError?.message || unipileResult?.error}`);
         }
 
-        const unipileData = await unipileResponse.json();
+        const profileData = unipileResult.result;
         
-        // Extraire les informations importantes
-        const currentExperience = unipileData.experience?.[0];
+        // Extraire les informations importantes du profil
+        const currentExperience = profileData.experience?.[0];
         const companyName = currentExperience?.company?.name;
         const position = currentExperience?.title;
         const companyLinkedInId = currentExperience?.company?.linkedin_id;
@@ -128,7 +117,7 @@ serve(async (req) => {
             unipile_company: companyName,
             unipile_position: position,
             unipile_company_linkedin_id: companyLinkedInId,
-            unipile_response: unipileData,
+            unipile_response: profileData,
             processing_status: 'queued_lead_creation',
             last_updated_at: new Date().toISOString()
           })
@@ -140,9 +129,8 @@ serve(async (req) => {
 
         console.log(`✅ Unipile completed for post: ${post.id} - ${companyName}`);
 
-        // Pause entre les requêtes Unipile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        // Note: unipile-queue gère déjà les délais entre les requêtes
+        
       } catch (error) {
         console.error(`❌ Unipile failed for post ${post.id}:`, error);
         

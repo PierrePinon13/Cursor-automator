@@ -49,16 +49,16 @@ serve(async (req) => {
 
     console.log(`📥 Found ${rawPosts.length} raw posts to filter and queue`);
 
-    // Étape 2: Filtrer les posts (éliminer les reposts, vérifier les champs requis)
+    // Étape 2: Filtrer les posts (éliminer les reposts, author_type != Person, vérifier les champs requis)
     const filteredPosts = rawPosts.filter(post => {
       // Éliminer les reposts
       if (post.is_repost) return false;
       
+      // Ne garder que les posts de personnes (pas d'entreprises)
+      if (post.author_type !== 'Person') return false;
+      
       // Vérifier les champs requis
       if (!post.text || !post.author_name || !post.author_profile_id) return false;
-      
-      // Éliminer les posts trop courts
-      if (post.text.length < 50) return false;
       
       return true;
     });
