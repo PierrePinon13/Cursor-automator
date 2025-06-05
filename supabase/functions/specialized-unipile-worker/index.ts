@@ -14,6 +14,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🔍 Specialized Unipile Worker started');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -23,104 +25,89 @@ serve(async (req) => {
       post_id, 
       post_ids, 
       dataset_id, 
-      batch_mode = false 
+      batch_mode = false,
+      workflow_trigger = false 
     } = await req.json();
-
-    const cleanDatasetId = dataset_id && dataset_id !== 'null' && dataset_id !== null ? dataset_id : null;
 
     // Mode batch
     if (batch_mode && post_ids && Array.isArray(post_ids) && post_ids.length > 0) {
-      console.log(`🔍 Processing Unipile BATCH: ${post_ids.length} posts`);
+      console.log(`🎯 Processing Unipile BATCH: ${post_ids.length} posts (dataset: ${dataset_id})`);
       
-      const validPostIds = post_ids.filter(id => {
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return id && typeof id === 'string' && uuidRegex.test(id);
-      });
-
-      if (validPostIds.length === 0) {
-        throw new Error('No valid post IDs provided');
-      }
-
       const { data: posts, error: fetchError } = await supabaseClient
         .from('linkedin_posts')
         .select('*')
-        .in('id', validPostIds);
+        .in('id', post_ids);
 
       if (fetchError || !posts) {
-        throw new Error(`Failed to fetch posts: ${fetchError?.message}`);
+        throw new Error(`Failed to fetch posts for batch: ${fetchError?.message}`);
       }
 
       let successCount = 0;
       let errorCount = 0;
-      const CONCURRENT_LIMIT = 2; // Réduit pour respecter rate limiting
       
-      for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
-        const batch = posts.slice(i, i + CONCURRENT_LIMIT);
-        
-        const promises = batch.map(async (post) => {
-          try {
-            await processSinglePost(post, supabaseClient, cleanDatasetId);
-            successCount++;
-          } catch (error) {
-            console.error(`❌ Unipile failed for post ${post.id}:`, error);
-            errorCount++;
+      // Traitement séquentiel pour respecter les délais de rate limiting
+      for (const post of posts) {
+        try {
+          await processSinglePost(post, supabaseClient, dataset_id);
+          successCount++;
+          
+          // Délai entre chaque post pour éviter la surcharge
+          if (posts.indexOf(post) < posts.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-        });
-
-        await Promise.allSettled(promises);
-        
-        if (i + CONCURRENT_LIMIT < posts.length) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Délai entre batches
+        } catch (error) {
+          console.error(`❌ Unipile failed for post ${post.id}:`, error);
+          errorCount++;
+          await handleUnipileError(supabaseClient, post.id, error);
         }
       }
 
       return new Response(JSON.stringify({ 
         success: true,
+        batch_mode: true,
         processed_count: posts.length,
         success_count: successCount,
         error_count: errorCount,
-        step: 'unipile'
+        dataset_id
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     // Mode single post
-    if (post_id) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!post_id || typeof post_id !== 'string' || !uuidRegex.test(post_id)) {
-        throw new Error(`Invalid post ID format: ${post_id}`);
-      }
-      
-      const { data: post, error: fetchError } = await supabaseClient
-        .from('linkedin_posts')
-        .select('*')
-        .eq('id', post_id)
-        .single();
-
-      if (fetchError || !post) {
-        throw new Error(`Failed to fetch post: ${fetchError?.message}`);
-      }
-
-      const result = await processSinglePost(post, supabaseClient, cleanDatasetId);
-
-      return new Response(JSON.stringify({ 
-        success: true,
-        processed_count: 1,
-        success_count: 1,
-        error_count: 0,
-        step: 'unipile',
-        result: result
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (!post_id) {
+      throw new Error('Post ID is required for single post mode');
     }
 
-    throw new Error('Either post_id or post_ids must be provided');
+    console.log(`🎯 Processing Unipile for post: ${post_id} (dataset: ${dataset_id})`);
+
+    const { data: post, error: fetchError } = await supabaseClient
+      .from('linkedin_posts')
+      .select('*')
+      .eq('id', post_id)
+      .single();
+
+    if (fetchError || !post) {
+      throw new Error(`Post not found: ${post_id}`);
+    }
+
+    const result = await processSinglePost(post, supabaseClient, dataset_id);
+
+    return new Response(JSON.stringify({ 
+      success: true,
+      post_id,
+      result,
+      dataset_id
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
     console.error('❌ Error in specialized-unipile-worker:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
@@ -130,169 +117,159 @@ serve(async (req) => {
 async function processSinglePost(post: any, supabaseClient: any, datasetId?: string) {
   console.log(`🔍 Processing Unipile for post: ${post.id}`);
   
-  if (!post.author_profile_id) {
-    console.log(`⚠️ No author_profile_id for post ${post.id}, skipping Unipile`);
-    return { post_id: post.id, success: false, error: 'No author_profile_id' };
+  // 1. Récupérer un compte Unipile disponible avec rotation
+  const accountId = await getAvailableUnipileAccount(supabaseClient);
+  if (!accountId) {
+    throw new Error('No Unipile account available');
   }
-
+  
+  console.log(`🔑 Using Unipile account: ${accountId}`);
+  
   try {
-    // Récupérer un compte Unipile disponible avec rotation
-    const accountId = await getAvailableUnipileAccount(supabaseClient);
-    if (!accountId) {
-      throw new Error('No Unipile account available');
-    }
-
-    console.log(`🔑 Using Unipile account: ${accountId}`);
-
-    // Appliquer le rate limiting
+    // 2. Scraper le profil de l'auteur via unipile-queue
+    console.log(`👤 Scraping profile for author: ${post.author_name}`);
+    
+    // Appliquer le rate limiting avant l'appel
     await applyRateLimit(accountId);
-
-    // Appeler unipile-queue pour le scraping de profil
-    const { data: scrapeResult, error: scrapeError } = await supabaseClient.functions.invoke('unipile-queue', {
+    
+    const { data: profileResult, error: profileError } = await supabaseClient.functions.invoke('unipile-queue', {
       body: {
         action: 'execute',
         account_id: accountId,
         operation: 'scrape_profile',
         payload: {
-          authorProfileId: post.author_profile_id
+          profileUrl: post.author_profile_url
         },
         priority: false
       }
     });
 
-    if (scrapeError || !scrapeResult?.success) {
-      throw new Error(`Unipile scraping failed: ${scrapeError?.message || scrapeResult?.error}`);
+    if (profileError || !profileResult?.success) {
+      throw new Error(`Profile scraping failed: ${profileError?.message || profileResult?.error}`);
     }
 
-    // Extraire les données pertinentes
-    const unipileData = scrapeResult.result;
-    const extractedData = extractProfileData(unipileData);
+    const profileData = profileResult.result;
+    console.log(`✅ Profile scraped successfully for ${post.author_name}`);
 
-    // Mettre à jour le post avec les résultats
-    const updateData = {
-      unipile_profile_scraped: true,
-      unipile_profile_scraped_at: new Date().toISOString(),
-      unipile_response: unipileData,
-      unipile_company: extractedData.company,
-      unipile_position: extractedData.position,
-      unipile_company_linkedin_id: extractedData.company_id,
-      last_updated_at: new Date().toISOString()
+    // 3. Extraire et nettoyer les données du profil
+    const cleanedData = {
+      author_headline: profileData.headline || null,
+      unipile_position: profileData.position || null,
+      unipile_company: profileData.company || null,
+      unipile_location: profileData.location || null,
+      unipile_profile_data: profileData
     };
 
-    if (extractedData.phone) {
-      updateData.phone_number = extractedData.phone;
-      updateData.phone_retrieved_at = new Date().toISOString();
+    // 4. Enrichir les informations de l'entreprise si disponible
+    let companyData = null;
+    let companyId = null;
+    
+    if (profileData.company && profileData.companyLinkedInId) {
+      try {
+        console.log(`🏢 Enriching company info for: ${profileData.company}`);
+        
+        // Vérifier si l'entreprise existe déjà
+        const { data: existingCompany } = await supabaseClient
+          .from('companies')
+          .select('id')
+          .eq('linkedin_id', profileData.companyLinkedInId)
+          .single();
+
+        if (existingCompany) {
+          companyId = existingCompany.id;
+          console.log(`ℹ️ Company already exists with ID: ${companyId}`);
+        } else {
+          // Scraper les infos de l'entreprise
+          companyData = await scrapeCompanyInfo(supabaseClient, accountId, profileData.companyLinkedInId);
+          
+          // Créer l'entrée entreprise
+          const { data: newCompany, error: companyError } = await supabaseClient
+            .from('companies')
+            .insert({
+              name: companyData.name || profileData.company,
+              linkedin_id: profileData.companyLinkedInId,
+              description: companyData.description,
+              industry: companyData.industry,
+              company_size: companyData.employeeCount,
+              headquarters: companyData.headquarters,
+              website: companyData.website,
+              follower_count: companyData.followerCount,
+              specialties: companyData.specialties
+            })
+            .select('id')
+            .single();
+
+          if (!companyError && newCompany) {
+            companyId = newCompany.id;
+            console.log(`✅ Company created with ID: ${companyId}`);
+          }
+        }
+      } catch (companyError) {
+        console.warn(`⚠️ Company enrichment failed for ${profileData.company}:`, companyError);
+        // Continue sans bloquer le traitement du lead
+      }
     }
 
-    await supabaseClient
+    // 5. Mettre à jour le post avec les données enrichies
+    const updateData = {
+      ...cleanedData,
+      company_id: companyId,
+      company_name: companyData?.name || profileData.company,
+      unipile_scraped_at: new Date().toISOString(),
+      processing_status: 'processing'
+    };
+
+    const { error: updateError } = await supabaseClient
       .from('linkedin_posts')
       .update(updateData)
       .eq('id', post.id);
 
-    console.log(`✅ Unipile completed for post: ${post.id}`);
-
-    // 🆕 Scraper les informations de l'entreprise si on a un LinkedIn ID
-    if (extractedData.company_id) {
-      try {
-        console.log(`🏢 Scraping company info for LinkedIn ID: ${extractedData.company_id}`);
-        const companyData = await scrapeCompanyInfo(supabaseClient, accountId, extractedData.company_id);
-        
-        // Sauvegarder les données d'entreprise
-        await supabaseClient
-          .from('linkedin_posts')
-          .update({
-            company_info_scraped: true,
-            company_info_scraped_at: new Date().toISOString(),
-            company_data: companyData,
-            last_updated_at: new Date().toISOString()
-          })
-          .eq('id', post.id);
-        
-        console.log(`✅ Company info scraped for post: ${post.id}`);
-      } catch (companyError) {
-        console.error(`❌ Company scraping failed for post ${post.id}:`, companyError);
-        // Ne pas faire échouer le processus principal si le scraping entreprise échoue
-      }
+    if (updateError) {
+      throw new Error(`Failed to update post: ${updateError.message}`);
     }
 
-    // 🔥 Déclenchement immédiat des workers suivants
-    console.log(`🚀 Triggering company verification and lead creation for post ${post.id}`);
-    
-    // Déclencher la vérification d'entreprise
-    try {
-      await supabaseClient.functions.invoke('specialized-company-worker', {
-        body: { 
-          post_id: post.id,
-          dataset_id: datasetId || null,
-          workflow_trigger: true
-        }
-      });
-      console.log(`🏢 Company verification triggered for post ${post.id}`);
-    } catch (error) {
-      console.error(`❌ Error triggering company verification for post ${post.id}:`, error);
-    }
+    console.log(`✅ Unipile processing completed for post: ${post.id}`);
 
-    // Déclencher la création de lead
+    // 6. Déclencher la création du lead
+    console.log(`🚀 Triggering lead creation for post ${post.id}`);
     try {
       await supabaseClient.functions.invoke('specialized-lead-worker', {
         body: { 
           post_id: post.id,
-          dataset_id: datasetId || null,
-          workflow_trigger: true
+          dataset_id: datasetId || null
         }
       });
-      console.log(`👤 Lead creation triggered for post ${post.id}`);
+      console.log(`🎯 Lead creation triggered for post ${post.id}`);
     } catch (error) {
       console.error(`❌ Error triggering lead creation for post ${post.id}:`, error);
     }
 
-    return { 
-      post_id: post.id, 
-      success: true, 
-      company: extractedData.company,
-      position: extractedData.position,
-      phone: extractedData.phone ? 'Found' : 'Not found'
+    return {
+      post_id: post.id,
+      success: true,
+      profile_data: cleanedData,
+      company_enriched: !!companyId
     };
 
   } catch (error) {
-    console.error(`❌ Unipile error for post ${post.id}:`, error);
-    
-    // Marquer comme erreur
-    await supabaseClient
-      .from('linkedin_posts')
-      .update({ 
-        unipile_profile_scraped: false,
-        processing_status: 'error',
-        last_updated_at: new Date().toISOString()
-      })
-      .eq('id', post.id);
-
+    console.error(`❌ Unipile processing failed for post ${post.id}:`, error);
+    await handleUnipileError(supabaseClient, post.id, error);
     throw error;
   }
 }
 
-function extractProfileData(unipileData: any) {
-  let company = null;
-  let position = null;
-  let company_id = null;
-  
-  // Extraire les informations depuis l'expérience
-  const experiences = unipileData.work_experience || unipileData.linkedin_profile?.experience || [];
-  
-  if (experiences.length > 0) {
-    // Trouver l'expérience actuelle
-    const currentExperience = experiences.find((exp: any) => 
-      !exp.end || exp.end === null || exp.end === ''
-    ) || experiences[0];
-
-    if (currentExperience) {
-      company = currentExperience.company || currentExperience.companyName || null;
-      position = currentExperience.position || currentExperience.title || null;
-      company_id = currentExperience.company_id || currentExperience.companyId || null;
-    }
+async function handleUnipileError(supabaseClient: any, postId: string, error: any) {
+  try {
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({
+        processing_status: 'unipile_error',
+        retry_count: supabaseClient.sql`COALESCE(retry_count, 0) + 1`,
+        last_retry_at: new Date().toISOString(),
+        error_message: error.message
+      })
+      .eq('id', postId);
+  } catch (updateError) {
+    console.error('Failed to update post with error status:', updateError);
   }
-
-  const phone = unipileData.phone_numbers?.[0] || unipileData.phone;
-
-  return { company, position, company_id, phone };
 }
