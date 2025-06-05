@@ -65,103 +65,42 @@ serve(async (req) => {
 
         console.log(`✅ OpenAI ${step} BATCH completed: ${batchResult.success} success, ${batchResult.failed} failed`);
 
-        // 🔧 CORRECTION CRITIQUE : Ne PAS marquer comme completed, mais comme ready_for_next_step
+        // 🔧 CORRECTION CRITIQUE : Déclenchement automatique optimisé du step suivant
         const triggerNextStepAsync = async () => {
           try {
             console.log(`🔄 Background: Triggering next step after ${step} batch completion...`);
             
-            // ✅ CORRECTION : Marquer les posts comme prêts pour l'étape suivante selon les résultats
-            const successfulPostIds = [];
-            const filteredPostIds = [];
+            // Attendre un délai pour s'assurer que les mises à jour sont propagées
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            for (const result of batchResult.results) {
-              if (result.success && result.result) {
-                // Déterminer le statut selon l'étape et le résultat
-                if (step === 'step1') {
-                  if (result.result.recrute_poste === 'oui') {
-                    successfulPostIds.push(result.post_id);
-                  } else {
-                    filteredPostIds.push(result.post_id);
-                  }
-                } else if (step === 'step2') {
-                  if (result.result.reponse === 'oui') {
-                    successfulPostIds.push(result.post_id);
-                  } else {
-                    filteredPostIds.push(result.post_id);
-                  }
-                } else if (step === 'step3') {
-                  // Step 3 : tous les posts qui arrivent ici continuent
-                  successfulPostIds.push(result.post_id);
+            // Déclencher l'étape suivante selon le step actuel avec le processing queue manager
+            if (step === 'step1') {
+              console.log(`✅ Background: Triggering Step 2 processing for dataset: ${dataset_id}`);
+              await supabaseClient.functions.invoke('processing-queue-manager', {
+                body: { 
+                  action: 'process_next_batch',
+                  task_type: 'openai_step2',
+                  dataset_id: dataset_id
                 }
-              }
-            }
-            
-            // Marquer les posts filtrés avec leur statut final
-            if (filteredPostIds.length > 0) {
-              const finalStatus = step === 'step1' ? 'not_job_posting' : 'filtered_out';
-              await supabaseClient
-                .from('linkedin_posts')
-                .update({ 
-                  processing_status: finalStatus,
-                  last_updated_at: new Date().toISOString()
-                })
-                .in('id', filteredPostIds);
-              
-              console.log(`🚫 Background: Marked ${filteredPostIds.length} posts as ${finalStatus}`);
-            }
-            
-            // Les posts qui continuent restent en "processing" pour l'étape suivante
-            if (successfulPostIds.length > 0) {
-              await supabaseClient
-                .from('linkedin_posts')
-                .update({ 
-                  processing_status: 'processing',
-                  last_updated_at: new Date().toISOString()
-                })
-                .in('id', successfulPostIds);
-              
-              console.log(`✅ Background: Kept ${successfulPostIds.length} posts in processing for next step`);
-            }
-            
-            // Délai de sécurité
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Déclencher l'étape suivante selon le step actuel
-            if (successfulPostIds.length > 0) {
-              switch (step) {
-                case 'step1':
-                  await supabaseClient.functions.invoke('processing-queue-manager', {
-                    body: { 
-                      action: 'process_next_batch',
-                      task_type: 'openai_step2',
-                      dataset_id: dataset_id
-                    }
-                  });
-                  console.log(`✅ Background: Triggered Step 2 processing for dataset: ${dataset_id}`);
-                  break;
-                  
-                case 'step2':
-                  await supabaseClient.functions.invoke('processing-queue-manager', {
-                    body: { 
-                      action: 'process_next_batch',
-                      task_type: 'openai_step3',
-                      dataset_id: dataset_id
-                    }
-                  });
-                  console.log(`✅ Background: Triggered Step 3 processing for dataset: ${dataset_id}`);
-                  break;
-                  
-                case 'step3':
-                  await supabaseClient.functions.invoke('processing-queue-manager', {
-                    body: { 
-                      action: 'process_next_batch',
-                      task_type: 'unipile_scraping',
-                      dataset_id: dataset_id
-                    }
-                  });
-                  console.log(`✅ Background: Triggered Unipile scraping for dataset: ${dataset_id}`);
-                  break;
-              }
+              });
+            } else if (step === 'step2') {
+              console.log(`✅ Background: Triggering Step 3 processing for dataset: ${dataset_id}`);
+              await supabaseClient.functions.invoke('processing-queue-manager', {
+                body: { 
+                  action: 'process_next_batch',
+                  task_type: 'openai_step3',
+                  dataset_id: dataset_id
+                }
+              });
+            } else if (step === 'step3') {
+              console.log(`✅ Background: Triggering Unipile scraping for dataset: ${dataset_id}`);
+              await supabaseClient.functions.invoke('processing-queue-manager', {
+                body: { 
+                  action: 'process_next_batch',
+                  task_type: 'unipile_scraping',
+                  dataset_id: dataset_id
+                }
+              });
             }
           } catch (error) {
             console.error(`❌ Background: Error triggering next step after ${step}:`, error);
