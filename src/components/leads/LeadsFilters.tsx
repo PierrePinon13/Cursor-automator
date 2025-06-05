@@ -1,3 +1,4 @@
+
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -57,7 +58,7 @@ const getColumnOptions = (showAssignmentColumn = false) => {
   return baseColumns;
 };
 
-// Toutes les catégories possibles avec leurs couleurs
+// Catégories visibles pour tous les utilisateurs (sans "Autre")
 const allCategories = [
   'Tech',
   'Business', 
@@ -101,10 +102,6 @@ const categoryColors = {
   'Data': {
     active: 'bg-teal-100 border-teal-300 text-teal-800 hover:bg-teal-150',
     inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Autre': {
-    active: 'bg-gray-100 border-gray-300 text-gray-800 hover:bg-gray-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
   }
 };
 
@@ -132,8 +129,8 @@ export default function LeadsFilters({
   // Use the passed isAdmin prop or fall back to the hook
   const effectiveIsAdmin = isAdmin || userIsAdmin;
 
-  // Filtrer les catégories selon le rôle de l'utilisateur
-  const categoriesToShow = effectiveIsAdmin ? [...allCategories, 'Autre'] : allCategories;
+  // Afficher seulement les catégories standard (sans "Autre" pour tous les utilisateurs)
+  const categoriesToShow = allCategories;
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {

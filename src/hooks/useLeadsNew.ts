@@ -57,7 +57,7 @@ export const useLeadsNew = (): {
   }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter, searchQuery]);
 
   useEffect(() => {
-    // Extract unique categories from leads
+    // Extract unique categories from leads, excluding "Autre"
     const categories = [...new Set(
       leads.map(lead => lead.openai_step3_categorie).filter(Boolean).filter(category => category && category !== 'Autre')
     )];
@@ -95,7 +95,7 @@ export const useLeadsNew = (): {
 
       const hrProviderNames = hrProviders?.map(provider => provider.company_name.toLowerCase()) || [];
 
-      // ✅ AMÉLIORATION : Requête avec plus de champs pour le debugging et correction des dates
+      // ✅ AMÉLIORATION : Requête avec plus de champs et exclusion directe de la catégorie "Autre"
       let query = supabase
         .from('leads')
         .select(`
@@ -114,6 +114,7 @@ export const useLeadsNew = (): {
           previous_client_companies,
           apify_dataset_id
         `)
+        .neq('openai_step3_categorie', 'Autre') // Exclure directement la catégorie "Autre"
         .order('created_at', { ascending: false });
 
       // Exclure les publications mal ciblées
@@ -134,7 +135,7 @@ export const useLeadsNew = (): {
         return !hrProviderNames.includes(lead.unipile_company.toLowerCase());
       });
 
-      console.log(`📋 Fetched ${filteredLeads.length} leads after filtering`);
+      console.log(`📋 Fetched ${filteredLeads.length} leads after filtering (excluding "Autre" category)`);
       
       // ✅ DEBUG : Log des premiers leads pour vérifier les données de date
       if (filteredLeads.length > 0) {
@@ -147,11 +148,12 @@ export const useLeadsNew = (): {
           created_at: lead.created_at,
           text_preview: lead.text?.substring(0, 50) || 'NO TEXT',
           apify_dataset_id: lead.apify_dataset_id,
-          has_previous_client: lead.has_previous_client_company
+          has_previous_client: lead.has_previous_client_company,
+          category: lead.openai_step3_categorie
         })));
       }
       
-      console.log(`🔍 After filtering HR providers: ${filteredLeads.length} leads`);
+      console.log(`🔍 After filtering HR providers and "Autre" category: ${filteredLeads.length} leads`);
       setLeads(filteredLeads);
     } catch (error) {
       console.error('💥 Error fetching leads:', error);

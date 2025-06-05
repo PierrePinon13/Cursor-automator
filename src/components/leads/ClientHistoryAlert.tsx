@@ -27,16 +27,16 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
     );
   }
 
-  // Si le lead a travaillé chez des clients dans le passé
+  // Si le lead a travaillé chez des clients dans le passé, afficher les entreprises spécifiques
   if (lead.has_previous_client_company && lead.previous_client_companies?.length) {
     return (
       <Alert className="border-orange-200 bg-orange-50">
         <AlertTriangle className="h-4 w-4 text-orange-600" />
         <AlertDescription className="text-orange-800">
-          <strong>Historique Client :</strong> A travaillé chez des clients :{' '}
-          <div className="flex flex-wrap gap-1 mt-2">
+          <strong>Entreprise cliente précédente détectée :</strong>
+          <div className="flex flex-wrap gap-2 mt-2">
             {lead.previous_client_companies.map((company, index) => (
-              <Badge key={index} variant="outline" className="text-orange-700 border-orange-300">
+              <Badge key={index} variant="outline" className="text-orange-700 border-orange-300 bg-orange-100">
                 {company}
               </Badge>
             ))}

@@ -31,7 +31,7 @@ export const useClientLeadsNew = () => {
   }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter, searchQuery]);
 
   useEffect(() => {
-    // Extract unique categories from leads
+    // Extract unique categories from leads, excluding "Autre"
     const categories = [...new Set(
       leads.map(lead => lead.openai_step3_categorie).filter(Boolean).filter(category => category && category !== 'Autre')
     )];
@@ -58,6 +58,7 @@ export const useClientLeadsNew = () => {
           )
         `)
         .eq('is_client_lead', true)
+        .neq('openai_step3_categorie', 'Autre') // Exclure la catégorie "Autre"
         .order('latest_post_date', { ascending: false });
 
       if (error) {
@@ -86,7 +87,7 @@ export const useClientLeadsNew = () => {
         })
       );
       
-      console.log(`📋 Fetched ${enrichedLeads.length} enriched client leads`);
+      console.log(`📋 Fetched ${enrichedLeads.length} enriched client leads (excluding "Autre" category)`);
       setLeads(enrichedLeads);
     } catch (error) {
       console.error('💥 Error fetching client leads:', error);

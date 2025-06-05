@@ -105,12 +105,21 @@ const LeadDetailContent = ({
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Alert entreprise cliente */}
-      {lead.has_previous_client_company && (
+      {/* Alert entreprise cliente - Affichage spécifique des entreprises */}
+      {lead.has_previous_client_company && lead.previous_client_companies?.length > 0 && (
         <div className="bg-yellow-100 border border-yellow-300 p-3 mx-6 mt-4 rounded">
-          <div className="flex items-center gap-2 text-yellow-800">
-            <Crown className="h-4 w-4" />
-            <span className="font-medium">Entreprise cliente précédente détectée !</span>
+          <div className="flex items-start gap-2 text-yellow-800">
+            <Crown className="h-4 w-4 mt-0.5" />
+            <div>
+              <span className="font-medium">Entreprise cliente précédente détectée !</span>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {lead.previous_client_companies.map((company: string, index: number) => (
+                  <Badge key={index} variant="outline" className="text-yellow-700 border-yellow-400 bg-yellow-200">
+                    {company}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
