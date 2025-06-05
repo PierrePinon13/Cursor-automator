@@ -51,70 +51,19 @@ serve(async (req) => {
       try {
         switch (step) {
           case 'step1':
-            batchResult = await processBatchOpenAIStep1(posts, supabaseClient);
+            batchResult = await processBatchOpenAIStep1WithImmediateTrigger(posts, supabaseClient, dataset_id);
             break;
           case 'step2':
-            batchResult = await processBatchOpenAIStep2(posts, supabaseClient);
+            batchResult = await processBatchOpenAIStep2WithImmediateTrigger(posts, supabaseClient, dataset_id);
             break;
           case 'step3':
-            batchResult = await processBatchOpenAIStep3(posts, supabaseClient);
+            batchResult = await processBatchOpenAIStep3WithImmediateTrigger(posts, supabaseClient, dataset_id);
             break;
           default:
             throw new Error(`Unknown step: ${step}`);
         }
 
         console.log(`✅ OpenAI ${step} BATCH completed: ${batchResult.success} success, ${batchResult.failed} failed`);
-
-        // 🔧 CORRECTION CRITIQUE : Déclenchement immédiat et synchrone du step suivant
-        let nextStepTriggered = false;
-        
-        // Déclencher immédiatement le step suivant AVANT de répondre
-        if (step === 'step1' && batchResult.success > 0) {
-          console.log(`🚀 IMMEDIATE: Triggering Step 2 processing for dataset: ${dataset_id}`);
-          try {
-            const step2Response = await supabaseClient.functions.invoke('processing-queue-manager', {
-              body: { 
-                action: 'process_next_batch',
-                task_type: 'openai_step2',
-                dataset_id: dataset_id
-              }
-            });
-            console.log(`✅ IMMEDIATE: Step 2 triggered successfully:`, step2Response.data);
-            nextStepTriggered = true;
-          } catch (error) {
-            console.error(`❌ IMMEDIATE: Error triggering Step 2:`, error);
-          }
-        } else if (step === 'step2' && batchResult.success > 0) {
-          console.log(`🚀 IMMEDIATE: Triggering Step 3 processing for dataset: ${dataset_id}`);
-          try {
-            const step3Response = await supabaseClient.functions.invoke('processing-queue-manager', {
-              body: { 
-                action: 'process_next_batch',
-                task_type: 'openai_step3',
-                dataset_id: dataset_id
-              }
-            });
-            console.log(`✅ IMMEDIATE: Step 3 triggered successfully:`, step3Response.data);
-            nextStepTriggered = true;
-          } catch (error) {
-            console.error(`❌ IMMEDIATE: Error triggering Step 3:`, error);
-          }
-        } else if (step === 'step3' && batchResult.success > 0) {
-          console.log(`🚀 IMMEDIATE: Triggering Unipile scraping for dataset: ${dataset_id}`);
-          try {
-            const unipileResponse = await supabaseClient.functions.invoke('processing-queue-manager', {
-              body: { 
-                action: 'process_next_batch',
-                task_type: 'unipile_scraping',
-                dataset_id: dataset_id
-              }
-            });
-            console.log(`✅ IMMEDIATE: Unipile scraping triggered successfully:`, unipileResponse.data);
-            nextStepTriggered = true;
-          } catch (error) {
-            console.error(`❌ IMMEDIATE: Error triggering Unipile scraping:`, error);
-          }
-        }
 
         // Gérer les erreurs individuelles des posts dans le batch
         const failedPostIds = [];
@@ -125,7 +74,6 @@ serve(async (req) => {
           }
         }
 
-        // 🎯 RETOUR IMMÉDIAT avec statut du déclenchement
         return new Response(JSON.stringify({ 
           success: true, 
           batch_mode: true,
@@ -134,8 +82,7 @@ serve(async (req) => {
           success_count: batchResult.success,
           failed_count: batchResult.failed,
           dataset_id,
-          next_step_triggered: nextStepTriggered,
-          next_step_trigger_method: 'immediate_synchronous'
+          immediate_trigger_method: 'per_post_immediate'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -181,21 +128,24 @@ serve(async (req) => {
       switch (step) {
         case 'step1':
           result = await executeOpenAIStep1(post, supabaseClient);
+          // 🔥 NOUVEAU : Déclenchement immédiat du Step 2 si succès
+          await triggerNextStepImmediately(supabaseClient, post, step, result, dataset_id);
           break;
         case 'step2':
           result = await executeOpenAIStep2(post, supabaseClient);
+          // 🔥 NOUVEAU : Déclenchement immédiat du Step 3 si succès
+          await triggerNextStepImmediately(supabaseClient, post, step, result, dataset_id);
           break;
         case 'step3':
           result = await executeOpenAIStep3(post, supabaseClient);
+          // 🔥 NOUVEAU : Déclenchement immédiat du Unipile si succès
+          await triggerNextStepImmediately(supabaseClient, post, step, result, dataset_id);
           break;
         default:
           throw new Error(`Unknown step: ${step}`);
       }
 
       console.log(`✅ OpenAI ${step} completed for post: ${post_id}`);
-      
-      // Déclencher l'étape suivante si nécessaire
-      await triggerNextStep(supabaseClient, post, step, result);
 
     } catch (error) {
       console.error(`❌ OpenAI ${step} failed for post ${post_id}:`, error);
@@ -224,3 +174,215 @@ serve(async (req) => {
     });
   }
 });
+
+// 🔥 NOUVELLE FONCTION : Déclenchement immédiat des étapes suivantes
+async function triggerNextStepImmediately(supabaseClient: any, post: any, currentStep: string, result: any, datasetId?: string) {
+  try {
+    console.log(`🚀 IMMEDIATE TRIGGER: ${currentStep} → next step for post ${post.id}`);
+    
+    switch (currentStep) {
+      case 'step1':
+        if (result.recrute_poste === 'oui' || result.recrute_poste === 'yes') {
+          console.log(`✅ Step 1 passed for post ${post.id}, triggering Step 2 IMMEDIATELY`);
+          await supabaseClient.functions.invoke('specialized-openai-worker', {
+            body: { 
+              post_id: post.id, 
+              dataset_id: datasetId,
+              step: 'step2'
+            }
+          });
+          console.log(`🎯 Step 2 triggered immediately for post ${post.id}`);
+        } else {
+          console.log(`❌ Step 1 failed for post ${post.id}, marking as not_job_posting`);
+          await supabaseClient
+            .from('linkedin_posts')
+            .update({ processing_status: 'not_job_posting' })
+            .eq('id', post.id);
+        }
+        break;
+        
+      case 'step2':
+        if (result.reponse === 'oui' || result.reponse === 'yes') {
+          console.log(`✅ Step 2 passed for post ${post.id}, triggering Step 3 IMMEDIATELY`);
+          await supabaseClient.functions.invoke('specialized-openai-worker', {
+            body: { 
+              post_id: post.id, 
+              dataset_id: datasetId,
+              step: 'step3'
+            }
+          });
+          console.log(`🎯 Step 3 triggered immediately for post ${post.id}`);
+        } else {
+          console.log(`❌ Step 2 failed for post ${post.id}, marking as filtered_out`);
+          await supabaseClient
+            .from('linkedin_posts')
+            .update({ processing_status: 'filtered_out' })
+            .eq('id', post.id);
+        }
+        break;
+        
+      case 'step3':
+        console.log(`✅ Step 3 completed for post ${post.id}, triggering Unipile IMMEDIATELY`);
+        await supabaseClient.functions.invoke('specialized-unipile-worker', {
+          body: { 
+            post_id: post.id, 
+            dataset_id: datasetId
+          }
+        });
+        console.log(`🎯 Unipile triggered immediately for post ${post.id}`);
+        break;
+    }
+  } catch (error) {
+    console.error(`❌ Error triggering next step immediately for post ${post.id}:`, error);
+  }
+}
+
+// 🔥 NOUVELLES FONCTIONS BATCH avec déclenchement immédiat
+async function processBatchOpenAIStep1WithImmediateTrigger(posts: any[], supabaseClient: any, datasetId?: string) {
+  console.log(`🔥 Processing Step 1 BATCH with IMMEDIATE triggers: ${posts.length} posts`);
+  
+  let successCount = 0;
+  let failedCount = 0;
+  const results = [];
+
+  // Traitement par petits batches pour éviter les timeouts
+  const CONCURRENT_LIMIT = 5;
+  
+  for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
+    const batch = posts.slice(i, i + CONCURRENT_LIMIT);
+    
+    const promises = batch.map(async (post) => {
+      try {
+        console.log(`🤖 Processing Step 1 for post: ${post.id}`);
+        
+        const result = await executeOpenAIStep1(post, supabaseClient);
+        
+        console.log(`✅ Step 1 completed for post: ${post.id} - ${result.recrute_poste}`);
+        successCount++;
+        
+        // 🔥 DÉCLENCHEMENT IMMÉDIAT du Step 2 si succès
+        await triggerNextStepImmediately(supabaseClient, post, 'step1', result, datasetId);
+        
+        results.push({ post_id: post.id, success: true, analysis: result });
+        
+      } catch (error) {
+        console.error(`❌ Step 1 failed for post ${post.id}:`, error);
+        failedCount++;
+        results.push({ post_id: post.id, success: false, error: error.message });
+      }
+    });
+
+    await Promise.allSettled(promises);
+    
+    // Pause entre les batches
+    if (i + CONCURRENT_LIMIT < posts.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  console.log(`📊 Step 1 Batch completed: ${successCount} success, ${failedCount} errors`);
+  
+  return {
+    results,
+    success: successCount,
+    failed: failedCount
+  };
+}
+
+async function processBatchOpenAIStep2WithImmediateTrigger(posts: any[], supabaseClient: any, datasetId?: string) {
+  console.log(`🔥 Processing Step 2 BATCH with IMMEDIATE triggers: ${posts.length} posts`);
+  
+  let successCount = 0;
+  let failedCount = 0;
+  const results = [];
+
+  const CONCURRENT_LIMIT = 5;
+  
+  for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
+    const batch = posts.slice(i, i + CONCURRENT_LIMIT);
+    
+    const promises = batch.map(async (post) => {
+      try {
+        console.log(`🌍 Processing Step 2 for post: ${post.id}`);
+        
+        const result = await executeOpenAIStep2(post, supabaseClient);
+        
+        console.log(`✅ Step 2 completed for post: ${post.id} - ${result.reponse}`);
+        successCount++;
+        
+        // 🔥 DÉCLENCHEMENT IMMÉDIAT du Step 3 si succès
+        await triggerNextStepImmediately(supabaseClient, post, 'step2', result, datasetId);
+        
+        results.push({ post_id: post.id, success: true, analysis: result });
+        
+      } catch (error) {
+        console.error(`❌ Step 2 failed for post ${post.id}:`, error);
+        failedCount++;
+        results.push({ post_id: post.id, success: false, error: error.message });
+      }
+    });
+
+    await Promise.allSettled(promises);
+    
+    if (i + CONCURRENT_LIMIT < posts.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  console.log(`📊 Step 2 Batch completed: ${successCount} success, ${failedCount} errors`);
+  
+  return {
+    results,
+    success: successCount,
+    failed: failedCount
+  };
+}
+
+async function processBatchOpenAIStep3WithImmediateTrigger(posts: any[], supabaseClient: any, datasetId?: string) {
+  console.log(`🔥 Processing Step 3 BATCH with IMMEDIATE triggers: ${posts.length} posts`);
+  
+  let successCount = 0;
+  let failedCount = 0;
+  const results = [];
+
+  const CONCURRENT_LIMIT = 5;
+  
+  for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
+    const batch = posts.slice(i, i + CONCURRENT_LIMIT);
+    
+    const promises = batch.map(async (post) => {
+      try {
+        console.log(`🏷️ Processing Step 3 for post: ${post.id}`);
+        
+        const result = await executeOpenAIStep3(post, supabaseClient);
+        
+        console.log(`✅ Step 3 completed for post: ${post.id}`);
+        successCount++;
+        
+        // 🔥 DÉCLENCHEMENT IMMÉDIAT du Unipile
+        await triggerNextStepImmediately(supabaseClient, post, 'step3', result, datasetId);
+        
+        results.push({ post_id: post.id, success: true, analysis: result });
+        
+      } catch (error) {
+        console.error(`❌ Step 3 failed for post ${post.id}:`, error);
+        failedCount++;
+        results.push({ post_id: post.id, success: false, error: error.message });
+      }
+    });
+
+    await Promise.allSettled(promises);
+    
+    if (i + CONCURRENT_LIMIT < posts.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  console.log(`📊 Step 3 Batch completed: ${successCount} success, ${failedCount} errors`);
+  
+  return {
+    results,
+    success: successCount,
+    failed: failedCount
+  };
+}
