@@ -177,18 +177,47 @@ async function fastWebhookProcessing(supabaseClient: any, datasetId: string, api
       
       console.log(`✅ Background task completed: ${qualifiedPosts.length} posts queued`);
       
-      // ✅ CORRECTION : Déclencher le traitement OpenAI Step 1 directement
-      setTimeout(async () => {
-        try {
-          console.log('🚀 Triggering OpenAI Step 1 processing...');
-          await supabaseClient.functions.invoke('processing-queue-manager', {
-            body: { action: 'queue_posts', dataset_id: datasetId, timeout_protection: true }
-          });
-          console.log('✅ OpenAI Step 1 processing triggered successfully');
-        } catch (error) {
-          console.error('❌ Error triggering OpenAI Step 1 processing:', error);
+      // ✅ CORRECTION MAJEURE : Déclencher directement openai-step1-worker au lieu de queue_posts
+      if (qualifiedPosts.length > 0) {
+        console.log('🚀 Triggering OpenAI Step 1 worker directly...');
+        
+        // Grouper les posts par batches optimales pour le worker
+        const WORKER_BATCH_SIZE = 50;
+        const postIds = qualifiedPosts.map(p => p.id);
+        
+        for (let i = 0; i < postIds.length; i += WORKER_BATCH_SIZE) {
+          const batchIds = postIds.slice(i, i + WORKER_BATCH_SIZE);
+          const batchNumber = Math.floor(i / WORKER_BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(postIds.length / WORKER_BATCH_SIZE);
+          
+          try {
+            console.log(`📤 Invoking openai-step1-worker for batch ${batchNumber}/${totalBatches} (${batchIds.length} posts)`);
+            
+            // ✅ Invocation directe du worker Step 1
+            const workerResponse = await supabaseClient.functions.invoke('openai-step1-worker', {
+              body: { 
+                post_ids: batchIds,
+                dataset_id: datasetId,
+                batch_mode: true,
+                timeout_protection: true,
+                workflow_enabled: true
+              }
+            });
+            
+            console.log(`✅ OpenAI Step 1 worker batch ${batchNumber} triggered:`, workerResponse.data?.success ? 'SUCCESS' : 'PENDING');
+            
+            // Pause entre les batches pour éviter la surcharge
+            if (i + WORKER_BATCH_SIZE < postIds.length) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+          } catch (error) {
+            console.error(`❌ Error triggering OpenAI Step 1 worker batch ${batchNumber}:`, error);
+          }
         }
-      }, 5000); // 5 secondes de délai
+        
+        console.log(`✅ All OpenAI Step 1 batches triggered for ${qualifiedPosts.length} posts`);
+      }
       
     } catch (error) {
       console.error('❌ Background task error:', error);
