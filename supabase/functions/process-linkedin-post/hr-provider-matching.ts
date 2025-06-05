@@ -1,7 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ProcessingContext } from './types.ts';
-import { UnipileScrapingResult } from './unipile-scraper.ts';
 
 export interface HrProviderMatchResult {
   isHrProviderLead: boolean;
@@ -52,10 +51,10 @@ export async function checkIfLeadIsFromHrProvider(
 
 export async function executeHrProviderMatching(
   context: ProcessingContext,
-  scrapingResult: UnipileScrapingResult
+  scrapingResult: any
 ): Promise<HrProviderMatchResult> {
   try {
-    console.log('🏢 Step 6: HR Provider matching...');
+    console.log('🏢 HR Provider matching...');
     
     // Use the company LinkedIn ID from scraping result
     const companyLinkedInId = scrapingResult.company_id;
@@ -80,20 +79,7 @@ export async function executeHrProviderMatching(
     }
 
     if (hrProviderMatch.isHrProviderLead) {
-      console.log('🚫 HR Provider lead identified - will be filtered:', hrProviderMatch.hrProviderName);
-      
-      // Mark the post as filtered due to HR provider match
-      const { error: filterError } = await context.supabaseClient
-        .from('linkedin_posts')
-        .update({
-          processing_status: 'filtered_hr_provider',
-          last_updated_at: new Date().toISOString()
-        })
-        .eq('id', context.postId);
-
-      if (filterError) {
-        console.error('Error marking post as filtered:', filterError);
-      }
+      console.log('✅ HR provider lead identified:', hrProviderMatch.hrProviderName);
     } else {
       console.log('ℹ️ Not an HR provider lead, continuing with regular processing');
     }
