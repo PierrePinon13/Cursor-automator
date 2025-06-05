@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { orchestrateWorkflow } from '../processing-queue-manager/workflow-orchestrator.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -168,9 +167,20 @@ Retourner un objet JSON avec les champs suivants :
 
     console.log(`✅ Step 3 completed for post: ${postId} - Category: ${result.categorie}`);
 
-    // Déclencher l'étape suivante si c'est un workflow
+    // Déclencher l'étape suivante si c'est un workflow (simplifié)
     if (workflowTrigger) {
-      await orchestrateWorkflow(supabaseClient, postId, 'step3_completed', result, datasetId);
+      try {
+        await supabaseClient.functions.invoke('specialized-unipile-worker', {
+          body: { 
+            post_id: postId,
+            dataset_id: datasetId,
+            workflow_trigger: true
+          }
+        });
+        console.log(`✅ Step 4 (Unipile) triggered for post: ${postId}`);
+      } catch (error) {
+        console.error(`❌ Error triggering Step 4 for post ${postId}:`, error);
+      }
     }
 
     return new Response(JSON.stringify({
