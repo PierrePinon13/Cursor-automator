@@ -1,11 +1,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { orchestrateWorkflow } from '../processing-queue-manager/workflow-orchestrator.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,229 +16,27 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🌍 OpenAI Step 2 Worker started');
+    console.log('🤖 OpenAI Step 2 Worker started');
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not found');
+    const { 
+      post_id, 
+      dataset_id, 
+      batch_mode = false,
+      workflow_trigger = false
+    } = await req.json();
+
+    if (batch_mode) {
+      return await processBatchStep2(supabaseClient, dataset_id);
+    } else if (post_id) {
+      return await processSingleStep2(supabaseClient, post_id, dataset_id, workflow_trigger);
+    } else {
+      throw new Error('Either post_id or batch_mode must be provided');
     }
-
-    const { action, dataset_id } = await req.json();
-    
-    if (action === 'process_batch') {
-      console.log(`🔍 Looking for posts ready for Step 2 (dataset: ${dataset_id})`);
-      
-      // ✅ CORRECTION : Requête insensible à la casse pour Step 1
-      const { data: posts, error: fetchError } = await supabaseClient
-        .from('linkedin_posts')
-        .select('*')
-        .ilike('openai_step1_recrute_poste', 'oui') // insensible à la casse
-        .is('openai_step2_reponse', null)
-        .eq('processing_status', 'processing')
-        .eq('apify_dataset_id', dataset_id)
-        .limit(200);
-
-      if (fetchError) {
-        throw new Error(`Failed to fetch posts: ${fetchError.message}`);
-      }
-
-      if (!posts || posts.length === 0) {
-        console.log('📝 No posts ready for Step 2');
-        
-        // ✅ DEBUG : Vérifier combien de posts ont passé Step 1
-        const { data: debugPosts, error: debugError } = await supabaseClient
-          .from('linkedin_posts')
-          .select('id, openai_step1_recrute_poste, openai_step2_reponse, processing_status')
-          .eq('apify_dataset_id', dataset_id)
-          .not('openai_step1_recrute_poste', 'is', null);
-        
-        if (!debugError && debugPosts) {
-          console.log(`🔍 DEBUG: Found ${debugPosts.length} posts with Step 1 results for dataset ${dataset_id}`);
-          const step1OuiPosts = debugPosts.filter(p => p.openai_step1_recrute_poste?.toLowerCase() === 'oui');
-          console.log(`🔍 DEBUG: ${step1OuiPosts.length} posts have Step 1 = "oui" (case insensitive)`);
-          
-          if (step1OuiPosts.length > 0) {
-            console.log(`🔍 DEBUG: Example posts with Step 1 "oui":`, step1OuiPosts.slice(0, 3).map(p => ({
-              id: p.id,
-              step1_result: p.openai_step1_recrute_poste,
-              step2_result: p.openai_step2_reponse,
-              status: p.processing_status
-            })));
-          }
-        }
-        
-        return new Response(JSON.stringify({ 
-          success: true,
-          message: 'No posts ready for Step 2',
-          processed_count: 0
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      console.log(`🔥 Processing Step 2 for ${posts.length} posts`);
-
-      let successCount = 0;
-      let errorCount = 0;
-
-      const CONCURRENT_LIMIT = 5;
-      
-      for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
-        const batch = posts.slice(i, i + CONCURRENT_LIMIT);
-        
-        const promises = batch.map(async (post) => {
-          try {
-            console.log(`🌍 Processing Step 2 for post: ${post.id}`);
-            
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${openAIApiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                  {
-                    role: 'system',
-                    content: `# CONTEXTE
-Vous êtes un assistant spécialisé dans l'analyse des publications LinkedIn pour un cabinet de recrutement. Votre mission est d'examiner un post LinkedIn dans lequel un auteur indique chercher à recruter un profil spécifique, afin de déterminer si le poste est situé en France, Belgique, Suisse, Monaco ou Luxembourg.
-
-# OBJECTIF
-Analyser le texte du post LinkedIn pour classer le recrutement comme "Oui" ou "Non" selon les critères définis ci-dessous, **et fournir une explication structurée du raisonnement**.
-
-# INSTRUCTIONS
-1. Examinez le contenu du post LinkedIn pour identifier la **langue du texte** et les **mentions de localisation**.
-2. Répondez **"Oui"** si :
-   - Le post mentionne clairement une localisation en **France, Belgique, Suisse, Luxembourg ou Monaco**.
-   - Ou si le post est rédigé en **français** et **aucun indice ne suggère que le poste est situé hors de cette zone** (même si aucune localisation explicite n'est donnée).
-   - **IMPORTANT** : Un post en français SANS mention de localisation doit être considéré comme "Oui" par défaut, sauf si des indices clairs indiquent le contraire.
-3. Répondez **"Non"** UNIQUEMENT si :
-   - Une localisation est clairement mentionnée **hors de la zone cible** (ex : Canada, Allemagne, Maroc…).
-   - Ou si le post **n'est pas rédigé en français** et **n'indique pas clairement** que le poste se situe dans la zone cible.
-
-**RÈGLE SPÉCIALE** : Si le post est en français et qu'aucune localisation hors zone n'est mentionnée, répondez toujours "Oui".
-
-# FORMAT DE SORTIE
-La réponse doit être fournie dans le format suivant (JSON) :
-
-\`\`\`json
-{
-  "reponse": "Oui" ou "Non",
-  "langue": "français" ou autre (ex : "anglais"),
-  "localisation_detectee": "texte extrait indiquant une localisation, s'il y en a, sinon 'non spécifiée'",
-  "raison": "explication courte justifiant la réponse (ex : 'Post en français sans mention hors zone', 'Localisation indiquée : Berlin, hors zone', etc.)"
-}
-\`\`\``
-                  },
-                  {
-                    role: 'user',
-                    content: `Analysez ce post LinkedIn :
-
-Titre : ${post.title || 'Aucun titre'}
-
-Contenu : ${post.text}
-
-Auteur : ${post.author_name}`
-                  }
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.1
-              }),
-            });
-
-            const data = await response.json();
-            const result = JSON.parse(data.choices[0].message.content);
-
-            // ✅ CORRECTION : Normaliser la réponse et utiliser le bon statut
-            const normalizedResponse = result.reponse?.toLowerCase() === 'oui' ? 'oui' : 'non';
-            const newStatus = normalizedResponse === 'oui' ? 'processing' : 'filtered_out';
-
-            // Sauvegarder les résultats
-            await supabaseClient
-              .from('linkedin_posts')
-              .update({
-                openai_step2_reponse: normalizedResponse,
-                openai_step2_langue: result.langue,
-                openai_step2_localisation: result.localisation_detectee,
-                openai_step2_raison: result.raison,
-                openai_step2_response: data,
-                processing_status: newStatus,
-                last_updated_at: new Date().toISOString()
-              })
-              .eq('id', post.id);
-
-            console.log(`✅ Step 2 completed for post: ${post.id} - ${normalizedResponse} (status: ${newStatus})`);
-            successCount++;
-
-          } catch (error) {
-            console.error(`❌ Step 2 failed for post ${post.id}:`, error);
-            
-            await supabaseClient
-              .from('linkedin_posts')
-              .update({
-                processing_status: 'error',
-                retry_count: supabaseClient.rpc('increment', { x: 1 }),
-                last_retry_at: new Date().toISOString()
-              })
-              .eq('id', post.id);
-              
-            errorCount++;
-          }
-        });
-
-        await Promise.allSettled(promises);
-        
-        if (i + CONCURRENT_LIMIT < posts.length) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
-
-      console.log(`📊 Step 2 Batch completed: ${successCount} success, ${errorCount} errors`);
-
-      // Déclencher Step 3 en arrière-plan
-      const triggerStep3 = async () => {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          await supabaseClient.functions.invoke('openai-step3-worker', {
-            body: { 
-              action: 'process_batch',
-              dataset_id: dataset_id
-            }
-          });
-          console.log('✅ Step 3 triggered successfully');
-        } catch (error) {
-          console.error('❌ Error triggering Step 3:', error);
-        }
-      };
-
-      if ((globalThis as any).EdgeRuntime?.waitUntil) {
-        (globalThis as any).EdgeRuntime.waitUntil(triggerStep3());
-      } else {
-        triggerStep3().catch(console.error);
-      }
-
-      return new Response(JSON.stringify({ 
-        success: true,
-        processed_count: posts.length,
-        success_count: successCount,
-        error_count: errorCount,
-        step: 'step2'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    return new Response(JSON.stringify({ error: 'Invalid action' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
 
   } catch (error) {
     console.error('❌ Error in openai-step2-worker:', error);
@@ -245,3 +46,228 @@ Auteur : ${post.author_name}`
     });
   }
 });
+
+async function processSingleStep2(supabaseClient: any, postId: string, datasetId?: string, workflowTrigger = false) {
+  console.log(`🤖 Processing Step 2 for post: ${postId}, dataset: ${datasetId}`);
+  
+  try {
+    // Récupérer le post
+    const { data: post, error: postError } = await supabaseClient
+      .from('linkedin_posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
+
+    if (postError || !post) {
+      throw new Error(`Post not found: ${postId}`);
+    }
+
+    // Vérifier que Step 1 a été validé
+    if (post.openai_step1_recrute_poste !== 'oui') {
+      console.log(`⚠️ Skipping Step 2 for post ${postId} - Step 1 not validated`);
+      return new Response(JSON.stringify({
+        success: false,
+        reason: 'Step 1 not validated',
+        post_id: postId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Appel OpenAI Step 2
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `### 🌍 CONTEXTE
+
+Vous analysez un post LinkedIn d'**offre d'emploi confirmée** pour vérifier si elle correspond aux critères géographiques et linguistiques.
+
+---
+
+### 🎯 OBJECTIF
+
+Retourner un objet JSON avec les champs suivants :
+
+\`\`\`json
+{
+  "reponse": "Oui" | "Non",
+  "langue": "Français" | "Anglais" | "Autre",
+  "localisation_detectee": "description de la localisation",
+  "raison": "explication courte de la décision"
+}
+\`\`\`
+
+---
+
+### ✅ CLASSER "Oui" SI :
+
+L'offre respecte **TOUS** ces critères :
+
+1. **LANGUE** : Rédigée en français OU en anglais
+2. **GÉOGRAPHIE** : 
+   - Poste basé en **France**, **Belgique**, **Suisse**, **Luxembourg**, **Monaco** ou **Canada**
+   - OU poste en **remote** (télétravail) depuis ces pays
+   - OU entreprise basée dans ces pays (même si localisation pas précisée)
+
+---
+
+### ❌ CLASSER "Non" SI :
+
+- Langue autre que français/anglais
+- Localisation dans un autre pays
+- Remote mais avec restriction géographique hors de nos zones
+- Aucune indication géographique ET entreprise manifestement étrangère
+
+---
+
+### 📍 DÉTECTION GÉOGRAPHIQUE
+
+Cherchez les indices de localisation :
+- Mentions explicites de villes/pays
+- Codes postaux français/belges/suisses
+- Entreprises connues de ces régions
+- Termes comme "télétravail France", "remote EU", etc.`
+          },
+          {
+            role: 'user',
+            content: `Analysez cette offre d'emploi LinkedIn :
+
+**Titre :** ${post.title || 'Aucun titre'}
+
+**Contenu :** ${post.text}
+
+**Auteur :** ${post.author_name}
+
+**URL de l'auteur :** ${post.author_profile_url}`
+          }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1
+      }),
+    });
+
+    const data = await response.json();
+    const result = JSON.parse(data.choices[0].message.content);
+
+    // Normaliser la réponse
+    const normalizedResponse = result.reponse?.toLowerCase() === 'oui' ? 'oui' : 'non';
+
+    // Sauvegarder les résultats
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({
+        openai_step2_reponse: normalizedResponse,
+        openai_step2_langue: result.langue,
+        openai_step2_localisation: result.localisation_detectee,
+        openai_step2_raison: result.raison,
+        openai_step2_response: data,
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', postId);
+
+    console.log(`✅ Step 2 completed for post: ${postId} - ${normalizedResponse}`);
+
+    // Déclencher l'étape suivante si c'est un workflow
+    if (workflowTrigger) {
+      await orchestrateWorkflow(supabaseClient, postId, 'step2_completed', result, datasetId);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      result: result,
+      post_id: postId,
+      dataset_id: datasetId
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error(`❌ Error processing Step 2 for post ${postId}:`, error);
+    
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({
+        processing_status: 'error',
+        retry_count: supabaseClient.rpc('increment', { x: 1 }),
+        last_retry_at: new Date().toISOString(),
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', postId);
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message,
+      post_id: postId
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function processBatchStep2(supabaseClient: any, datasetId?: string) {
+  console.log(`🤖 Processing Step 2 batch for dataset: ${datasetId}`);
+  
+  let query = supabaseClient
+    .from('linkedin_posts')
+    .select('*')
+    .eq('openai_step1_recrute_poste', 'oui')
+    .is('openai_step2_reponse', null)
+    .limit(50);
+
+  if (datasetId) {
+    query = query.eq('apify_dataset_id', datasetId);
+  }
+
+  const { data: posts, error } = await query;
+
+  if (error) {
+    throw new Error(`Error fetching posts for Step 2: ${error.message}`);
+  }
+
+  console.log(`📊 Found ${posts.length} posts for Step 2 processing`);
+
+  let processed = 0;
+  let errors = 0;
+
+  // Traiter en parallèle avec limite
+  const PARALLEL_LIMIT = 5;
+  
+  for (let i = 0; i < posts.length; i += PARALLEL_LIMIT) {
+    const batch = posts.slice(i, i + PARALLEL_LIMIT);
+    
+    await Promise.all(batch.map(async (post) => {
+      try {
+        await processSingleStep2(supabaseClient, post.id, post.apify_dataset_id, false);
+        processed++;
+      } catch (error) {
+        console.error(`❌ Error processing Step 2 for post ${post.id}:`, error);
+        errors++;
+      }
+    }));
+    
+    // Petit délai entre les batches
+    if (i + PARALLEL_LIMIT < posts.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    batch_mode: true,
+    dataset_id: datasetId,
+    processed_count: processed,
+    error_count: errors,
+    total_found: posts.length
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}

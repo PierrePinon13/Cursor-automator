@@ -1,11 +1,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { orchestrateWorkflow } from '../processing-queue-manager/workflow-orchestrator.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,256 +16,27 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🏷️ OpenAI Step 3 Worker started');
+    console.log('🤖 OpenAI Step 3 Worker started');
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not found');
+    const { 
+      post_id, 
+      dataset_id, 
+      batch_mode = false,
+      workflow_trigger = false
+    } = await req.json();
+
+    if (batch_mode) {
+      return await processBatchStep3(supabaseClient, dataset_id);
+    } else if (post_id) {
+      return await processSingleStep3(supabaseClient, post_id, dataset_id, workflow_trigger);
+    } else {
+      throw new Error('Either post_id or batch_mode must be provided');
     }
-
-    const { action, dataset_id } = await req.json();
-    
-    if (action === 'process_batch') {
-      console.log(`🔍 Looking for posts ready for Step 3 (dataset: ${dataset_id})`);
-      
-      // ✅ CORRECTION : Requête insensible à la casse pour Step 2
-      const { data: posts, error: fetchError } = await supabaseClient
-        .from('linkedin_posts')
-        .select('*')
-        .ilike('openai_step2_reponse', 'oui') // insensible à la casse
-        .is('openai_step3_categorie', null)
-        .eq('processing_status', 'processing')
-        .eq('apify_dataset_id', dataset_id)
-        .limit(200);
-
-      if (fetchError) {
-        throw new Error(`Failed to fetch posts: ${fetchError.message}`);
-      }
-
-      if (!posts || posts.length === 0) {
-        console.log('📝 No posts ready for Step 3');
-        
-        // ✅ DEBUG : Vérifier combien de posts ont passé Step 2
-        const { data: debugPosts, error: debugError } = await supabaseClient
-          .from('linkedin_posts')
-          .select('id, openai_step2_reponse, openai_step3_categorie, processing_status')
-          .eq('apify_dataset_id', dataset_id)
-          .not('openai_step2_reponse', 'is', null);
-        
-        if (!debugError && debugPosts) {
-          console.log(`🔍 DEBUG: Found ${debugPosts.length} posts with Step 2 results for dataset ${dataset_id}`);
-          const step2OuiPosts = debugPosts.filter(p => p.openai_step2_reponse?.toLowerCase() === 'oui');
-          console.log(`🔍 DEBUG: ${step2OuiPosts.length} posts have Step 2 = "oui" (case insensitive)`);
-          
-          if (step2OuiPosts.length > 0) {
-            console.log(`🔍 DEBUG: Example posts with Step 2 "oui":`, step2OuiPosts.slice(0, 3).map(p => ({
-              id: p.id,
-              step2_result: p.openai_step2_reponse,
-              step3_result: p.openai_step3_categorie,
-              status: p.processing_status
-            })));
-          }
-        }
-        
-        return new Response(JSON.stringify({ 
-          success: true,
-          message: 'No posts ready for Step 3',
-          processed_count: 0
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      console.log(`🔥 Processing Step 3 for ${posts.length} posts`);
-
-      let successCount = 0;
-      let errorCount = 0;
-
-      const CONCURRENT_LIMIT = 5;
-      
-      for (let i = 0; i < posts.length; i += CONCURRENT_LIMIT) {
-        const batch = posts.slice(i, i + CONCURRENT_LIMIT);
-        
-        const promises = batch.map(async (post) => {
-          try {
-            console.log(`🏷️ Processing Step 3 for post: ${post.id}`);
-            
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${openAIApiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                  {
-                    role: 'system',
-                    content: `# CONTEXT
-
-Vous êtes un assistant spécialisé dans l'analyse des publications LinkedIn pour l'équipe commerciale d'un cabinet de recrutement. Votre mission est d'examiner une publication LinkedIn, en vous concentrant principalement sur les **postes mentionnés par l'utilisateur**, afin de classer ces postes dans **une seule catégorie d'offre** et de normaliser les titres associés.
-
-# OBJECTIVE
-
-Analyser la publication LinkedIn et les postes fournis par l'utilisateur pour :
-
-1. Sélectionner **une seule** catégorie parmi les 9 proposées.
-2. Identifier les postes fournis qui relèvent de cette catégorie.
-3. Les normaliser selon les règles fournies.
-
-# INSTRUCTIONS
-
-1. Analysez les postes indiqués par l'utilisateur dans la section suivante :
-
-${post.openai_step1_postes}
-
-2. Utilisez les **définitions et exemples présents dans le system prompt** des catégories suivantes pour déterminer à laquelle les postes appartiennent le mieux :
-
-* Tech
-* Business
-* Product
-* Executive Search
-* Comptelio
-* RH
-* Freelance
-* Data
-* Autre
-
-3. Sélectionnez **une seule catégorie dominante**. Elle peut regrouper tous les postes ou une majorité.
-
-   * Si un poste peut entrer dans plusieurs catégories, choisissez celle qui reflète **la dimension métier principale**.
-   * Si aucune catégorie ne correspond, choisissez "Autre".
-
-4. Repérez dans la liste fournie uniquement les postes qui **correspondent à la catégorie sélectionnée**. Ignorez les autres.
-
-5. **Normalisez** chaque titre sélectionné :
-
-   * Se baser sur le titre de poste tel qu'il est partagé par l'utilisateur
-   * Conserver le **cœur du métier**, tel qu'on le dirait à l'oral. 
-   * Toujours au **masculin singulier**.
-   * Pas de majuscules sauf noms propres.
-
-# FORMAT DE SORTIE
-
-Répondez dans le format JSON suivant :
-
-\`\`\`json
-{
-  "categorie": "Tech" | "Business" | "Product" | "Executive Search" | "Comptelio" | "RH" | "Freelance" | "Data" | "Autre",
-  "postes_selectionnes": [
-    "intitulé normalisé 1",
-    "intitulé normalisé 2"
-  ],
-  "justification": "Courte explication du choix de la catégorie sélectionnée. Mentionnez les postes correspondants et pourquoi ils relèvent de cette catégorie."
-}
-\`\`\``
-                  },
-                  {
-                    role: 'user',
-                    content: `# PUBLICATION LINKEDIN À ANALYSER
-
-\`\`\`text
-${post.title || ''}
-${post.text}
-\`\`\`
-
-# POSTES DÉTECTÉS EN ÉTAPE 1
-
-${post.openai_step1_postes || 'Aucun poste spécifique détecté'}`
-                  }
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.1
-              }),
-            });
-
-            const data = await response.json();
-            const result = JSON.parse(data.choices[0].message.content);
-
-            // Sauvegarder les résultats avec le statut processing maintenu
-            await supabaseClient
-              .from('linkedin_posts')
-              .update({
-                openai_step3_categorie: result.categorie,
-                openai_step3_postes_selectionnes: result.postes_selectionnes,
-                openai_step3_justification: result.justification,
-                openai_step3_response: data,
-                processing_status: 'processing', // Continuer vers Unipile
-                last_updated_at: new Date().toISOString()
-              })
-              .eq('id', post.id);
-
-            console.log(`✅ Step 3 completed for post: ${post.id} - ${result.categorie}`);
-            successCount++;
-
-          } catch (error) {
-            console.error(`❌ Step 3 failed for post ${post.id}:`, error);
-            
-            await supabaseClient
-              .from('linkedin_posts')
-              .update({
-                processing_status: 'error',
-                retry_count: supabaseClient.rpc('increment', { x: 1 }),
-                last_retry_at: new Date().toISOString()
-              })
-              .eq('id', post.id);
-              
-            errorCount++;
-          }
-        });
-
-        await Promise.allSettled(promises);
-        
-        if (i + CONCURRENT_LIMIT < posts.length) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
-
-      console.log(`📊 Step 3 Batch completed: ${successCount} success, ${errorCount} errors`);
-
-      // Déclencher Unipile scraping en arrière-plan
-      const triggerUnipile = async () => {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          await supabaseClient.functions.invoke('specialized-unipile-worker', {
-            body: { 
-              action: 'process_batch',
-              dataset_id: dataset_id
-            }
-          });
-          console.log('✅ Unipile scraping triggered successfully');
-        } catch (error) {
-          console.error('❌ Error triggering Unipile scraping:', error);
-        }
-      };
-
-      if ((globalThis as any).EdgeRuntime?.waitUntil) {
-        (globalThis as any).EdgeRuntime.waitUntil(triggerUnipile());
-      } else {
-        triggerUnipile().catch(console.error);
-      }
-
-      return new Response(JSON.stringify({ 
-        success: true,
-        processed_count: posts.length,
-        success_count: successCount,
-        error_count: errorCount,
-        step: 'step3'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    return new Response(JSON.stringify({ error: 'Invalid action' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
 
   } catch (error) {
     console.error('❌ Error in openai-step3-worker:', error);
@@ -272,3 +46,221 @@ ${post.openai_step1_postes || 'Aucun poste spécifique détecté'}`
     });
   }
 });
+
+async function processSingleStep3(supabaseClient: any, postId: string, datasetId?: string, workflowTrigger = false) {
+  console.log(`🤖 Processing Step 3 for post: ${postId}, dataset: ${datasetId}`);
+  
+  try {
+    // Récupérer le post
+    const { data: post, error: postError } = await supabaseClient
+      .from('linkedin_posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
+
+    if (postError || !post) {
+      throw new Error(`Post not found: ${postId}`);
+    }
+
+    // Vérifier que Step 2 a été validé
+    if (post.openai_step2_reponse !== 'oui') {
+      console.log(`⚠️ Skipping Step 3 for post ${postId} - Step 2 not validated`);
+      return new Response(JSON.stringify({
+        success: false,
+        reason: 'Step 2 not validated',
+        post_id: postId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Appel OpenAI Step 3
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `### 💼 CONTEXTE
+
+Vous analysez une **offre d'emploi validée** pour la **catégoriser** et **sélectionner les postes** les plus pertinents.
+
+---
+
+### 🎯 OBJECTIF
+
+Retourner un objet JSON avec les champs suivants :
+
+\`\`\`json
+{
+  "categorie": "Développeur" | "Data" | "IA/ML" | "Sécurité" | "DevOps/Infra" | "Product/UX" | "RH/Admin" | "Direction" | "Autre",
+  "postes_selectionnes": ["poste1", "poste2", "poste3"],
+  "justification": "explication courte du choix de catégorie"
+}
+\`\`\`
+
+---
+
+### 📋 CATÉGORIES DISPONIBLES
+
+1. **"Développeur"** : Développement logiciel (web, mobile, backend, frontend, fullstack)
+2. **"Data"** : Data science, data analyst, data engineer, business intelligence
+3. **"IA/ML"** : Intelligence artificielle, machine learning, deep learning
+4. **"Sécurité"** : Cybersécurité, sécurité informatique, pentesting, RSSI
+5. **"DevOps/Infra"** : DevOps, infrastructure, cloud, système, réseau
+6. **"Product/UX"** : Product manager, UX/UI designer, chef de produit
+7. **"RH/Admin"** : Ressources humaines, administration, finance, juridique
+8. **"Direction"** : CTO, CEO, directeur technique, lead technique
+9. **"Autre"** : Tous les autres postes (commerciaux, marketing, etc.)
+
+---
+
+### 🔍 SÉLECTION DES POSTES
+
+- Extraire **jusqu'à 3 postes** les plus pertinents mentionnés dans l'offre
+- Privilégier les postes **techniques et qualifiés**
+- Ignorer les postes trop juniors (stagiaires, alternants, assistants)
+- Reformuler en termes standards si nécessaire
+
+---
+
+### ⚠️ RÈGLES IMPORTANTES
+
+- Si **aucun poste technique** n'est mentionné clairement → **"Autre"**
+- Si **plus de 3 postes différents** → sélectionner les 3 plus pertinents
+- Privilégier la **catégorie dominante** si plusieurs sont présentes`
+          },
+          {
+            role: 'user',
+            content: `Analysez cette offre d'emploi :
+
+**Titre :** ${post.title || 'Aucun titre'}
+
+**Contenu :** ${post.text}
+
+**Postes identifiés précédemment :** ${post.openai_step1_postes || 'Aucun'}`
+          }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1
+      }),
+    });
+
+    const data = await response.json();
+    const result = JSON.parse(data.choices[0].message.content);
+
+    // Sauvegarder les résultats
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({
+        openai_step3_categorie: result.categorie,
+        openai_step3_postes_selectionnes: result.postes_selectionnes,
+        openai_step3_justification: result.justification,
+        openai_step3_response: data,
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', postId);
+
+    console.log(`✅ Step 3 completed for post: ${postId} - Category: ${result.categorie}`);
+
+    // Déclencher l'étape suivante si c'est un workflow
+    if (workflowTrigger) {
+      await orchestrateWorkflow(supabaseClient, postId, 'step3_completed', result, datasetId);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      result: result,
+      post_id: postId,
+      dataset_id: datasetId
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error(`❌ Error processing Step 3 for post ${postId}:`, error);
+    
+    await supabaseClient
+      .from('linkedin_posts')
+      .update({
+        processing_status: 'error',
+        retry_count: supabaseClient.rpc('increment', { x: 1 }),
+        last_retry_at: new Date().toISOString(),
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', postId);
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message,
+      post_id: postId
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function processBatchStep3(supabaseClient: any, datasetId?: string) {
+  console.log(`🤖 Processing Step 3 batch for dataset: ${datasetId}`);
+  
+  let query = supabaseClient
+    .from('linkedin_posts')
+    .select('*')
+    .eq('openai_step2_reponse', 'oui')
+    .is('openai_step3_categorie', null)
+    .limit(50);
+
+  if (datasetId) {
+    query = query.eq('apify_dataset_id', datasetId);
+  }
+
+  const { data: posts, error } = await query;
+
+  if (error) {
+    throw new Error(`Error fetching posts for Step 3: ${error.message}`);
+  }
+
+  console.log(`📊 Found ${posts.length} posts for Step 3 processing`);
+
+  let processed = 0;
+  let errors = 0;
+
+  // Traiter en parallèle avec limite
+  const PARALLEL_LIMIT = 5;
+  
+  for (let i = 0; i < posts.length; i += PARALLEL_LIMIT) {
+    const batch = posts.slice(i, i + PARALLEL_LIMIT);
+    
+    await Promise.all(batch.map(async (post) => {
+      try {
+        await processSingleStep3(supabaseClient, post.id, post.apify_dataset_id, false);
+        processed++;
+      } catch (error) {
+        console.error(`❌ Error processing Step 3 for post ${post.id}:`, error);
+        errors++;
+      }
+    }));
+    
+    // Petit délai entre les batches
+    if (i + PARALLEL_LIMIT < posts.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    batch_mode: true,
+    dataset_id: datasetId,
+    processed_count: processed,
+    error_count: errors,
+    total_found: posts.length
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}

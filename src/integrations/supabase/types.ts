@@ -1273,6 +1273,8 @@ export type Database = {
           author_profile_id: string | null
           author_profile_url: string
           author_type: string
+          company_scraping_status: string | null
+          company_verified_at: string | null
           created_at: string | null
           id: string
           is_client_lead: boolean | null
@@ -1329,6 +1331,8 @@ export type Database = {
           author_profile_id?: string | null
           author_profile_url: string
           author_type: string
+          company_scraping_status?: string | null
+          company_verified_at?: string | null
           created_at?: string | null
           id?: string
           is_client_lead?: boolean | null
@@ -1385,6 +1389,8 @@ export type Database = {
           author_profile_id?: string | null
           author_profile_url?: string
           author_type?: string
+          company_scraping_status?: string | null
+          company_verified_at?: string | null
           created_at?: string | null
           id?: string
           is_client_lead?: boolean | null

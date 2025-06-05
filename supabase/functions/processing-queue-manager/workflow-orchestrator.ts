@@ -4,6 +4,14 @@ export async function orchestrateWorkflow(supabaseClient: any, postId: string, c
   console.log(`🎯 Orchestrating workflow - Post: ${postId}, Current step: ${currentStep}, Dataset: ${datasetId}`);
   
   try {
+    // Valider la transition avant de procéder
+    const isValidTransition = await validateWorkflowTransition(supabaseClient, postId, currentStep, result);
+    if (!isValidTransition) {
+      console.warn(`⚠️ Invalid transition for post ${postId} at step ${currentStep}`);
+      await handleWorkflowError(supabaseClient, postId, currentStep, new Error('Invalid workflow transition'));
+      return;
+    }
+
     switch (currentStep) {
       case 'step1_completed':
         if (result.recrute_poste === 'oui' || result.recrute_poste === 'yes') {
@@ -127,6 +135,80 @@ async function handleWorkflowError(supabaseClient: any, postId: string, step: st
       last_updated_at: new Date().toISOString()
     })
     .eq('id', postId);
+}
+
+// Fonction de validation des transitions de workflow
+async function validateWorkflowTransition(supabaseClient: any, postId: string, currentStep: string, result: any): Promise<boolean> {
+  console.log(`🔍 Validating workflow transition for post ${postId}: ${currentStep}`);
+  
+  try {
+    const { data: post, error } = await supabaseClient
+      .from('linkedin_posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
+      
+    if (error || !post) {
+      console.error(`❌ Cannot validate transition - Post not found: ${postId}`);
+      return false;
+    }
+    
+    // Validation des prérequis selon l'étape actuelle
+    switch (currentStep) {
+      case 'step1_completed':
+        // Step 1 peut toujours s'exécuter si le post existe
+        return true;
+        
+      case 'step2_completed':
+        // Step 2 nécessite que Step 1 ait réussi
+        if (!post.openai_step1_recrute_poste || 
+            (post.openai_step1_recrute_poste !== 'oui' && post.openai_step1_recrute_poste !== 'yes')) {
+          console.warn(`⚠️ Step 2 validation failed - Step 1 not passed for post ${postId}`);
+          return false;
+        }
+        return true;
+        
+      case 'step3_completed':
+        // Step 3 nécessite que Step 2 ait réussi
+        if (!post.openai_step2_reponse || 
+            (post.openai_step2_reponse !== 'oui' && post.openai_step2_reponse !== 'yes')) {
+          console.warn(`⚠️ Step 3 validation failed - Step 2 not passed for post ${postId}`);
+          return false;
+        }
+        return true;
+        
+      case 'unipile_completed':
+        // Unipile nécessite que Step 3 soit terminé
+        if (!post.openai_step3_categorie) {
+          console.warn(`⚠️ Unipile validation failed - Step 3 not completed for post ${postId}`);
+          return false;
+        }
+        return true;
+        
+      case 'company_completed':
+        // Company verification nécessite que Unipile soit terminé
+        if (!post.unipile_profile_scraped) {
+          console.warn(`⚠️ Company validation failed - Unipile not completed for post ${postId}`);
+          return false;
+        }
+        return true;
+        
+      case 'lead_completed':
+        // Lead creation nécessite que company verification soit terminée
+        if (!post.company_verified_at && !post.company_scraping_status) {
+          console.warn(`⚠️ Lead validation failed - Company verification not completed for post ${postId}`);
+          return false;
+        }
+        return true;
+        
+      default:
+        console.warn(`⚠️ Unknown step for validation: ${currentStep}`);
+        return false;
+    }
+  } catch (error) {
+    console.error(`❌ Error validating workflow transition for post ${postId}:`, error);
+    return false;
+  }
 }
 
 // Fonction de validation des transitions
