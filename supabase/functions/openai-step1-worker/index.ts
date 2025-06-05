@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -5,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -25,7 +28,7 @@ serve(async (req) => {
       dataset_id, 
       batch_mode = false, 
       timeout_protection = false,
-      workflow_enabled = false // ✅ NOUVEAU : Support workflow
+      workflow_enabled = false
     } = await req.json();
 
     let processedPosts = [];
@@ -141,7 +144,7 @@ Auteur : ${post.author_name}`
             const data = await response.json();
             const result = JSON.parse(data.choices[0].message.content);
 
-            // ✅ CORRECTION : Normaliser la réponse et utiliser le bon statut
+            // Normaliser la réponse et utiliser le bon statut
             const normalizedResponse = result.recrute_poste?.toLowerCase() === 'oui' ? 'oui' : 'non';
             const newStatus = normalizedResponse === 'oui' ? 'processing' : 'not_job_posting';
 
@@ -189,7 +192,7 @@ Auteur : ${post.author_name}`
 
       console.log(`📊 Step 1 Batch completed: ${successCount} success, ${errorCount} errors`);
 
-      // ✅ NOUVEAU : Déclencher workflow pour chaque post traité avec succès
+      // Déclencher workflow pour chaque post traité avec succès
       if (workflow_enabled) {
         for (const result of processedPosts) {
           if (result.success) {
@@ -334,7 +337,7 @@ Auteur : ${post.author_name}`
         const data = await response.json();
         const result = JSON.parse(data.choices[0].message.content);
 
-        // ✅ CORRECTION : Normaliser la réponse et utiliser le bon statut
+        // Normaliser la réponse et utiliser le bon statut
         const normalizedResponse = result.recrute_poste?.toLowerCase() === 'oui' ? 'oui' : 'non';
         const newStatus = normalizedResponse === 'oui' ? 'processing' : 'not_job_posting';
 
@@ -354,11 +357,11 @@ Auteur : ${post.author_name}`
 
         processedPosts.push({ post_id: post_id, success: true, analysis: result });
 
-        // ✅ NOUVEAU : Déclencher workflow pour post unique
-        if (workflow_enabled && /* success condition */) {
+        // Déclencher workflow pour post unique
+        if (workflow_enabled) {
           try {
             const { orchestrateWorkflow } = await import('../processing-queue-manager/workflow-orchestrator.ts');
-            await orchestrateWorkflow(supabaseClient, post_id, 'step1_completed', /* analysis result */, dataset_id);
+            await orchestrateWorkflow(supabaseClient, post_id, 'step1_completed', result, dataset_id);
           } catch (error) {
             console.error(`❌ Error triggering workflow for post ${post_id}:`, error);
           }
