@@ -86,6 +86,11 @@ serve(async (req) => {
       try {
         console.log(`🔍 Processing Unipile for post: ${post.id} with account: ${accountId}`);
         
+        // Utiliser author_profile_id au lieu de author_profile_url
+        if (!post.author_profile_id) {
+          throw new Error(`Missing author_profile_id for post ${post.id}`);
+        }
+        
         // Appel à unipile-queue avec l'opération scrape_profile
         const { data: unipileResult, error: unipileError } = await supabaseClient.functions.invoke('unipile-queue', {
           body: {
@@ -93,7 +98,7 @@ serve(async (req) => {
             account_id: accountId,
             operation: 'scrape_profile',
             payload: {
-              profileUrl: post.author_profile_url
+              authorProfileId: post.author_profile_id
             },
             priority: false
           }
