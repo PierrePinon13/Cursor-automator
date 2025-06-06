@@ -65,7 +65,6 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
             {lead.previous_client_companies.map((clientCompany, index) => {
               // Gérer différents formats de données
               let clientName = '';
-              let position = '';
               let startDate = '';
               let endDate = '';
               
@@ -75,7 +74,6 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
               } else if (typeof clientCompany === 'object' && clientCompany !== null) {
                 // Format objet avec détails
                 clientName = clientCompany.client_name || clientCompany.company_name || '';
-                position = clientCompany.position || '';
                 startDate = clientCompany.start_date || '';
                 endDate = clientCompany.end_date || '';
               }
@@ -83,37 +81,15 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
               const formattedStartDate = formatDate(startDate);
               const formattedEndDate = formatDate(endDate);
               
-              let periodText = '';
-              if (formattedStartDate && formattedEndDate) {
-                periodText = `de ${formattedStartDate} à ${formattedEndDate}`;
-              } else if (formattedStartDate) {
-                periodText = `depuis ${formattedStartDate}`;
-              }
-              
               return (
                 <div key={index} className="text-sm">
-                  {position && periodText ? (
-                    <>
-                      Le lead a travaillé {periodText} en tant que{' '}
-                      <span className="font-semibold">{position}</span> chez{' '}
-                      <span className="font-semibold">{clientName}</span>
-                    </>
-                  ) : position ? (
-                    <>
-                      Le lead a travaillé en tant que{' '}
-                      <span className="font-semibold">{position}</span> chez{' '}
-                      <span className="font-semibold">{clientName}</span>
-                    </>
-                  ) : periodText ? (
-                    <>
-                      Le lead a travaillé {periodText} chez{' '}
-                      <span className="font-semibold">{clientName}</span>
-                    </>
-                  ) : (
-                    <>
-                      Le lead a travaillé chez{' '}
-                      <span className="font-semibold">{clientName}</span>
-                    </>
+                  A travaillé chez{' '}
+                  <span className="font-bold text-orange-900">{clientName}</span>
+                  {formattedStartDate && formattedEndDate && (
+                    <span> de {formattedStartDate} à {formattedEndDate}</span>
+                  )}
+                  {formattedStartDate && !formattedEndDate && (
+                    <span> depuis {formattedStartDate}</span>
                   )}
                 </div>
               );

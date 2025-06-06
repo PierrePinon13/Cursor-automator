@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -13,6 +12,13 @@ interface MessageGenerationResult {
   error?: string;
   attempts?: number;
   usedDefaultTemplate?: boolean;
+}
+
+interface CompanyEnrichmentResult {
+  success: boolean;
+  companyId?: string;
+  action?: string;
+  error?: string;
 }
 
 serve(async (req) => {
@@ -80,7 +86,8 @@ serve(async (req) => {
       hr_provider_leads: 0,
       failed: 0,
       errors: [],
-      approach_messages_generated: 0
+      approach_messages_generated: 0,
+      companies_enriched: 0
     };
 
     for (const post of posts) {
@@ -101,6 +108,7 @@ serve(async (req) => {
           if (leadResult.isClient) results.client_leads++;
           if (leadResult.isHrProvider) results.hr_provider_leads++;
           if (leadResult.approachMessageGenerated) results.approach_messages_generated++;
+          if (leadResult.companyEnriched) results.companies_enriched++;
           
           // Marquer le post comme completed
           await supabaseClient
@@ -194,8 +202,11 @@ async function processLead(supabaseClient: any, post: any, clients: any[], hrPro
     // Analyser l'historique professionnel vs clients
     const clientHistoryAnalysis = analyzeClientWorkHistory(clients, unipileExtraction.workHistory);
     
+    // Enrichir les données de l'entreprise actuelle
+    const companyEnrichment = await enrichCompanyData(supabaseClient, unipileExtraction.currentCompanyLinkedInId);
+    
     // Construire les données du lead
-    const leadData = buildLeadData(post, unipileExtraction, clientMatch, clientHistoryAnalysis);
+    const leadData = buildLeadData(post, unipileExtraction, clientMatch, clientHistoryAnalysis, companyEnrichment);
     
     let leadId;
     let action;
@@ -250,7 +261,8 @@ async function processLead(supabaseClient: any, post: any, clients: any[], hrPro
       isClient: clientMatch.isClient,
       isHrProvider: false,
       hasClientHistory: clientHistoryAnalysis.hasPreviousClientCompany,
-      approachMessageGenerated
+      approachMessageGenerated,
+      companyEnriched: companyEnrichment.success
     };
     
   } catch (error) {
@@ -258,6 +270,69 @@ async function processLead(supabaseClient: any, post: any, clients: any[], hrPro
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+async function enrichCompanyData(supabaseClient: any, companyLinkedInId: string | null): Promise<CompanyEnrichmentResult> {
+  if (!companyLinkedInId) {
+    return { success: false, action: 'no_linkedin_id' };
+  }
+
+  console.log(`🏢 Checking company data for LinkedIn ID: ${companyLinkedInId}`);
+
+  try {
+    // Vérifier si l'entreprise existe déjà en base
+    const { data: existingCompany, error: checkError } = await supabaseClient
+      .from('companies')
+      .select('*')
+      .eq('linkedin_id', companyLinkedInId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing company:', checkError);
+      return { success: false, error: checkError.message };
+    }
+
+    // Si l'entreprise existe et est complète (a une description et une taille), on garde
+    if (existingCompany && existingCompany.description && existingCompany.company_size) {
+      console.log(`✅ Company ${companyLinkedInId} already enriched`);
+      return { 
+        success: true, 
+        companyId: existingCompany.id, 
+        action: 'already_enriched' 
+      };
+    }
+
+    // Sinon, enrichir via fetch-company-info
+    console.log(`🔍 Enriching company ${companyLinkedInId}`);
+    
+    const { data: enrichResult, error: enrichError } = await supabaseClient.functions.invoke('fetch-company-info', {
+      body: { companyLinkedInId }
+    });
+
+    if (enrichError || !enrichResult?.success) {
+      console.error(`❌ Error enriching company ${companyLinkedInId}:`, enrichError || enrichResult?.error);
+      return { 
+        success: false, 
+        error: enrichError?.message || enrichResult?.error || 'Unknown enrichment error',
+        action: 'enrichment_failed'
+      };
+    }
+
+    console.log(`✅ Company ${companyLinkedInId} successfully enriched`);
+    return { 
+      success: true, 
+      companyId: enrichResult.company?.id, 
+      action: existingCompany ? 'updated' : 'created' 
+    };
+
+  } catch (error) {
+    console.error(`❌ Error during company enrichment for ${companyLinkedInId}:`, error);
+    return { 
+      success: false, 
+      error: error.message,
+      action: 'enrichment_error'
     };
   }
 }
@@ -413,7 +488,7 @@ function analyzeClientWorkHistory(clients: any[], workHistory: any[]) {
   return { hasPreviousClientCompany, previousClientCompanies };
 }
 
-function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clientHistoryAnalysis: any) {
+function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clientHistoryAnalysis: any, companyEnrichment: any) {
   // Gestion des dates
   let postTimestamp = null;
   let postDate = null;
@@ -474,6 +549,9 @@ function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clie
     unipile_company_linkedin_id: unipileExtraction.currentCompanyLinkedInId || post.unipile_company_linkedin_id,
     phone_number: unipileExtraction.phone,
     phone_retrieved_at: unipileExtraction.phone ? new Date().toISOString() : null,
+    
+    // Données d'entreprise enrichies
+    company_id: companyEnrichment.companyId || null,
     
     // Historique professionnel
     ...buildWorkHistoryFields(unipileExtraction.workHistory),
