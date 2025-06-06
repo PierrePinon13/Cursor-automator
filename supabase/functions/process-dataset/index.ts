@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Process Dataset - RELIABLE UPSERT VERSION')
+    console.log('🔄 Process Dataset - N8N INTEGRATION VERSION')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -29,7 +29,7 @@ serve(async (req) => {
       })
     }
 
-    console.log(`📊 ${webhook_triggered ? 'WEBHOOK' : 'MANUAL'} batch pipeline for dataset:`, datasetId)
+    console.log(`📊 ${webhook_triggered ? 'WEBHOOK' : 'MANUAL'} processing for dataset:`, datasetId)
 
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
     if (!apifyApiKey) {
@@ -123,56 +123,72 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 3: Déduplication interne
-    console.log('🔍 Internal deduplication...')
+    // ✅ PHASE 3: Filtrage et déduplication interne
+    console.log('🔍 Filtering and internal deduplication...')
     
     const seenUrns = new Set()
-    const uniqueItems = allItems.filter(item => {
-      if (!item.urn || seenUrns.has(item.urn)) {
-        return false
-      }
-      seenUrns.add(item.urn)
-      return true
+    const filteredItems = allItems.filter(item => {
+      // Filtrer les reposts
+      if (item.isRepost) return false;
+      
+      // Ne garder que les posts de personnes (pas d'entreprises)
+      if (item.authorType !== 'Person') return false;
+      
+      // Vérifier les champs requis
+      if (!item.text || !item.authorName || !item.authorProfileId || !item.urn) return false;
+      
+      // Déduplication interne
+      if (seenUrns.has(item.urn)) return false;
+      seenUrns.add(item.urn);
+      
+      return true;
     })
     
-    console.log(`📊 After internal deduplication: ${uniqueItems.length} unique items (${allItems.length - uniqueItems.length} internal duplicates removed)`)
+    console.log(`📊 After filtering: ${filteredItems.length} valid items (${allItems.length - filteredItems.length} filtered out)`)
 
-    if (uniqueItems.length === 0) {
-      console.log('✅ No valid unique items to process')
-      
-      try {
-        const { error: pipelineError } = await supabaseClient.functions.invoke('batch-pipeline-orchestrator', {
-          body: { 
-            action: 'start_pipeline',
-            dataset_id: datasetId
-          }
-        })
-
-        if (pipelineError) {
-          console.error('❌ Pipeline start failed:', pipelineError)
-        } else {
-          console.log('✅ Batch pipeline started for existing data')
-        }
-      } catch (pipelineError) {
-        console.error('❌ Error starting pipeline:', pipelineError?.message)
-      }
-
+    if (filteredItems.length === 0) {
       return new Response(JSON.stringify({ 
         success: true,
-        message: 'No valid unique items, but pipeline started for existing data',
+        message: 'No valid items after filtering',
         dataset_id: datasetId,
         total_received: allItems.length,
-        internal_duplicates_removed: allItems.length - uniqueItems.length,
-        new_items_stored: 0
+        filtered_out: allItems.length
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // ✅ PHASE 4: Insertion avec upsert (gestion automatique des conflits)
-    console.log(`💾 Storing ${uniqueItems.length} items using reliable upsert...`)
+    // ✅ PHASE 4: Vérification des doublons dans la base
+    console.log('🔄 Checking for existing URNs in database...')
     
-    const rawPostsToInsert = uniqueItems.map(item => ({
+    const existingUrns = filteredItems.map(item => item.urn);
+    const { data: existingPosts } = await supabaseClient
+      .from('linkedin_posts_raw')
+      .select('urn')
+      .in('urn', existingUrns);
+
+    const existingUrnSet = new Set(existingPosts?.map(p => p.urn) || []);
+    const newItems = filteredItems.filter(item => !existingUrnSet.has(item.urn));
+
+    console.log(`📊 After database deduplication: ${newItems.length} new items (${filteredItems.length - newItems.length} already exist)`)
+
+    if (newItems.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: true,
+        message: 'No new items to process',
+        dataset_id: datasetId,
+        total_received: allItems.length,
+        after_filtering: filteredItems.length,
+        new_items: 0
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // ✅ PHASE 5: Stockage en base avec status 'pending_openai'
+    console.log(`💾 Storing ${newItems.length} items in database...`)
+    
+    const rawPostsToInsert = newItems.map(item => ({
       apify_dataset_id: datasetId,
       urn: item.urn,
       text: item.text,
@@ -190,58 +206,91 @@ serve(async (req) => {
       raw_data: item
     }))
 
-    let totalProcessed = 0
-    const BATCH_SIZE = 100 // Taille optimisée
+    let totalStored = 0
+    const STORAGE_BATCH_SIZE = 100
 
-    for (let i = 0; i < rawPostsToInsert.length; i += BATCH_SIZE) {
-      const batch = rawPostsToInsert.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < rawPostsToInsert.length; i += STORAGE_BATCH_SIZE) {
+      const batch = rawPostsToInsert.slice(i, i + STORAGE_BATCH_SIZE)
       
       try {
-        console.log(`💾 Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(rawPostsToInsert.length/BATCH_SIZE)} (${batch.length} items)`)
-        
-        // Utilisation d'upsert avec ignoreDuplicates pour gérer automatiquement les conflits
         const { error: insertError, count } = await supabaseClient
           .from('linkedin_posts_raw')
-          .upsert(batch, { 
-            onConflict: 'urn',
-            ignoreDuplicates: true,
-            count: 'exact'
-          })
+          .insert(batch)
+          .select('count', { count: 'exact' })
 
         if (insertError) {
-          console.error(`❌ Error inserting batch ${i}-${i + batch.length}:`, insertError.message)
-          // Continue avec le batch suivant
+          console.error(`❌ Error storing batch ${i}-${i + batch.length}:`, insertError.message)
         } else {
-          console.log(`✅ Batch ${i}-${i + batch.length} processed successfully (${count || batch.length} items)`)
-          totalProcessed += batch.length
+          totalStored += batch.length
+          console.log(`✅ Stored batch ${i}-${i + batch.length} successfully`)
         }
       } catch (error) {
-        console.error(`❌ Batch insert error:`, error?.message)
-        // Continue avec le batch suivant
+        console.error(`❌ Exception storing batch:`, error?.message)
       }
     }
 
-    console.log(`💾 Processing completed. ${totalProcessed} items processed successfully`)
-
-    // ✅ PHASE 5: Démarrage du pipeline par batches
-    console.log('🚀 Starting batch processing pipeline...')
+    // ✅ PHASE 6: Envoi vers n8n par batches de 100 avec délai de 10s
+    console.log('🚀 Starting n8n batch processing...')
     
-    try {
-      const { error: pipelineError } = await supabaseClient.functions.invoke('batch-pipeline-orchestrator', {
-        body: { 
-          action: 'start_pipeline',
-          dataset_id: datasetId
+    const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/ce694cea-07a6-4b38-a2a9-eb1ffd6fd14c'
+    const N8N_BATCH_SIZE = 100
+    const DELAY_BETWEEN_BATCHES = 10000 // 10 secondes
+    
+    let batchesSent = 0
+    let batchErrors = 0
+
+    for (let i = 0; i < newItems.length; i += N8N_BATCH_SIZE) {
+      const batch = newItems.slice(i, i + N8N_BATCH_SIZE)
+      const batchId = `${datasetId}_batch_${Math.floor(i / N8N_BATCH_SIZE) + 1}_${Date.now()}`
+      
+      try {
+        console.log(`📤 Sending batch ${Math.floor(i / N8N_BATCH_SIZE) + 1}/${Math.ceil(newItems.length / N8N_BATCH_SIZE)} to n8n (${batch.length} items)`)
+        
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            batch_id: batchId,
+            dataset_id: datasetId,
+            batch_number: Math.floor(i / N8N_BATCH_SIZE) + 1,
+            total_batches: Math.ceil(newItems.length / N8N_BATCH_SIZE),
+            posts: batch.map(item => ({
+              urn: item.urn,
+              text: item.text,
+              title: item.title,
+              url: item.url,
+              posted_at_iso: item.postedAtIso,
+              posted_at_timestamp: item.postedAtTimestamp,
+              author_type: item.authorType,
+              author_profile_url: item.authorProfileUrl,
+              author_profile_id: item.authorProfileId,
+              author_name: item.authorName,
+              author_headline: item.authorHeadline,
+              raw_data: item
+            }))
+          })
+        })
+
+        if (response.ok) {
+          batchesSent++
+          console.log(`✅ Batch ${batchId} sent successfully to n8n`)
+        } else {
+          batchErrors++
+          console.error(`❌ Error sending batch ${batchId} to n8n: ${response.status} ${response.statusText}`)
         }
-      })
 
-      if (pipelineError) {
-        console.error('❌ Pipeline start failed:', pipelineError)
-        throw new Error(`Pipeline start failed: ${pipelineError.message}`)
+        // Délai entre les batches (sauf pour le dernier)
+        if (i + N8N_BATCH_SIZE < newItems.length) {
+          console.log(`⏳ Waiting ${DELAY_BETWEEN_BATCHES / 1000}s before next batch...`)
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES))
+        }
+
+      } catch (error) {
+        batchErrors++
+        console.error(`❌ Exception sending batch ${batchId} to n8n:`, error?.message)
       }
-
-      console.log('✅ Batch pipeline started successfully')
-    } catch (pipelineError) {
-      console.error('❌ Error starting pipeline:', pipelineError?.message)
     }
 
     // ✅ Stockage des statistiques
@@ -251,9 +300,12 @@ serve(async (req) => {
       webhook_triggered,
       cleaned_existing: cleanedCount,
       total_received: allItems.length,
-      internal_duplicates_removed: allItems.length - uniqueItems.length,
-      items_processed: totalProcessed,
-      pipeline_version: 'reliable_upsert_v1',
+      after_filtering: filteredItems.length,
+      after_deduplication: newItems.length,
+      items_stored: totalStored,
+      batches_sent_to_n8n: batchesSent,
+      batch_errors: batchErrors,
+      pipeline_version: 'n8n_integration_v1',
       completed_at: new Date().toISOString()
     }
 
@@ -265,22 +317,23 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 RELIABLE UPSERT PIPELINE: Dataset processing completed successfully')
+    console.log('🎉 N8N INTEGRATION PIPELINE: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'reliable_upsert_dataset_processing',
+      action: 'n8n_integration_dataset_processing',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'reliable_upsert_v1',
-      message: `Dataset ${datasetId} processed with reliable upsert. ${totalProcessed} items processed and pipeline started.`,
+      pipeline_version: 'n8n_integration_v1',
+      message: `Dataset ${datasetId} processed. ${totalStored} items stored, ${batchesSent} batches sent to n8n.`,
+      n8n_webhook_url: N8N_WEBHOOK_URL,
       improvements: [
-        'Using Supabase upsert with ignoreDuplicates for reliable conflict handling',
-        'Eliminated custom SQL execution that was causing errors',
-        'Optimized batch size to 100 for better performance',
-        'Continue processing even if some batches fail',
-        'Internal deduplication before insertion',
-        'Native Supabase conflict resolution'
+        'Integrated with n8n for OpenAI processing',
+        'Reliable batch processing with 10s delays',
+        'Proper filtering: no reposts, Person only, required fields',
+        'Internal and database deduplication',
+        'Batch tracking with unique IDs',
+        'Error handling for individual batches'
       ]
     }), { 
       status: 200,
@@ -288,11 +341,11 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in reliable-upsert process-dataset:', error?.message)
+    console.error('❌ Error in n8n-integration process-dataset:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'reliable_upsert_v1'
+      pipeline_version: 'n8n_integration_v1'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
