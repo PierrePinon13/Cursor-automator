@@ -10,16 +10,34 @@ interface CompanyCellProps {
 }
 
 const CompanyCell = ({ lead }: CompanyCellProps) => {
-  // Utiliser l'entreprise actuelle du lead
-  const companyName = lead.unipile_company || lead.company_name || 'Entreprise inconnue';
+  // Priorité pour le nom de l'entreprise
+  const companyName = lead.unipile_company || 
+                     lead.company_name || 
+                     lead.company_1_name || 
+                     'Entreprise inconnue';
+  
+  // Priorité pour l'ID de l'entreprise
   const companyId = lead.company_id;
-  const companyLinkedInId = lead.unipile_company_linkedin_id || lead.company_linkedin_id;
+  
+  // Priorité pour le LinkedIn ID
+  const companyLinkedInId = lead.unipile_company_linkedin_id || 
+                           lead.company_linkedin_id ||
+                           lead.company_1_linkedin_id;
 
   console.log('🏢 CompanyCell rendering:', {
     companyName,
     companyId,
     companyLinkedInId,
-    leadId: lead.id
+    leadId: lead.id,
+    allCompanyData: {
+      unipile_company: lead.unipile_company,
+      company_name: lead.company_name,
+      company_1_name: lead.company_1_name,
+      company_id: lead.company_id,
+      unipile_company_linkedin_id: lead.unipile_company_linkedin_id,
+      company_linkedin_id: lead.company_linkedin_id,
+      company_1_linkedin_id: lead.company_1_linkedin_id
+    }
   });
 
   return (
@@ -28,7 +46,7 @@ const CompanyCell = ({ lead }: CompanyCellProps) => {
       companyLinkedInId={companyLinkedInId}
       companyName={companyName}
     >
-      <span className="text-sm">{companyName}</span>
+      <span className="text-sm font-medium">{companyName}</span>
     </CompanyHoverCard>
   );
 };

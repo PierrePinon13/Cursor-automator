@@ -16,9 +16,12 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
   const formatDate = (dateString: string | null | undefined): string => {
     if (!dateString) return '';
     try {
-      // Gérer différents formats de date
       let date: Date;
-      if (dateString.includes('-')) {
+      if (dateString.includes('/')) {
+        // Format M/D/YYYY
+        const [month, day, year] = dateString.split('/');
+        date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else if (dateString.includes('-')) {
         // Format YYYY-MM ou YYYY-MM-DD
         date = new Date(dateString + (dateString.length === 7 ? '-01' : ''));
       } else if (dateString.length === 4) {
@@ -29,7 +32,7 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
       }
       
       if (isNaN(date.getTime())) {
-        return dateString; // Retourner la chaîne originale si parsing échoue
+        return dateString;
       }
       
       return date.toLocaleDateString('fr-FR', {
@@ -37,7 +40,7 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
         year: 'numeric'
       });
     } catch (error) {
-      return dateString || ''; // Fallback vers la chaîne originale
+      return dateString || '';
     }
   };
 
@@ -65,21 +68,29 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
             {lead.previous_client_companies.map((clientCompany, index) => {
               console.log('🔍 Processing client company:', clientCompany);
               
-              // Gérer différents formats de données
               let clientName = '';
               let startDate = '';
               let endDate = '';
               let position = '';
               
-              if (typeof clientCompany === 'string') {
-                // Format simple : juste le nom du client
-                clientName = clientCompany;
-              } else if (typeof clientCompany === 'object' && clientCompany !== null) {
-                // Format objet avec détails
+              // Si c'est un objet JSON parsé
+              if (typeof clientCompany === 'object' && clientCompany !== null) {
                 clientName = clientCompany.client_name || clientCompany.company_name || '';
                 startDate = clientCompany.start_date || '';
                 endDate = clientCompany.end_date || '';
                 position = clientCompany.position || '';
+              } else if (typeof clientCompany === 'string') {
+                // Si c'est une string, essayer de parser le JSON
+                try {
+                  const parsed = JSON.parse(clientCompany);
+                  clientName = parsed.client_name || parsed.company_name || '';
+                  startDate = parsed.start_date || '';
+                  endDate = parsed.end_date || '';
+                  position = parsed.position || '';
+                } catch (error) {
+                  // Si ce n'est pas du JSON, utiliser comme nom
+                  clientName = clientCompany;
+                }
               }
               
               const formattedStartDate = formatDate(startDate);

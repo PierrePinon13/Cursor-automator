@@ -14,13 +14,15 @@ interface CompanyHoverCardProps {
 }
 
 const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children }: CompanyHoverCardProps) => {
+  console.log('🏢 CompanyHoverCard props:', { companyId, companyLinkedInId, companyName });
+
   const { data: company, isLoading, error } = useQuery({
-    queryKey: ['company', companyId, companyLinkedInId],
+    queryKey: ['company', companyId, companyLinkedInId, companyName],
     queryFn: async () => {
       console.log('🔍 Fetching company data for:', { companyId, companyLinkedInId, companyName });
       
-      // Si on a un company_id, l'utiliser en priorité
-      if (companyId) {
+      // Priorité 1: Si on a un company_id
+      if (companyId && companyId !== 'null' && companyId !== 'undefined') {
         console.log('🎯 Searching by company_id:', companyId);
         const { data, error } = await supabase
           .from('companies')
@@ -35,8 +37,11 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         console.log('⚠️ No company found by ID:', error);
       }
       
-      // Sinon essayer avec linkedin_id
-      if (companyLinkedInId) {
+      // Priorité 2: Si on a un linkedin_id valide
+      if (companyLinkedInId && 
+          companyLinkedInId !== 'null' && 
+          companyLinkedInId !== 'undefined' && 
+          companyLinkedInId.trim() !== '') {
         console.log('🎯 Searching by LinkedIn ID:', companyLinkedInId);
         const { data, error } = await supabase
           .from('companies')
@@ -51,13 +56,15 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         console.log('⚠️ No company found by LinkedIn ID:', error);
       }
       
-      // Fallback : essayer par nom (approximatif)
-      if (companyName && companyName !== 'Entreprise inconnue') {
+      // Priorité 3: Recherche par nom (approximatif)
+      if (companyName && 
+          companyName !== 'Entreprise inconnue' && 
+          companyName.trim() !== '') {
         console.log('🎯 Searching by name:', companyName);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
-          .ilike('name', `%${companyName}%`)
+          .ilike('name', `%${companyName.trim()}%`)
           .limit(1)
           .maybeSingle();
         
@@ -71,7 +78,8 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
       console.log('❌ No company data found anywhere');
       return null;
     },
-    enabled: !!(companyId || companyLinkedInId || (companyName && companyName !== 'Entreprise inconnue'))
+    enabled: !!(companyId || companyLinkedInId || (companyName && companyName !== 'Entreprise inconnue')),
+    retry: false
   });
 
   const handleCompanyClick = () => {
@@ -84,7 +92,12 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <div onClick={handleCompanyClick} className="cursor-pointer hover:text-blue-600 underline">
+        <div 
+          onClick={handleCompanyClick} 
+          className={`cursor-pointer underline decoration-dotted ${
+            company?.linkedin_id ? 'hover:text-blue-600' : 'hover:text-gray-600'
+          }`}
+        >
           {children}
         </div>
       </HoverCardTrigger>
@@ -92,18 +105,13 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-4">
-            <Building className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">{companyName}</p>
-            <p className="text-xs text-red-400">Erreur lors du chargement: {error.message}</p>
+            <span className="ml-2 text-sm">Chargement...</span>
           </div>
         ) : company ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Building className="h-4 w-4 text-blue-600" />
-              <h4 className="font-semibold text-sm">{company.name || companyName}</h4>
+              <h4 className="font-semibold text-sm">{company.name}</h4>
               {company.linkedin_id && (
                 <ExternalLink className="h-3 w-3 text-blue-600 ml-auto" />
               )}
@@ -147,7 +155,7 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
                 </div>
               )}
               
-              {company.follower_count && (
+              {company.follower_count && company.follower_count > 0 && (
                 <div className="flex items-center gap-2 text-gray-600">
                   <Users className="h-3 w-3" />
                   <span>{company.follower_count.toLocaleString()} abonnés</span>
@@ -155,17 +163,43 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
               )}
             </div>
             
-            <div className="text-xs text-gray-400 border-t pt-2">
-              LinkedIn ID: {company.linkedin_id}
-            </div>
+            {company.linkedin_id && (
+              <div className="text-xs text-gray-400 border-t pt-2">
+                LinkedIn ID: {company.linkedin_id}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-4">
             <Building className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">{companyName}</p>
-            <p className="text-xs text-gray-400">Informations non disponibles</p>
+            <h4 className="font-medium text-sm mb-1">{companyName}</h4>
+            <p className="text-xs text-gray-500 mb-2">Informations détaillées non disponibles</p>
+            
+            {/* Essayer d'enrichir l'entreprise si on a un LinkedIn ID */}
+            {companyLinkedInId && companyLinkedInId !== 'null' && companyLinkedInId !== 'undefined' && (
+              <button
+                onClick={async () => {
+                  console.log('🔄 Tentative d\'enrichissement pour:', companyLinkedInId);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('fetch-company-info', {
+                      body: { companyLinkedInId }
+                    });
+                    if (data?.success) {
+                      window.location.reload(); // Recharger pour voir les nouvelles données
+                    }
+                  } catch (error) {
+                    console.error('Erreur enrichissement:', error);
+                  }
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Essayer de récupérer les informations
+              </button>
+            )}
+            
             <div className="text-xs text-gray-300 mt-2">
-              Debug: ID={companyId}, LinkedIn={companyLinkedInId}
+              ID: {companyId || 'Non défini'}<br/>
+              LinkedIn: {companyLinkedInId || 'Non défini'}
             </div>
           </div>
         )}
