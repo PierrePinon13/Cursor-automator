@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 N8N OpenAI Callback - Processing filtered posts')
+    console.log('🔄 N8N OpenAI Callback - Processing request')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -23,8 +23,8 @@ serve(async (req) => {
     const requestBody = await req.json()
     console.log('📥 Received callback payload:', JSON.stringify(requestBody, null, 2))
     
-    // Ajuster le format pour correspondre à celui envoyé par n8n
-    let batch_id, dataset_id, filtered_posts
+    // Gérer différents formats de payload
+    let batch_id, dataset_id, filtered_posts = []
     
     if (Array.isArray(requestBody) && requestBody.length > 0) {
       // Format array avec body et filtered_posts séparés
@@ -33,23 +33,28 @@ serve(async (req) => {
         batch_id = firstItem.body.batch_id
         dataset_id = firstItem.body.dataset_id
         filtered_posts = firstItem.filtered_posts
+      } else if (firstItem.batch_id && firstItem.dataset_id) {
+        // Format array avec seulement les métadonnées du batch
+        batch_id = firstItem.batch_id
+        dataset_id = firstItem.dataset_id
+        filtered_posts = [] // Pas de posts filtrés dans ce cas
       } else {
-        throw new Error('Invalid array format: missing body or filtered_posts')
+        throw new Error('Invalid array format: missing required fields')
       }
-    } else if (requestBody.batch_id && requestBody.dataset_id && requestBody.filtered_posts) {
-      // Format direct
+    } else if (requestBody.batch_id && requestBody.dataset_id) {
+      // Format direct avec métadonnées seulement
       batch_id = requestBody.batch_id
       dataset_id = requestBody.dataset_id
-      filtered_posts = requestBody.filtered_posts
+      filtered_posts = requestBody.filtered_posts || [] // Posts optionnels
     } else {
-      throw new Error('Invalid payload format')
+      throw new Error('Invalid payload format: missing batch_id or dataset_id')
     }
     
-    if (!batch_id || !dataset_id || !filtered_posts || !Array.isArray(filtered_posts)) {
+    if (!batch_id || !dataset_id) {
       console.error('❌ Invalid callback payload structure')
       return new Response(JSON.stringify({ 
         success: false,
-        error: 'Invalid payload: batch_id, dataset_id and filtered_posts array are required',
+        error: 'Invalid payload: batch_id and dataset_id are required',
         received_keys: Object.keys(requestBody)
       }), {
         status: 400,
@@ -58,6 +63,29 @@ serve(async (req) => {
     }
 
     console.log(`📥 Processing callback for batch ${batch_id}: ${filtered_posts.length} filtered posts`)
+
+    // Si pas de posts filtrés, juste confirmer la réception
+    if (filtered_posts.length === 0) {
+      console.log('ℹ️ No filtered posts in this callback - batch metadata only')
+      
+      const result = {
+        success: true,
+        batch_id: batch_id,
+        dataset_id: dataset_id,
+        posts_received: 0,
+        posts_created: 0,
+        posts_skipped: 0,
+        processing_errors: 0,
+        unipile_triggered: false,
+        message: 'Batch metadata received successfully - no posts to process'
+      }
+
+      console.log(`✅ N8N callback completed (metadata only):`, result)
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
     let postsCreated = 0
     let postsSkipped = 0
