@@ -21,13 +21,20 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
     queryFn: async () => {
       console.log('🔍 Fetching company data for:', { companyId, companyLinkedInId, companyName });
       
-      // Méthode 1: Recherche par company_id si disponible et valide
-      if (companyId && companyId !== 'null' && companyId !== 'undefined' && companyId.trim() !== '') {
-        console.log('🎯 Searching by company_id:', companyId);
+      // Nettoyer les valeurs null/undefined/empty
+      const cleanCompanyId = companyId && companyId !== 'null' && companyId !== 'undefined' && companyId.trim() !== '' ? companyId : null;
+      const cleanLinkedInId = companyLinkedInId && companyLinkedInId !== 'null' && companyLinkedInId !== 'undefined' && companyLinkedInId.trim() !== '' && companyLinkedInId !== '0' ? companyLinkedInId : null;
+      const cleanCompanyName = companyName && companyName !== 'Entreprise inconnue' && companyName !== 'Unknown' && companyName.trim() !== '' ? companyName.trim() : null;
+      
+      console.log('🧹 Cleaned values:', { cleanCompanyId, cleanLinkedInId, cleanCompanyName });
+      
+      // Méthode 1: Recherche par company_id
+      if (cleanCompanyId) {
+        console.log('🎯 Searching by company_id:', cleanCompanyId);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
-          .eq('id', companyId)
+          .eq('id', cleanCompanyId)
           .maybeSingle();
         
         if (!error && data) {
@@ -37,17 +44,13 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         console.log('⚠️ No company found by ID:', error?.message);
       }
       
-      // Méthode 2: Recherche par linkedin_id si disponible et valide
-      if (companyLinkedInId && 
-          companyLinkedInId !== 'null' && 
-          companyLinkedInId !== 'undefined' && 
-          companyLinkedInId.trim() !== '' &&
-          companyLinkedInId !== '0') {
-        console.log('🎯 Searching by LinkedIn ID:', companyLinkedInId);
+      // Méthode 2: Recherche par linkedin_id
+      if (cleanLinkedInId) {
+        console.log('🎯 Searching by LinkedIn ID:', cleanLinkedInId);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
-          .eq('linkedin_id', companyLinkedInId)
+          .eq('linkedin_id', cleanLinkedInId)
           .maybeSingle();
         
         if (!error && data) {
@@ -57,18 +60,15 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         console.log('⚠️ No company found by LinkedIn ID:', error?.message);
       }
       
-      // Méthode 3: Recherche par nom exact puis approximatif
-      if (companyName && 
-          companyName !== 'Entreprise inconnue' && 
-          companyName !== 'Unknown' &&
-          companyName.trim() !== '') {
-        console.log('🎯 Searching by exact name:', companyName);
+      // Méthode 3: Recherche par nom
+      if (cleanCompanyName) {
+        console.log('🎯 Searching by name:', cleanCompanyName);
         
-        // Recherche exacte
+        // Recherche exacte d'abord
         let { data, error } = await supabase
           .from('companies')
           .select('*')
-          .eq('name', companyName.trim())
+          .eq('name', cleanCompanyName)
           .maybeSingle();
         
         if (!error && data) {
@@ -77,11 +77,11 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         }
         
         // Recherche approximative
-        console.log('🎯 Searching by approximate name:', companyName);
+        console.log('🎯 Searching by approximate name:', cleanCompanyName);
         ({ data, error } = await supabase
           .from('companies')
           .select('*')
-          .ilike('name', `%${companyName.trim()}%`)
+          .ilike('name', `%${cleanCompanyName}%`)
           .limit(1)
           .maybeSingle());
         
@@ -97,7 +97,7 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
     },
     enabled: !!(companyId || companyLinkedInId || (companyName && companyName !== 'Entreprise inconnue')),
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleCompanyClick = () => {
@@ -108,20 +108,21 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
   };
 
   const handleEnrichCompany = async () => {
-    if (!companyLinkedInId || companyLinkedInId === 'null' || companyLinkedInId === 'undefined') {
+    const cleanLinkedInId = companyLinkedInId && companyLinkedInId !== 'null' && companyLinkedInId !== 'undefined' && companyLinkedInId.trim() !== '' && companyLinkedInId !== '0' ? companyLinkedInId : null;
+    
+    if (!cleanLinkedInId) {
       console.log('❌ Cannot enrich: no valid LinkedIn ID');
       return;
     }
     
-    console.log('🔄 Enriching company with LinkedIn ID:', companyLinkedInId);
+    console.log('🔄 Enriching company with LinkedIn ID:', cleanLinkedInId);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-company-info', {
-        body: { companyLinkedInId }
+        body: { companyLinkedInId: cleanLinkedInId }
       });
       
       if (data?.success) {
         console.log('✅ Company enriched successfully');
-        // Rafraîchir les données
         window.location.reload();
       } else {
         console.error('❌ Enrichment failed:', error || data?.error);
@@ -217,17 +218,12 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
             <h4 className="font-medium text-sm mb-1">{companyName}</h4>
             <p className="text-xs text-gray-500 mb-3">Aucune information détaillée disponible en base</p>
             
-            {/* Informations de debug */}
-            <div className="text-xs text-gray-400 space-y-1 mb-3">
-              <div>ID: {companyId || 'Non défini'}</div>
-              <div>LinkedIn: {companyLinkedInId || 'Non défini'}</div>
-            </div>
-            
             {/* Option d'enrichissement si LinkedIn ID disponible */}
             {companyLinkedInId && 
              companyLinkedInId !== 'null' && 
              companyLinkedInId !== 'undefined' && 
-             companyLinkedInId.trim() !== '' && (
+             companyLinkedInId.trim() !== '' && 
+             companyLinkedInId !== '0' && (
               <button
                 onClick={handleEnrichCompany}
                 className="text-xs text-blue-600 hover:text-blue-800 underline bg-blue-50 px-2 py-1 rounded"

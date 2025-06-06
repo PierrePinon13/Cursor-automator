@@ -453,7 +453,7 @@ function analyzeClientWorkHistory(clients: any[], workHistory: any[]) {
   let hasPreviousClientCompany = false;
 
   if (!workHistory || workHistory.length === 0) {
-    return { hasPreviousClientCompany, previousClientCompanies };
+    return { hasPreviousClientCompany, previousClientCompanies, clientHistoryAlert: null };
   }
 
   // Créer un map pour lookup rapide
@@ -485,7 +485,60 @@ function analyzeClientWorkHistory(clients: any[], workHistory: any[]) {
     }
   }
 
-  return { hasPreviousClientCompany, previousClientCompanies };
+  // Générer l'alerte si des entreprises clientes sont trouvées
+  let clientHistoryAlert = null;
+  if (hasPreviousClientCompany && previousClientCompanies.length > 0) {
+    if (previousClientCompanies.length === 1) {
+      const company = previousClientCompanies[0];
+      const dateInfo = formatWorkPeriod(company.start_date, company.end_date, company.is_current);
+      clientHistoryAlert = `A travaillé chez ${company.company_name}${company.position ? ` en tant que ${company.position}` : ''}${dateInfo}.`;
+    } else {
+      const companyNames = previousClientCompanies.map(c => c.company_name).join(', ');
+      clientHistoryAlert = `A travaillé chez plusieurs entreprises clientes : ${companyNames}.`;
+    }
+  }
+
+  return { hasPreviousClientCompany, previousClientCompanies, clientHistoryAlert };
+}
+
+function formatWorkPeriod(startDate: string | null, endDate: string | null, isCurrent: boolean): string {
+  if (!startDate) return '';
+  
+  const formatDate = (dateString: string): string => {
+    try {
+      let date: Date;
+      if (dateString.includes('/')) {
+        const [month, day, year] = dateString.split('/');
+        date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else if (dateString.includes('-')) {
+        date = new Date(dateString + (dateString.length === 7 ? '-01' : ''));
+      } else if (dateString.length === 4) {
+        date = new Date(dateString + '-01-01');
+      } else {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) return dateString;
+      
+      return date.toLocaleDateString('fr-FR', {
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formattedStart = formatDate(startDate);
+  
+  if (isCurrent) {
+    return ` depuis ${formattedStart}`;
+  } else if (endDate) {
+    const formattedEnd = formatDate(endDate);
+    return ` de ${formattedStart} à ${formattedEnd}`;
+  } else {
+    return ` depuis ${formattedStart}`;
+  }
 }
 
 function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clientHistoryAnalysis: any, companyEnrichment: any) {
@@ -561,9 +614,10 @@ function buildLeadData(post: any, unipileExtraction: any, clientMatch: any, clie
     matched_client_id: clientMatch.clientId,
     matched_client_name: clientMatch.clientName,
     
-    // Historique client
+    // Historique client avec alerte générée
     has_previous_client_company: clientHistoryAnalysis.hasPreviousClientCompany,
     previous_client_companies: clientHistoryAnalysis.previousClientCompanies,
+    client_history_alert: clientHistoryAnalysis.clientHistoryAlert,
     
     // Statuts
     processing_status: 'completed',
