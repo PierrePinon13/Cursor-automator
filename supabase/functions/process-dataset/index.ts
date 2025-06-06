@@ -134,9 +134,6 @@ serve(async (req) => {
       // Ne garder que les posts de personnes (pas d'entreprises)
       if (item.authorType !== 'Person') return false;
       
-      // Vérifier les champs requis
-      if (!item.text || !item.authorName || !item.authorProfileId || !item.urn) return false;
-      
       // Déduplication interne
       if (seenUrns.has(item.urn)) return false;
       seenUrns.add(item.urn);
@@ -215,7 +212,10 @@ serve(async (req) => {
       try {
         const { error: insertError, count } = await supabaseClient
           .from('linkedin_posts_raw')
-          .insert(batch)
+          .upsert(batch, { 
+            onConflict: 'urn',
+            ignoreDuplicates: true 
+          })
           .select('count', { count: 'exact' })
 
         if (insertError) {
@@ -330,7 +330,7 @@ serve(async (req) => {
       improvements: [
         'Integrated with n8n for OpenAI processing',
         'Reliable batch processing with 10s delays',
-        'Proper filtering: no reposts, Person only, required fields',
+        'Filtering: no reposts, Person only',
         'Internal and database deduplication',
         'Batch tracking with unique IDs',
         'Error handling for individual batches'
