@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Building, Calendar, Clock, Crown } from 'lucide-react';
 import ClientHistoryAnalyzer from './ClientHistoryAnalyzer';
+import CompanyHoverCard from './CompanyHoverCard';
 
 interface LeadWorkHistoryProps {
   lead: any;
@@ -115,9 +116,14 @@ export function LeadWorkHistory({ lead }: LeadWorkHistoryProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground">
-                      {experience.company_name}
-                    </p>
+                    <CompanyHoverCard 
+                      companyLinkedInId={experience.linkedin_id}
+                      companyName={experience.company_name}
+                    >
+                      <span className="text-sm text-muted-foreground">
+                        {experience.company_name}
+                      </span>
+                    </CompanyHoverCard>
                     {experience.linkedin_url && (
                       <a 
                         href={experience.linkedin_url} 

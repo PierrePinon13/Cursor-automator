@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Building, Users, MapPin, Globe, Calendar, ExternalLink } from 'lucide-react';
+import { Building, Users, MapPin, Globe, ExternalLink } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
@@ -8,33 +8,67 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface CompanyHoverCardProps {
   companyId?: string;
+  companyLinkedInId?: string;
   companyName: string;
   children: React.ReactNode;
 }
 
-const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCardProps) => {
-  const { data: company, isLoading } = useQuery({
-    queryKey: ['company', companyId],
+const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children }: CompanyHoverCardProps) => {
+  const { data: company, isLoading, error } = useQuery({
+    queryKey: ['company', companyId, companyLinkedInId],
     queryFn: async () => {
-      if (!companyId) return null;
+      console.log('🔍 Fetching company data for:', { companyId, companyLinkedInId, companyName });
       
-      console.log('🔍 Fetching company data for:', companyId);
-      
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', companyId)
-        .single();
-      
-      if (error) {
-        console.error('Error fetching company:', error);
-        return null;
+      // Essayer d'abord avec company_id si disponible
+      if (companyId) {
+        const { data, error } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', companyId)
+          .single();
+        
+        if (!error && data) {
+          console.log('✅ Company data found by ID:', data);
+          return data;
+        }
+        console.log('⚠️ No company found by ID:', error);
       }
       
-      console.log('✅ Company data loaded:', data);
-      return data;
+      // Sinon essayer avec linkedin_id
+      if (companyLinkedInId) {
+        const { data, error } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('linkedin_id', companyLinkedInId)
+          .single();
+        
+        if (!error && data) {
+          console.log('✅ Company data found by LinkedIn ID:', data);
+          return data;
+        }
+        console.log('⚠️ No company found by LinkedIn ID:', error);
+      }
+      
+      // Si aucune donnée trouvée, essayer par nom
+      if (companyName) {
+        const { data, error } = await supabase
+          .from('companies')
+          .select('*')
+          .ilike('name', `%${companyName}%`)
+          .limit(1)
+          .single();
+        
+        if (!error && data) {
+          console.log('✅ Company data found by name:', data);
+          return data;
+        }
+        console.log('⚠️ No company found by name:', error);
+      }
+      
+      console.log('❌ No company data found');
+      return null;
     },
-    enabled: !!companyId
+    enabled: !!(companyId || companyLinkedInId || companyName)
   });
 
   const handleCompanyClick = () => {
@@ -44,15 +78,10 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
     }
   };
 
-  // Si pas de companyId, afficher juste le nom sans hover
-  if (!companyId) {
-    return <div onClick={handleCompanyClick}>{children}</div>;
-  }
-
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <div onClick={handleCompanyClick} className="cursor-pointer">
+        <div onClick={handleCompanyClick} className="cursor-pointer hover:text-blue-600 underline">
           {children}
         </div>
       </HoverCardTrigger>
@@ -60,6 +89,12 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-4">
+            <Building className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">{companyName}</p>
+            <p className="text-xs text-red-400">Erreur lors du chargement</p>
           </div>
         ) : company ? (
           <div className="space-y-3">
@@ -71,7 +106,6 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
               )}
             </div>
             
-            {/* Affichage de la description de l'entreprise */}
             {company.description && (
               <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
                 {company.description}
