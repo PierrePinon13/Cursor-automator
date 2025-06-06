@@ -10,33 +10,29 @@ interface CompanyCellProps {
 }
 
 const CompanyCell = ({ lead }: CompanyCellProps) => {
-  // Priorité pour le nom de l'entreprise
-  const companyName = lead.unipile_company || 
+  // Priorité pour le nom de l'entreprise actuelle (company_1 = entreprise actuelle)
+  const companyName = lead.company_1_name || 
+                     lead.unipile_company || 
                      lead.company_name || 
-                     lead.company_1_name || 
                      'Entreprise inconnue';
   
-  // Priorité pour l'ID de l'entreprise (UUID)
+  // Priorité pour l'ID de l'entreprise (UUID depuis la table companies)
   const companyId = lead.company_id;
   
-  // Priorité pour le LinkedIn ID de l'entreprise
-  const companyLinkedInId = lead.unipile_company_linkedin_id || 
-                           lead.company_linkedin_id ||
-                           lead.company_1_linkedin_id;
+  // Priorité pour le LinkedIn ID de l'entreprise actuelle
+  const companyLinkedInId = lead.company_1_linkedin_id ||
+                           lead.unipile_company_linkedin_id || 
+                           lead.company_linkedin_id;
 
   console.log('🏢 CompanyCell rendering:', {
     leadId: lead.id,
     companyName,
     companyId,
     companyLinkedInId,
-    allCompanyData: {
-      unipile_company: lead.unipile_company,
-      company_name: lead.company_name,
-      company_1_name: lead.company_1_name,
-      company_id: lead.company_id,
-      unipile_company_linkedin_id: lead.unipile_company_linkedin_id,
-      company_linkedin_id: lead.company_linkedin_id,
-      company_1_linkedin_id: lead.company_1_linkedin_id
+    company_1_data: {
+      name: lead.company_1_name,
+      linkedin_id: lead.company_1_linkedin_id,
+      position: lead.company_1_position
     }
   });
 
