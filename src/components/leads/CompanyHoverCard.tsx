@@ -18,6 +18,8 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
     queryFn: async () => {
       if (!companyId) return null;
       
+      console.log('🔍 Fetching company data for:', companyId);
+      
       const { data, error } = await supabase
         .from('companies')
         .select('*')
@@ -29,6 +31,7 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
         return null;
       }
       
+      console.log('✅ Company data loaded:', data);
       return data;
     },
     enabled: !!companyId
@@ -49,7 +52,7 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <div onClick={handleCompanyClick}>
+        <div onClick={handleCompanyClick} className="cursor-pointer">
           {children}
         </div>
       </HoverCardTrigger>
@@ -70,7 +73,7 @@ const CompanyHoverCard = ({ companyId, companyName, children }: CompanyHoverCard
             
             {/* Affichage de la description de l'entreprise */}
             {company.description && (
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
                 {company.description}
               </p>
             )}

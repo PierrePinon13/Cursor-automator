@@ -106,7 +106,9 @@ serve(async (req) => {
           posted_at_timestamp,
           author_profile_url,
           author_profile_id,
-          author_name
+          author_name,
+          // Nouvelles données de prénom/nom
+          author
         } = filteredPost
 
         if (!urn) {
@@ -128,6 +130,13 @@ serve(async (req) => {
           continue
         }
 
+        // Extraire le prénom et nom de l'objet author si disponible
+        const firstName = author?.firstName || null
+        const lastName = author?.lastName || null
+        const fullName = firstName && lastName ? `${firstName.trim()} ${lastName.trim()}` : author_name
+
+        console.log(`👤 Processing author data: ${fullName} (${firstName} ${lastName})`)
+
         // Créer le post dans linkedin_posts avec les résultats OpenAI et status 'queued_unipile'
         const postData = {
           apify_dataset_id: dataset_id,
@@ -138,7 +147,7 @@ serve(async (req) => {
           posted_at_timestamp: posted_at_timestamp ? parseInt(posted_at_timestamp) : null,
           author_profile_url: author_profile_url,
           author_profile_id: author_profile_id,
-          author_name: author_name,
+          author_name: fullName,
           author_type: 'Person', // Puisque filtré en amont
           
           // Résultats OpenAI Step 1 (simulé pour compatibilité)
@@ -161,7 +170,11 @@ serve(async (req) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           last_updated_at: new Date().toISOString(),
-          raw_data: filteredPost
+          raw_data: {
+            ...filteredPost,
+            author_first_name: firstName,
+            author_last_name: lastName
+          }
         }
 
         const { error: insertError } = await supabaseClient
@@ -173,7 +186,7 @@ serve(async (req) => {
           processingErrors++
         } else {
           postsCreated++
-          console.log(`✅ Post ${urn} created successfully with OpenAI results`)
+          console.log(`✅ Post ${urn} created successfully with OpenAI results and author: ${fullName}`)
         }
 
       } catch (error) {

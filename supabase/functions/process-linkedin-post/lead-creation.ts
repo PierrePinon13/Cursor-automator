@@ -17,8 +17,27 @@ export async function createOrUpdateLead(
       apify_dataset_id: post.apify_dataset_id,
       text_length: post.text?.length || 0,
       has_url: !!post.url,
-      has_approach_message: !!approachMessage
+      has_approach_message: !!approachMessage,
+      author_name: post.author_name
     });
+
+    // Extraire prénom et nom depuis les raw_data si disponibles
+    let firstName = null;
+    let lastName = null;
+    
+    if (post.raw_data?.author_first_name && post.raw_data?.author_last_name) {
+      firstName = post.raw_data.author_first_name.trim();
+      lastName = post.raw_data.author_last_name.trim();
+      console.log('📝 Extracted first/last name from raw_data:', { firstName, lastName });
+    } else if (post.author_name) {
+      // Fallback: essayer d'extraire depuis author_name
+      const nameParts = post.author_name.trim().split(' ');
+      if (nameParts.length >= 2) {
+        firstName = nameParts[0];
+        lastName = nameParts.slice(1).join(' ');
+        console.log('📝 Extracted first/last name from author_name:', { firstName, lastName });
+      }
+    }
 
     // Vérifier si un lead existe déjà pour ce author_profile_id
     const { data: existingLead, error: checkError } = await supabaseClient
@@ -57,7 +76,7 @@ export async function createOrUpdateLead(
       latest_post_urn: post.urn || null,
       latest_post_url: post.url || null,
       
-      // Données de l'auteur
+      // Données de l'auteur - MISE À JOUR avec prénom/nom
       author_profile_id: post.author_profile_id,
       author_name: post.author_name || 'Unknown author',
       author_headline: post.author_headline || null,
@@ -147,8 +166,10 @@ export async function createOrUpdateLead(
       text_length: leadData.text?.length || 0,
       has_url: !!leadData.url,
       author_profile_id: leadData.author_profile_id,
+      author_name: leadData.author_name,
       company_name: leadData.company_name,
-      unipile_company: leadData.unipile_company
+      unipile_company: leadData.unipile_company,
+      approach_message_length: leadData.approach_message?.length || 0
     });
 
     if (existingLead) {
