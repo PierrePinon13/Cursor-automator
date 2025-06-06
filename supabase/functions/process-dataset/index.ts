@@ -258,7 +258,7 @@ serve(async (req) => {
             posts: batch.map(item => ({
               urn: item.urn,
               text: item.text,
-              title: item.title,
+              title: item.title || '', // Ajouter le titre ou string vide si absent
               url: item.url,
               posted_at_iso: item.postedAtIso,
               posted_at_timestamp: item.postedAtTimestamp,
