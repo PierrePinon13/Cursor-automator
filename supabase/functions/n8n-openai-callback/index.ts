@@ -128,7 +128,7 @@ serve(async (req) => {
           continue
         }
 
-        // Créer le post dans linkedin_posts avec les résultats OpenAI et status 'processing'
+        // Créer le post dans linkedin_posts avec les résultats OpenAI et status 'queued_unipile'
         const postData = {
           apify_dataset_id: dataset_id,
           urn: urn,
@@ -156,8 +156,8 @@ serve(async (req) => {
             ? openai_step3_postes_selectionnes 
             : [openai_step3_postes_selectionnes],
           
-          // Status pour la suite du traitement
-          processing_status: 'processing',
+          // Status pour la suite du traitement Unipile
+          processing_status: 'queued_unipile',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           last_updated_at: new Date().toISOString(),

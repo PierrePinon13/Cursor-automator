@@ -24,7 +24,7 @@ serve(async (req) => {
     
     console.log(`🎯 Processing Unipile batch for dataset: ${dataset_id}`);
 
-    // Récupérer les posts validés pour Unipile
+    // Récupérer les posts en attente pour Unipile
     const { data: posts, error: fetchError } = await supabaseClient
       .from('linkedin_posts')
       .select('*')
@@ -49,19 +49,18 @@ serve(async (req) => {
 
     console.log(`📥 Processing ${posts.length} posts for Unipile scraping`);
 
-    // Récupérer un compte Unipile disponible
-    const { data: profiles } = await supabaseClient
+    // Récupérer tous les comptes Unipile disponibles pour la rotation
+    const { data: profiles, error: profilesError } = await supabaseClient
       .from('profiles')
       .select('unipile_account_id')
-      .not('unipile_account_id', 'is', null)
-      .limit(1);
+      .not('unipile_account_id', 'is', null);
 
-    if (!profiles || profiles.length === 0) {
-      throw new Error('No Unipile account available');
+    if (profilesError || !profiles || profiles.length === 0) {
+      throw new Error('No Unipile accounts available');
     }
 
-    const accountId = profiles[0].unipile_account_id;
-    console.log(`🔗 Using Unipile account: ${accountId}`);
+    const accountIds = profiles.map(p => p.unipile_account_id);
+    console.log(`🔗 Found ${accountIds.length} Unipile accounts for rotation: ${accountIds.join(', ')}`);
 
     // Marquer les posts comme en traitement
     await supabaseClient
@@ -78,10 +77,14 @@ serve(async (req) => {
 
     const processedPostIds = [];
 
-    // Traitement séquentiel utilisant unipile-queue pour la gestion du rate limiting
-    for (const post of posts) {
+    // Traitement séquentiel avec rotation des comptes
+    for (let i = 0; i < posts.length; i++) {
+      const post = posts[i];
+      // Rotation des comptes : utiliser un compte différent pour chaque post
+      const accountId = accountIds[i % accountIds.length];
+      
       try {
-        console.log(`🔍 Processing Unipile for post: ${post.id}`);
+        console.log(`🔍 Processing Unipile for post: ${post.id} with account: ${accountId}`);
         
         // Appel à unipile-queue avec l'opération scrape_profile
         const { data: unipileResult, error: unipileError } = await supabaseClient.functions.invoke('unipile-queue', {
@@ -103,10 +106,10 @@ serve(async (req) => {
         const profileData = unipileResult.result;
         
         // Extraire les informations importantes du profil
-        const currentExperience = profileData.experience?.[0];
-        const companyName = currentExperience?.company?.name;
-        const position = currentExperience?.title;
-        const companyLinkedInId = currentExperience?.company?.linkedin_id;
+        const currentExperience = profileData.work_experience?.[0];
+        const companyName = currentExperience?.company;
+        const position = currentExperience?.position;
+        const companyLinkedInId = currentExperience?.company_id;
 
         // Sauvegarder les résultats
         await supabaseClient
@@ -127,9 +130,9 @@ serve(async (req) => {
         results.passed++;
         processedPostIds.push(post.id);
 
-        console.log(`✅ Unipile completed for post: ${post.id} - ${companyName}`);
+        console.log(`✅ Unipile completed for post: ${post.id} - ${companyName} (account: ${accountId})`);
 
-        // Note: unipile-queue gère déjà les délais entre les requêtes
+        // Note: unipile-queue gère déjà les délais entre les requêtes pour chaque compte
         
       } catch (error) {
         console.error(`❌ Unipile failed for post ${post.id}:`, error);
@@ -170,6 +173,8 @@ serve(async (req) => {
       success: true,
       dataset_id,
       batch_size: posts.length,
+      accounts_used: accountIds.length,
+      account_rotation: true,
       ...results,
       lead_creation_triggered: processedPostIds.length > 0
     };
