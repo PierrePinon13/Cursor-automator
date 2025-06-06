@@ -210,13 +210,12 @@ serve(async (req) => {
       const batch = rawPostsToInsert.slice(i, i + STORAGE_BATCH_SIZE)
       
       try {
-        const { error: insertError, count } = await supabaseClient
+        const { error: insertError } = await supabaseClient
           .from('linkedin_posts_raw')
           .upsert(batch, { 
             onConflict: 'urn',
             ignoreDuplicates: true 
           })
-          .select('count', { count: 'exact' })
 
         if (insertError) {
           console.error(`❌ Error storing batch ${i}-${i + batch.length}:`, insertError.message)
