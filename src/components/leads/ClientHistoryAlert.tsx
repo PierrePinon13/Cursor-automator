@@ -63,10 +63,13 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
           <div className="space-y-2">
             <strong>Entreprise cliente précédente détectée :</strong>
             {lead.previous_client_companies.map((clientCompany, index) => {
+              console.log('🔍 Processing client company:', clientCompany);
+              
               // Gérer différents formats de données
               let clientName = '';
               let startDate = '';
               let endDate = '';
+              let position = '';
               
               if (typeof clientCompany === 'string') {
                 // Format simple : juste le nom du client
@@ -76,6 +79,7 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
                 clientName = clientCompany.client_name || clientCompany.company_name || '';
                 startDate = clientCompany.start_date || '';
                 endDate = clientCompany.end_date || '';
+                position = clientCompany.position || '';
               }
               
               const formattedStartDate = formatDate(startDate);
@@ -90,6 +94,9 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
                   )}
                   {formattedStartDate && !formattedEndDate && (
                     <span> depuis {formattedStartDate}</span>
+                  )}
+                  {position && (
+                    <span> en tant que {position}</span>
                   )}
                 </div>
               );

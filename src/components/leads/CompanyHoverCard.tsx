@@ -19,13 +19,14 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
     queryFn: async () => {
       console.log('🔍 Fetching company data for:', { companyId, companyLinkedInId, companyName });
       
-      // Essayer d'abord avec company_id si disponible
+      // Si on a un company_id, l'utiliser en priorité
       if (companyId) {
+        console.log('🎯 Searching by company_id:', companyId);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
           .eq('id', companyId)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           console.log('✅ Company data found by ID:', data);
@@ -36,11 +37,12 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
       
       // Sinon essayer avec linkedin_id
       if (companyLinkedInId) {
+        console.log('🎯 Searching by LinkedIn ID:', companyLinkedInId);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
           .eq('linkedin_id', companyLinkedInId)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           console.log('✅ Company data found by LinkedIn ID:', data);
@@ -49,14 +51,15 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         console.log('⚠️ No company found by LinkedIn ID:', error);
       }
       
-      // Si aucune donnée trouvée, essayer par nom
-      if (companyName) {
+      // Fallback : essayer par nom (approximatif)
+      if (companyName && companyName !== 'Entreprise inconnue') {
+        console.log('🎯 Searching by name:', companyName);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
           .ilike('name', `%${companyName}%`)
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           console.log('✅ Company data found by name:', data);
@@ -65,10 +68,10 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
         console.log('⚠️ No company found by name:', error);
       }
       
-      console.log('❌ No company data found');
+      console.log('❌ No company data found anywhere');
       return null;
     },
-    enabled: !!(companyId || companyLinkedInId || companyName)
+    enabled: !!(companyId || companyLinkedInId || (companyName && companyName !== 'Entreprise inconnue'))
   });
 
   const handleCompanyClick = () => {
@@ -94,7 +97,7 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
           <div className="text-center py-4">
             <Building className="h-8 w-8 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-500">{companyName}</p>
-            <p className="text-xs text-red-400">Erreur lors du chargement</p>
+            <p className="text-xs text-red-400">Erreur lors du chargement: {error.message}</p>
           </div>
         ) : company ? (
           <div className="space-y-3">
@@ -151,12 +154,19 @@ const CompanyHoverCard = ({ companyId, companyLinkedInId, companyName, children 
                 </div>
               )}
             </div>
+            
+            <div className="text-xs text-gray-400 border-t pt-2">
+              LinkedIn ID: {company.linkedin_id}
+            </div>
           </div>
         ) : (
           <div className="text-center py-4">
             <Building className="h-8 w-8 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-500">{companyName}</p>
             <p className="text-xs text-gray-400">Informations non disponibles</p>
+            <div className="text-xs text-gray-300 mt-2">
+              Debug: ID={companyId}, LinkedIn={companyLinkedInId}
+            </div>
           </div>
         )}
       </HoverCardContent>

@@ -46,9 +46,9 @@ serve(async (req) => {
       .from('companies')
       .select('*')
       .eq('linkedin_id', companyLinkedInId)
-      .single();
+      .maybeSingle();
 
-    if (checkError && checkError.code !== 'PGRST116') {
+    if (checkError) {
       console.error('Error checking existing company:', checkError);
       return new Response(JSON.stringify({ error: 'Database error' }), {
         status: 500,
@@ -56,8 +56,8 @@ serve(async (req) => {
       });
     }
 
-    // If company exists and was updated recently (less than 30 days), return it
-    if (existingCompany) {
+    // Si l'entreprise existe et est complète (a une description et une taille), on garde
+    if (existingCompany && existingCompany.description && existingCompany.company_size) {
       const lastUpdated = new Date(existingCompany.last_updated_at);
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -80,7 +80,7 @@ serve(async (req) => {
     console.log(`⏱️ Adding ${delay}ms delay before Unipile company call`);
     await new Promise(resolve => setTimeout(resolve, delay));
 
-    // Fetch from Unipile API with correct DSN
+    // Fetch from Unipile API
     const unipileApiKey = Deno.env.get('UNIPILE_API_KEY');
     if (!unipileApiKey) {
       console.error('❌ UNIPILE_API_KEY not found');
@@ -92,8 +92,21 @@ serve(async (req) => {
 
     console.log('🔗 Calling Unipile company API for:', companyLinkedInId);
     
-    // ✅ CORRECTION : Utiliser le bon DSN api9.unipile.com:13946
-    const unipileResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/company/${companyLinkedInId}`, {
+    // Valider que l'ID LinkedIn est un string valide
+    const linkedInIdString = String(companyLinkedInId);
+    if (!linkedInIdString || linkedInIdString === 'null' || linkedInIdString === 'undefined') {
+      console.error('❌ Invalid LinkedIn ID:', companyLinkedInId);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid LinkedIn ID provided',
+        linkedin_id: companyLinkedInId
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Utiliser le bon DSN api9.unipile.com:13946
+    const unipileResponse = await fetch(`https://api9.unipile.com:13946/api/v1/linkedin/company/${linkedInIdString}`, {
       method: 'GET',
       headers: {
         'accept': 'application/json',
@@ -104,9 +117,66 @@ serve(async (req) => {
     if (!unipileResponse.ok) {
       const errorText = await unipileResponse.text();
       console.error('❌ Unipile company API error:', unipileResponse.status, unipileResponse.statusText, errorText);
+      
+      // Si c'est une erreur 400, créer quand même une entrée basique
+      if (unipileResponse.status === 400) {
+        console.log('⚠️ Creating basic company entry due to API error');
+        const basicCompanyData = {
+          linkedin_id: linkedInIdString,
+          name: `Company ${linkedInIdString}`,
+          description: 'Information not available from LinkedIn',
+          industry: null,
+          company_size: null,
+          headquarters: null,
+          website: null,
+          follower_count: null,
+          unipile_data: { error: errorText },
+          last_updated_at: new Date().toISOString()
+        };
+
+        let company;
+        if (existingCompany) {
+          const { data: updatedCompany, error: updateError } = await supabaseClient
+            .from('companies')
+            .update(basicCompanyData)
+            .eq('linkedin_id', linkedInIdString)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('❌ Error updating basic company:', updateError);
+          } else {
+            company = updatedCompany;
+          }
+        } else {
+          const { data: newCompany, error: insertError } = await supabaseClient
+            .from('companies')
+            .insert(basicCompanyData)
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('❌ Error creating basic company:', insertError);
+          } else {
+            company = newCompany;
+          }
+        }
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          company,
+          cached: false,
+          warning: 'Limited data due to API error'
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
       return new Response(JSON.stringify({ 
         error: 'Failed to fetch company info from Unipile',
-        status: unipileResponse.status 
+        status: unipileResponse.status,
+        details: errorText
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -119,8 +189,8 @@ serve(async (req) => {
 
     // Extract relevant information
     const companyInfo: CompanyInfo = {
-      id: companyLinkedInId,
-      name: unipileData.name || '',
+      id: linkedInIdString,
+      name: unipileData.name || `Company ${linkedInIdString}`,
       description: unipileData.description || unipileData.about || '',
       industry: unipileData.industry || '',
       companySize: unipileData.companySize || unipileData.company_size || '',
@@ -131,7 +201,7 @@ serve(async (req) => {
 
     // Save or update company in database
     const companyData = {
-      linkedin_id: companyLinkedInId,
+      linkedin_id: linkedInIdString,
       name: companyInfo.name,
       description: companyInfo.description,
       industry: companyInfo.industry,
@@ -149,7 +219,7 @@ serve(async (req) => {
       const { data: updatedCompany, error: updateError } = await supabaseClient
         .from('companies')
         .update(companyData)
-        .eq('linkedin_id', companyLinkedInId)
+        .eq('linkedin_id', linkedInIdString)
         .select()
         .single();
 
