@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import ApproachMessageSection from './sections/ApproachMessageSection';
+import CompanyInfoSection from './sections/CompanyInfoSection';
 
 interface LeadDebugPanelProps {
   leadId?: string;
@@ -135,76 +137,11 @@ const LeadDebugPanel = ({ leadId: initialLeadId }: LeadDebugPanelProps) => {
                 </div>
               </div>
 
-              {/* Message d'approche - Investigation principale */}
-              <div className="border-2 border-blue-200 p-4 rounded-lg bg-blue-50">
-                <h3 className="font-semibold text-lg mb-3 text-blue-800">🔍 Message d'Approche - Investigation</h3>
-                <div className="space-y-3">
-                  <div>
-                    <strong>Message généré:</strong>
-                    <Badge className="ml-2">
-                      {leadData.data.approach_message_generated ? 'Oui' : 'Non'}
-                    </Badge>
-                  </div>
-                  
-                  {leadData.data.approach_message_generated_at && (
-                    <div>
-                      <strong>Généré le:</strong> {new Date(leadData.data.approach_message_generated_at).toLocaleString()}
-                    </div>
-                  )}
-
-                  <div>
-                    <strong>Message stocké:</strong>
-                    <div className="mt-2 p-3 bg-white border rounded text-sm whitespace-pre-wrap">
-                      {leadData.data.approach_message || '❌ Aucun message stocké'}
-                    </div>
-                  </div>
-
-                  {leadData.data.approach_message_error && (
-                    <div>
-                      <strong>Détails d'erreur:</strong>
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                        {leadData.data.approach_message_error}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Indicateur de qualité du message */}
-                  <div className="mt-3 p-2 rounded border">
-                    <strong>Qualité du message:</strong>
-                    {leadData.data.approach_message_generated && leadData.data.approach_message && !leadData.data.approach_message_error?.includes('[Used default template]') ? (
-                      <span className="ml-2 text-green-600">✅ Message IA de qualité</span>
-                    ) : leadData.data.approach_message_error?.includes('[Used default template]') ? (
-                      <span className="ml-2 text-orange-600">⚠️ Template par défaut</span>
-                    ) : (
-                      <span className="ml-2 text-red-600">❌ Échec de génération</span>
-                    )}
-                  </div>
-                </div>
-              </div>
+              {/* Message d'approche */}
+              <ApproachMessageSection leadData={leadData.data} />
 
               {/* Informations d'entreprise */}
-              <div className="border-2 border-green-200 p-4 rounded-lg bg-green-50">
-                <h3 className="font-semibold text-lg mb-3 text-green-800">🏢 Informations d'Entreprise</h3>
-                <div className="space-y-3">
-                  <div><strong>Entreprise actuelle:</strong> {leadData.data.unipile_company || leadData.data.company_name || 'Non récupérée'}</div>
-                  <div><strong>Poste actuel:</strong> {leadData.data.unipile_position || 'Non récupéré'}</div>
-                  <div><strong>Company ID:</strong> {leadData.data.company_id || 'Non assigné'}</div>
-                  <div><strong>LinkedIn ID entreprise:</strong> {leadData.data.unipile_company_linkedin_id || leadData.data.company_linkedin_id || 'Non récupéré'}</div>
-                  
-                  {leadData.data.companies && (
-                    <div className="mt-3 p-2 bg-white rounded border">
-                      <strong>Données enrichies d'entreprise:</strong>
-                      <div className="text-sm mt-1">
-                        <div>Nom: {leadData.data.companies.name}</div>
-                        <div>Industrie: {leadData.data.companies.industry}</div>
-                        <div>Taille: {leadData.data.companies.company_size}</div>
-                        <div>Siège: {leadData.data.companies.headquarters}</div>
-                        <div>Description: {leadData.data.companies.description ? 'Présente' : 'Absente'}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <CompanyInfoSection leadData={leadData.data} />
 
               {/* OpenAI Steps */}
               <div>

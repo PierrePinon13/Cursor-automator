@@ -1,5 +1,6 @@
 
 import { ProcessingContext } from './types.ts';
+import { buildLeadData } from './lead-data-builder.ts';
 
 export async function createOrUpdateLead(
   supabaseClient: any,
@@ -20,24 +21,6 @@ export async function createOrUpdateLead(
       has_approach_message: !!approachMessage,
       author_name: post.author_name
     });
-
-    // Extraire prénom et nom depuis les raw_data si disponibles
-    let firstName = null;
-    let lastName = null;
-    
-    if (post.raw_data?.author_first_name && post.raw_data?.author_last_name) {
-      firstName = post.raw_data.author_first_name.trim();
-      lastName = post.raw_data.author_last_name.trim();
-      console.log('📝 Extracted first/last name from raw_data:', { firstName, lastName });
-    } else if (post.author_name) {
-      // Fallback: essayer d'extraire depuis author_name
-      const nameParts = post.author_name.trim().split(' ');
-      if (nameParts.length >= 2) {
-        firstName = nameParts[0];
-        lastName = nameParts.slice(1).join(' ');
-        console.log('📝 Extracted first/last name from author_name:', { firstName, lastName });
-      }
-    }
 
     // Vérifier si un lead existe déjà pour ce author_profile_id
     const { data: existingLead, error: checkError } = await supabaseClient
@@ -63,103 +46,14 @@ export async function createOrUpdateLead(
       postTimestamp = postDate.getTime();
     }
 
-    // ✅ CORRECTION MAJEURE : Préparer les données complètes du lead avec TOUTES les informations
-    const leadData = {
-      // Données de base du post LinkedIn - CORRECTION : Inclure apify_dataset_id
-      apify_dataset_id: post.apify_dataset_id,
-      text: post.text || 'Content unavailable',
-      title: post.title || null,
-      url: post.url || null,
-      posted_at_iso: post.posted_at_iso || null,
-      posted_at_timestamp: postTimestamp,
-      latest_post_date: postDate?.toISOString() || null,
-      latest_post_urn: post.urn || null,
-      latest_post_url: post.url || null,
-      
-      // Données de l'auteur - MISE À JOUR avec prénom/nom
-      author_profile_id: post.author_profile_id,
-      author_name: post.author_name || 'Unknown author',
-      author_headline: post.author_headline || null,
-      author_profile_url: post.author_profile_url || null,
-      
-      // Données OpenAI Steps
-      openai_step3_categorie: post.openai_step3_categorie || null,
-      openai_step3_postes_selectionnes: post.openai_step3_postes_selectionnes || null,
-      openai_step3_justification: post.openai_step3_justification || null,
-      
-      // Données Unipile (du scraping)
-      unipile_company: scrapingResult?.company || null,
-      unipile_position: scrapingResult?.position || null,
-      unipile_company_linkedin_id: scrapingResult?.company_linkedin_id || null,
-      
-      // Message d'approche
-      approach_message: approachMessage || null,
-      approach_message_generated: !!approachMessage,
-      approach_message_generated_at: approachMessage ? new Date().toISOString() : null,
-      
-      // Informations client
-      is_client_lead: clientMatch?.isClientLead || false,
-      matched_client_id: clientMatch?.clientId || null,
-      matched_client_name: clientMatch?.clientName || null,
-      has_previous_client_company: clientMatch?.hasPreviousClientCompany || false,
-      previous_client_companies: clientMatch?.previousClientCompanies || null,
-      
-      // Informations de l'entreprise (depuis company info step)
-      company_id: companyInfoResult?.companyId || null,
-      company_name: companyInfoResult?.companyName || scrapingResult?.company || null,
-      company_linkedin_id: companyInfoResult?.linkedinId || scrapingResult?.company_linkedin_id || null,
-      
-      // Historique professionnel (jusqu'à 5 entreprises)
-      company_1_name: scrapingResult?.work_history?.[0]?.company || null,
-      company_1_position: scrapingResult?.work_history?.[0]?.position || null,
-      company_1_start_date: scrapingResult?.work_history?.[0]?.start_date || null,
-      company_1_end_date: scrapingResult?.work_history?.[0]?.end_date || null,
-      company_1_is_current: scrapingResult?.work_history?.[0]?.is_current || false,
-      company_1_duration_months: scrapingResult?.work_history?.[0]?.duration_months || null,
-      company_1_linkedin_id: scrapingResult?.work_history?.[0]?.company_linkedin_id || null,
-      company_1_linkedin_url: scrapingResult?.work_history?.[0]?.company_linkedin_url || null,
-      
-      company_2_name: scrapingResult?.work_history?.[1]?.company || null,
-      company_2_position: scrapingResult?.work_history?.[1]?.position || null,
-      company_2_start_date: scrapingResult?.work_history?.[1]?.start_date || null,
-      company_2_end_date: scrapingResult?.work_history?.[1]?.end_date || null,
-      company_2_is_current: scrapingResult?.work_history?.[1]?.is_current || false,
-      company_2_duration_months: scrapingResult?.work_history?.[1]?.duration_months || null,
-      company_2_linkedin_id: scrapingResult?.work_history?.[1]?.company_linkedin_id || null,
-      company_2_linkedin_url: scrapingResult?.work_history?.[1]?.company_linkedin_url || null,
-      
-      company_3_name: scrapingResult?.work_history?.[2]?.company || null,
-      company_3_position: scrapingResult?.work_history?.[2]?.position || null,
-      company_3_start_date: scrapingResult?.work_history?.[2]?.start_date || null,
-      company_3_end_date: scrapingResult?.work_history?.[2]?.end_date || null,
-      company_3_is_current: scrapingResult?.work_history?.[2]?.is_current || false,
-      company_3_duration_months: scrapingResult?.work_history?.[2]?.duration_months || null,
-      company_3_linkedin_id: scrapingResult?.work_history?.[2]?.company_linkedin_id || null,
-      company_3_linkedin_url: scrapingResult?.work_history?.[2]?.company_linkedin_url || null,
-      
-      company_4_name: scrapingResult?.work_history?.[3]?.company || null,
-      company_4_position: scrapingResult?.work_history?.[3]?.position || null,
-      company_4_start_date: scrapingResult?.work_history?.[3]?.start_date || null,
-      company_4_end_date: scrapingResult?.work_history?.[3]?.end_date || null,
-      company_4_is_current: scrapingResult?.work_history?.[3]?.is_current || false,
-      company_4_duration_months: scrapingResult?.work_history?.[3]?.duration_months || null,
-      company_4_linkedin_id: scrapingResult?.work_history?.[3]?.company_linkedin_id || null,
-      company_4_linkedin_url: scrapingResult?.work_history?.[3]?.company_linkedin_url || null,
-      
-      company_5_name: scrapingResult?.work_history?.[4]?.company || null,
-      company_5_position: scrapingResult?.work_history?.[4]?.position || null,
-      company_5_start_date: scrapingResult?.work_history?.[4]?.start_date || null,
-      company_5_end_date: scrapingResult?.work_history?.[4]?.end_date || null,
-      company_5_is_current: scrapingResult?.work_history?.[4]?.is_current || false,
-      company_5_duration_months: scrapingResult?.work_history?.[4]?.duration_months || null,
-      company_5_linkedin_id: scrapingResult?.work_history?.[4]?.company_linkedin_id || null,
-      company_5_linkedin_url: scrapingResult?.work_history?.[4]?.company_linkedin_url || null,
-      
-      // Métadonnées
-      processing_status: 'completed',
-      last_updated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Préparer les données complètes du lead
+    const leadData = buildLeadData({
+      post,
+      scrapingResult,
+      clientMatch,
+      companyInfoResult,
+      approachMessage
+    });
 
     console.log('📝 Prepared lead data:', {
       apify_dataset_id: leadData.apify_dataset_id,
