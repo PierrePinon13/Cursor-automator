@@ -73,14 +73,15 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
               let endDate = '';
               let position = '';
               
-              // Si c'est un objet JSON parsé
+              // Déterminer si c'est un objet ou une string
               if (typeof clientCompany === 'object' && clientCompany !== null) {
+                // C'est un objet, extraire les propriétés
                 clientName = clientCompany.client_name || clientCompany.company_name || '';
                 startDate = clientCompany.start_date || '';
                 endDate = clientCompany.end_date || '';
                 position = clientCompany.position || '';
               } else if (typeof clientCompany === 'string') {
-                // Si c'est une string, essayer de parser le JSON
+                // C'est une string, vérifier si c'est du JSON
                 try {
                   const parsed = JSON.parse(clientCompany);
                   clientName = parsed.client_name || parsed.company_name || '';
@@ -88,7 +89,7 @@ const ClientHistoryAlert = ({ lead }: ClientHistoryAlertProps) => {
                   endDate = parsed.end_date || '';
                   position = parsed.position || '';
                 } catch (error) {
-                  // Si ce n'est pas du JSON, utiliser comme nom
+                  // Pas du JSON, utiliser comme nom d'entreprise
                   clientName = clientCompany;
                 }
               }

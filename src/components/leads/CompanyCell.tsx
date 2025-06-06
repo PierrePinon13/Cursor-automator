@@ -16,19 +16,19 @@ const CompanyCell = ({ lead }: CompanyCellProps) => {
                      lead.company_1_name || 
                      'Entreprise inconnue';
   
-  // Priorité pour l'ID de l'entreprise
+  // Priorité pour l'ID de l'entreprise (UUID)
   const companyId = lead.company_id;
   
-  // Priorité pour le LinkedIn ID
+  // Priorité pour le LinkedIn ID de l'entreprise
   const companyLinkedInId = lead.unipile_company_linkedin_id || 
                            lead.company_linkedin_id ||
                            lead.company_1_linkedin_id;
 
   console.log('🏢 CompanyCell rendering:', {
+    leadId: lead.id,
     companyName,
     companyId,
     companyLinkedInId,
-    leadId: lead.id,
     allCompanyData: {
       unipile_company: lead.unipile_company,
       company_name: lead.company_name,
