@@ -843,6 +843,7 @@ export type Database = {
           author_name: string | null
           author_profile_id: string
           author_profile_url: string | null
+          client_history_alert: string | null
           company_1_duration_months: number | null
           company_1_end_date: string | null
           company_1_is_current: boolean | null
@@ -936,6 +937,7 @@ export type Database = {
           author_name?: string | null
           author_profile_id: string
           author_profile_url?: string | null
+          client_history_alert?: string | null
           company_1_duration_months?: number | null
           company_1_end_date?: string | null
           company_1_is_current?: boolean | null
@@ -1029,6 +1031,7 @@ export type Database = {
           author_name?: string | null
           author_profile_id?: string
           author_profile_url?: string | null
+          client_history_alert?: string | null
           company_1_duration_months?: number | null
           company_1_end_date?: string | null
           company_1_is_current?: boolean | null
