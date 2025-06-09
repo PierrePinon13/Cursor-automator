@@ -11,6 +11,27 @@ export interface LeadLockInfo {
   hoursAgo?: number;
 }
 
+interface LockLeadResponse {
+  success: boolean;
+  error?: string;
+  locked_by_user_name?: string;
+  locked_at?: string;
+  message?: string;
+}
+
+interface UnlockLeadResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
+interface RecentContactResponse {
+  has_recent_contact: boolean;
+  contacted_by?: string;
+  hours_ago?: number;
+  last_contact_at?: string;
+}
+
 export const useLeadLocking = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -34,15 +55,17 @@ export const useLeadLocking = () => {
         throw new Error('Erreur lors du verrouillage du lead');
       }
 
-      if (!data.success) {
+      const response = data as LockLeadResponse;
+
+      if (!response.success) {
         const lockInfo: LeadLockInfo = {
           isLocked: true,
-          lockedByUserName: data.locked_by_user_name,
-          lockedAt: data.locked_at
+          lockedByUserName: response.locked_by_user_name,
+          lockedAt: response.locked_at
         };
 
-        if (data.locked_at) {
-          const lockedDate = new Date(data.locked_at);
+        if (response.locked_at) {
+          const lockedDate = new Date(response.locked_at);
           const hoursAgo = (Date.now() - lockedDate.getTime()) / (1000 * 60 * 60);
           lockInfo.hoursAgo = Math.round(hoursAgo * 10) / 10;
         }
@@ -70,7 +93,8 @@ export const useLeadLocking = () => {
         return false;
       }
 
-      return data.success;
+      const response = data as UnlockLeadResponse;
+      return response.success;
     } catch (error) {
       console.error('Error unlocking lead:', error);
       return false;
@@ -88,11 +112,13 @@ export const useLeadLocking = () => {
         return { hasRecentContact: false };
       }
 
+      const response = data as RecentContactResponse;
+
       return {
-        hasRecentContact: data.has_recent_contact,
-        contactedBy: data.contacted_by,
-        hoursAgo: data.hours_ago,
-        lastContactAt: data.last_contact_at
+        hasRecentContact: response.has_recent_contact,
+        contactedBy: response.contacted_by,
+        hoursAgo: response.hours_ago,
+        lastContactAt: response.last_contact_at
       };
     } catch (error) {
       console.error('Error checking recent contact:', error);
