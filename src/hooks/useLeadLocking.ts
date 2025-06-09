@@ -41,12 +41,23 @@ export const useLeadLocking = () => {
   const cleanupExpiredLocks = useCallback(async () => {
     try {
       console.log('🧹 Cleaning up expired locks (older than 3 minutes)...');
-      const { data, error } = await supabase.rpc('cleanup_expired_locks');
+      
+      // Nettoyer manuellement les verrous de plus de 3 minutes
+      const { data, error } = await supabase
+        .from('leads')
+        .update({
+          locked_by_user_id: null,
+          locked_by_user_name: null,
+          locked_at: null,
+          last_updated_at: new Date().toISOString()
+        })
+        .lt('locked_at', new Date(Date.now() - 3 * 60 * 1000).toISOString())
+        .not('locked_by_user_id', 'is', null);
       
       if (error) {
         console.error('Error cleaning up expired locks:', error);
       } else {
-        console.log(`✅ Cleaned up ${data || 0} expired locks`);
+        console.log(`✅ Cleaned up expired locks`);
       }
     } catch (error) {
       console.error('Error in cleanupExpiredLocks:', error);
@@ -156,12 +167,12 @@ export const useLeadLocking = () => {
     }
   }, []);
 
-  // Système de heartbeat pour maintenir le verrou actif (toutes les 30 secondes)
+  // Système de heartbeat pour maintenir le verrou actif (toutes les 2 minutes)
   const maintainLock = useCallback(async (leadId: string) => {
     if (!user) return;
 
     try {
-      // Actualiser le timestamp du verrou toutes les 30 secondes
+      // Actualiser le timestamp du verrou toutes les 2 minutes (avant les 3 minutes limite)
       await supabase.rpc('lock_lead', {
         lead_id: leadId,
         user_id: user.id,
@@ -174,10 +185,10 @@ export const useLeadLocking = () => {
 
   // Setup heartbeat et cleanup pour un lead
   const setupLockMaintenance = useCallback((leadId: string) => {
-    // Heartbeat toutes les 30 secondes pour maintenir le verrou
+    // Heartbeat toutes les 2 minutes pour maintenir le verrou (avant les 3 minutes limite)
     const heartbeatInterval = setInterval(() => {
       maintainLock(leadId);
-    }, 30000);
+    }, 120000); // 2 minutes
 
     // Cleanup function pour déverrouiller
     const cleanup = () => {

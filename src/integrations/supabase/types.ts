@@ -1857,6 +1857,10 @@ export type Database = {
         Args: { lead_id: string }
         Returns: Json
       }
+      cleanup_expired_locks: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       cleanup_old_locks: {
         Args: Record<PropertyKey, never>
         Returns: number
