@@ -1,19 +1,21 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProcessingStatsSection from './ProcessingStatsSection';
 import { DatasetReprocessing } from './DatasetReprocessing';
 import MistargetedPostsSection from './MistargetedPostsSection';
 import { HrProvidersManagement } from './HrProvidersManagement';
+import { useTabState } from '@/utils/urlState';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("overview");
+  // Utiliser le hook personnalisé pour gérer l'état des onglets
+  const [activeTab, handleTabChange] = useTabState('overview', '/admin');
 
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Administration</h1>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
           <TabsTrigger value="reprocessing">Retraitement</TabsTrigger>

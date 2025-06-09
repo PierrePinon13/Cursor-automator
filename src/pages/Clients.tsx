@@ -1,5 +1,4 @@
 
-import { useState, useEffect } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,25 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
 import { ClientLeadsView } from '@/components/clients/ClientLeadsView';
-import { updateUrlWithSubPage, getSubPageFromUrl } from '@/utils/urlState';
+import { useTabState } from '@/utils/urlState';
 
 const Clients = () => {
   const { clients, loading } = useClients();
   const navigate = useNavigate();
   
-  // Get initial tab from URL or default to 'job-offers'
-  const [activeTab, setActiveTab] = useState(() => getSubPageFromUrl('job-offers'));
-
-  // Update URL when tab changes
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    updateUrlWithSubPage('/clients', value);
-  };
-
-  // Update URL on initial load
-  useEffect(() => {
-    updateUrlWithSubPage('/clients', activeTab);
-  }, []);
+  // Utiliser le hook personnalisé pour gérer l'état des onglets
+  const [activeTab, handleTabChange] = useTabState('job-offers', '/clients');
 
   if (loading) {
     return (
