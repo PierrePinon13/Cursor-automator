@@ -19,6 +19,7 @@ serve(async (req) => {
 
   try {
     if (req.method !== 'POST') {
+      console.log(`❌ Method ${req.method} not allowed`)
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }), 
         { 
@@ -28,58 +29,13 @@ serve(async (req) => {
       )
     }
 
-    const body = await req.json()
-    console.log('📦 Received webhook data:', JSON.stringify(body, null, 2))
-
-    // Support pour différents formats de webhook
-    let datasetId = null
-    
-    if (body.datasetId) {
-      // Format direct avec datasetId
-      datasetId = body.datasetId
-    } else if (body.resource && body.resource.defaultDatasetId) {
-      // Format webhook Apify standard
-      datasetId = body.resource.defaultDatasetId
-    } else if (body.eventData && body.eventData.actorRunId) {
-      // On peut aussi essayer de récupérer le dataset via l'API Apify en utilisant le run ID
-      console.log('🔍 Attempting to get dataset from run ID:', body.eventData.actorRunId)
-      
-      const apifyApiKey = Deno.env.get('APIFY_API_KEY')
-      if (!apifyApiKey) {
-        console.error('❌ Apify API key not configured')
-        return new Response(
-          JSON.stringify({ error: 'Apify API key not configured' }), 
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      // Récupérer les infos du run pour obtenir le dataset ID
-      const runResponse = await fetch(`https://api.apify.com/v2/actor-runs/${body.eventData.actorRunId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apifyApiKey}`,
-          'Accept': 'application/json',
-        },
-      })
-
-      if (runResponse.ok) {
-        const runData = await runResponse.json()
-        datasetId = runData.data.defaultDatasetId
-        console.log('📋 Found dataset ID from run:', datasetId)
-      }
-    }
-
-    if (!datasetId) {
-      console.log('❌ No dataset ID found in webhook data:', Object.keys(body))
+    let body
+    try {
+      body = await req.json()
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError)
       return new Response(
-        JSON.stringify({ 
-          error: 'datasetId is required',
-          receivedKeys: Object.keys(body),
-          helpMessage: 'Send either { datasetId: "..." } or standard Apify webhook format'
-        }), 
+        JSON.stringify({ error: 'Invalid JSON payload' }), 
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -87,13 +43,24 @@ serve(async (req) => {
       )
     }
 
-    console.log(`📋 Processing dataset ID: ${datasetId}`)
+    console.log('📦 Received webhook data:', JSON.stringify(body, null, 2))
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // Initialize Supabase client first
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('❌ Missing Supabase environment variables')
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }), 
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get the Apify API key from environment
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
@@ -108,21 +75,111 @@ serve(async (req) => {
       )
     }
 
-    // Fetch dataset items from Apify
-    console.log('🔄 Fetching dataset items from Apify...')
-    const apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apifyApiKey}`,
-        'Accept': 'application/json',
-      },
-    })
+    // Support pour différents formats de webhook - plus robuste
+    let datasetId = null
+    
+    // Format 1: Direct datasetId
+    if (body.datasetId) {
+      datasetId = body.datasetId
+      console.log('📋 Found datasetId directly:', datasetId)
+    }
+    // Format 2: Webhook Apify standard avec resource
+    else if (body.resource?.defaultDatasetId) {
+      datasetId = body.resource.defaultDatasetId
+      console.log('📋 Found datasetId in resource:', datasetId)
+    }
+    // Format 3: eventData avec actorRunId
+    else if (body.eventData?.actorRunId) {
+      console.log('🔍 Attempting to get dataset from run ID:', body.eventData.actorRunId)
+      
+      try {
+        const runResponse = await fetch(`https://api.apify.com/v2/actor-runs/${body.eventData.actorRunId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apifyApiKey}`,
+            'Accept': 'application/json',
+          },
+        })
 
-    if (!apifyResponse.ok) {
-      const errorText = await apifyResponse.text()
-      console.error('❌ Apify API error:', apifyResponse.status, errorText)
+        if (runResponse.ok) {
+          const runData = await runResponse.json()
+          datasetId = runData.data?.defaultDatasetId
+          console.log('📋 Found dataset ID from run:', datasetId)
+        } else {
+          console.error('❌ Failed to fetch run data:', runResponse.status)
+        }
+      } catch (fetchError) {
+        console.error('❌ Error fetching run data:', fetchError)
+      }
+    }
+    // Format 4: data.defaultDatasetId (autre format possible)
+    else if (body.data?.defaultDatasetId) {
+      datasetId = body.data.defaultDatasetId
+      console.log('📋 Found datasetId in data:', datasetId)
+    }
+
+    if (!datasetId) {
+      console.log('❌ No dataset ID found in webhook data. Available keys:', Object.keys(body))
+      console.log('📄 Full body structure:', JSON.stringify(body, null, 2))
       return new Response(
-        JSON.stringify({ error: `Apify API error: ${apifyResponse.status}` }), 
+        JSON.stringify({ 
+          error: 'datasetId is required',
+          receivedKeys: Object.keys(body),
+          bodyStructure: body,
+          helpMessage: 'Send datasetId directly, in resource.defaultDatasetId, eventData.actorRunId, or data.defaultDatasetId'
+        }), 
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log(`📋 Processing dataset ID: ${datasetId}`)
+
+    // Fetch dataset items from Apify avec retry logic
+    console.log('🔄 Fetching dataset items from Apify...')
+    let apifyResponse
+    let retryCount = 0
+    const maxRetries = 3
+
+    while (retryCount < maxRetries) {
+      try {
+        apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apifyApiKey}`,
+            'Accept': 'application/json',
+          },
+        })
+
+        if (apifyResponse.ok) {
+          break
+        } else {
+          console.log(`⚠️ Apify API attempt ${retryCount + 1} failed with status:`, apifyResponse.status)
+          retryCount++
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Exponential backoff
+          }
+        }
+      } catch (fetchError) {
+        console.error(`❌ Apify API attempt ${retryCount + 1} failed:`, fetchError)
+        retryCount++
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+        }
+      }
+    }
+
+    if (!apifyResponse || !apifyResponse.ok) {
+      const errorText = apifyResponse ? await apifyResponse.text() : 'No response received'
+      console.error('❌ Apify API error after all retries:', apifyResponse?.status, errorText)
+      return new Response(
+        JSON.stringify({ 
+          error: `Apify API error: ${apifyResponse?.status || 'No response'}`,
+          details: errorText,
+          datasetId: datasetId
+        }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -133,7 +190,23 @@ serve(async (req) => {
     const datasetItems = await apifyResponse.json()
     console.log(`📊 Retrieved ${datasetItems.length} items from dataset`)
 
+    if (!Array.isArray(datasetItems)) {
+      console.error('❌ Dataset items is not an array:', typeof datasetItems)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid dataset format - expected array',
+          received: typeof datasetItems,
+          datasetId: datasetId
+        }), 
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     // Fetch clients for matching
+    console.log('🔍 Fetching clients...')
     const { data: clients, error: clientsError } = await supabaseClient
       .from('clients')
       .select('id, company_name, company_linkedin_id')
@@ -142,7 +215,7 @@ serve(async (req) => {
     if (clientsError) {
       console.error('❌ Error fetching clients:', clientsError)
       return new Response(
-        JSON.stringify({ error: 'Error fetching clients from database' }), 
+        JSON.stringify({ error: 'Error fetching clients from database', details: clientsError.message }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -152,15 +225,16 @@ serve(async (req) => {
 
     console.log(`👥 Found ${clients?.length || 0} tracked clients`)
 
-    // Process and store job offers
+    // Process and store job offers avec meilleure gestion d'erreurs
     let processedCount = 0
     let skippedCount = 0
     let rawStoredCount = 0
+    let errors = []
 
-    for (const item of datasetItems) {
+    for (let i = 0; i < datasetItems.length; i++) {
+      const item = datasetItems[i]
       try {
-        // Log de debug pour voir la structure des données
-        console.log('🔄 Processing item:', JSON.stringify(item, null, 2))
+        console.log(`🔄 Processing item ${i + 1}/${datasetItems.length}`)
 
         const companyName = item.companyName || item.company || null
         const jobUrl = item.link || item.url || null
@@ -187,11 +261,18 @@ serve(async (req) => {
         }
 
         // Vérifier si cette offre brute existe déjà
-        const { data: existingRawOffer } = await supabaseClient
+        const { data: existingRawOffer, error: checkRawError } = await supabaseClient
           .from('client_job_offers_raw')
           .select('id')
           .eq('url', jobUrl)
           .single()
+
+        if (checkRawError && checkRawError.code !== 'PGRST116') {
+          console.error('❌ Error checking existing raw offer:', checkRawError)
+          errors.push(`Check raw error for ${jobUrl}: ${checkRawError.message}`)
+          skippedCount++
+          continue
+        }
 
         if (!existingRawOffer) {
           const { error: rawInsertError } = await supabaseClient
@@ -200,6 +281,7 @@ serve(async (req) => {
 
           if (rawInsertError) {
             console.error('❌ Error inserting raw job offer:', rawInsertError)
+            errors.push(`Raw insert error for ${jobUrl}: ${rawInsertError.message}`)
             skippedCount++
             continue
           }
@@ -242,17 +324,22 @@ serve(async (req) => {
           raw_data: item
         }
 
-        console.log('📋 Prepared job offer data:', JSON.stringify(jobOfferData, null, 2))
-
         // Check if this job offer already exists in main table
-        const { data: existingOffer } = await supabaseClient
+        const { data: existingOffer, error: checkMainError } = await supabaseClient
           .from('client_job_offers')
           .select('id')
           .eq('url', jobUrl)
           .single()
 
+        if (checkMainError && checkMainError.code !== 'PGRST116') {
+          console.error('❌ Error checking existing main offer:', checkMainError)
+          errors.push(`Check main error for ${jobUrl}: ${checkMainError.message}`)
+          skippedCount++
+          continue
+        }
+
         if (existingOffer) {
-          console.log('⚠️ Job offer already exists, skipping:', item.title || jobUrl)
+          console.log('⚠️ Job offer already exists in main table, skipping:', item.title || jobUrl)
           skippedCount++
           continue
         }
@@ -264,6 +351,7 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('❌ Error inserting job offer:', insertError)
+          errors.push(`Main insert error for ${jobUrl}: ${insertError.message}`)
           skippedCount++
           continue
         }
@@ -272,12 +360,19 @@ serve(async (req) => {
         processedCount++
 
       } catch (error) {
-        console.error('❌ Error processing item:', error)
+        console.error(`❌ Error processing item ${i + 1}:`, error)
+        errors.push(`Processing error for item ${i + 1}: ${error.message}`)
         skippedCount++
       }
     }
 
-    console.log(`🎯 Processing complete: ${rawStoredCount} stored in raw, ${processedCount} processed, ${skippedCount} skipped`)
+    const summary = `🎯 Processing complete: ${rawStoredCount} stored in raw, ${processedCount} processed, ${skippedCount} skipped`
+    console.log(summary)
+    
+    if (errors.length > 0) {
+      console.log(`⚠️ Errors encountered: ${errors.length}`)
+      errors.slice(0, 5).forEach(error => console.log(`- ${error}`))
+    }
     
     // Répondre avec un 200 pour confirmer la réception et le traitement
     return new Response(
@@ -289,6 +384,8 @@ serve(async (req) => {
         rawStoredCount,
         processedCount,
         skippedCount,
+        errorCount: errors.length,
+        errors: errors.slice(0, 10), // Limiter les erreurs retournées
         processedAt: new Date().toISOString()
       }), 
       { 
@@ -303,7 +400,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        message: error.message 
+        message: error.message,
+        stack: error.stack
       }), 
       { 
         status: 500, 
