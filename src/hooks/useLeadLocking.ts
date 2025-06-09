@@ -55,7 +55,7 @@ export const useLeadLocking = () => {
         throw new Error('Erreur lors du verrouillage du lead');
       }
 
-      const response = data as LockLeadResponse;
+      const response = data as unknown as LockLeadResponse;
 
       if (!response.success) {
         const lockInfo: LeadLockInfo = {
@@ -93,7 +93,7 @@ export const useLeadLocking = () => {
         return false;
       }
 
-      const response = data as UnlockLeadResponse;
+      const response = data as unknown as UnlockLeadResponse;
       return response.success;
     } catch (error) {
       console.error('Error unlocking lead:', error);
@@ -112,7 +112,7 @@ export const useLeadLocking = () => {
         return { hasRecentContact: false };
       }
 
-      const response = data as RecentContactResponse;
+      const response = data as unknown as RecentContactResponse;
 
       return {
         hasRecentContact: response.has_recent_contact,
