@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -48,7 +47,7 @@ const LeadDetailDialog = ({
   }>({ show: false });
 
   const { sendMessage, loading: messageSending } = useLinkedInMessage();
-  const { lockLead, unlockLead, checkRecentContact, setupUnlockOnUnmount } = useLeadLocking();
+  const { lockLead, unlockLead, checkRecentContact, setupLockMaintenance } = useLeadLocking();
   const { toast } = useToast();
 
   // Synchroniser les leads avec les props
@@ -76,8 +75,8 @@ const LeadDetailDialog = ({
             setIsLocked(true);
             setLockWarning({ show: false });
             
-            // Configurer le déverrouillage automatique
-            const cleanup = setupUnlockOnUnmount(lead.id);
+            // Configurer la maintenance du verrou avec heartbeat
+            const cleanup = setupLockMaintenance(lead.id);
             return cleanup;
           }
         } catch (error) {
@@ -92,7 +91,7 @@ const LeadDetailDialog = ({
 
       handleLeadLocking();
     }
-  }, [selectedLeadIndex, currentLeads, isOpen, lockLead, setupUnlockOnUnmount, toast]);
+  }, [selectedLeadIndex, currentLeads, isOpen, lockLead, setupLockMaintenance, toast]);
 
   // Déverrouiller lors de la fermeture
   useEffect(() => {

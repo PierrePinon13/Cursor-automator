@@ -10,31 +10,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useReminders, Reminder } from '@/hooks/useReminders';
+import { useReminders } from '@/hooks/useReminders';
 import { useTasks } from '@/hooks/useTasks';
 import { useNavigate } from 'react-router-dom';
 import NotificationsList from './NotificationsList';
 import UpcomingTasksList from './UpcomingTasksList';
 
-interface Notification {
-  id: string;
-  type: 'lead_assigned' | 'job_offer_assigned';
-  title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-  lead_id?: string;
-  lead_data?: any;
-  creator_name?: string;
-}
-
 const NotificationButton = () => {
   const { reminders, unreadCount, markAsRead, markAllAsRead } = useReminders();
   const { tasks } = useTasks();
   const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
 
   // Séparer les notifications des tâches
-  const notifications: Notification[] = reminders
+  const notifications = reminders
     .filter(r => r.type === 'lead_assigned' || r.type === 'job_offer_assigned')
     .map(r => ({
       id: r.id,
@@ -50,11 +39,11 @@ const NotificationButton = () => {
   
   const notificationCount = notifications.filter(n => !n.read).length;
 
-  // Filtrer les tâches dues dans les 3 prochains jours ou en retard
+  // Filtrer les tâches urgentes (dues dans les 3 prochains jours ou en retard)
   const now = new Date();
   const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
   
-  const upcomingTasks = tasks.filter(task => {
+  const urgentTasks = tasks.filter(task => {
     if (task.isCompleted) return false;
     
     // Tâches en retard
@@ -66,10 +55,12 @@ const NotificationButton = () => {
       return dueDate <= threeDaysFromNow;
     }
     
-    return false;
+    // Tâches sans date d'échéance mais récentes (moins de 3 jours)
+    const createdDate = new Date(task.createdAt);
+    return (now.getTime() - createdDate.getTime()) <= (3 * 24 * 60 * 60 * 1000);
   });
 
-  const taskCount = upcomingTasks.length;
+  const taskCount = urgentTasks.length;
 
   const handleDismissNotification = (notificationId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -77,7 +68,13 @@ const NotificationButton = () => {
   };
 
   const handleViewAllTasks = () => {
+    setIsOpen(false);
     navigate('/tasks');
+  };
+
+  const handleTaskClick = (taskId: string) => {
+    setIsOpen(false);
+    navigate(`/tasks?taskId=${taskId}`);
   };
 
   return (
@@ -92,7 +89,7 @@ const NotificationButton = () => {
         </Badge>
       )}
 
-      <DropdownMenu>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="relative">
             <Bell className="h-4 w-4" />
@@ -124,7 +121,7 @@ const NotificationButton = () => {
                 )}
               </TabsTrigger>
               <TabsTrigger value="tasks" className="text-xs">
-                Tasks
+                Tasks urgentes
                 {taskCount > 0 && (
                   <Badge variant="secondary" className="ml-2 h-4 w-4 p-0 text-xs">
                     {taskCount}
@@ -143,8 +140,9 @@ const NotificationButton = () => {
             
             <TabsContent value="tasks" className="mt-0">
               <UpcomingTasksList 
-                tasks={upcomingTasks}
+                tasks={urgentTasks}
                 onViewAllTasks={handleViewAllTasks}
+                onTaskClick={handleTaskClick}
               />
             </TabsContent>
           </Tabs>

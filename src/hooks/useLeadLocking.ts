@@ -126,24 +126,57 @@ export const useLeadLocking = () => {
     }
   }, []);
 
-  // Cleanup function pour déverrouiller automatiquement
-  const setupUnlockOnUnmount = useCallback((leadId: string) => {
-    const cleanup = () => unlockLead(leadId);
+  // Système de heartbeat pour maintenir le verrou actif
+  const maintainLock = useCallback(async (leadId: string) => {
+    if (!user) return;
+
+    try {
+      // Actualiser le timestamp du verrou toutes les 30 secondes
+      await supabase.rpc('lock_lead', {
+        lead_id: leadId,
+        user_id: user.id,
+        user_name: user.user_metadata?.full_name || user.email || 'Utilisateur'
+      });
+    } catch (error) {
+      console.error('Error maintaining lock:', error);
+    }
+  }, [user]);
+
+  // Setup heartbeat et cleanup pour un lead
+  const setupLockMaintenance = useCallback((leadId: string) => {
+    // Heartbeat toutes les 30 secondes pour maintenir le verrou
+    const heartbeatInterval = setInterval(() => {
+      maintainLock(leadId);
+    }, 30000);
+
+    // Cleanup function pour déverrouiller
+    const cleanup = () => {
+      clearInterval(heartbeatInterval);
+      unlockLead(leadId);
+    };
     
     // Déverrouiller lors de la fermeture de l'onglet/page
-    window.addEventListener('beforeunload', cleanup);
+    const handleBeforeUnload = () => {
+      // Envoi synchrone pour s'assurer que ça passe avant la fermeture
+      navigator.sendBeacon(`/api/unlock-lead`, JSON.stringify({
+        leadId,
+        userId: user?.id
+      }));
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
-      window.removeEventListener('beforeunload', cleanup);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       cleanup();
     };
-  }, [unlockLead]);
+  }, [maintainLock, unlockLead, user]);
 
   return {
     lockLead,
     unlockLead,
     checkRecentContact,
-    setupUnlockOnUnmount,
+    setupLockMaintenance,
     lockingInProgress
   };
 };

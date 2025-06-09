@@ -5,17 +5,15 @@ import { fr } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Calendar, Clock, UserCheck, Briefcase } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { Task } from '@/hooks/useTasks';
 
 interface UpcomingTasksListProps {
   tasks: Task[];
   onViewAllTasks: () => void;
+  onTaskClick?: (taskId: string) => void;
 }
 
-const UpcomingTasksList = ({ tasks, onViewAllTasks }: UpcomingTasksListProps) => {
-  const navigate = useNavigate();
-
+const UpcomingTasksList = ({ tasks, onViewAllTasks, onTaskClick }: UpcomingTasksListProps) => {
   const getTaskIcon = (task: Task) => {
     switch (task.type) {
       case 'reminder':
@@ -32,10 +30,9 @@ const UpcomingTasksList = ({ tasks, onViewAllTasks }: UpcomingTasksListProps) =>
   };
 
   const handleTaskClick = (task: Task) => {
-    // Naviguer vers la page des tâches avec la tâche sélectionnée et fermer le dropdown
-    navigate(`/tasks?taskId=${task.id}`);
-    // Fermer le dropdown en cliquant ailleurs
-    document.body.click();
+    if (onTaskClick) {
+      onTaskClick(task.id);
+    }
   };
 
   if (tasks.length === 0) {
