@@ -1,14 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { useToast } from '@/hooks/use-toast';
+import { useLeadLocking } from '@/hooks/useLeadLocking';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import LeadDetailHeader from './LeadDetailHeader';
 import LeadDetailContent from './LeadDetailContent';
+import LeadLockWarning from './LeadLockWarning';
+import RecentContactWarning from './RecentContactWarning';
 
 type Lead = Tables<'leads'>;
 
@@ -31,13 +34,74 @@ const LeadDetailDialog = ({
 }: LeadDetailDialogProps) => {
   const [currentLeads, setCurrentLeads] = useState(leads);
   const [customMessage, setCustomMessage] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockWarning, setLockWarning] = useState<{
+    show: boolean;
+    lockedByUserName?: string;
+    hoursAgo?: number;
+  }>({ show: false });
+  const [recentContactWarning, setRecentContactWarning] = useState<{
+    show: boolean;
+    contactedBy?: string;
+    hoursAgo?: number;
+    lastContactAt?: string;
+  }>({ show: false });
+
   const { sendMessage, loading: messageSending } = useLinkedInMessage();
+  const { lockLead, unlockLead, checkRecentContact, setupUnlockOnUnmount } = useLeadLocking();
   const { toast } = useToast();
 
   // Synchroniser les leads avec les props
   React.useEffect(() => {
     setCurrentLeads(leads);
   }, [leads]);
+
+  // Gérer le verrouillage lors de l'ouverture d'un lead
+  useEffect(() => {
+    if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isOpen) {
+      const lead = currentLeads[selectedLeadIndex];
+      
+      const handleLeadLocking = async () => {
+        try {
+          const lockResult = await lockLead(lead.id);
+          
+          if (lockResult.isLocked) {
+            setLockWarning({
+              show: true,
+              lockedByUserName: lockResult.lockedByUserName,
+              hoursAgo: lockResult.hoursAgo
+            });
+            setIsLocked(false);
+          } else {
+            setIsLocked(true);
+            setLockWarning({ show: false });
+            
+            // Configurer le déverrouillage automatique
+            const cleanup = setupUnlockOnUnmount(lead.id);
+            return cleanup;
+          }
+        } catch (error) {
+          console.error('Error locking lead:', error);
+          toast({
+            title: "Erreur",
+            description: "Impossible de verrouiller le lead",
+            variant: "destructive",
+          });
+        }
+      };
+
+      handleLeadLocking();
+    }
+  }, [selectedLeadIndex, currentLeads, isOpen, lockLead, setupUnlockOnUnmount, toast]);
+
+  // Déverrouiller lors de la fermeture
+  useEffect(() => {
+    return () => {
+      if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isLocked) {
+        unlockLead(currentLeads[selectedLeadIndex].id);
+      }
+    };
+  }, [selectedLeadIndex, currentLeads, isLocked, unlockLead]);
 
   // Initialiser le message personnalisé quand le lead change
   React.useEffect(() => {
@@ -64,11 +128,18 @@ const LeadDetailDialog = ({
     }
   };
 
+  const handleClose = async () => {
+    if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isLocked) {
+      await unlockLead(currentLeads[selectedLeadIndex].id);
+    }
+    onClose();
+  };
+
   // Keyboard shortcuts pour la navigation dans le dialog
   useKeyboardShortcuts({
     onNextItem: handleNext,
     onPreviousItem: handlePrevious,
-    onEscape: onClose,
+    onEscape: handleClose,
     enabled: isOpen
   });
 
@@ -76,7 +147,7 @@ const LeadDetailDialog = ({
   useTouchGestures({
     onSwipeLeft: handleNext,
     onSwipeRight: handlePrevious,
-    onSwipeUp: onClose,
+    onSwipeUp: handleClose,
     enabled: isOpen
   });
 
@@ -99,6 +170,18 @@ const LeadDetailDialog = ({
         title: "Erreur",
         description: "Le message dépasse la limite de 300 caractères",
         variant: "destructive",
+      });
+      return;
+    }
+
+    // Vérifier les contacts récents avant d'envoyer
+    const recentContactCheck = await checkRecentContact(lead.id);
+    if (recentContactCheck.hasRecentContact) {
+      setRecentContactWarning({
+        show: true,
+        contactedBy: recentContactCheck.contactedBy,
+        hoursAgo: recentContactCheck.hoursAgo,
+        lastContactAt: recentContactCheck.lastContactAt
       });
       return;
     }
@@ -209,7 +292,7 @@ const LeadDetailDialog = ({
   return (
     <TooltipProvider>
       {/* Overlay noir semi-transparent */}
-      <div className="fixed inset-0 z-50 bg-black/40 animate-in fade-in-0 duration-500" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-black/40 animate-in fade-in-0 duration-500" onClick={handleClose} />
       
       {/* Interface plein écran avec animation depuis le haut */}
       <div className={`fixed inset-0 z-50 bg-white flex flex-col transition-transform duration-700 ease-out ${
@@ -223,21 +306,43 @@ const LeadDetailDialog = ({
           canGoNext={canGoNext}
           onPrevious={handlePrevious}
           onNext={handleNext}
-          onClose={onClose}
+          onClose={handleClose}
         />
         
         <div className="flex-1 overflow-hidden">
-          <LeadDetailContent
-            lead={currentLeads[selectedLeadIndex]}
-            onActionCompleted={onActionCompleted}
-            customMessage={customMessage}
-            onMessageChange={setCustomMessage}
-            onSendLinkedInMessage={handleSendLinkedInMessage}
-            onAction={handleAction}
-            messageSending={messageSending}
-            onPhoneRetrieved={handlePhoneRetrieved}
-            onContactUpdate={handleContactUpdate}
-          />
+          <div className="p-6">
+            {/* Afficher les avertissements */}
+            {lockWarning.show && (
+              <LeadLockWarning
+                lockedByUserName={lockWarning.lockedByUserName || 'Utilisateur inconnu'}
+                hoursAgo={lockWarning.hoursAgo}
+                onClose={() => setLockWarning({ show: false })}
+              />
+            )}
+            
+            {recentContactWarning.show && (
+              <RecentContactWarning
+                contactedBy={recentContactWarning.contactedBy || 'Utilisateur inconnu'}
+                hoursAgo={recentContactWarning.hoursAgo || 0}
+                lastContactAt={recentContactWarning.lastContactAt || ''}
+              />
+            )}
+          </div>
+          
+          {/* Afficher le contenu seulement si le lead est disponible */}
+          {(isLocked || (!lockWarning.show && !recentContactWarning.show)) && (
+            <LeadDetailContent
+              lead={currentLeads[selectedLeadIndex]}
+              onActionCompleted={onActionCompleted}
+              customMessage={customMessage}
+              onMessageChange={setCustomMessage}
+              onSendLinkedInMessage={handleSendLinkedInMessage}
+              onAction={handleAction}
+              messageSending={messageSending}
+              onPhoneRetrieved={handlePhoneRetrieved}
+              onContactUpdate={handleContactUpdate}
+            />
+          )}
         </div>
       </div>
     </TooltipProvider>

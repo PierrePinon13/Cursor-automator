@@ -899,6 +899,9 @@ export type Database = {
           latest_post_url: string | null
           latest_post_urn: string | null
           linkedin_message_sent_at: string | null
+          locked_at: string | null
+          locked_by_user_id: string | null
+          locked_by_user_name: string | null
           matched_client_id: string | null
           matched_client_name: string | null
           openai_step2_localisation: string | null
@@ -993,6 +996,9 @@ export type Database = {
           latest_post_url?: string | null
           latest_post_urn?: string | null
           linkedin_message_sent_at?: string | null
+          locked_at?: string | null
+          locked_by_user_id?: string | null
+          locked_by_user_name?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
           openai_step2_localisation?: string | null
@@ -1087,6 +1093,9 @@ export type Database = {
           latest_post_url?: string | null
           latest_post_urn?: string | null
           linkedin_message_sent_at?: string | null
+          locked_at?: string | null
+          locked_by_user_id?: string | null
+          locked_by_user_name?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
           openai_step2_localisation?: string | null
@@ -1844,6 +1853,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_recent_contact: {
+        Args: { lead_id: string }
+        Returns: Json
+      }
+      cleanup_old_locks: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       collect_processing_metrics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1871,6 +1888,14 @@ export type Database = {
       increment_positive_calls: {
         Args: { user_uuid: string }
         Returns: undefined
+      }
+      lock_lead: {
+        Args: { lead_id: string; user_id: string; user_name: string }
+        Returns: Json
+      }
+      unlock_lead: {
+        Args: { lead_id: string; user_id: string }
+        Returns: Json
       }
     }
     Enums: {

@@ -2,27 +2,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useAuth } from './useAuth';
 
 type Lead = Tables<'leads'>;
-
-interface LinkedInPost {
-  id: string;
-  text: string;
-  title?: string;
-  url: string;
-  posted_at_iso?: string;
-  posted_at_timestamp?: number;
-  openai_step2_localisation?: string;
-  openai_step3_categorie?: string;
-  openai_step3_postes_selectionnes?: string[];
-  openai_step3_justification?: string;
-  created_at: string;
-}
-
-interface SearchFilters {
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-}
 
 export const useLeadsNew = (): {
   leads: Lead[];
@@ -39,6 +21,7 @@ export const useLeadsNew = (): {
   setSearchQuery: (query: string) => void;
   refreshLeads: () => Promise<void>;
 } => {
+  const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +33,12 @@ export const useLeadsNew = (): {
 
   useEffect(() => {
     fetchLeads();
-  }, []);
+
+    // Rafraîchir la liste toutes les 10 secondes pour tenir compte des changements de verrous
+    const interval = setInterval(fetchLeads, 10000);
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   useEffect(() => {
     filterLeads();
@@ -70,8 +58,10 @@ export const useLeadsNew = (): {
   }, [leads]);
 
   const fetchLeads = async () => {
+    if (!user) return;
+
     try {
-      console.log('🔍 Fetching leads with filters...');
+      console.log('🔍 Fetching leads with locking filters...');
       
       // Récupérer les IDs des publications mal ciblées
       const { data: mistargetedPosts, error: mistargetedError } = await supabase
@@ -95,7 +85,14 @@ export const useLeadsNew = (): {
 
       const hrProviderNames = hrProviders?.map(provider => provider.company_name.toLowerCase()) || [];
 
-      // ✅ AMÉLIORATION : Requête avec plus de champs et exclusion directe de la catégorie "Autre"
+      // Nettoyer les anciens verrous
+      try {
+        await supabase.rpc('cleanup_old_locks');
+      } catch (cleanupError) {
+        console.warn('Error cleaning up old locks:', cleanupError);
+      }
+
+      // ✅ AMÉLIORATION : Requête avec exclusion des leads verrouillés par d'autres utilisateurs
       let query = supabase
         .from('leads')
         .select(`
@@ -112,9 +109,13 @@ export const useLeadsNew = (): {
           latest_post_date,
           has_previous_client_company,
           previous_client_companies,
-          apify_dataset_id
+          apify_dataset_id,
+          locked_by_user_id,
+          locked_by_user_name,
+          locked_at
         `)
         .neq('openai_step3_categorie', 'Autre') // Exclure directement la catégorie "Autre"
+        .or(`locked_by_user_id.is.null,locked_by_user_id.eq.${user.id}`) // Seulement les leads non verrouillés ou verrouillés par l'utilisateur actuel
         .order('created_at', { ascending: false });
 
       // Exclure les publications mal ciblées
@@ -135,25 +136,8 @@ export const useLeadsNew = (): {
         return !hrProviderNames.includes(lead.unipile_company.toLowerCase());
       });
 
-      console.log(`📋 Fetched ${filteredLeads.length} leads after filtering (excluding "Autre" category)`);
+      console.log(`📋 Fetched ${filteredLeads.length} leads after filtering (excluding "Autre" category and locked leads)`);
       
-      // ✅ DEBUG : Log des premiers leads pour vérifier les données de date
-      if (filteredLeads.length > 0) {
-        console.log('🔍 Debug - First few leads date data:', filteredLeads.slice(0, 3).map(lead => ({
-          id: lead.id,
-          name: lead.author_name,
-          posted_at_iso: lead.posted_at_iso,
-          posted_at_timestamp: lead.posted_at_timestamp,
-          latest_post_date: lead.latest_post_date,
-          created_at: lead.created_at,
-          text_preview: lead.text?.substring(0, 50) || 'NO TEXT',
-          apify_dataset_id: lead.apify_dataset_id,
-          has_previous_client: lead.has_previous_client_company,
-          category: lead.openai_step3_categorie
-        })));
-      }
-      
-      console.log(`🔍 After filtering HR providers and "Autre" category: ${filteredLeads.length} leads`);
       setLeads(filteredLeads);
     } catch (error) {
       console.error('💥 Error fetching leads:', error);
