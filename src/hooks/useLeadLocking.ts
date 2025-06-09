@@ -37,6 +37,33 @@ export const useLeadLocking = () => {
   const { toast } = useToast();
   const [lockingInProgress, setLockingInProgress] = useState(false);
 
+  // Fonction pour nettoyer les verrous expirés (plus de 3 minutes)
+  const cleanupExpiredLocks = useCallback(async () => {
+    try {
+      console.log('🧹 Cleaning up expired locks (older than 3 minutes)...');
+      const { data, error } = await supabase.rpc('cleanup_expired_locks');
+      
+      if (error) {
+        console.error('Error cleaning up expired locks:', error);
+      } else {
+        console.log(`✅ Cleaned up ${data || 0} expired locks`);
+      }
+    } catch (error) {
+      console.error('Error in cleanupExpiredLocks:', error);
+    }
+  }, []);
+
+  // Nettoyer les verrous expirés périodiquement
+  useEffect(() => {
+    // Nettoyer immédiatement au chargement
+    cleanupExpiredLocks();
+    
+    // Puis nettoyer toutes les 30 secondes
+    const cleanupInterval = setInterval(cleanupExpiredLocks, 30000);
+    
+    return () => clearInterval(cleanupInterval);
+  }, [cleanupExpiredLocks]);
+
   const lockLead = useCallback(async (leadId: string): Promise<LeadLockInfo> => {
     if (!user) {
       throw new Error('User not authenticated');
@@ -44,6 +71,9 @@ export const useLeadLocking = () => {
 
     setLockingInProgress(true);
     try {
+      // Nettoyer les verrous expirés avant de tenter le verrouillage
+      await cleanupExpiredLocks();
+      
       const { data, error } = await supabase.rpc('lock_lead', {
         lead_id: leadId,
         user_id: user.id,
@@ -77,7 +107,7 @@ export const useLeadLocking = () => {
     } finally {
       setLockingInProgress(false);
     }
-  }, [user]);
+  }, [user, cleanupExpiredLocks]);
 
   const unlockLead = useCallback(async (leadId: string): Promise<boolean> => {
     if (!user) return false;
@@ -126,7 +156,7 @@ export const useLeadLocking = () => {
     }
   }, []);
 
-  // Système de heartbeat pour maintenir le verrou actif
+  // Système de heartbeat pour maintenir le verrou actif (toutes les 30 secondes)
   const maintainLock = useCallback(async (leadId: string) => {
     if (!user) return;
 
@@ -177,6 +207,7 @@ export const useLeadLocking = () => {
     unlockLead,
     checkRecentContact,
     setupLockMaintenance,
-    lockingInProgress
+    lockingInProgress,
+    cleanupExpiredLocks
   };
 };

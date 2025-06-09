@@ -1,10 +1,24 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 
-console.log("Starting Apify Client Jobs Webhook function")
+console.log("🚀 Apify Client Jobs Webhook function STARTED - Version 2.0")
+console.log("⏰ Function startup time:", new Date().toISOString())
 
 serve(async (req) => {
+  const startTime = Date.now()
+  const requestId = crypto.randomUUID().substring(0, 8)
+  
+  console.log(`[${requestId}] 📥 INCOMING REQUEST:`, {
+    method: req.method,
+    url: req.url,
+    timestamp: new Date().toISOString(),
+    userAgent: req.headers.get('user-agent'),
+    contentType: req.headers.get('content-type'),
+    origin: req.headers.get('origin'),
+    referer: req.headers.get('referer')
+  })
+
   // Permettre toutes les origins pour CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -14,14 +28,15 @@ serve(async (req) => {
 
   // Gérer les requêtes OPTIONS pour CORS
   if (req.method === 'OPTIONS') {
+    console.log(`[${requestId}] ✅ Handling OPTIONS request`)
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     if (req.method !== 'POST') {
-      console.log(`❌ Method ${req.method} not allowed`)
+      console.log(`[${requestId}] ❌ Method ${req.method} not allowed`)
       return new Response(
-        JSON.stringify({ error: 'Method not allowed' }), 
+        JSON.stringify({ error: 'Method not allowed', requestId }), 
         { 
           status: 405, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -29,13 +44,31 @@ serve(async (req) => {
       )
     }
 
+    // Log des headers reçus pour debugging
+    console.log(`[${requestId}] 📋 Request headers:`, Object.fromEntries(req.headers.entries()))
+
     let body
     try {
-      body = await req.json()
+      const rawBody = await req.text()
+      console.log(`[${requestId}] 📄 Raw body received (${rawBody.length} chars):`, rawBody.substring(0, 500))
+      
+      if (!rawBody.trim()) {
+        console.log(`[${requestId}] ⚠️ Empty request body received`)
+        return new Response(
+          JSON.stringify({ error: 'Empty request body', requestId }), 
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      body = JSON.parse(rawBody)
+      console.log(`[${requestId}] ✅ Successfully parsed JSON body`)
     } catch (parseError) {
-      console.error('❌ Failed to parse request body:', parseError)
+      console.error(`[${requestId}] ❌ Failed to parse request body:`, parseError)
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON payload' }), 
+        JSON.stringify({ error: 'Invalid JSON payload', requestId, details: parseError.message }), 
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -43,16 +76,16 @@ serve(async (req) => {
       )
     }
 
-    console.log('📦 Received webhook data:', JSON.stringify(body, null, 2))
+    console.log(`[${requestId}] 📦 Received webhook data:`, JSON.stringify(body, null, 2))
 
     // Initialize Supabase client first
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('❌ Missing Supabase environment variables')
+      console.error(`[${requestId}] ❌ Missing Supabase environment variables`)
       return new Response(
-        JSON.stringify({ error: 'Server configuration error' }), 
+        JSON.stringify({ error: 'Server configuration error', requestId }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -65,9 +98,9 @@ serve(async (req) => {
     // Get the Apify API key from environment
     const apifyApiKey = Deno.env.get('APIFY_API_KEY')
     if (!apifyApiKey) {
-      console.error('❌ Apify API key not configured')
+      console.error(`[${requestId}] ❌ Apify API key not configured`)
       return new Response(
-        JSON.stringify({ error: 'Apify API key not configured' }), 
+        JSON.stringify({ error: 'Apify API key not configured', requestId }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -81,16 +114,16 @@ serve(async (req) => {
     // Format 1: Direct datasetId
     if (body.datasetId) {
       datasetId = body.datasetId
-      console.log('📋 Found datasetId directly:', datasetId)
+      console.log(`[${requestId}] 📋 Found datasetId directly:`, datasetId)
     }
     // Format 2: Webhook Apify standard avec resource
     else if (body.resource?.defaultDatasetId) {
       datasetId = body.resource.defaultDatasetId
-      console.log('📋 Found datasetId in resource:', datasetId)
+      console.log(`[${requestId}] 📋 Found datasetId in resource:`, datasetId)
     }
     // Format 3: eventData avec actorRunId
     else if (body.eventData?.actorRunId) {
-      console.log('🔍 Attempting to get dataset from run ID:', body.eventData.actorRunId)
+      console.log(`[${requestId}] 🔍 Attempting to get dataset from run ID:`, body.eventData.actorRunId)
       
       try {
         const runResponse = await fetch(`https://api.apify.com/v2/actor-runs/${body.eventData.actorRunId}`, {
@@ -104,26 +137,27 @@ serve(async (req) => {
         if (runResponse.ok) {
           const runData = await runResponse.json()
           datasetId = runData.data?.defaultDatasetId
-          console.log('📋 Found dataset ID from run:', datasetId)
+          console.log(`[${requestId}] 📋 Found dataset ID from run:`, datasetId)
         } else {
-          console.error('❌ Failed to fetch run data:', runResponse.status)
+          console.error(`[${requestId}] ❌ Failed to fetch run data:`, runResponse.status)
         }
       } catch (fetchError) {
-        console.error('❌ Error fetching run data:', fetchError)
+        console.error(`[${requestId}] ❌ Error fetching run data:`, fetchError)
       }
     }
     // Format 4: data.defaultDatasetId (autre format possible)
     else if (body.data?.defaultDatasetId) {
       datasetId = body.data.defaultDatasetId
-      console.log('📋 Found datasetId in data:', datasetId)
+      console.log(`[${requestId}] 📋 Found datasetId in data:`, datasetId)
     }
 
     if (!datasetId) {
-      console.log('❌ No dataset ID found in webhook data. Available keys:', Object.keys(body))
-      console.log('📄 Full body structure:', JSON.stringify(body, null, 2))
+      console.log(`[${requestId}] ❌ No dataset ID found in webhook data. Available keys:`, Object.keys(body))
+      console.log(`[${requestId}] 📄 Full body structure:`, JSON.stringify(body, null, 2))
       return new Response(
         JSON.stringify({ 
           error: 'datasetId is required',
+          requestId,
           receivedKeys: Object.keys(body),
           bodyStructure: body,
           helpMessage: 'Send datasetId directly, in resource.defaultDatasetId, eventData.actorRunId, or data.defaultDatasetId'
@@ -135,7 +169,7 @@ serve(async (req) => {
       )
     }
 
-    console.log(`📋 Processing dataset ID: ${datasetId}`)
+    console.log(`[${requestId}] 📋 Processing dataset ID: ${datasetId}`)
 
     // Fetch dataset items from Apify avec retry logic
     console.log('🔄 Fetching dataset items from Apify...')
@@ -375,10 +409,14 @@ serve(async (req) => {
     }
     
     // Répondre avec un 200 pour confirmer la réception et le traitement
+    const processingTime = Date.now() - startTime
+    console.log(`[${requestId}] ✅ Request completed in ${processingTime}ms`)
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Dataset processed successfully',
+        requestId,
         datasetId: datasetId,
         totalItems: datasetItems.length,
         rawStoredCount,
@@ -386,6 +424,7 @@ serve(async (req) => {
         skippedCount,
         errorCount: errors.length,
         errors: errors.slice(0, 10), // Limiter les erreurs retournées
+        processingTimeMs: processingTime,
         processedAt: new Date().toISOString()
       }), 
       { 
@@ -395,13 +434,21 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('❌ Error processing webhook:', error)
+    const processingTime = Date.now() - startTime
+    console.error(`[${requestId}] ❌ Error processing webhook:`, error)
+    console.error(`[${requestId}] 📊 Error details:`, {
+      message: error.message,
+      stack: error.stack,
+      processingTime
+    })
     
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
+        requestId,
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
+        processingTimeMs: processingTime
       }), 
       { 
         status: 500, 
@@ -410,3 +457,5 @@ serve(async (req) => {
     )
   }
 })
+
+console.log("🔄 Apify Client Jobs Webhook function ready and listening...")
