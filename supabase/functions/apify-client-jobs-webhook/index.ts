@@ -1,14 +1,27 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 
-console.log("🚀 Apify Client Jobs Webhook function STARTED - Version 2.0")
+console.log("🚀 Apify Client Jobs Webhook function STARTED - Version 3.0")
 console.log("⏰ Function startup time:", new Date().toISOString())
+
+// Vérification des variables d'environnement au démarrage
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'APIFY_API_KEY'];
+const missingVars = requiredEnvVars.filter(varName => !Deno.env.get(varName));
+
+if (missingVars.length > 0) {
+  console.error("❌ CRITICAL: Missing environment variables:", missingVars);
+} else {
+  console.log("✅ All required environment variables are present");
+}
 
 serve(async (req) => {
   const startTime = Date.now()
   const requestId = crypto.randomUUID().substring(0, 8)
   
+  // Log IMMÉDIAT pour s'assurer qu'on reçoit bien les requêtes
+  console.log(`[${requestId}] 🔥 WEBHOOK REQUEST RECEIVED!`)
   console.log(`[${requestId}] 📥 INCOMING REQUEST:`, {
     method: req.method,
     url: req.url,
@@ -16,7 +29,9 @@ serve(async (req) => {
     userAgent: req.headers.get('user-agent'),
     contentType: req.headers.get('content-type'),
     origin: req.headers.get('origin'),
-    referer: req.headers.get('referer')
+    referer: req.headers.get('referer'),
+    xForwardedFor: req.headers.get('x-forwarded-for'),
+    xRealIp: req.headers.get('x-real-ip')
   })
 
   // Permettre toutes les origins pour CORS
@@ -33,10 +48,11 @@ serve(async (req) => {
   }
 
   try {
+    // Vérification immédiate de la méthode
     if (req.method !== 'POST') {
       console.log(`[${requestId}] ❌ Method ${req.method} not allowed`)
       return new Response(
-        JSON.stringify({ error: 'Method not allowed', requestId }), 
+        JSON.stringify({ error: 'Method not allowed', requestId, allowedMethod: 'POST' }), 
         { 
           status: 405, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -47,10 +63,41 @@ serve(async (req) => {
     // Log des headers reçus pour debugging
     console.log(`[${requestId}] 📋 Request headers:`, Object.fromEntries(req.headers.entries()))
 
+    // Vérification des variables d'environnement en temps réel
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const apifyApiKey = Deno.env.get('APIFY_API_KEY')
+    
+    console.log(`[${requestId}] 🔍 Environment check:`, {
+      supabaseUrl: supabaseUrl ? '✅ Present' : '❌ Missing',
+      supabaseServiceKey: supabaseServiceKey ? '✅ Present' : '❌ Missing',
+      apifyApiKey: apifyApiKey ? '✅ Present' : '❌ Missing'
+    })
+    
+    if (!supabaseUrl || !supabaseServiceKey || !apifyApiKey) {
+      console.error(`[${requestId}] ❌ Missing required environment variables`)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Server configuration error - missing environment variables', 
+          requestId,
+          missing: {
+            supabaseUrl: !supabaseUrl,
+            supabaseServiceKey: !supabaseServiceKey,
+            apifyApiKey: !apifyApiKey
+          }
+        }), 
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Lecture du body
     let body
     try {
       const rawBody = await req.text()
-      console.log(`[${requestId}] 📄 Raw body received (${rawBody.length} chars):`, rawBody.substring(0, 500))
+      console.log(`[${requestId}] 📄 Raw body received (${rawBody.length} chars):`, rawBody.substring(0, 1000))
       
       if (!rawBody.trim()) {
         console.log(`[${requestId}] ⚠️ Empty request body received`)
@@ -65,6 +112,7 @@ serve(async (req) => {
 
       body = JSON.parse(rawBody)
       console.log(`[${requestId}] ✅ Successfully parsed JSON body`)
+      console.log(`[${requestId}] 📦 Received webhook data:`, JSON.stringify(body, null, 2))
     } catch (parseError) {
       console.error(`[${requestId}] ❌ Failed to parse request body:`, parseError)
       return new Response(
@@ -76,37 +124,9 @@ serve(async (req) => {
       )
     }
 
-    console.log(`[${requestId}] 📦 Received webhook data:`, JSON.stringify(body, null, 2))
-
-    // Initialize Supabase client first
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error(`[${requestId}] ❌ Missing Supabase environment variables`)
-      return new Response(
-        JSON.stringify({ error: 'Server configuration error', requestId }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
+    // Initialize Supabase client
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Get the Apify API key from environment
-    const apifyApiKey = Deno.env.get('APIFY_API_KEY')
-    if (!apifyApiKey) {
-      console.error(`[${requestId}] ❌ Apify API key not configured`)
-      return new Response(
-        JSON.stringify({ error: 'Apify API key not configured', requestId }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    console.log(`[${requestId}] ✅ Supabase client initialized`)
 
     // Support pour différents formats de webhook - plus robuste
     let datasetId = null
@@ -172,13 +192,14 @@ serve(async (req) => {
     console.log(`[${requestId}] 📋 Processing dataset ID: ${datasetId}`)
 
     // Fetch dataset items from Apify avec retry logic
-    console.log('🔄 Fetching dataset items from Apify...')
+    console.log(`[${requestId}] 🔄 Fetching dataset items from Apify...`)
     let apifyResponse
     let retryCount = 0
     const maxRetries = 3
 
     while (retryCount < maxRetries) {
       try {
+        console.log(`[${requestId}] 📡 Apify API call attempt ${retryCount + 1}/${maxRetries}`)
         apifyResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&format=json`, {
           method: 'GET',
           headers: {
@@ -187,17 +208,19 @@ serve(async (req) => {
           },
         })
 
+        console.log(`[${requestId}] 📡 Apify API response status: ${apifyResponse.status}`)
+
         if (apifyResponse.ok) {
           break
         } else {
-          console.log(`⚠️ Apify API attempt ${retryCount + 1} failed with status:`, apifyResponse.status)
+          console.log(`[${requestId}] ⚠️ Apify API attempt ${retryCount + 1} failed with status:`, apifyResponse.status)
           retryCount++
           if (retryCount < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Exponential backoff
           }
         }
       } catch (fetchError) {
-        console.error(`❌ Apify API attempt ${retryCount + 1} failed:`, fetchError)
+        console.error(`[${requestId}] ❌ Apify API attempt ${retryCount + 1} failed:`, fetchError)
         retryCount++
         if (retryCount < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
@@ -207,12 +230,13 @@ serve(async (req) => {
 
     if (!apifyResponse || !apifyResponse.ok) {
       const errorText = apifyResponse ? await apifyResponse.text() : 'No response received'
-      console.error('❌ Apify API error after all retries:', apifyResponse?.status, errorText)
+      console.error(`[${requestId}] ❌ Apify API error after all retries:`, apifyResponse?.status, errorText)
       return new Response(
         JSON.stringify({ 
           error: `Apify API error: ${apifyResponse?.status || 'No response'}`,
           details: errorText,
-          datasetId: datasetId
+          datasetId: datasetId,
+          requestId
         }), 
         { 
           status: 500, 
@@ -222,15 +246,16 @@ serve(async (req) => {
     }
 
     const datasetItems = await apifyResponse.json()
-    console.log(`📊 Retrieved ${datasetItems.length} items from dataset`)
+    console.log(`[${requestId}] 📊 Retrieved ${datasetItems.length} items from dataset`)
 
     if (!Array.isArray(datasetItems)) {
-      console.error('❌ Dataset items is not an array:', typeof datasetItems)
+      console.error(`[${requestId}] ❌ Dataset items is not an array:`, typeof datasetItems)
       return new Response(
         JSON.stringify({ 
           error: 'Invalid dataset format - expected array',
           received: typeof datasetItems,
-          datasetId: datasetId
+          datasetId: datasetId,
+          requestId
         }), 
         { 
           status: 500, 
@@ -240,16 +265,16 @@ serve(async (req) => {
     }
 
     // Fetch clients for matching
-    console.log('🔍 Fetching clients...')
+    console.log(`[${requestId}] 🔍 Fetching clients...`)
     const { data: clients, error: clientsError } = await supabaseClient
       .from('clients')
       .select('id, company_name, company_linkedin_id')
       .eq('tracking_enabled', true)
 
     if (clientsError) {
-      console.error('❌ Error fetching clients:', clientsError)
+      console.error(`[${requestId}] ❌ Error fetching clients:`, clientsError)
       return new Response(
-        JSON.stringify({ error: 'Error fetching clients from database', details: clientsError.message }), 
+        JSON.stringify({ error: 'Error fetching clients from database', details: clientsError.message, requestId }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -257,7 +282,7 @@ serve(async (req) => {
       )
     }
 
-    console.log(`👥 Found ${clients?.length || 0} tracked clients`)
+    console.log(`[${requestId}] 👥 Found ${clients?.length || 0} tracked clients`)
 
     // Process and store job offers avec meilleure gestion d'erreurs
     let processedCount = 0
@@ -268,13 +293,13 @@ serve(async (req) => {
     for (let i = 0; i < datasetItems.length; i++) {
       const item = datasetItems[i]
       try {
-        console.log(`🔄 Processing item ${i + 1}/${datasetItems.length}`)
+        console.log(`[${requestId}] 🔄 Processing item ${i + 1}/${datasetItems.length}`)
 
         const companyName = item.companyName || item.company || null
         const jobUrl = item.link || item.url || null
 
         if (!jobUrl) {
-          console.log('⚠️ Skipping item without URL')
+          console.log(`[${requestId}] ⚠️ Skipping item without URL`)
           skippedCount++
           continue
         }
@@ -302,7 +327,7 @@ serve(async (req) => {
           .single()
 
         if (checkRawError && checkRawError.code !== 'PGRST116') {
-          console.error('❌ Error checking existing raw offer:', checkRawError)
+          console.error(`[${requestId}] ❌ Error checking existing raw offer:`, checkRawError)
           errors.push(`Check raw error for ${jobUrl}: ${checkRawError.message}`)
           skippedCount++
           continue
@@ -314,19 +339,19 @@ serve(async (req) => {
             .insert(rawJobOfferData)
 
           if (rawInsertError) {
-            console.error('❌ Error inserting raw job offer:', rawInsertError)
+            console.error(`[${requestId}] ❌ Error inserting raw job offer:`, rawInsertError)
             errors.push(`Raw insert error for ${jobUrl}: ${rawInsertError.message}`)
             skippedCount++
             continue
           }
 
           rawStoredCount++
-          console.log('✅ Stored raw job offer:', item.title || jobUrl)
+          console.log(`[${requestId}] ✅ Stored raw job offer:`, item.title || jobUrl)
         }
 
         // Filtrer les reposts - ne traiter que les offres qui ne sont PAS des reposts
         if (item.isReposted === true) {
-          console.log('⚠️ Skipping reposted job offer:', item.title || jobUrl)
+          console.log(`[${requestId}] ⚠️ Skipping reposted job offer:`, item.title || jobUrl)
           skippedCount++
           continue
         }
@@ -366,14 +391,14 @@ serve(async (req) => {
           .single()
 
         if (checkMainError && checkMainError.code !== 'PGRST116') {
-          console.error('❌ Error checking existing main offer:', checkMainError)
+          console.error(`[${requestId}] ❌ Error checking existing main offer:`, checkMainError)
           errors.push(`Check main error for ${jobUrl}: ${checkMainError.message}`)
           skippedCount++
           continue
         }
 
         if (existingOffer) {
-          console.log('⚠️ Job offer already exists in main table, skipping:', item.title || jobUrl)
+          console.log(`[${requestId}] ⚠️ Job offer already exists in main table, skipping:`, item.title || jobUrl)
           skippedCount++
           continue
         }
@@ -384,28 +409,28 @@ serve(async (req) => {
           .insert(jobOfferData)
 
         if (insertError) {
-          console.error('❌ Error inserting job offer:', insertError)
+          console.error(`[${requestId}] ❌ Error inserting job offer:`, insertError)
           errors.push(`Main insert error for ${jobUrl}: ${insertError.message}`)
           skippedCount++
           continue
         }
 
-        console.log('✅ Inserted job offer:', item.title || jobUrl)
+        console.log(`[${requestId}] ✅ Inserted job offer:`, item.title || jobUrl)
         processedCount++
 
       } catch (error) {
-        console.error(`❌ Error processing item ${i + 1}:`, error)
+        console.error(`[${requestId}] ❌ Error processing item ${i + 1}:`, error)
         errors.push(`Processing error for item ${i + 1}: ${error.message}`)
         skippedCount++
       }
     }
 
     const summary = `🎯 Processing complete: ${rawStoredCount} stored in raw, ${processedCount} processed, ${skippedCount} skipped`
-    console.log(summary)
+    console.log(`[${requestId}] ${summary}`)
     
     if (errors.length > 0) {
-      console.log(`⚠️ Errors encountered: ${errors.length}`)
-      errors.slice(0, 5).forEach(error => console.log(`- ${error}`))
+      console.log(`[${requestId}] ⚠️ Errors encountered: ${errors.length}`)
+      errors.slice(0, 5).forEach(error => console.log(`[${requestId}] - ${error}`))
     }
     
     // Répondre avec un 200 pour confirmer la réception et le traitement
@@ -435,7 +460,7 @@ serve(async (req) => {
 
   } catch (error) {
     const processingTime = Date.now() - startTime
-    console.error(`[${requestId}] ❌ Error processing webhook:`, error)
+    console.error(`[${requestId}] ❌ CRITICAL ERROR processing webhook:`, error)
     console.error(`[${requestId}] 📊 Error details:`, {
       message: error.message,
       stack: error.stack,
@@ -459,3 +484,4 @@ serve(async (req) => {
 })
 
 console.log("🔄 Apify Client Jobs Webhook function ready and listening...")
+console.log("🌐 Function should be available at: https://csilkrfizphtbmevlkme.supabase.co/functions/v1/apify-client-jobs-webhook")

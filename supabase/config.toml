@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.apify-webhook]
 verify_jwt = false
+
+[functions.apify-client-jobs-webhook]
+verify_jwt = false
