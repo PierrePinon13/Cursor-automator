@@ -904,6 +904,8 @@ export type Database = {
           locked_by_user_name: string | null
           matched_client_id: string | null
           matched_client_name: string | null
+          matched_hr_provider_id: string | null
+          matched_hr_provider_name: string | null
           openai_step2_localisation: string | null
           openai_step3_categorie: string | null
           openai_step3_justification: string | null
@@ -1001,6 +1003,8 @@ export type Database = {
           locked_by_user_name?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
+          matched_hr_provider_id?: string | null
+          matched_hr_provider_name?: string | null
           openai_step2_localisation?: string | null
           openai_step3_categorie?: string | null
           openai_step3_justification?: string | null
@@ -1098,6 +1102,8 @@ export type Database = {
           locked_by_user_name?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
+          matched_hr_provider_id?: string | null
+          matched_hr_provider_name?: string | null
           openai_step2_localisation?: string | null
           openai_step3_categorie?: string | null
           openai_step3_justification?: string | null

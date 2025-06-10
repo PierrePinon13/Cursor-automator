@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
@@ -33,6 +32,9 @@ export interface LeadNew {
   url?: string;
   approach_message?: string;
   approach_message_generated?: boolean;
+  client_history_alert?: string;
+  matched_hr_provider_id?: string;
+  matched_hr_provider_name?: string;
 }
 
 export const useLeadsNew = () => {

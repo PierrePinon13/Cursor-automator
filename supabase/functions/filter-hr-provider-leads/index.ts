@@ -32,7 +32,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get the HR provider's LinkedIn ID
+    // Get the HR provider's LinkedIn ID and company name
     const { data: hrProvider, error: hrError } = await supabaseClient
       .from('hr_providers')
       .select('company_linkedin_id, company_name')
@@ -49,35 +49,41 @@ serve(async (req) => {
       });
     }
 
-    if (!hrProvider.company_linkedin_id) {
-      console.log('⚠️ HR provider has no LinkedIn ID, nothing to filter');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        filteredCount: 0, 
-        message: 'HR provider has no LinkedIn ID' 
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    let matchingLeads = [];
+
+    // Search by LinkedIn ID if available
+    if (hrProvider.company_linkedin_id) {
+      console.log('🏢 Filtering leads for LinkedIn ID:', hrProvider.company_linkedin_id);
+
+      const { data: linkedinLeads, error: linkedinError } = await supabaseClient
+        .from('leads')
+        .select('id, author_name, unipile_company, company_name')
+        .or(`company_linkedin_id.eq.${hrProvider.company_linkedin_id},unipile_company_linkedin_id.eq.${hrProvider.company_linkedin_id}`)
+        .neq('processing_status', 'filtered_hr_provider'); // Don't re-filter already filtered leads
+
+      if (linkedinError) {
+        console.error('❌ Error fetching leads by LinkedIn ID:', linkedinError);
+      } else if (linkedinLeads) {
+        matchingLeads = [...matchingLeads, ...linkedinLeads];
+      }
     }
 
-    console.log('🏢 Filtering leads for LinkedIn ID:', hrProvider.company_linkedin_id);
+    // Also search by company name
+    console.log('🏢 Filtering leads for company name:', hrProvider.company_name);
 
-    // Find all leads that match this HR provider's LinkedIn ID
-    const { data: matchingLeads, error: leadsError } = await supabaseClient
+    const { data: companyLeads, error: companyError } = await supabaseClient
       .from('leads')
-      .select('id, author_name, unipile_company')
-      .eq('company_linkedin_id', hrProvider.company_linkedin_id)
+      .select('id, author_name, unipile_company, company_name')
+      .or(`company_name.ilike.%${hrProvider.company_name}%,unipile_company.ilike.%${hrProvider.company_name}%`)
       .neq('processing_status', 'filtered_hr_provider'); // Don't re-filter already filtered leads
 
-    if (leadsError) {
-      console.error('❌ Error fetching matching leads:', leadsError);
-      return new Response(JSON.stringify({ 
-        error: 'Error fetching matching leads' 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (companyError) {
+      console.error('❌ Error fetching leads by company name:', companyError);
+    } else if (companyLeads) {
+      // Merge and deduplicate
+      const existingIds = new Set(matchingLeads.map(lead => lead.id));
+      const newLeads = companyLeads.filter(lead => !existingIds.has(lead.id));
+      matchingLeads = [...matchingLeads, ...newLeads];
     }
 
     console.log(`📋 Found ${matchingLeads?.length || 0} leads to filter`);
@@ -100,6 +106,8 @@ serve(async (req) => {
       .from('leads')
       .update({
         processing_status: 'filtered_hr_provider',
+        matched_hr_provider_id: hrProviderId,
+        matched_hr_provider_name: hrProvider.company_name,
         last_updated_at: new Date().toISOString()
       })
       .in('id', leadIds);
@@ -114,19 +122,6 @@ serve(async (req) => {
       });
     }
 
-    // Also update corresponding linkedin_posts if they exist
-    const { error: postsUpdateError } = await supabaseClient
-      .from('linkedin_posts')
-      .update({
-        processing_status: 'filtered_hr_provider',
-        last_updated_at: new Date().toISOString()
-      })
-      .in('lead_id', leadIds);
-
-    if (postsUpdateError) {
-      console.error('⚠️ Error updating posts (non-critical):', postsUpdateError);
-    }
-
     console.log(`✅ Successfully filtered ${leadIds.length} leads for HR provider: ${hrProvider.company_name}`);
 
     return new Response(JSON.stringify({ 
@@ -136,7 +131,7 @@ serve(async (req) => {
       filteredLeads: matchingLeads.map(lead => ({
         id: lead.id,
         author_name: lead.author_name,
-        company: lead.unipile_company
+        company: lead.unipile_company || lead.company_name
       }))
     }), {
       status: 200,

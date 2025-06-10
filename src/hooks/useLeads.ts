@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
@@ -33,6 +32,9 @@ export interface Lead {
   url?: string;
   approach_message?: string;
   approach_message_generated?: boolean;
+  client_history_alert?: string;
+  matched_hr_provider_id?: string;
+  matched_hr_provider_name?: string;
 }
 
 export const useLeads = () => {
@@ -47,6 +49,8 @@ export const useLeads = () => {
   const fetchLeads = async () => {
     try {
       setLoading(true);
+      
+      console.log('🔍 Fetching leads with filters...');
       
       let query = supabase
         .from('leads')
@@ -63,7 +67,8 @@ export const useLeads = () => {
       }
 
       if (data) {
-        console.log(`Fetched ${data.length} leads (HR providers filtered out)`);
+        console.log(`✅ Fetched ${data.length} leads`);
+        console.log('🔍 After filtering HR providers:', data.length, 'leads');
         setLeads(data);
         
         // Extract unique categories

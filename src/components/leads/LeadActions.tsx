@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert, MessageSquare, UserPlus } from 'lucide-react';
@@ -6,6 +5,7 @@ import { HrProviderSelector } from './HrProviderSelector';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import ReminderDialog from './ReminderDialog';
+import ClientHistoryAlert from './ClientHistoryAlert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +25,8 @@ interface Lead {
   company_linkedin_id?: string | null;
   unipile_company_linkedin_id?: string | null;
   unipile_company?: string;
+  company_name?: string;
+  client_history_alert?: string | null;
 }
 
 interface LeadActionsProps {
@@ -79,8 +81,10 @@ const LeadActions = ({
   const handleHrProviderAction = async () => {
     if (!user) return;
 
-    // Si il n'y a pas d'entreprise, ouvrir le sélecteur manuel
-    if (!lead.unipile_company) {
+    // Utiliser le nom de l'entreprise du lead (priorité à unipile_company, sinon company_name)
+    const companyName = lead.unipile_company || lead.company_name;
+    
+    if (!companyName) {
       setShowHrProviderSelector(true);
       return;
     }
@@ -92,14 +96,14 @@ const LeadActions = ({
       const companyLinkedInId = lead.unipile_company_linkedin_id || lead.company_linkedin_id;
       
       console.log('Creating HR provider for company:', {
-        name: lead.unipile_company,
+        name: companyName,
         linkedinId: companyLinkedInId
       });
 
       const { data: newHrProvider, error: createError } = await supabase
         .from('hr_providers')
         .insert({
-          company_name: lead.unipile_company,
+          company_name: companyName,
           company_linkedin_url: null,
           company_linkedin_id: companyLinkedInId
         })
@@ -112,7 +116,7 @@ const LeadActions = ({
           const { data: existingProvider, error: fetchError } = await supabase
             .from('hr_providers')
             .select('id, company_name')
-            .eq('company_name', lead.unipile_company)
+            .eq('company_name', companyName)
             .single();
 
           if (fetchError) {
@@ -145,7 +149,7 @@ const LeadActions = ({
 
   const assignHrProvider = async (hrProviderId: string, hrProviderName: string) => {
     try {
-      // 2. Marquer le lead comme prestataire RH
+      // 2. Marquer le lead comme prestataire RH dans la table leads
       const { error: updateError } = await supabase
         .from('leads')
         .update({
@@ -309,6 +313,9 @@ const LeadActions = ({
   return (
     <div className={`space-y-4 transition-transform duration-300 ${isSliding ? 'transform -translate-x-full opacity-0' : ''}`}>
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Actions disponibles</h3>
+      
+      {/* Client History Alert */}
+      <ClientHistoryAlert alert={lead.client_history_alert} />
       
       {/* Last Contact Info */}
       {lead.last_contact_at && (
