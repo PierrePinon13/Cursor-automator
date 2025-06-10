@@ -28,6 +28,11 @@ export interface Lead {
   locked_by_user_id?: string;
   locked_by_user_name?: string;
   locked_at?: string;
+  title?: string;
+  text?: string;
+  url?: string;
+  approach_message?: string;
+  approach_message_generated?: boolean;
 }
 
 export const useLeads = () => {

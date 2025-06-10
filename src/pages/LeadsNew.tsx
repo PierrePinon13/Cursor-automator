@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLeadsNew } from '@/hooks/useLeadsNew';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -12,6 +11,7 @@ import LeadsFilters from '@/components/leads/LeadsFilters';
 import SavedViewsButton from '@/components/leads/SavedViewsButton';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
+import type { LeadNew } from '@/hooks/useLeadsNew';
 
 const LeadsNew = () => {
   const { 
@@ -55,7 +55,7 @@ const LeadsNew = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter leads based on search query
-  const filteredLeads = baseFilteredLeads.filter(lead => {
+  const filteredLeads: LeadNew[] = baseFilteredLeads.filter(lead => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     
@@ -210,7 +210,7 @@ const LeadsNew = () => {
       <div className="bg-white">
         {viewMode === 'table' ? (
           <DraggableTable 
-            leads={filteredLeads} 
+            leads={filteredLeads as any} 
             visibleColumns={visibleColumns}
             onActionCompleted={handleActionCompleted}
             selectedLeadIndex={selectedLeadIndex}
@@ -220,7 +220,7 @@ const LeadsNew = () => {
         ) : (
           <div className="px-6 pb-6">
             <CardView 
-              leads={filteredLeads}
+              leads={filteredLeads as any}
               onActionCompleted={handleActionCompleted}
               selectedLeadIndex={selectedLeadIndex}
               onLeadSelect={setSelectedLeadIndex}
