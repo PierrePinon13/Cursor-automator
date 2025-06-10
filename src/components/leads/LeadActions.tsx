@@ -59,6 +59,8 @@ const LeadActions = ({
   const { slidingLeadId, slideToNextLead } = useLeadInteractions();
 
   const handleAction = (actionName: string) => {
+    console.log('🔧 Handling action:', actionName, 'for lead:', lead.id);
+    
     if (actionName === 'hr_provider') {
       handleHrProviderAction();
       return;
@@ -79,12 +81,23 @@ const LeadActions = ({
   };
 
   const handleHrProviderAction = async () => {
-    if (!user) return;
+    if (!user) {
+      console.error('❌ No user found');
+      return;
+    }
+
+    console.log('🏢 Starting HR provider action for lead:', {
+      leadId: lead.id,
+      authorName: lead.author_name,
+      unipileCompany: lead.unipile_company,
+      companyName: lead.company_name
+    });
 
     // Utiliser le nom de l'entreprise du lead (priorité à unipile_company, sinon company_name)
     const companyName = lead.unipile_company || lead.company_name;
     
     if (!companyName) {
+      console.warn('⚠️ No company name found, opening HR provider selector');
       setShowHrProviderSelector(true);
       return;
     }
@@ -95,7 +108,7 @@ const LeadActions = ({
       // 1. Créer automatiquement le prestataire RH avec l'entreprise du lead
       const companyLinkedInId = lead.unipile_company_linkedin_id || lead.company_linkedin_id;
       
-      console.log('Creating HR provider for company:', {
+      console.log('🏭 Creating HR provider for company:', {
         name: companyName,
         linkedinId: companyLinkedInId
       });
@@ -113,6 +126,7 @@ const LeadActions = ({
       if (createError) {
         // Si l'entreprise existe déjà, la récupérer
         if (createError.code === '23505') { // Unique constraint violation
+          console.log('🔄 Company already exists, fetching existing provider');
           const { data: existingProvider, error: fetchError } = await supabase
             .from('hr_providers')
             .select('id, company_name')
@@ -130,11 +144,12 @@ const LeadActions = ({
       }
 
       if (newHrProvider) {
+        console.log('✅ HR provider created:', newHrProvider);
         await assignHrProvider(newHrProvider.id, newHrProvider.company_name);
       }
 
     } catch (error) {
-      console.error('Error creating HR provider:', error);
+      console.error('❌ Error creating HR provider:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le prestataire RH. Utilisation du sélecteur manuel.",
@@ -148,6 +163,8 @@ const LeadActions = ({
   };
 
   const assignHrProvider = async (hrProviderId: string, hrProviderName: string) => {
+    console.log('📋 Assigning HR provider:', { hrProviderId, hrProviderName, leadId: lead.id });
+    
     try {
       // 2. Marquer le lead comme prestataire RH dans la table leads
       const { error: updateError } = await supabase
@@ -164,24 +181,29 @@ const LeadActions = ({
         throw updateError;
       }
 
+      console.log('✅ Lead updated with HR provider status');
+
       // 3. Déclencher le filtrage automatique des autres leads de cette entreprise
       const companyLinkedInId = lead.unipile_company_linkedin_id || lead.company_linkedin_id;
       if (companyLinkedInId) {
+        console.log('🔄 Triggering automatic filtering for company LinkedIn ID:', companyLinkedInId);
+        
         try {
           const { data, error } = await supabase.functions.invoke('filter-hr-provider-leads', {
             body: { hrProviderId }
           });
 
           if (error) {
-            console.error('Error filtering HR provider leads:', error);
-          } else if (data.success && data.filteredCount > 0) {
+            console.error('❌ Error filtering HR provider leads:', error);
+          } else if (data?.success && data.filteredCount > 0) {
+            console.log('✅ Additional leads filtered:', data.filteredCount);
             toast({
               title: "Leads filtrés",
               description: `${data.filteredCount} leads supplémentaires de ${hrProviderName} ont été filtrés automatiquement.`,
             });
           }
         } catch (error) {
-          console.error('Error calling filter function:', error);
+          console.error('❌ Error calling filter function:', error);
         }
       }
 
@@ -190,10 +212,12 @@ const LeadActions = ({
         description: `${hrProviderName} a été ajouté comme prestataire RH et le lead a été filtré.`,
       });
 
+      // 4. Déclencher l'action de callback pour mettre à jour l'interface
+      console.log('🔄 Triggering action callback');
       onAction('hr_provider_assigned');
 
     } catch (error) {
-      console.error('Error assigning HR provider:', error);
+      console.error('❌ Error assigning HR provider:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'assigner le prestataire RH.",

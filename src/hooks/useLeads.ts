@@ -62,13 +62,22 @@ export const useLeads = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching leads:', error);
+        console.error('❌ Error fetching leads:', error);
         return;
       }
 
       if (data) {
         console.log(`✅ Fetched ${data.length} leads`);
-        console.log('🔍 After filtering HR providers:', data.length, 'leads');
+        console.log('🔍 Filtered leads (excluding HR providers):', data.length);
+        
+        // Log des leads avec processing_status pour debug
+        const statusCounts = data.reduce((acc: any, lead) => {
+          const status = lead.processing_status || 'undefined';
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('📊 Leads by processing status:', statusCounts);
+        
         setLeads(data);
         
         // Extract unique categories
@@ -79,7 +88,7 @@ export const useLeads = () => {
         setAvailableCategories(categories);
       }
     } catch (error) {
-      console.error('Error in fetchLeads:', error);
+      console.error('❌ Error in fetchLeads:', error);
     } finally {
       setLoading(false);
     }
