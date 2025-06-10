@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,8 @@ interface Lead {
   author_name: string;
   unipile_response?: any;
   unipile_company?: string;
-  unipile_company_linkedin_id?: string; // Use the new direct field
+  unipile_company_linkedin_id?: string;
+  company_linkedin_id?: string;
   author_profile_url?: string;
 }
 
@@ -46,37 +48,41 @@ export function HrProviderSelector({
   // Get current company info - prioritize direct field over extracted data
   const currentCompanyName = lead.unipile_company || currentExperience?.company || '';
   
-  // Use the new direct field for LinkedIn ID, fallback to extraction from unipile_response
-  const currentCompanyLinkedInId = lead.unipile_company_linkedin_id || (() => {
-    console.log('Using fallback LinkedIn ID extraction from unipile_response');
-    
-    if (lead.unipile_response) {
-      // Check work_experience structure first
-      if (lead.unipile_response.work_experience) {
-        const currentExp = lead.unipile_response.work_experience.find((exp: any) => 
-          !exp.end || exp.end === null || exp.end === ''
-        );
-        console.log('Found current experience in work_experience:', currentExp);
-        return currentExp?.company_id || null;
+  // Use multiple sources for LinkedIn ID
+  const currentCompanyLinkedInId = 
+    lead.unipile_company_linkedin_id || 
+    lead.company_linkedin_id || 
+    (() => {
+      console.log('Using fallback LinkedIn ID extraction from unipile_response');
+      
+      if (lead.unipile_response) {
+        // Check work_experience structure first
+        if (lead.unipile_response.work_experience) {
+          const currentExp = lead.unipile_response.work_experience.find((exp: any) => 
+            !exp.end || exp.end === null || exp.end === ''
+          );
+          console.log('Found current experience in work_experience:', currentExp);
+          return currentExp?.company_id || null;
+        }
+        
+        // Check linkedin_profile.experience structure
+        if (lead.unipile_response.linkedin_profile?.experience) {
+          const currentExp = lead.unipile_response.linkedin_profile.experience.find((exp: any) => 
+            !exp.end || exp.end === null || exp.end === ''
+          );
+          console.log('Found current experience in linkedin_profile.experience:', currentExp);
+          return currentExp?.company_id || null;
+        }
       }
       
-      // Check linkedin_profile.experience structure
-      if (lead.unipile_response.linkedin_profile?.experience) {
-        const currentExp = lead.unipile_response.linkedin_profile.experience.find((exp: any) => 
-          !exp.end || exp.end === null || exp.end === ''
-        );
-        console.log('Found current experience in linkedin_profile.experience:', currentExp);
-        return currentExp?.company_id || null;
-      }
-    }
-    
-    return null;
-  })();
+      return null;
+    })();
 
   console.log('Current company data:', {
     name: currentCompanyName,
     linkedinId: currentCompanyLinkedInId,
     directField: lead.unipile_company_linkedin_id,
+    companyLinkedInId: lead.company_linkedin_id,
     fromResponse: !!lead.unipile_response
   });
 
