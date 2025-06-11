@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert, MessageSquare, UserPlus } from 'lucide-react';
@@ -302,6 +301,13 @@ const LeadActions = ({
     onAction('feedback_submitted');
   };
 
+  const handleMistargetedClick = () => {
+    console.log('🚨 MISTARGETED BUTTON CLICKED - Direct handler');
+    console.log('🚨 Current showFeedbackDialog state:', showFeedbackDialog);
+    setShowFeedbackDialog(true);
+    console.log('🚨 setShowFeedbackDialog(true) called');
+  };
+
   const canSendMessage = onSendLinkedInMessage && 
     message.trim().length > 0 && 
     message.length <= 300 && 
@@ -433,10 +439,10 @@ const LeadActions = ({
           </span>
         </Button>
         
-        {/* Publication mal ciblée */}
+        {/* Publication mal ciblée - DÉBOGAGE AVANCÉ */}
         <Button
           variant="outline"
-          onClick={() => handleAction('mistargeted')}
+          onClick={handleMistargetedClick}
           className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
         >
           <TriangleAlert className="h-5 w-5 mr-3" />
@@ -464,6 +470,11 @@ const LeadActions = ({
         lead={lead}
         onFeedbackSubmitted={handleFeedbackSubmitted}
       />
+      
+      {/* DEBUG INFO */}
+      <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-100 rounded">
+        Debug: showFeedbackDialog = {showFeedbackDialog.toString()}
+      </div>
     </div>
   );
 };
