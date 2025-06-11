@@ -36,7 +36,7 @@ const AppointmentsCard = () => {
 
       // Filtrer les données valides et les convertir au bon type
       const validAppointments: AppointmentData[] = (data || [])
-        .filter(apt => apt.lead && typeof apt.lead === 'object')
+        .filter(apt => apt.lead && typeof apt.lead === 'object' && 'author_name' in apt.lead)
         .map(apt => ({
           id: apt.id,
           lead_id: apt.lead_id,

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import LeadProfileInfo from './LeadProfileInfo';
 import LeadInfo from './LeadInfo';
 import LeadPostContent from './LeadPostContent';
-import LeadWorkHistory from './LeadWorkHistory';
+import { LeadWorkHistory } from './LeadWorkHistory';
 import LeadMessageSection from './LeadMessageSection';
 import PhoneContactStatus from './PhoneContactStatus';
 import SimpleAppointmentDialog from '@/components/appointments/SimpleAppointmentDialog';
@@ -81,7 +82,10 @@ const LeadDetailContent = ({
             />
             
             <PhoneContactStatus
-              lead={lead}
+              leadId={lead.id}
+              phoneContactStatus={lead.phone_contact_status}
+              phoneContactAt={lead.phone_contact_at}
+              phoneContactByUserName={lead.phone_contact_by_user_name}
               onContactUpdate={onContactUpdate}
             />
 
@@ -98,10 +102,13 @@ const LeadDetailContent = ({
 
           {/* Section message LinkedIn */}
           <LeadMessageSection
-            lead={lead}
+            leadId={lead.id}
+            authorName={lead.author_name}
+            authorProfileUrl={lead.author_profile_url}
+            approachMessage={lead.approach_message}
             customMessage={customMessage}
             onMessageChange={onMessageChange}
-            onSendLinkedInMessage={onSendLinkedInMessage}
+            onSendMessage={onSendLinkedInMessage}
             messageSending={messageSending}
           />
         </div>
