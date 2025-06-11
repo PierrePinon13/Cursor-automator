@@ -6,6 +6,7 @@ import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import ReminderDialog from './ReminderDialog';
 import FeedbackDialog from './FeedbackDialog';
+import MistargetedPostButton from './MistargetedPostButton';
 import ClientHistoryAlert from './ClientHistoryAlert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -59,7 +60,6 @@ const LeadActions = ({
 }: LeadActionsProps) => {
   const [showHrProviderSelector, setShowHrProviderSelector] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
-  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [hrProviderProcessing, setHrProviderProcessing] = useState(false);
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
   const { toast } = useToast();
@@ -439,15 +439,11 @@ const LeadActions = ({
           </span>
         </Button>
         
-        {/* Publication mal ciblée - DÉBOGAGE AVANCÉ */}
-        <Button
-          variant="outline"
-          onClick={handleMistargetedClick}
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
-        >
-          <TriangleAlert className="h-5 w-5 mr-3" />
-          <span className="font-medium text-gray-700">Publication mal ciblée</span>
-        </Button>
+        {/* Nouveau bouton Publication mal ciblée */}
+        <MistargetedPostButton
+          lead={lead}
+          onFeedbackSubmitted={handleFeedbackSubmitted}
+        />
       </div>
 
       <HrProviderSelector
@@ -462,13 +458,6 @@ const LeadActions = ({
         onOpenChange={setShowReminderDialog}
         leadId={lead.id}
         leadName={lead.author_name || 'Lead sans nom'}
-      />
-
-      <FeedbackDialog
-        open={showFeedbackDialog}
-        onOpenChange={setShowFeedbackDialog}
-        lead={lead}
-        onFeedbackSubmitted={handleFeedbackSubmitted}
       />
       
       {/* DEBUG INFO */}
