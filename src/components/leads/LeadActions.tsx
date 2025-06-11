@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Building2, UserCheck, Phone, ExternalLink, Send, Calendar, TriangleAlert, MessageSquare, UserPlus } from 'lucide-react';
@@ -28,6 +29,12 @@ interface Lead {
   unipile_company?: string;
   company_name?: string;
   client_history_alert?: string | null;
+  title?: string;
+  text?: string;
+  url?: string;
+  processing_status?: string;
+  matched_hr_provider_id?: string | null;
+  matched_hr_provider_name?: string | null;
 }
 
 interface LeadActionsProps {
@@ -237,39 +244,6 @@ const LeadActions = ({
     const phoneNumber = await retrievePhone(lead.id);
     if (onPhoneRetrieved) {
       onPhoneRetrieved(phoneNumber);
-    }
-  };
-
-  const handleMistargeted = async () => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('mistargeted_posts')
-        .insert({
-          lead_id: lead.id,
-          reported_by_user_id: user.id,
-          reported_by_user_name: user.user_metadata?.full_name || user.email,
-          author_name: lead.author_name,
-          author_profile_url: lead.author_profile_url,
-          reason: 'Publication signalée comme mal ciblée par un utilisateur'
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Publication signalée",
-        description: "Cette publication a été marquée comme mal ciblée et envoyée aux administrateurs.",
-      });
-
-      onAction('mistargeted_completed');
-    } catch (error) {
-      console.error('Error reporting mistargeted post:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de signaler cette publication.",
-        variant: "destructive",
-      });
     }
   };
 
