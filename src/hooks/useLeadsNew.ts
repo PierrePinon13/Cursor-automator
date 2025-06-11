@@ -53,8 +53,9 @@ export const useLeadsNew = () => {
       let query = supabase
         .from('leads')
         .select('*')
-        // Exclure les leads filtrés comme prestataires RH
+        // Exclure les leads filtrés comme prestataires RH et mal ciblés
         .neq('processing_status', 'filtered_hr_provider')
+        .neq('processing_status', 'mistargeted')
         .order('latest_post_date', { ascending: false });
 
       const { data, error } = await query;
@@ -65,7 +66,7 @@ export const useLeadsNew = () => {
       }
 
       if (data) {
-        console.log(`Fetched ${data.length} leads (HR providers filtered out)`);
+        console.log(`Fetched ${data.length} leads (HR providers and mistargeted filtered out)`);
         setLeads(data);
         
         // Extract unique categories

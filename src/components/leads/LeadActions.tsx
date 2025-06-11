@@ -5,6 +5,7 @@ import { HrProviderSelector } from './HrProviderSelector';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import ReminderDialog from './ReminderDialog';
+import FeedbackDialog from './FeedbackDialog';
 import ClientHistoryAlert from './ClientHistoryAlert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -52,6 +53,7 @@ const LeadActions = ({
 }: LeadActionsProps) => {
   const [showHrProviderSelector, setShowHrProviderSelector] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [hrProviderProcessing, setHrProviderProcessing] = useState(false);
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
   const { toast } = useToast();
@@ -74,7 +76,7 @@ const LeadActions = ({
       return;
     }
     if (actionName === 'mistargeted') {
-      handleMistargeted();
+      setShowFeedbackDialog(true);
       return;
     }
     onAction(actionName);
@@ -83,6 +85,11 @@ const LeadActions = ({
   const handleHrProviderAction = async () => {
     if (!user) {
       console.error('❌ No user found');
+      toast({
+        title: "Erreur",
+        description: "Vous devez être connecté pour effectuer cette action",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -315,6 +322,11 @@ const LeadActions = ({
     }
   };
 
+  const handleFeedbackSubmitted = () => {
+    // Actualiser la liste des leads après envoi du feedback
+    onAction('feedback_submitted');
+  };
+
   const canSendMessage = onSendLinkedInMessage && 
     message.trim().length > 0 && 
     message.length <= 300 && 
@@ -372,7 +384,7 @@ const LeadActions = ({
                 <span>Le message dépasse la limite de 300 caractères. Veuillez le raccourcir.</span>
               </div>
             )}
-
+            
             {isAtLinkedInLimit && (
               <div className="flex items-start gap-2 text-green-600 text-sm bg-green-50 p-2 rounded">
                 <span className="text-green-600 font-bold">🎉</span>
@@ -469,6 +481,13 @@ const LeadActions = ({
         onOpenChange={setShowReminderDialog}
         leadId={lead.id}
         leadName={lead.author_name || 'Lead sans nom'}
+      />
+
+      <FeedbackDialog
+        open={showFeedbackDialog}
+        onOpenChange={setShowFeedbackDialog}
+        lead={lead}
+        onFeedbackSubmitted={handleFeedbackSubmitted}
       />
     </div>
   );
