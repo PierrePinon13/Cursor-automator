@@ -7,7 +7,7 @@ import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
 import DiagnosticsPanel from '@/components/dashboard/DiagnosticsPanel';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
-import AppointmentsCard from '@/components/appointments/AppointmentsCard';
+import SimpleAppointmentsCard from '@/components/appointments/SimpleAppointmentsCard';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
@@ -37,7 +37,18 @@ const Dashboard = () => {
     success_rate: 0
   };
 
-  const userComparison = dashboardData?.userComparison || [];
+  // Convertir les données pour les composants existants
+  const userComparison = (dashboardData?.userComparison || []).map(user => ({
+    user_id: user.user_id,
+    user_email: user.user_email,
+    stat_date: new Date().toISOString().split('T')[0], // Date actuelle
+    linkedin_messages_sent: user.stats.linkedin_messages || 0,
+    positive_calls: user.stats.positive_calls || 0,
+    negative_calls: user.stats.negative_calls || 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    id: user.user_id
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -72,7 +83,7 @@ const Dashboard = () => {
         {viewMode === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Rendez-vous */}
-            <AppointmentsCard />
+            <SimpleAppointmentsCard />
             
             {/* Charts */}
             <DashboardCharts 
@@ -90,7 +101,7 @@ const Dashboard = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Rendez-vous */}
-              <AppointmentsCard />
+              <SimpleAppointmentsCard />
               
               {/* Charts */}
               <DashboardCharts 

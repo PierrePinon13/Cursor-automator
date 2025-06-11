@@ -102,10 +102,12 @@ const LeadDetailContent = ({
 
           {/* Section message LinkedIn */}
           <LeadMessageSection
-            leadId={lead.id}
-            authorName={lead.author_name}
-            authorProfileUrl={lead.author_profile_url}
-            approachMessage={lead.approach_message}
+            lead={{
+              id: lead.id,
+              author_name: lead.author_name,
+              author_profile_url: lead.author_profile_url,
+              approach_message: lead.approach_message
+            }}
             customMessage={customMessage}
             onMessageChange={onMessageChange}
             onSendMessage={onSendLinkedInMessage}
