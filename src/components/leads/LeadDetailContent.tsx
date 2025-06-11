@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -321,15 +320,6 @@ const LeadDetailContent = ({
               </div>
               
               <div className="space-y-3">
-                <Button
-                  onClick={handleMistargetedPost}
-                  variant="outline"
-                  className="w-full h-10 justify-start bg-white hover:bg-orange-50 border-orange-200"
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2 text-orange-600" />
-                  Publication mal ciblée
-                </Button>
-                
                 {/* Nouveau bouton Mauvais ciblage */}
                 <Button
                   onClick={handleMauvaisCiblageClick}

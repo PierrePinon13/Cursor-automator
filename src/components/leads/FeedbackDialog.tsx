@@ -26,6 +26,16 @@ interface FeedbackDialogProps {
     title?: string;
     text?: string;
     url?: string;
+    // Données OpenAI Steps
+    openai_step1_recrute_poste?: string;
+    openai_step1_postes?: string;
+    openai_step2_reponse?: string;
+    openai_step2_langue?: string;
+    openai_step2_localisation?: string;
+    openai_step2_raison?: string;
+    openai_step3_categorie?: string;
+    openai_step3_postes_selectionnes?: string[];
+    openai_step3_justification?: string;
   };
   onFeedbackSubmitted: () => void;
 }
@@ -61,7 +71,7 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
     setIsSubmitting(true);
 
     try {
-      // Préparer les données pour le webhook N8N
+      // Préparer les données pour le webhook N8N avec les données OpenAI
       const feedbackData = {
         lead_id: lead.id,
         author_name: lead.author_name,
@@ -76,10 +86,28 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
           not_recruiting: category1.trim() || null,
           location_mismatch: category2.trim() || null,
           position_mismatch: category3.trim() || null,
+        },
+        // Données des 3 steps OpenAI
+        openai_analysis: {
+          step1: {
+            recrute_poste: lead.openai_step1_recrute_poste,
+            postes: lead.openai_step1_postes,
+          },
+          step2: {
+            reponse: lead.openai_step2_reponse,
+            langue: lead.openai_step2_langue,
+            localisation_detectee: lead.openai_step2_localisation,
+            raison: lead.openai_step2_raison,
+          },
+          step3: {
+            categorie: lead.openai_step3_categorie,
+            postes_selectionnes: lead.openai_step3_postes_selectionnes,
+            justification: lead.openai_step3_justification,
+          }
         }
       };
 
-      console.log('🔔 Sending feedback to N8N webhook:', feedbackData);
+      console.log('🔔 Sending feedback to N8N webhook with OpenAI data:', feedbackData);
 
       // Envoyer au webhook N8N
       const webhookResponse = await fetch('https://n8n.getpro.co/webhook/8c1fc6fc-7581-4579-9ca0-eae618a90004', {
