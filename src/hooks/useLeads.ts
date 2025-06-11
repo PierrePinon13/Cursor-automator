@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
@@ -39,6 +40,7 @@ export interface Lead {
 
 export const useLeads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
@@ -96,52 +98,76 @@ export const useLeads = () => {
   };
 
   // Filter leads based on selected criteria
-  const filteredLeads = leads.filter(lead => {
+  const applyFilters = () => {
+    let filtered = leads;
+    
+    console.log('🔧 Applying filters to', leads.length, 'leads');
+    console.log('🔧 Selected categories:', selectedCategories);
+    console.log('🔧 Selected date filter:', selectedDateFilter);
+    console.log('🔧 Selected contact filter:', selectedContactFilter);
+
     // Category filter
-    if (selectedCategories.length > 0 && !selectedCategories.includes(lead.openai_step3_categorie || '')) {
-      return false;
+    if (selectedCategories.length > 0) {
+      const beforeCount = filtered.length;
+      filtered = filtered.filter(lead => selectedCategories.includes(lead.openai_step3_categorie || ''));
+      console.log(`🏷️ Category filter: ${beforeCount} → ${filtered.length} leads`);
     }
 
     // Date filter
     if (selectedDateFilter !== 'all') {
-      const leadDate = new Date(lead.latest_post_date || lead.posted_at_iso || '');
+      const beforeCount = filtered.length;
       const now = new Date();
-      const diffTime = now.getTime() - leadDate.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      filtered = filtered.filter(lead => {
+        const leadDate = new Date(lead.latest_post_date || lead.posted_at_iso || '');
+        const diffTime = now.getTime() - leadDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      switch (selectedDateFilter) {
-        case 'today':
-          if (diffDays > 1) return false;
-          break;
-        case 'week':
-          if (diffDays > 7) return false;
-          break;
-        case 'month':
-          if (diffDays > 30) return false;
-          break;
-      }
+        switch (selectedDateFilter) {
+          case 'today':
+            return diffDays <= 1;
+          case 'week':
+            return diffDays <= 7;
+          case 'month':
+            return diffDays <= 30;
+          default:
+            return true;
+        }
+      });
+      console.log(`📅 Date filter (${selectedDateFilter}): ${beforeCount} → ${filtered.length} leads`);
     }
 
     // Contact filter
     if (selectedContactFilter !== 'all') {
-      const hasContact = lead.last_contact_at || lead.phone_contact_status || lead.linkedin_message_sent_at;
+      const beforeCount = filtered.length;
       
-      switch (selectedContactFilter) {
-        case 'contacted':
-          if (!hasContact) return false;
-          break;
-        case 'not_contacted':
-          if (hasContact) return false;
-          break;
-      }
+      filtered = filtered.filter(lead => {
+        const hasContact = lead.last_contact_at || lead.phone_contact_status || lead.linkedin_message_sent_at;
+        
+        switch (selectedContactFilter) {
+          case 'contacted':
+            return !!hasContact;
+          case 'not_contacted':
+            return !hasContact;
+          default:
+            return true;
+        }
+      });
+      console.log(`📞 Contact filter (${selectedContactFilter}): ${beforeCount} → ${filtered.length} leads`);
     }
 
-    return true;
-  });
+    console.log(`✅ Final filtered leads: ${filtered.length} leads`);
+    setFilteredLeads(filtered);
+  };
 
   const refreshLeads = () => {
     fetchLeads();
   };
+
+  // Apply filters whenever leads or filter criteria change
+  useEffect(() => {
+    applyFilters();
+  }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter]);
 
   useEffect(() => {
     fetchLeads();
