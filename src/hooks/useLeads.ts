@@ -39,7 +39,7 @@ export interface Lead {
 }
 
 export const useLeads = () => {
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -48,16 +48,16 @@ export const useLeads = () => {
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
 
+  // Fonction pour récupérer les leads depuis la base de données
   const fetchLeads = async () => {
     try {
       setLoading(true);
       
-      console.log('🔍 Fetching leads with filters...');
+      console.log('🔍 Fetching all leads from database...');
       
       let query = supabase
         .from('leads')
         .select('*')
-        // Exclure les leads filtrés comme prestataires RH et mal ciblés
         .neq('processing_status', 'filtered_hr_provider')
         .neq('processing_status', 'mistargeted')
         .order('latest_post_date', { ascending: false });
@@ -70,25 +70,16 @@ export const useLeads = () => {
       }
 
       if (data) {
-        console.log(`✅ Fetched ${data.length} leads`);
-        console.log('🔍 Filtered leads (excluding HR providers and mistargeted):', data.length);
+        console.log(`✅ Fetched ${data.length} leads from database`);
+        setAllLeads(data);
         
-        // Log des leads avec processing_status pour debug
-        const statusCounts = data.reduce((acc: any, lead) => {
-          const status = lead.processing_status || 'undefined';
-          acc[status] = (acc[status] || 0) + 1;
-          return acc;
-        }, {});
-        console.log('📊 Leads by processing status:', statusCounts);
-        
-        setLeads(data);
-        
-        // Extract unique categories
+        // Extraire les catégories uniques pour les filtres
         const categories = [...new Set(data
           .map(lead => lead.openai_step3_categorie)
           .filter(Boolean)
         )];
         setAvailableCategories(categories);
+        console.log('📋 Available categories:', categories);
       }
     } catch (error) {
       console.error('❌ Error in fetchLeads:', error);
@@ -97,84 +88,110 @@ export const useLeads = () => {
     }
   };
 
-  // Filter leads based on selected criteria
-  const applyFilters = () => {
-    let filtered = leads;
-    
-    console.log('🔧 Applying filters to', leads.length, 'leads');
-    console.log('🔧 Selected categories:', selectedCategories);
-    console.log('🔧 Selected date filter:', selectedDateFilter);
-    console.log('🔧 Selected contact filter:', selectedContactFilter);
+  // Fonction pour appliquer tous les filtres
+  const applyAllFilters = () => {
+    console.log('🎯 Starting filter application...');
+    console.log('📊 Total leads to filter:', allLeads.length);
+    console.log('🏷️ Selected categories:', selectedCategories);
+    console.log('📅 Date filter:', selectedDateFilter);
+    console.log('📞 Contact filter:', selectedContactFilter);
 
-    // Category filter
+    let result = [...allLeads];
+
+    // Filtre par catégorie
     if (selectedCategories.length > 0) {
-      const beforeCount = filtered.length;
-      filtered = filtered.filter(lead => selectedCategories.includes(lead.openai_step3_categorie || ''));
-      console.log(`🏷️ Category filter: ${beforeCount} → ${filtered.length} leads`);
+      const beforeCategory = result.length;
+      result = result.filter(lead => {
+        const category = lead.openai_step3_categorie || '';
+        return selectedCategories.includes(category);
+      });
+      console.log(`🏷️ After category filter: ${beforeCategory} -> ${result.length} leads`);
     }
 
-    // Date filter
+    // Filtre par date
     if (selectedDateFilter !== 'all') {
-      const beforeCount = filtered.length;
-      const now = new Date();
+      const beforeDate = result.length;
+      const currentTime = new Date().getTime();
       
-      filtered = filtered.filter(lead => {
-        const leadDate = new Date(lead.latest_post_date || lead.posted_at_iso || '');
-        const diffTime = now.getTime() - leadDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      result = result.filter(lead => {
+        const postDate = lead.latest_post_date || lead.posted_at_iso;
+        if (!postDate) return false;
+        
+        const leadTime = new Date(postDate).getTime();
+        const timeDiff = currentTime - leadTime;
+        const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
 
         switch (selectedDateFilter) {
           case 'today':
-            return diffDays <= 1;
+            return daysDiff <= 1;
           case 'week':
-            return diffDays <= 7;
+            return daysDiff <= 7;
           case 'month':
-            return diffDays <= 30;
+            return daysDiff <= 30;
           default:
             return true;
         }
       });
-      console.log(`📅 Date filter (${selectedDateFilter}): ${beforeCount} → ${filtered.length} leads`);
+      console.log(`📅 After date filter (${selectedDateFilter}): ${beforeDate} -> ${result.length} leads`);
     }
 
-    // Contact filter
+    // Filtre par statut de contact
     if (selectedContactFilter !== 'all') {
-      const beforeCount = filtered.length;
+      const beforeContact = result.length;
       
-      filtered = filtered.filter(lead => {
-        const hasContact = lead.last_contact_at || lead.phone_contact_status || lead.linkedin_message_sent_at;
-        
+      result = result.filter(lead => {
+        const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
+        const hasPhoneContact = !!lead.phone_contact_status;
+        const hasAnyContact = hasLinkedInMessage || hasPhoneContact || !!lead.last_contact_at;
+
         switch (selectedContactFilter) {
           case 'contacted':
-            return !!hasContact;
+            return hasAnyContact;
           case 'not_contacted':
-            return !hasContact;
+            return !hasAnyContact;
           default:
             return true;
         }
       });
-      console.log(`📞 Contact filter (${selectedContactFilter}): ${beforeCount} → ${filtered.length} leads`);
+      console.log(`📞 After contact filter (${selectedContactFilter}): ${beforeContact} -> ${result.length} leads`);
     }
 
-    console.log(`✅ Final filtered leads: ${filtered.length} leads`);
-    setFilteredLeads(filtered);
+    console.log(`✅ Final filtered result: ${result.length} leads`);
+    setFilteredLeads(result);
   };
 
   const refreshLeads = () => {
+    console.log('🔄 Refreshing leads...');
     fetchLeads();
   };
 
-  // Apply filters whenever leads or filter criteria change
+  // Effet pour charger les leads au démarrage
   useEffect(() => {
-    applyFilters();
-  }, [leads, selectedCategories, selectedDateFilter, selectedContactFilter]);
-
-  useEffect(() => {
+    console.log('🚀 Initial load of leads');
     fetchLeads();
   }, []);
 
+  // Effet pour appliquer les filtres quand les données ou les filtres changent
+  useEffect(() => {
+    if (allLeads.length > 0) {
+      console.log('🔄 Applying filters due to data or filter change');
+      applyAllFilters();
+    }
+  }, [allLeads, selectedCategories, selectedDateFilter, selectedContactFilter]);
+
+  // Débogage : log des changements de filtres
+  useEffect(() => {
+    console.log('🎛️ Filter state changed:', {
+      categories: selectedCategories,
+      date: selectedDateFilter,
+      contact: selectedContactFilter,
+      totalLeads: allLeads.length,
+      filteredCount: filteredLeads.length
+    });
+  }, [selectedCategories, selectedDateFilter, selectedContactFilter, allLeads.length, filteredLeads.length]);
+
   return {
-    leads,
+    leads: allLeads,
     filteredLeads,
     loading,
     selectedCategories,
