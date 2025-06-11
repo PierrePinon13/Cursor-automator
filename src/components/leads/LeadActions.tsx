@@ -5,7 +5,6 @@ import { HrProviderSelector } from './HrProviderSelector';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import ReminderDialog from './ReminderDialog';
-import FeedbackDialog from './FeedbackDialog';
 import MistargetedPostButton from './MistargetedPostButton';
 import ClientHistoryAlert from './ClientHistoryAlert';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,11 +78,6 @@ const LeadActions = ({
     }
     if (actionName === 'reminder') {
       setShowReminderDialog(true);
-      return;
-    }
-    if (actionName === 'mistargeted') {
-      console.log('📝 Opening feedback dialog for mistargeted post');
-      setShowFeedbackDialog(true);
       return;
     }
     onAction(actionName);
@@ -301,13 +295,6 @@ const LeadActions = ({
     onAction('feedback_submitted');
   };
 
-  const handleMistargetedClick = () => {
-    console.log('🚨 MISTARGETED BUTTON CLICKED - Direct handler');
-    console.log('🚨 Current showFeedbackDialog state:', showFeedbackDialog);
-    setShowFeedbackDialog(true);
-    console.log('🚨 setShowFeedbackDialog(true) called');
-  };
-
   const canSendMessage = onSendLinkedInMessage && 
     message.trim().length > 0 && 
     message.length <= 300 && 
@@ -459,11 +446,6 @@ const LeadActions = ({
         leadId={lead.id}
         leadName={lead.author_name || 'Lead sans nom'}
       />
-      
-      {/* DEBUG INFO */}
-      <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-100 rounded">
-        Debug: showFeedbackDialog = {showFeedbackDialog.toString()}
-      </div>
     </div>
   );
 };
