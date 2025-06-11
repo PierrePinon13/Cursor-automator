@@ -1,232 +1,351 @@
 
-import MultiSelectFilter from './MultiSelectFilter';
-import { Badge } from '@/components/ui/badge';
+import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Table, Grid3X3, Search } from 'lucide-react';
-import { useUserRole } from '@/hooks/useUserRole';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { 
+  Filter, 
+  Calendar, 
+  Phone, 
+  Eye, 
+  EyeOff, 
+  Table, 
+  Grid, 
+  Search, 
+  X,
+  User,
+  Users
+} from 'lucide-react';
+import CategoryFilter from './CategoryFilter';
 
 interface LeadsFiltersProps {
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
-  selectedDateFilter: string;
-  setSelectedDateFilter: (filter: string) => void;
-  selectedContactFilter?: string;
-  setSelectedContactFilter?: (filter: string) => void;
-  availableCategories: string[];
   visibleColumns: string[];
   setVisibleColumns: (columns: string[]) => void;
+  selectedDateFilter: string;
+  setSelectedDateFilter: (filter: string) => void;
+  selectedContactFilter: string;
+  setSelectedContactFilter: (filter: string) => void;
+  selectedUserContactFilter?: string;
+  setSelectedUserContactFilter?: (filter: string) => void;
+  availableCategories: string[];
   showContactFilter?: boolean;
   showAssignmentColumn?: boolean;
   viewMode: 'table' | 'card';
   setViewMode: (mode: 'table' | 'card') => void;
-  searchQuery?: string;
-  setSearchQuery?: (query: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   isAdmin?: boolean;
 }
 
-const dateFilterOptions = [
-  { value: '24h', label: 'Dernières 24h' },
-  { value: '48h', label: 'Dernières 48h' },
-  { value: '7days', label: 'Derniers 7 jours' },
-  { value: 'all', label: 'Tout' },
-];
-
-const contactFilterOptions = [
-  { value: 'exclude_none', label: 'Inclure tous' },
-  { value: 'exclude_1week', label: 'Exclure contactés (1 semaine)' },
-  { value: 'exclude_2weeks', label: 'Exclure contactés (2 semaines)' },
-  { value: 'exclude_1month', label: 'Exclure contactés (1 mois)' },
-  { value: 'exclude_all_contacted', label: 'Exclure tous contactés' },
-];
-
-const getColumnOptions = (showAssignmentColumn = false) => {
-  const baseColumns = [
-    { value: 'posted_date', label: 'Date de publication' },
-    { value: 'job_title', label: 'Profil recherché' },
-    { value: 'author_name', label: 'Lead' },
-    { value: 'company', label: 'Entreprise' },
-    { value: 'last_contact', label: 'Dernier contact' },
-    { value: 'category', label: 'Catégorie' },
-    { value: 'location', label: 'Localisation' },
-  ];
-
-  if (showAssignmentColumn) {
-    baseColumns.push({ value: 'assignment', label: 'Assignation' });
-  }
-
-  return baseColumns;
-};
-
-// Catégories visibles pour tous les utilisateurs (sans "Autre")
-const allCategories = [
-  'Tech',
-  'Business', 
-  'Product',
-  'Executive Search',
-  'Comptelio',
-  'RH',
-  'Freelance',
-  'Data'
-];
-
-const categoryColors = {
-  'Tech': {
-    active: 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Business': {
-    active: 'bg-green-100 border-green-300 text-green-800 hover:bg-green-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Product': {
-    active: 'bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Executive Search': {
-    active: 'bg-red-100 border-red-300 text-red-800 hover:bg-red-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Comptelio': {
-    active: 'bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'RH': {
-    active: 'bg-pink-100 border-pink-300 text-pink-800 hover:bg-pink-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Freelance': {
-    active: 'bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  },
-  'Data': {
-    active: 'bg-teal-100 border-teal-300 text-teal-800 hover:bg-teal-150',
-    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
-  }
-};
-
-export default function LeadsFilters({ 
-  selectedCategories, 
+const LeadsFilters = ({
+  selectedCategories,
   setSelectedCategories,
+  visibleColumns,
+  setVisibleColumns,
   selectedDateFilter,
   setSelectedDateFilter,
   selectedContactFilter,
   setSelectedContactFilter,
+  selectedUserContactFilter = 'all',
+  setSelectedUserContactFilter,
   availableCategories,
-  visibleColumns,
-  setVisibleColumns,
   showContactFilter = true,
   showAssignmentColumn = false,
   viewMode,
   setViewMode,
-  searchQuery = '',
+  searchQuery,
   setSearchQuery,
   isAdmin = false
-}: LeadsFiltersProps) {
-  const { isAdmin: userIsAdmin } = useUserRole();
-  const columnOptions = getColumnOptions(showAssignmentColumn);
+}: LeadsFiltersProps) => {
+  
+  const dateFilterOptions = [
+    { value: '24h', label: 'Dernières 24h' },
+    { value: '48h', label: 'Dernières 48h' },
+    { value: '7days', label: 'Derniers 7 jours' },
+    { value: 'all', label: 'Tous' }
+  ];
 
-  // Use the passed isAdmin prop or fall back to the hook
-  const effectiveIsAdmin = isAdmin || userIsAdmin;
+  const contactFilterOptions = [
+    { value: 'exclude_none', label: 'Tous les leads' },
+    { value: 'exclude_1week', label: 'Exclure contactés < 1 semaine' },
+    { value: 'exclude_2weeks', label: 'Exclure contactés < 2 semaines' },
+    { value: 'exclude_1month', label: 'Exclure contactés < 1 mois' },
+    { value: 'exclude_all_contacted', label: 'Seulement non contactés' }
+  ];
 
-  // Afficher seulement les catégories standard (sans "Autre" pour tous les utilisateurs)
-  const categoriesToShow = allCategories;
+  const userContactFilterOptions = [
+    { value: 'all', label: 'Tous les leads', icon: Users },
+    { value: 'only_me', label: 'Mes contacts uniquement', icon: User },
+    { value: 'exclude_me', label: 'Exclure mes contacts', icon: EyeOff }
+  ];
 
-  const toggleCategory = (category: string) => {
-    if (selectedCategories.includes(category)) {
-      setSelectedCategories(selectedCategories.filter(cat => cat !== category));
-    } else {
-      setSelectedCategories([...selectedCategories, category]);
+  const getDefaultColumns = () => {
+    const baseColumns = [
+      'posted_date',
+      'job_title', 
+      'author_name', 
+      'company', 
+      'last_contact',
+      'category', 
+      'location'
+    ];
+    
+    if (isAdmin) {
+      baseColumns.splice(1, 0, 'last_updated');
     }
+
+    if (showAssignmentColumn) {
+      baseColumns.push('assignment');
+    }
+    
+    return baseColumns;
+  };
+
+  const columnLabels: Record<string, string> = {
+    posted_date: 'Date publication',
+    last_updated: 'Dernière MAJ',
+    job_title: 'Titre du poste',
+    author_name: 'Nom',
+    company: 'Entreprise',
+    last_contact: 'Dernier contact',
+    category: 'Catégorie',
+    location: 'Localisation',
+    assignment: 'Attribution'
+  };
+
+  const columnOptions = Object.keys(columnLabels);
+
+  const getDateFilterLabel = (value: string) => {
+    return dateFilterOptions.find(option => option.value === value)?.label || value;
+  };
+
+  const getContactFilterLabel = (value: string) => {
+    return contactFilterOptions.find(option => option.value === value)?.label || value;
+  };
+
+  const getUserContactFilterLabel = (value: string) => {
+    return userContactFilterOptions.find(option => option.value === value)?.label || value;
+  };
+
+  const hasActiveFilters = selectedCategories.length > 0 || 
+                          selectedDateFilter !== 'all' || 
+                          selectedContactFilter !== 'exclude_none' ||
+                          selectedUserContactFilter !== 'all' ||
+                          searchQuery.length > 0;
+
+  const clearAllFilters = () => {
+    setSelectedCategories([]);
+    setSelectedDateFilter('all');
+    setSelectedContactFilter('exclude_none');
+    setSelectedUserContactFilter?.('all');
+    setSearchQuery('');
   };
 
   return (
-    <div className="space-y-3">
-      {/* Top row with filters and view toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <MultiSelectFilter
-            title="Colonnes"
-            options={columnOptions}
-            selectedValues={visibleColumns}
-            onSelectionChange={setVisibleColumns}
-            singleSelect={false}
+    <Card className="border-0 shadow-none bg-transparent">
+      <CardContent className="p-0 space-y-4">
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom, entreprise, titre ou localisation..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
           />
-
-          <MultiSelectFilter
-            title="Période"
-            options={dateFilterOptions}
-            selectedValues={[selectedDateFilter]}
-            onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
-            singleSelect={true}
-          />
-
-          {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
-            <MultiSelectFilter
-              title="Statut de contact"
-              options={contactFilterOptions}
-              selectedValues={[selectedContactFilter]}
-              onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
-              singleSelect={true}
-            />
-          )}
-
-          {/* Barre de recherche */}
-          {setSearchQuery && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-8 w-64 text-sm"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Table/Card View Toggle - Sans encadré et plus compact */}
-        <div className="flex gap-1">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-            className="h-7 px-3 text-sm"
-          >
-            <Table className="h-4 w-4 mr-1" />
-            Tableau
-          </Button>
-          <Button
-            variant={viewMode === 'card' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('card')}
-            className="h-7 px-3 text-sm"
-          >
-            <Grid3X3 className="h-4 w-4 mr-1" />
-            Cartes
-          </Button>
-        </div>
-      </div>
-      
-      {/* Categories badges row - Plus compact */}
-      <div className="flex flex-wrap gap-1.5">
-        {categoriesToShow.map((category) => {
-          const isSelected = selectedCategories.includes(category);
-          const colors = categoryColors[category as keyof typeof categoryColors];
-          const colorClass = isSelected ? colors.active : colors.inactive;
-          
-          return (
-            <Badge
-              key={category}
-              variant="outline"
-              className={`text-xs px-2 py-0.5 h-6 cursor-pointer transition-colors border ${colorClass}`}
-              onClick={() => toggleCategory(category)}
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
             >
-              {category}
-            </Badge>
-          );
-        })}
-      </div>
-    </div>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Filters row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Category filter */}
+          <CategoryFilter
+            availableCategories={availableCategories}
+            selectedCategories={selectedCategories}
+            setSelectedCategories={setSelectedCategories}
+          />
+
+          {/* Date filter */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Calendar className="h-4 w-4" />
+                {getDateFilterLabel(selectedDateFilter)}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {dateFilterOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => setSelectedDateFilter(option.value)}
+                  className={selectedDateFilter === option.value ? 'bg-accent' : ''}
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Contact filter */}
+          {showContactFilter && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Phone className="h-4 w-4" />
+                  Contact
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                {contactFilterOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setSelectedContactFilter(option.value)}
+                    className={selectedContactFilter === option.value ? 'bg-accent' : ''}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* User contact filter */}
+          {setSelectedUserContactFilter && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
+                  {getUserContactFilterLabel(selectedUserContactFilter)}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {userContactFilterOptions.map((option) => {
+                  const IconComponent = option.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => setSelectedUserContactFilter(option.value)}
+                      className={selectedUserContactFilter === option.value ? 'bg-accent' : ''}
+                    >
+                      <IconComponent className="h-4 w-4 mr-2" />
+                      {option.label}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Columns visibility */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Eye className="h-4 w-4" />
+                Colonnes
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => setVisibleColumns(getDefaultColumns())}>
+                Colonnes par défaut
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {columnOptions.map((column) => (
+                <DropdownMenuItem
+                  key={column}
+                  onClick={() => {
+                    if (visibleColumns.includes(column)) {
+                      setVisibleColumns(visibleColumns.filter(col => col !== column));
+                    } else {
+                      setVisibleColumns([...visibleColumns, column]);
+                    }
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  {visibleColumns.includes(column) ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  )}
+                  {columnLabels[column]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* View mode toggle */}
+          <div className="flex border rounded-md">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="rounded-r-none border-r"
+            >
+              <Table className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className="rounded-l-none"
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Clear all filters */}
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="gap-2">
+              <X className="h-4 w-4" />
+              Effacer les filtres
+            </Button>
+          )}
+        </div>
+
+        {/* Active filters display */}
+        {(selectedCategories.length > 0 || searchQuery) && (
+          <div className="flex flex-wrap gap-2">
+            {selectedCategories.map((category) => (
+              <Badge key={category} variant="secondary" className="gap-1">
+                {category}
+                <X 
+                  className="h-3 w-3 cursor-pointer" 
+                  onClick={() => setSelectedCategories(selectedCategories.filter(c => c !== category))}
+                />
+              </Badge>
+            ))}
+            {searchQuery && (
+              <Badge variant="secondary" className="gap-1">
+                Recherche: {searchQuery}
+                <X 
+                  className="h-3 w-3 cursor-pointer" 
+                  onClick={() => setSearchQuery('')}
+                />
+              </Badge>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default LeadsFilters;

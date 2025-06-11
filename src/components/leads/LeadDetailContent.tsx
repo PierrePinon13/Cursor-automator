@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, MapPin, User, ExternalLink, Building, Phone, Crown, Send, AlertTriangle, Linkedin } from 'lucide-react';
+import { Calendar, MapPin, User, ExternalLink, Building, Phone, Crown, Send, AlertTriangle, Linkedin, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,7 @@ import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import CompanyHoverCard from './CompanyHoverCard';
 import FeedbackDialog from './FeedbackDialog';
+import AppointmentBookingDialog from './AppointmentBookingDialog';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -40,6 +41,7 @@ const LeadDetailContent = ({
   onContactUpdate
 }: LeadDetailContentProps) => {
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
@@ -110,11 +112,18 @@ const LeadDetailContent = ({
     onActionCompleted();
   };
 
+  const handleAppointmentBooked = () => {
+    setShowAppointmentDialog(false);
+    onActionCompleted();
+  };
+
   const companyName = lead.company_name || lead.unipile_company;
   const companyId = lead.company_id;
   const isMessageTooLong = customMessage.length > 300;
   const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
   const charactersRemaining = 300 - customMessage.length;
+  const hasBookedAppointment = !!lead.has_booked_appointment;
+  const hasPositiveResponse = !!lead.positive_response_at;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -132,6 +141,23 @@ const LeadDetailContent = ({
                   </Badge>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert RDV programmé */}
+      {hasBookedAppointment && (
+        <div className="bg-green-100 border border-green-300 p-3 mx-6 mt-4 rounded">
+          <div className="flex items-start gap-2 text-green-800">
+            <CheckCircle className="h-4 w-4 mt-0.5" />
+            <div>
+              <span className="font-medium">Rendez-vous programmé !</span>
+              {lead.appointment_booked_at && (
+                <p className="text-sm mt-1">
+                  Programmé le {new Date(lead.appointment_booked_at).toLocaleDateString('fr-FR')}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -310,6 +336,20 @@ const LeadDetailContent = ({
               </Button>
             </div>
 
+            {/* Bouton discret - RDV programmé */}
+            {!hasBookedAppointment && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                <Button
+                  onClick={() => setShowAppointmentDialog(true)}
+                  variant="outline"
+                  className="w-full h-10 text-emerald-700 border-emerald-300 hover:bg-emerald-100 text-sm"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Marquer RDV programmé
+                </Button>
+              </div>
+            )}
+
             {/* Section Signalement */}
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex-1">
               <div className="flex items-center gap-2 mb-4">
@@ -320,7 +360,6 @@ const LeadDetailContent = ({
               </div>
               
               <div className="space-y-3">
-                {/* Nouveau bouton Mauvais ciblage */}
                 <Button
                   onClick={handleMauvaisCiblageClick}
                   variant="outline"
@@ -344,12 +383,19 @@ const LeadDetailContent = ({
         </div>
       </div>
 
-      {/* Dialogue de feedback */}
+      {/* Dialogues */}
       <FeedbackDialog
         open={showFeedbackDialog}
         onOpenChange={setShowFeedbackDialog}
         lead={lead}
         onFeedbackSubmitted={handleFeedbackSubmitted}
+      />
+
+      <AppointmentBookingDialog
+        open={showAppointmentDialog}
+        onOpenChange={setShowAppointmentDialog}
+        lead={lead}
+        onAppointmentBooked={handleAppointmentBooked}
       />
 
       {/* Debug info */}
