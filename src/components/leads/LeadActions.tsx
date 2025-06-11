@@ -83,6 +83,7 @@ const LeadActions = ({
       return;
     }
     if (actionName === 'mistargeted') {
+      console.log('📝 Opening feedback dialog for mistargeted post');
       setShowFeedbackDialog(true);
       return;
     }
