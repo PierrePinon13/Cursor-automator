@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import CompanyHoverCard from './CompanyHoverCard';
+import FeedbackDialog from './FeedbackDialog';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -39,6 +40,7 @@ const LeadDetailContent = ({
   onPhoneRetrieved,
   onContactUpdate
 }: LeadDetailContentProps) => {
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
@@ -95,6 +97,18 @@ const LeadDetailContent = ({
         variant: "destructive",
       });
     }
+  };
+
+  const handleMauvaisCiblageClick = () => {
+    console.log('🎯 Mauvais ciblage button clicked for lead:', lead.id);
+    setShowFeedbackDialog(true);
+    console.log('🎯 showFeedbackDialog set to true');
+  };
+
+  const handleFeedbackSubmitted = () => {
+    console.log('🎯 Feedback submitted for lead:', lead.id);
+    setShowFeedbackDialog(false);
+    onActionCompleted();
   };
 
   const companyName = lead.company_name || lead.unipile_company;
@@ -316,6 +330,16 @@ const LeadDetailContent = ({
                   Publication mal ciblée
                 </Button>
                 
+                {/* Nouveau bouton Mauvais ciblage */}
+                <Button
+                  onClick={handleMauvaisCiblageClick}
+                  variant="outline"
+                  className="w-full h-10 justify-start bg-white hover:bg-red-50 border-red-200"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2 text-red-600" />
+                  Mauvais ciblage
+                </Button>
+                
                 <Button
                   onClick={() => onAction('hr_provider')}
                   variant="outline"
@@ -328,6 +352,19 @@ const LeadDetailContent = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Dialogue de feedback */}
+      <FeedbackDialog
+        open={showFeedbackDialog}
+        onOpenChange={setShowFeedbackDialog}
+        lead={lead}
+        onFeedbackSubmitted={handleFeedbackSubmitted}
+      />
+
+      {/* Debug info */}
+      <div className="text-xs text-gray-500 fixed bottom-4 right-4 bg-white p-2 rounded shadow border">
+        🎯 Debug: showFeedbackDialog = {showFeedbackDialog.toString()}
       </div>
     </div>
   );
