@@ -43,8 +43,8 @@ export const useLeads = () => {
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
-  const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
+  const [selectedContactFilter, setSelectedContactFilter] = useState<string>('exclude_2weeks');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
 
@@ -88,6 +88,103 @@ export const useLeads = () => {
     }
   };
 
+  // Fonction pour appliquer le filtre de date
+  const applyDateFilter = (leads: Lead[], dateFilter: string): Lead[] => {
+    if (dateFilter === 'all') return leads;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return leads.filter(lead => {
+      const postDate = lead.latest_post_date || lead.posted_at_iso;
+      if (!postDate) {
+        console.log('🚫 Lead without date:', lead.id, lead.author_name);
+        return false;
+      }
+      
+      const leadDate = new Date(postDate);
+      const timeDiff = now.getTime() - leadDate.getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+
+      switch (dateFilter) {
+        case '24h':
+          const result = hoursDiff <= 24;
+          if (!result) {
+            console.log(`⏰ Lead filtered out (24h): ${lead.author_name}, posted ${Math.round(hoursDiff)}h ago`);
+          }
+          return result;
+        case '48h':
+          return hoursDiff <= 48;
+        case '7days':
+          return daysDiff <= 7;
+        default:
+          return true;
+      }
+    });
+  };
+
+  // Fonction pour appliquer le filtre de contact
+  const applyContactFilter = (leads: Lead[], contactFilter: string): Lead[] => {
+    if (contactFilter === 'exclude_none') return leads;
+
+    const now = new Date();
+    
+    return leads.filter(lead => {
+      // Vérifier tous les types de contact
+      const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
+      const hasPhoneContact = !!lead.phone_contact_status;
+      const hasLastContact = !!lead.last_contact_at;
+      
+      // Si aucun contact, le lead passe tous les filtres
+      if (!hasLinkedInMessage && !hasPhoneContact && !hasLastContact) {
+        return true;
+      }
+
+      // Trouver la date de contact la plus récente
+      let lastContactDate: Date | null = null;
+      
+      if (lead.linkedin_message_sent_at) {
+        const linkedInDate = new Date(lead.linkedin_message_sent_at);
+        if (!lastContactDate || linkedInDate > lastContactDate) {
+          lastContactDate = linkedInDate;
+        }
+      }
+      
+      if (lead.last_contact_at) {
+        const contactDate = new Date(lead.last_contact_at);
+        if (!lastContactDate || contactDate > lastContactDate) {
+          lastContactDate = contactDate;
+        }
+      }
+
+      if (!lastContactDate) return true;
+
+      const daysSinceContact = (now.getTime() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      switch (contactFilter) {
+        case 'exclude_1week':
+          const result1w = daysSinceContact > 7;
+          if (!result1w) {
+            console.log(`📞 Lead filtered out (1 week): ${lead.author_name}, contacted ${Math.round(daysSinceContact)} days ago`);
+          }
+          return result1w;
+        case 'exclude_2weeks':
+          return daysSinceContact > 14;
+        case 'exclude_1month':
+          return daysSinceContact > 30;
+        case 'exclude_all_contacted':
+          const resultAll = !hasLinkedInMessage && !hasPhoneContact && !hasLastContact;
+          if (!resultAll) {
+            console.log(`📞 Lead filtered out (all contacted): ${lead.author_name}, has contact`);
+          }
+          return resultAll;
+        default:
+          return true;
+      }
+    });
+  };
+
   // Fonction pour appliquer tous les filtres
   const applyAllFilters = () => {
     console.log('🎯 Starting filter application...');
@@ -97,6 +194,7 @@ export const useLeads = () => {
     console.log('📞 Contact filter:', selectedContactFilter);
 
     let result = [...allLeads];
+    const initialCount = result.length;
 
     // Filtre par catégorie
     if (selectedCategories.length > 0) {
@@ -109,54 +207,16 @@ export const useLeads = () => {
     }
 
     // Filtre par date
-    if (selectedDateFilter !== 'all') {
-      const beforeDate = result.length;
-      const currentTime = new Date().getTime();
-      
-      result = result.filter(lead => {
-        const postDate = lead.latest_post_date || lead.posted_at_iso;
-        if (!postDate) return false;
-        
-        const leadTime = new Date(postDate).getTime();
-        const timeDiff = currentTime - leadTime;
-        const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-
-        switch (selectedDateFilter) {
-          case 'today':
-            return daysDiff <= 1;
-          case 'week':
-            return daysDiff <= 7;
-          case 'month':
-            return daysDiff <= 30;
-          default:
-            return true;
-        }
-      });
-      console.log(`📅 After date filter (${selectedDateFilter}): ${beforeDate} -> ${result.length} leads`);
-    }
+    const beforeDate = result.length;
+    result = applyDateFilter(result, selectedDateFilter);
+    console.log(`📅 After date filter (${selectedDateFilter}): ${beforeDate} -> ${result.length} leads`);
 
     // Filtre par statut de contact
-    if (selectedContactFilter !== 'all') {
-      const beforeContact = result.length;
-      
-      result = result.filter(lead => {
-        const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
-        const hasPhoneContact = !!lead.phone_contact_status;
-        const hasAnyContact = hasLinkedInMessage || hasPhoneContact || !!lead.last_contact_at;
+    const beforeContact = result.length;
+    result = applyContactFilter(result, selectedContactFilter);
+    console.log(`📞 After contact filter (${selectedContactFilter}): ${beforeContact} -> ${result.length} leads`);
 
-        switch (selectedContactFilter) {
-          case 'contacted':
-            return hasAnyContact;
-          case 'not_contacted':
-            return !hasAnyContact;
-          default:
-            return true;
-        }
-      });
-      console.log(`📞 After contact filter (${selectedContactFilter}): ${beforeContact} -> ${result.length} leads`);
-    }
-
-    console.log(`✅ Final filtered result: ${result.length} leads`);
+    console.log(`✅ Final filtered result: ${result.length} leads (from ${initialCount} total)`);
     setFilteredLeads(result);
   };
 
