@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,8 +51,14 @@ const AppointmentsSection = () => {
         throw error;
       }
 
-      // Filter out appointments where lead data failed to load
-      const validAppointments = (data || []).filter(apt => apt.lead && typeof apt.lead === 'object' && !('error' in apt.lead));
+      // Filter out appointments where lead data is null or failed to load
+      const validAppointments = (data || []).filter(apt => 
+        apt.lead && 
+        typeof apt.lead === 'object' && 
+        !('error' in apt.lead) &&
+        'author_name' in apt.lead
+      );
+      
       setAppointments(validAppointments as Appointment[]);
     } catch (error) {
       console.error('Error:', error);

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useUserRole } from '@/hooks/useUserRole';
 import StatsCards from '@/components/dashboard/StatsCards';
@@ -21,6 +21,13 @@ const Dashboard = () => {
   
   const { data: dashboardData, loading } = useDashboardStats();
 
+  // Get default time range
+  const defaultTimeRange = {
+    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    end: new Date(),
+    label: '7 derniers jours'
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -32,6 +39,16 @@ const Dashboard = () => {
     );
   }
 
+  // Extract stats from dashboardData
+  const stats = dashboardData?.stats || {
+    linkedin_messages: 0,
+    positive_calls: 0,
+    negative_calls: 0,
+    success_rate: 0
+  };
+
+  const userComparison = dashboardData?.userComparison || [];
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -42,11 +59,7 @@ const Dashboard = () => {
         
         <div className="flex items-center gap-4">
           <TimeRangeSelector 
-            timeRange={{
-              start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              end: new Date(),
-              label: '7 derniers jours'
-            }}
+            timeRange={defaultTimeRange}
             onTimeRangeChange={() => {}}
           />
           <ViewSelector 
@@ -62,10 +75,10 @@ const Dashboard = () => {
       <div className="space-y-6">
         {/* Stats Cards */}
         <StatsCards 
-          linkedinMessages={dashboardData?.totalLinkedinMessages || 0}
-          positiveCalls={dashboardData?.totalPositiveCalls || 0}
-          negativeCalls={dashboardData?.totalNegativeCalls || 0}
-          successRate={dashboardData?.successRate || 0}
+          linkedinMessages={stats.linkedin_messages}
+          positiveCalls={stats.positive_calls}
+          negativeCalls={stats.negative_calls}
+          successRate={stats.success_rate}
         />
 
         {viewMode === 'overview' && (
@@ -77,7 +90,7 @@ const Dashboard = () => {
             <DashboardCharts 
               viewType="global"
               timeFilter="7d"
-              stats={dashboardData?.userStats || []}
+              stats={userComparison}
             />
           </div>
         )}
@@ -85,7 +98,7 @@ const Dashboard = () => {
         {viewMode === 'detailed' && (
           <div className="space-y-6">
             {/* User Stats Table */}
-            <UserStatsTable stats={dashboardData?.userStats || []} />
+            <UserStatsTable stats={userComparison} />
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Rendez-vous */}
@@ -95,7 +108,7 @@ const Dashboard = () => {
               <DashboardCharts 
                 viewType="global"
                 timeFilter="7d"
-                stats={dashboardData?.userStats || []}
+                stats={userComparison}
               />
             </div>
           </div>
