@@ -7,26 +7,16 @@ import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
 import DiagnosticsPanel from '@/components/dashboard/DiagnosticsPanel';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
-import AppointmentsSection from '@/components/dashboard/AppointmentsSection';
-import { TimeRangeSelector } from '@/components/dashboard/TimeRangeSelector';
-import { ViewSelector } from '@/components/dashboard/ViewSelector';
+import AppointmentsCard from '@/components/appointments/AppointmentsCard';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
 const Dashboard = () => {
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
   const [viewMode, setViewMode] = useState<'overview' | 'detailed' | 'processing'>('overview');
   const { toggleSidebar } = useSidebar();
   const { isAdmin } = useUserRole();
   
   const { data: dashboardData, loading } = useDashboardStats();
-
-  // Get default time range
-  const defaultTimeRange = {
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    end: new Date(),
-    label: '7 derniers jours'
-  };
 
   if (loading) {
     return (
@@ -39,7 +29,7 @@ const Dashboard = () => {
     );
   }
 
-  // Extract stats from dashboardData
+  // Extraire les stats de manière plus robuste
   const stats = dashboardData?.stats || {
     linkedin_messages: 0,
     positive_calls: 0,
@@ -58,17 +48,15 @@ const Dashboard = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          <TimeRangeSelector 
-            timeRange={defaultTimeRange}
-            onTimeRangeChange={() => {}}
-          />
-          <ViewSelector 
-            viewType="global"
-            selectedUserIds={[]}
-            users={[]}
-            onViewTypeChange={() => {}}
-            onSelectedUsersChange={() => {}}
-          />
+          <select 
+            value={viewMode} 
+            onChange={(e) => setViewMode(e.target.value as typeof viewMode)}
+            className="px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="overview">Vue d'ensemble</option>
+            <option value="detailed">Vue détaillée</option>
+            {isAdmin && <option value="processing">Traitement</option>}
+          </select>
         </div>
       </div>
 
@@ -84,7 +72,7 @@ const Dashboard = () => {
         {viewMode === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Rendez-vous */}
-            <AppointmentsSection />
+            <AppointmentsCard />
             
             {/* Charts */}
             <DashboardCharts 
@@ -102,7 +90,7 @@ const Dashboard = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Rendez-vous */}
-              <AppointmentsSection />
+              <AppointmentsCard />
               
               {/* Charts */}
               <DashboardCharts 
