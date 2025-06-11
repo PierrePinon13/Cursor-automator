@@ -8,8 +8,8 @@ import ProcessingMetrics from '@/components/dashboard/ProcessingMetrics';
 import DiagnosticsPanel from '@/components/dashboard/DiagnosticsPanel';
 import UserStatsTable from '@/components/dashboard/UserStatsTable';
 import AppointmentsSection from '@/components/dashboard/AppointmentsSection';
-import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
-import ViewSelector from '@/components/dashboard/ViewSelector';
+import { TimeRangeSelector } from '@/components/dashboard/TimeRangeSelector';
+import { ViewSelector } from '@/components/dashboard/ViewSelector';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
@@ -19,7 +19,7 @@ const Dashboard = () => {
   const { toggleSidebar } = useSidebar();
   const { isAdmin } = useUserRole();
   
-  const { stats, loading, error } = useDashboardStats(timeRange);
+  const { data: dashboardData, loading } = useDashboardStats();
 
   if (loading) {
     return (
@@ -27,17 +27,6 @@ const Dashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Chargement du tableau de bord...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center text-red-600">
-          <p>Erreur lors du chargement du dashboard</p>
-          <p className="text-sm mt-2">{error}</p>
         </div>
       </div>
     );
@@ -52,14 +41,32 @@ const Dashboard = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          <TimeRangeSelector timeRange={timeRange} onTimeRangeChange={setTimeRange} />
-          <ViewSelector viewMode={viewMode} onViewModeChange={setViewMode} />
+          <TimeRangeSelector 
+            timeRange={{
+              start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+              end: new Date(),
+              label: '7 derniers jours'
+            }}
+            onTimeRangeChange={() => {}}
+          />
+          <ViewSelector 
+            viewType="global"
+            selectedUserIds={[]}
+            users={[]}
+            onViewTypeChange={() => {}}
+            onSelectedUsersChange={() => {}}
+          />
         </div>
       </div>
 
       <div className="space-y-6">
         {/* Stats Cards */}
-        <StatsCards stats={stats} />
+        <StatsCards 
+          linkedinMessages={dashboardData?.totalLinkedinMessages || 0}
+          positiveCalls={dashboardData?.totalPositiveCalls || 0}
+          negativeCalls={dashboardData?.totalNegativeCalls || 0}
+          successRate={dashboardData?.successRate || 0}
+        />
 
         {viewMode === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -67,21 +74,29 @@ const Dashboard = () => {
             <AppointmentsSection />
             
             {/* Charts */}
-            <DashboardCharts stats={stats} timeRange={timeRange} />
+            <DashboardCharts 
+              viewType="global"
+              timeFilter="7d"
+              stats={dashboardData?.userStats || []}
+            />
           </div>
         )}
 
         {viewMode === 'detailed' && (
           <div className="space-y-6">
             {/* User Stats Table */}
-            <UserStatsTable timeRange={timeRange} />
+            <UserStatsTable stats={dashboardData?.userStats || []} />
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Rendez-vous */}
               <AppointmentsSection />
               
               {/* Charts */}
-              <DashboardCharts stats={stats} timeRange={timeRange} />
+              <DashboardCharts 
+                viewType="global"
+                timeFilter="7d"
+                stats={dashboardData?.userStats || []}
+              />
             </div>
           </div>
         )}
@@ -89,7 +104,7 @@ const Dashboard = () => {
         {viewMode === 'processing' && isAdmin && (
           <div className="space-y-6">
             {/* Processing Metrics */}
-            <ProcessingMetrics />
+            <ProcessingMetrics timeFilter="24h" />
             
             {/* Diagnostics Panel */}
             <DiagnosticsPanel />

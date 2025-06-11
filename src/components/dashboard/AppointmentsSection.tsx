@@ -22,7 +22,7 @@ interface Appointment {
     company_name?: string;
     unipile_company?: string;
     phone_number?: string;
-  };
+  } | null;
 }
 
 const AppointmentsSection = () => {
@@ -52,7 +52,9 @@ const AppointmentsSection = () => {
         throw error;
       }
 
-      setAppointments(data || []);
+      // Filter out appointments where lead data failed to load
+      const validAppointments = (data || []).filter(apt => apt.lead && typeof apt.lead === 'object' && !('error' in apt.lead));
+      setAppointments(validAppointments as Appointment[]);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -157,7 +159,7 @@ const AppointmentsSection = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <User className="h-4 w-4 text-gray-600" />
-                        <span className="font-medium">{appointment.lead.author_name}</span>
+                        <span className="font-medium">{appointment.lead?.author_name || 'Nom inconnu'}</span>
                         {getStatusBadge(appointment.status)}
                       </div>
                       
@@ -167,14 +169,14 @@ const AppointmentsSection = () => {
                           {format(new Date(appointment.appointment_date), 'PPpp', { locale: fr })}
                         </div>
                         
-                        {(appointment.lead.company_name || appointment.lead.unipile_company) && (
+                        {(appointment.lead?.company_name || appointment.lead?.unipile_company) && (
                           <div className="flex items-center gap-2">
                             <span className="text-xs">Entreprise:</span>
-                            <span>{appointment.lead.company_name || appointment.lead.unipile_company}</span>
+                            <span>{appointment.lead?.company_name || appointment.lead?.unipile_company}</span>
                           </div>
                         )}
                         
-                        {appointment.lead.phone_number && (
+                        {appointment.lead?.phone_number && (
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4" />
                             <span>{appointment.lead.phone_number}</span>
@@ -230,7 +232,7 @@ const AppointmentsSection = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <User className="h-4 w-4 text-gray-600" />
-                        <span className="font-medium">{appointment.lead.author_name}</span>
+                        <span className="font-medium">{appointment.lead?.author_name || 'Nom inconnu'}</span>
                         {getStatusBadge(appointment.status)}
                       </div>
                       
@@ -240,10 +242,10 @@ const AppointmentsSection = () => {
                           {format(new Date(appointment.appointment_date), 'PPpp', { locale: fr })}
                         </div>
                         
-                        {(appointment.lead.company_name || appointment.lead.unipile_company) && (
+                        {(appointment.lead?.company_name || appointment.lead?.unipile_company) && (
                           <div className="flex items-center gap-2">
                             <span className="text-xs">Entreprise:</span>
-                            <span>{appointment.lead.company_name || appointment.lead.unipile_company}</span>
+                            <span>{appointment.lead?.company_name || appointment.lead?.unipile_company}</span>
                           </div>
                         )}
                         
