@@ -12,9 +12,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { ExternalLink, Linkedin } from 'lucide-react';
 
 interface FeedbackDialogProps {
   open: boolean;
@@ -228,7 +230,7 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <AlertDialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <AlertDialogHeader>
           <AlertDialogTitle>Signaler une publication mal ciblée</AlertDialogTitle>
           <AlertDialogDescription className="text-sm space-y-2">
@@ -247,47 +249,91 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-4">
-          {/* Catégorie 1 */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
-              Le lead ne cherche pas à recruter
-            </label>
-            <Textarea
-              value={category1}
-              onChange={(e) => setCategory1(e.target.value)}
-              placeholder="Expliquez pourquoi ce lead ne semble pas recruter..."
-              rows={3}
-              className="resize-none"
-            />
+        {/* Layout 2 colonnes */}
+        <div className="flex gap-6">
+          {/* Colonne gauche - Publication LinkedIn */}
+          <div className="w-1/2">
+            <Card className="border-blue-200 h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-3 text-blue-800">
+                  <div className="p-2 bg-blue-500 rounded-lg">
+                    <Linkedin className="h-5 w-5 text-white" />
+                  </div>
+                  <span>Publication LinkedIn</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Contenu de la publication */}
+                {lead.text ? (
+                  <div className="text-sm text-gray-700 leading-relaxed max-h-80 overflow-y-auto bg-gray-50 p-4 rounded-lg border">
+                    <div className="whitespace-pre-wrap">{lead.text}</div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 text-center py-8 bg-gray-50 rounded-lg border">
+                    Aucun texte disponible
+                  </div>
+                )}
+
+                {/* Lien vers la publication */}
+                {lead.url && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-blue-200 hover:bg-blue-50" 
+                    onClick={() => window.open(lead.url, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Voir la publication sur LinkedIn
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Catégorie 2 */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
-              La localisation des postes ne convient pas
-            </label>
-            <Textarea
-              value={category2}
-              onChange={(e) => setCategory2(e.target.value)}
-              placeholder="Précisez le problème de localisation..."
-              rows={3}
-              className="resize-none"
-            />
-          </div>
+          {/* Colonne droite - Formulaire de feedback */}
+          <div className="w-1/2">
+            <div className="space-y-4">
+              {/* Catégorie 1 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">
+                  Le lead ne cherche pas à recruter
+                </label>
+                <Textarea
+                  value={category1}
+                  onChange={(e) => setCategory1(e.target.value)}
+                  placeholder="Expliquez pourquoi ce lead ne semble pas recruter..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
 
-          {/* Catégorie 3 */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
-              Les postes recherchés ne conviennent pas
-            </label>
-            <Textarea
-              value={category3}
-              onChange={(e) => setCategory3(e.target.value)}
-              placeholder="Expliquez pourquoi les postes ne correspondent pas..."
-              rows={3}
-              className="resize-none"
-            />
+              {/* Catégorie 2 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">
+                  La localisation des postes ne convient pas
+                </label>
+                <Textarea
+                  value={category2}
+                  onChange={(e) => setCategory2(e.target.value)}
+                  placeholder="Précisez le problème de localisation..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* Catégorie 3 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">
+                  Les postes recherchés ne conviennent pas
+                </label>
+                <Textarea
+                  value={category3}
+                  onChange={(e) => setCategory3(e.target.value)}
+                  placeholder="Expliquez pourquoi les postes ne correspondent pas..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
