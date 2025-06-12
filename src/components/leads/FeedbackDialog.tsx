@@ -71,7 +71,7 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
     setIsSubmitting(true);
 
     try {
-      // Préparer les données pour le webhook N8N avec les données OpenAI
+      // Préparer les données pour le webhook N8N avec les données OpenAI regroupées par step
       const feedbackData = {
         lead_id: lead.id,
         author_name: lead.author_name,
@@ -87,27 +87,25 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
           location_mismatch: category2.trim() || null,
           position_mismatch: category3.trim() || null,
         },
-        // Données des 3 steps OpenAI
-        openai_analysis: {
-          step1: {
-            recrute_poste: lead.openai_step1_recrute_poste,
-            postes: lead.openai_step1_postes,
-          },
-          step2: {
-            reponse: lead.openai_step2_reponse,
-            langue: lead.openai_step2_langue,
-            localisation_detectee: lead.openai_step2_localisation,
-            raison: lead.openai_step2_raison,
-          },
-          step3: {
-            categorie: lead.openai_step3_categorie,
-            postes_selectionnes: lead.openai_step3_postes_selectionnes,
-            justification: lead.openai_step3_justification,
-          }
+        // Données OpenAI regroupées par step
+        openai_step1: {
+          recrute_poste: lead.openai_step1_recrute_poste,
+          postes: lead.openai_step1_postes,
+        },
+        openai_step2: {
+          reponse: lead.openai_step2_reponse,
+          langue: lead.openai_step2_langue,
+          localisation_detectee: lead.openai_step2_localisation,
+          raison: lead.openai_step2_raison,
+        },
+        openai_step3: {
+          categorie: lead.openai_step3_categorie,
+          postes_selectionnes: lead.openai_step3_postes_selectionnes,
+          justification: lead.openai_step3_justification,
         }
       };
 
-      console.log('🔔 Sending feedback to N8N webhook with OpenAI data:', feedbackData);
+      console.log('🔔 Sending feedback to N8N webhook with grouped OpenAI data:', feedbackData);
 
       // Envoyer au webhook N8N
       const webhookResponse = await fetch('https://n8n.getpro.co/webhook/8c1fc6fc-7581-4579-9ca0-eae618a90004', {
