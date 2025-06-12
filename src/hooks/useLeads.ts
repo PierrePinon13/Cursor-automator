@@ -1,7 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
-import { useAuth } from './useAuth';
 
 export interface Lead {
   id: string;
@@ -36,13 +36,6 @@ export interface Lead {
   client_history_alert?: string;
   matched_hr_provider_id?: string;
   matched_hr_provider_name?: string;
-  contacted_by_user_id?: string;
-  contacted_by_user_name?: string;
-  has_booked_appointment?: boolean;
-  appointment_booked_at?: string;
-  positive_response_at?: string;
-  positive_response_by_user_id?: string;
-  positive_response_notes?: string;
 }
 
 export const useLeads = () => {
@@ -52,10 +45,8 @@ export const useLeads = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
   const [selectedContactFilter, setSelectedContactFilter] = useState<string>('exclude_2weeks');
-  const [selectedUserContactFilter, setSelectedUserContactFilter] = useState<string>('all'); // all, only_me, exclude_me
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
-  const { user } = useAuth();
 
   // Fonction pour récupérer les leads depuis la base de données
   const fetchLeads = async () => {
@@ -102,21 +93,7 @@ export const useLeads = () => {
     if (dateFilter === 'all') return leads;
 
     const now = new Date();
-    const cutoffDate = new Date();
-    
-    switch (dateFilter) {
-      case '24h':
-        cutoffDate.setHours(now.getHours() - 24);
-        break;
-      case '48h':
-        cutoffDate.setHours(now.getHours() - 48);
-        break;
-      case '7days':
-        cutoffDate.setDate(now.getDate() - 7);
-        break;
-      default:
-        return leads;
-    }
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     return leads.filter(lead => {
       const postDate = lead.latest_post_date || lead.posted_at_iso;
@@ -126,14 +103,24 @@ export const useLeads = () => {
       }
       
       const leadDate = new Date(postDate);
-      const passes = leadDate >= cutoffDate;
-      
-      if (!passes) {
-        const hoursDiff = (now.getTime() - leadDate.getTime()) / (1000 * 60 * 60);
-        console.log(`⏰ Lead filtered out (${dateFilter}): ${lead.author_name}, posted ${Math.round(hoursDiff)}h ago`);
+      const timeDiff = now.getTime() - leadDate.getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+
+      switch (dateFilter) {
+        case '24h':
+          const result = hoursDiff <= 24;
+          if (!result) {
+            console.log(`⏰ Lead filtered out (24h): ${lead.author_name}, posted ${Math.round(hoursDiff)}h ago`);
+          }
+          return result;
+        case '48h':
+          return hoursDiff <= 48;
+        case '7days':
+          return daysDiff <= 7;
+        default:
+          return true;
       }
-      
-      return passes;
     });
   };
 
@@ -144,14 +131,17 @@ export const useLeads = () => {
     const now = new Date();
     
     return leads.filter(lead => {
+      // Vérifier tous les types de contact
       const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
       const hasPhoneContact = !!lead.phone_contact_status;
       const hasLastContact = !!lead.last_contact_at;
       
+      // Si aucun contact, le lead passe tous les filtres
       if (!hasLinkedInMessage && !hasPhoneContact && !hasLastContact) {
         return true;
       }
 
+      // Trouver la date de contact la plus récente
       let lastContactDate: Date | null = null;
       
       if (lead.linkedin_message_sent_at) {
@@ -195,24 +185,6 @@ export const useLeads = () => {
     });
   };
 
-  // Fonction pour appliquer le filtre de contact
-  const applyUserContactFilter = (leads: Lead[], userContactFilter: string): Lead[] => {
-    if (userContactFilter === 'all' || !user) return leads;
-
-    return leads.filter(lead => {
-      const contactedByCurrentUser = lead.contacted_by_user_id === user.id;
-      
-      switch (userContactFilter) {
-        case 'only_me':
-          return contactedByCurrentUser;
-        case 'exclude_me':
-          return !contactedByCurrentUser;
-        default:
-          return true;
-      }
-    });
-  };
-
   // Fonction pour appliquer tous les filtres
   const applyAllFilters = () => {
     console.log('🎯 Starting filter application...');
@@ -220,7 +192,6 @@ export const useLeads = () => {
     console.log('🏷️ Selected categories:', selectedCategories);
     console.log('📅 Date filter:', selectedDateFilter);
     console.log('📞 Contact filter:', selectedContactFilter);
-    console.log('👤 User contact filter:', selectedUserContactFilter);
 
     let result = [...allLeads];
     const initialCount = result.length;
@@ -245,10 +216,6 @@ export const useLeads = () => {
     result = applyContactFilter(result, selectedContactFilter);
     console.log(`📞 After contact filter (${selectedContactFilter}): ${beforeContact} -> ${result.length} leads`);
 
-    const beforeUserContact = result.length;
-    result = applyUserContactFilter(result, selectedUserContactFilter);
-    console.log(`👤 After user contact filter (${selectedUserContactFilter}): ${beforeUserContact} -> ${result.length} leads`);
-
     console.log(`✅ Final filtered result: ${result.length} leads (from ${initialCount} total)`);
     setFilteredLeads(result);
   };
@@ -270,7 +237,7 @@ export const useLeads = () => {
       console.log('🔄 Applying filters due to data or filter change');
       applyAllFilters();
     }
-  }, [allLeads, selectedCategories, selectedDateFilter, selectedContactFilter, selectedUserContactFilter, user]);
+  }, [allLeads, selectedCategories, selectedDateFilter, selectedContactFilter]);
 
   // Débogage : log des changements de filtres
   useEffect(() => {
@@ -278,11 +245,10 @@ export const useLeads = () => {
       categories: selectedCategories,
       date: selectedDateFilter,
       contact: selectedContactFilter,
-      userContact: selectedUserContactFilter,
       totalLeads: allLeads.length,
       filteredCount: filteredLeads.length
     });
-  }, [selectedCategories, selectedDateFilter, selectedContactFilter, selectedUserContactFilter, allLeads.length, filteredLeads.length]);
+  }, [selectedCategories, selectedDateFilter, selectedContactFilter, allLeads.length, filteredLeads.length]);
 
   return {
     leads: allLeads,
@@ -294,8 +260,6 @@ export const useLeads = () => {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
-    selectedUserContactFilter,
-    setSelectedUserContactFilter,
     availableCategories,
     refreshLeads
   };

@@ -1,293 +1,232 @@
-import React, { useState, useEffect } from 'react';
+
+import MultiSelectFilter from './MultiSelectFilter';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from "@/components/ui/switch"
-import { Separator } from "@/components/ui/separator"
-import { Calendar } from "@/components/ui/calendar"
-import { CalendarIcon } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Button } from "@/components/ui/button"
-import { format } from "date-fns"
-import { fr } from 'date-fns/locale';
-import { cn } from "@/lib/utils"
-
-interface CategoryFilterProps {
-  availableCategories: string[];
-  selectedCategories: string[];
-  onSelectedCategoriesChange: (categories: string[]) => void;
-}
-
-interface DateFilterProps {
-  selectedDateFilter: string;
-  onSelectedDateFilterChange: (dateFilter: string) => void;
-}
-
-interface ContactFilterProps {
-  selectedContactFilter: string;
-  onSelectedContactFilterChange: (contactFilter: string) => void;
-}
-
-interface UserContactFilterProps {
-  selectedUserContactFilter: string;
-  onSelectedUserContactFilterChange: (userContactFilter: string) => void;
-}
-
-interface AssignmentColumnProps {
-  showAssignmentColumn: boolean;
-  onShowAssignmentColumnChange: (showAssignmentColumn: boolean) => void;
-}
-
-interface ViewModeProps {
-  viewMode: 'table' | 'card';
-  onViewModeChange: (viewMode: 'table' | 'card') => void;
-}
-
-interface SearchProps {
-  searchQuery: string;
-  onSearchQueryChange: (searchQuery: string) => void;
-}
+import { Table, Grid3X3, Search } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface LeadsFiltersProps {
-  availableCategories: string[];
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
+  selectedDateFilter: string;
+  setSelectedDateFilter: (filter: string) => void;
+  selectedContactFilter?: string;
+  setSelectedContactFilter?: (filter: string) => void;
+  availableCategories: string[];
   visibleColumns: string[];
   setVisibleColumns: (columns: string[]) => void;
-  selectedDateFilter: string;
-  setSelectedDateFilter: (dateFilter: string) => void;
-  selectedContactFilter: string;
-  setSelectedContactFilter: (contactFilter: string) => void;
-  selectedUserContactFilter: string;
-  setSelectedUserContactFilter: (userContactFilter: string) => void;
-  showContactFilter: boolean;
-  showAssignmentColumn: boolean;
+  showContactFilter?: boolean;
+  showAssignmentColumn?: boolean;
   viewMode: 'table' | 'card';
-  setViewMode: (viewMode: 'table' | 'card') => void;
-  searchQuery: string;
-  setSearchQuery: (searchQuery: string) => void;
-  isAdmin: boolean;
+  setViewMode: (mode: 'table' | 'card') => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
+  isAdmin?: boolean;
 }
 
-const CategoryFilter: React.FC<CategoryFilterProps> = ({ availableCategories, selectedCategories, onSelectedCategoriesChange }) => {
-  const handleCategoryChange = (category: string) => {
-    if (selectedCategories.includes(category)) {
-      onSelectedCategoriesChange(selectedCategories.filter((c) => c !== category));
-    } else {
-      onSelectedCategoriesChange([...selectedCategories, category]);
-    }
-  };
+const dateFilterOptions = [
+  { value: '24h', label: 'Dernières 24h' },
+  { value: '48h', label: 'Dernières 48h' },
+  { value: '7days', label: 'Derniers 7 jours' },
+  { value: 'all', label: 'Tout' },
+];
 
-  return (
-    <div className="space-y-2">
-      <Label>Catégories:</Label>
-      <div className="flex flex-wrap gap-2">
-        {availableCategories.map((category) => (
-          <button
-            key={category}
-            className={`px-3 py-1 rounded-full text-sm font-medium ${selectedCategories.includes(category)
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-200 text-gray-700'
-              } hover:bg-blue-300 transition-colors`}
-            onClick={() => handleCategoryChange(category)}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+const contactFilterOptions = [
+  { value: 'exclude_none', label: 'Inclure tous' },
+  { value: 'exclude_1week', label: 'Exclure contactés (1 semaine)' },
+  { value: 'exclude_2weeks', label: 'Exclure contactés (2 semaines)' },
+  { value: 'exclude_1month', label: 'Exclure contactés (1 mois)' },
+  { value: 'exclude_all_contacted', label: 'Exclure tous contactés' },
+];
+
+const getColumnOptions = (showAssignmentColumn = false) => {
+  const baseColumns = [
+    { value: 'posted_date', label: 'Date de publication' },
+    { value: 'job_title', label: 'Profil recherché' },
+    { value: 'author_name', label: 'Lead' },
+    { value: 'company', label: 'Entreprise' },
+    { value: 'last_contact', label: 'Dernier contact' },
+    { value: 'category', label: 'Catégorie' },
+    { value: 'location', label: 'Localisation' },
+  ];
+
+  if (showAssignmentColumn) {
+    baseColumns.push({ value: 'assignment', label: 'Assignation' });
+  }
+
+  return baseColumns;
 };
 
-const DateFilter: React.FC<DateFilterProps> = ({ selectedDateFilter, onSelectedDateFilterChange }) => {
-  return (
-    <div className="space-y-2">
-      <Label>Date:</Label>
-      <Select value={selectedDateFilter} onValueChange={onSelectedDateFilterChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Sélectionner une période" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Toutes les dates</SelectItem>
-          <SelectItem value="24h">Dernières 24 heures</SelectItem>
-          <SelectItem value="48h">Dernières 48 heures</SelectItem>
-          <SelectItem value="7days">7 derniers jours</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
+// Catégories visibles pour tous les utilisateurs (sans "Autre")
+const allCategories = [
+  'Tech',
+  'Business', 
+  'Product',
+  'Executive Search',
+  'Comptelio',
+  'RH',
+  'Freelance',
+  'Data'
+];
+
+const categoryColors = {
+  'Tech': {
+    active: 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Business': {
+    active: 'bg-green-100 border-green-300 text-green-800 hover:bg-green-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Product': {
+    active: 'bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Executive Search': {
+    active: 'bg-red-100 border-red-300 text-red-800 hover:bg-red-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Comptelio': {
+    active: 'bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'RH': {
+    active: 'bg-pink-100 border-pink-300 text-pink-800 hover:bg-pink-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Freelance': {
+    active: 'bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  },
+  'Data': {
+    active: 'bg-teal-100 border-teal-300 text-teal-800 hover:bg-teal-150',
+    inactive: 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-150'
+  }
 };
 
-const ContactFilter: React.FC<ContactFilterProps> = ({ selectedContactFilter, onSelectedContactFilterChange }) => {
-  return (
-    <div className="space-y-2">
-      <Label>Contact:</Label>
-      <Select value={selectedContactFilter} onValueChange={onSelectedContactFilterChange}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Filtrer par contact" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="exclude_none">Ne pas exclure</SelectItem>
-          <SelectItem value="exclude_1week">Exclure contactés il y a 1 semaine</SelectItem>
-          <SelectItem value="exclude_2weeks">Exclure contactés il y a 2 semaines</SelectItem>
-          <SelectItem value="exclude_1month">Exclure contactés il y a 1 mois</SelectItem>
-          <SelectItem value="exclude_all_contacted">Exclure tous les contactés</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-const UserContactFilter: React.FC<UserContactFilterProps> = ({ selectedUserContactFilter, onSelectedUserContactFilterChange }) => {
-  return (
-    <div className="space-y-2">
-      <Label>Mes Contacts:</Label>
-      <Select value={selectedUserContactFilter} onValueChange={onSelectedUserContactFilterChange}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Filtrer par mes contacts" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tous les contacts</SelectItem>
-          <SelectItem value="only_me">Seulement mes contacts</SelectItem>
-          <SelectItem value="exclude_me">Exclure mes contacts</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-const AssignmentColumn: React.FC<AssignmentColumnProps> = ({ showAssignmentColumn, onShowAssignmentColumnChange }) => {
-  return (
-    <div className="flex items-center space-x-2">
-      <Label htmlFor="showAssignmentColumn">Afficher la colonne d'assignation</Label>
-      <Switch id="showAssignmentColumn" checked={showAssignmentColumn} onCheckedChange={onShowAssignmentColumnChange} />
-    </div>
-  );
-};
-
-const ViewModeSelector: React.FC<ViewModeProps> = ({ viewMode, onViewModeChange }) => {
-  return (
-    <div className="space-y-2">
-      <Label>Mode d'affichage:</Label>
-      <Select value={viewMode} onValueChange={onViewModeChange}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Sélectionner un mode" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="table">Tableau</SelectItem>
-          <SelectItem value="card">Cartes</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-const SearchBar: React.FC<SearchProps> = ({ searchQuery, onSearchQueryChange }) => {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="search">Rechercher:</Label>
-      <Input
-        type="text"
-        id="search"
-        placeholder="Rechercher un lead..."
-        value={searchQuery}
-        onChange={(e) => onSearchQueryChange(e.target.value)}
-      />
-    </div>
-  );
-};
-
-const LeadsFilters: React.FC<LeadsFiltersProps> = ({
-  availableCategories,
-  selectedCategories,
+export default function LeadsFilters({ 
+  selectedCategories, 
   setSelectedCategories,
-  visibleColumns,
-  setVisibleColumns,
   selectedDateFilter,
   setSelectedDateFilter,
   selectedContactFilter,
   setSelectedContactFilter,
-  selectedUserContactFilter,
-  setSelectedUserContactFilter,
-  showContactFilter,
-  showAssignmentColumn,
+  availableCategories,
+  visibleColumns,
+  setVisibleColumns,
+  showContactFilter = true,
+  showAssignmentColumn = false,
   viewMode,
   setViewMode,
-  searchQuery,
+  searchQuery = '',
   setSearchQuery,
-  isAdmin
-}) => {
-  const [open, setOpen] = React.useState(false)
+  isAdmin = false
+}: LeadsFiltersProps) {
+  const { isAdmin: userIsAdmin } = useUserRole();
+  const columnOptions = getColumnOptions(showAssignmentColumn);
 
-  const handleColumnToggle = (column: string) => {
-    if (visibleColumns.includes(column)) {
-      setVisibleColumns(visibleColumns.filter((c) => c !== column));
+  // Use the passed isAdmin prop or fall back to the hook
+  const effectiveIsAdmin = isAdmin || userIsAdmin;
+
+  // Afficher seulement les catégories standard (sans "Autre" pour tous les utilisateurs)
+  const categoriesToShow = allCategories;
+
+  const toggleCategory = (category: string) => {
+    if (selectedCategories.includes(category)) {
+      setSelectedCategories(selectedCategories.filter(cat => cat !== category));
     } else {
-      setVisibleColumns([...visibleColumns, column]);
+      setSelectedCategories([...selectedCategories, category]);
     }
   };
 
-  const allColumns = [
-    { key: 'posted_date', label: 'Date' },
-    { key: 'job_title', label: 'Titre' },
-    { key: 'author_name', label: 'Auteur' },
-    { key: 'company', label: 'Entreprise' },
-    { key: 'last_contact', label: 'Dernier contact' },
-    { key: 'category', label: 'Catégorie' },
-    { key: 'location', label: 'Localisation' },
-  ];
-
-  if (isAdmin) {
-    allColumns.splice(1, 0, { key: 'last_updated', label: 'Mis à jour' });
-  }
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <SearchBar searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
-      <CategoryFilter
-        availableCategories={availableCategories}
-        selectedCategories={selectedCategories}
-        onSelectedCategoriesChange={setSelectedCategories}
-      />
-      <DateFilter selectedDateFilter={selectedDateFilter} onSelectedDateFilterChange={setSelectedDateFilter} />
-      {showContactFilter && (
-        <ContactFilter selectedContactFilter={selectedContactFilter} onSelectedContactFilterChange={setSelectedContactFilter} />
-      )}
-       {showContactFilter && (
-        <UserContactFilter selectedUserContactFilter={selectedUserContactFilter} onSelectedUserContactFilterChange={setSelectedUserContactFilter} />
-      )}
-      <ViewModeSelector viewMode={viewMode} onViewModeChange={setViewMode} />
+    <div className="space-y-3">
+      {/* Top row with filters and view toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <MultiSelectFilter
+            title="Colonnes"
+            options={columnOptions}
+            selectedValues={visibleColumns}
+            onSelectionChange={setVisibleColumns}
+            singleSelect={false}
+          />
 
-      <div>
-        <Label>Colonnes visibles:</Label>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger className='w-full'>
-            <Button variant="outline" role="combobox" aria-expanded={open} className='w-full justify-start'>
-              Sélectionner les colonnes
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0">
-            <div className='p-4'>
-              <Label>Choisir les colonnes à afficher</Label>
+          <MultiSelectFilter
+            title="Période"
+            options={dateFilterOptions}
+            selectedValues={[selectedDateFilter]}
+            onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
+            singleSelect={true}
+          />
+
+          {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
+            <MultiSelectFilter
+              title="Statut de contact"
+              options={contactFilterOptions}
+              selectedValues={[selectedContactFilter]}
+              onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
+              singleSelect={true}
+            />
+          )}
+
+          {/* Barre de recherche */}
+          {setSearchQuery && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-8 w-64 text-sm"
+              />
             </div>
-            <Separator />
-            <div className='p-4 space-y-2'>
-              {allColumns.map((column) => (
-                <div key={column.key} className="flex items-center space-x-2">
-                  <Switch
-                    id={column.key}
-                    checked={visibleColumns.includes(column.key)}
-                    onCheckedChange={() => handleColumnToggle(column.key)}
-                  />
-                  <Label htmlFor={column.key}>{column.label}</Label>
-                </div>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+          )}
+        </div>
+
+        {/* Table/Card View Toggle - Sans encadré et plus compact */}
+        <div className="flex gap-1">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('table')}
+            className="h-7 px-3 text-sm"
+          >
+            <Table className="h-4 w-4 mr-1" />
+            Tableau
+          </Button>
+          <Button
+            variant={viewMode === 'card' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('card')}
+            className="h-7 px-3 text-sm"
+          >
+            <Grid3X3 className="h-4 w-4 mr-1" />
+            Cartes
+          </Button>
+        </div>
+      </div>
+      
+      {/* Categories badges row - Plus compact */}
+      <div className="flex flex-wrap gap-1.5">
+        {categoriesToShow.map((category) => {
+          const isSelected = selectedCategories.includes(category);
+          const colors = categoryColors[category as keyof typeof categoryColors];
+          const colorClass = isSelected ? colors.active : colors.inactive;
+          
+          return (
+            <Badge
+              key={category}
+              variant="outline"
+              className={`text-xs px-2 py-0.5 h-6 cursor-pointer transition-colors border ${colorClass}`}
+              onClick={() => toggleCategory(category)}
+            >
+              {category}
+            </Badge>
+          );
+        })}
       </div>
     </div>
   );
-};
-
-export default LeadsFilters;
+}

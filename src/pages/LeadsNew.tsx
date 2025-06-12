@@ -53,7 +53,6 @@ const LeadsNew = () => {
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [hasLoadedDefaultView, setHasLoadedDefaultView] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUserContactFilter, setSelectedUserContactFilter] = useState<string>('all');
 
   // Filter leads based on search query
   const filteredLeads: LeadNew[] = baseFilteredLeads.filter(lead => {
@@ -173,6 +172,7 @@ const LeadsNew = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header intégré avec les boutons et filtres */}
       <div className="px-6 pt-6 pb-4 bg-gray-50">
         <div className="flex items-center gap-3 mb-6">
           <CustomSidebarTrigger />
@@ -195,8 +195,6 @@ const LeadsNew = () => {
           setSelectedDateFilter={setSelectedDateFilter}
           selectedContactFilter={selectedContactFilter}
           setSelectedContactFilter={setSelectedContactFilter}
-          selectedUserContactFilter={selectedUserContactFilter}
-          setSelectedUserContactFilter={setSelectedUserContactFilter}
           availableCategories={availableCategories}
           showContactFilter={true}
           showAssignmentColumn={false}
@@ -208,6 +206,7 @@ const LeadsNew = () => {
         />
       </div>
       
+      {/* Tableau sans padding ni borders, fusion directe avec la page */}
       <div className="bg-white">
         {viewMode === 'table' ? (
           <DraggableTable 

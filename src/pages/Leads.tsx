@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLeads } from '@/hooks/useLeads';
 import { useSavedViews } from '@/hooks/useSavedViews';
@@ -24,8 +25,6 @@ const Leads = () => {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
-    selectedUserContactFilter,
-    setSelectedUserContactFilter,
     availableCategories,
     refreshLeads
   } = useLeads();
@@ -203,8 +202,6 @@ const Leads = () => {
           setSelectedDateFilter={setSelectedDateFilter}
           selectedContactFilter={selectedContactFilter}
           setSelectedContactFilter={setSelectedContactFilter}
-          selectedUserContactFilter={selectedUserContactFilter}
-          setSelectedUserContactFilter={setSelectedUserContactFilter}
           availableCategories={availableCategories}
           showContactFilter={true}
           showAssignmentColumn={false}

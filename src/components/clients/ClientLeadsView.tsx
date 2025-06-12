@@ -34,7 +34,6 @@ export function ClientLeadsView() {
   ]);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
-  const [selectedUserContactFilter, setSelectedUserContactFilter] = useState<string>('all');
 
   if (loading) {
     return (
@@ -81,8 +80,6 @@ export function ClientLeadsView() {
         setSelectedDateFilter={setSelectedDateFilter}
         selectedContactFilter={selectedContactFilter}
         setSelectedContactFilter={setSelectedContactFilter}
-        selectedUserContactFilter={selectedUserContactFilter}
-        setSelectedUserContactFilter={setSelectedUserContactFilter}
         availableCategories={availableCategories}
         visibleColumns={visibleColumns}
         setVisibleColumns={setVisibleColumns}
@@ -92,7 +89,6 @@ export function ClientLeadsView() {
         setViewMode={setViewMode}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        isAdmin={false}
       />
 
       {/* Contenu principal */}

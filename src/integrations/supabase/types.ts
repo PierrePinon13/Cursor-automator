@@ -144,45 +144,6 @@ export type Database = {
         }
         Relationships: []
       }
-      booked_appointments: {
-        Row: {
-          appointment_date: string | null
-          booked_at: string
-          booked_by_user_id: string
-          booked_by_user_name: string | null
-          created_at: string
-          id: string
-          lead_id: string
-          notes: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          appointment_date?: string | null
-          booked_at?: string
-          booked_by_user_id: string
-          booked_by_user_name?: string | null
-          created_at?: string
-          id?: string
-          lead_id: string
-          notes?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          appointment_date?: string | null
-          booked_at?: string
-          booked_by_user_id?: string
-          booked_by_user_name?: string | null
-          created_at?: string
-          id?: string
-          lead_id?: string
-          notes?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       client_collaborators: {
         Row: {
           client_id: string
@@ -872,7 +833,6 @@ export type Database = {
       leads: {
         Row: {
           apify_dataset_id: string | null
-          appointment_booked_at: string | null
           approach_message: string | null
           approach_message_generated: boolean | null
           approach_message_generated_at: string | null
@@ -928,11 +888,8 @@ export type Database = {
           company_linkedin_id: string | null
           company_name: string | null
           company_position: string | null
-          contacted_by_user_id: string | null
-          contacted_by_user_name: string | null
           created_at: string
           follow_up_date: string | null
-          has_booked_appointment: boolean | null
           has_previous_client_company: boolean | null
           id: string
           is_client_lead: boolean | null
@@ -959,9 +916,6 @@ export type Database = {
           phone_contact_status: string | null
           phone_number: string | null
           phone_retrieved_at: string | null
-          positive_response_at: string | null
-          positive_response_by_user_id: string | null
-          positive_response_notes: string | null
           posted_at_iso: string | null
           posted_at_timestamp: number | null
           previous_client_companies: string[] | null
@@ -978,7 +932,6 @@ export type Database = {
         }
         Insert: {
           apify_dataset_id?: string | null
-          appointment_booked_at?: string | null
           approach_message?: string | null
           approach_message_generated?: boolean | null
           approach_message_generated_at?: string | null
@@ -1034,11 +987,8 @@ export type Database = {
           company_linkedin_id?: string | null
           company_name?: string | null
           company_position?: string | null
-          contacted_by_user_id?: string | null
-          contacted_by_user_name?: string | null
           created_at?: string
           follow_up_date?: string | null
-          has_booked_appointment?: boolean | null
           has_previous_client_company?: boolean | null
           id?: string
           is_client_lead?: boolean | null
@@ -1065,9 +1015,6 @@ export type Database = {
           phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
-          positive_response_at?: string | null
-          positive_response_by_user_id?: string | null
-          positive_response_notes?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           previous_client_companies?: string[] | null
@@ -1084,7 +1031,6 @@ export type Database = {
         }
         Update: {
           apify_dataset_id?: string | null
-          appointment_booked_at?: string | null
           approach_message?: string | null
           approach_message_generated?: boolean | null
           approach_message_generated_at?: string | null
@@ -1140,11 +1086,8 @@ export type Database = {
           company_linkedin_id?: string | null
           company_name?: string | null
           company_position?: string | null
-          contacted_by_user_id?: string | null
-          contacted_by_user_name?: string | null
           created_at?: string
           follow_up_date?: string | null
-          has_booked_appointment?: boolean | null
           has_previous_client_company?: boolean | null
           id?: string
           is_client_lead?: boolean | null
@@ -1171,9 +1114,6 @@ export type Database = {
           phone_contact_status?: string | null
           phone_number?: string | null
           phone_retrieved_at?: string | null
-          positive_response_at?: string | null
-          positive_response_by_user_id?: string | null
-          positive_response_notes?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           previous_client_companies?: string[] | null
