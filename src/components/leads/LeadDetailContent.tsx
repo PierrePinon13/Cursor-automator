@@ -13,6 +13,7 @@ import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import PhoneContactStatus from './PhoneContactStatus';
 import CompanyHoverCard from './CompanyHoverCard';
 import FeedbackDialog from './FeedbackDialog';
+import RecruitmentAgencyButton from './RecruitmentAgencyButton';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -57,42 +58,6 @@ const LeadDetailContent = ({
       toast({
         title: "Erreur",
         description: "Impossible de récupérer le numéro de téléphone",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleMistargetedPost = async () => {
-    try {
-      if (!user) {
-        toast({
-          title: "Erreur",
-          description: "Vous devez être connecté pour effectuer cette action",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      await supabase
-        .from('mistargeted_posts')
-        .insert({
-          lead_id: lead.id,
-          author_name: lead.author_name,
-          reason: 'Publication signalée comme mal ciblée',
-          reported_by_user_id: user.id
-        });
-      
-      toast({
-        title: "Publication signalée",
-        description: "Cette publication a été signalée comme mal ciblée",
-      });
-      
-      onAction('mistargeted_post');
-    } catch (error) {
-      console.error('Error reporting mistargeted post:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de signaler cette publication",
         variant: "destructive",
       });
     }
@@ -330,14 +295,11 @@ const LeadDetailContent = ({
                   Mauvais ciblage
                 </Button>
                 
-                <Button
-                  onClick={() => onAction('hr_provider')}
-                  variant="outline"
-                  className="w-full h-10 justify-start bg-white hover:bg-orange-50 border-orange-200"
-                >
-                  <Building className="h-4 w-4 mr-2 text-orange-600" />
-                  Prestataire RH
-                </Button>
+                {/* Nouveau bouton Cabinet de recrutement */}
+                <RecruitmentAgencyButton
+                  lead={lead}
+                  onActionCompleted={onActionCompleted}
+                />
               </div>
             </div>
           </div>
