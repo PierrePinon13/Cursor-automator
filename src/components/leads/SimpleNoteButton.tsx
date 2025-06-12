@@ -34,7 +34,7 @@ const SimpleNoteButton = ({ leadId, leadName }: SimpleNoteButtonProps) => {
             note: note.trim(),
             lead_name: leadName
           },
-          user_id: user.id
+          performed_by_user_id: user.id
         });
 
       if (error) throw error;
