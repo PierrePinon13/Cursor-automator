@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
@@ -165,7 +166,6 @@ export const useLeadsNew = () => {
       const query = searchQuery.toLowerCase();
       const searchableText = [
         lead.author_name,
-        lead.company_name,
         lead.unipile_company,
         lead.openai_step3_categorie,
         lead.openai_step2_localisation,
