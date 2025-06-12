@@ -1,4 +1,3 @@
-
 import MultiSelectFilter from './MultiSelectFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +37,7 @@ const contactFilterOptions = [
   { value: 'exclude_2weeks', label: 'Exclure contactés (2 semaines)' },
   { value: 'exclude_1month', label: 'Exclure contactés (1 mois)' },
   { value: 'exclude_all_contacted', label: 'Exclure tous contactés' },
+  { value: 'only_my_contacts', label: 'Mes contacts uniquement' },
 ];
 
 const getColumnOptions = (showAssignmentColumn = false) => {

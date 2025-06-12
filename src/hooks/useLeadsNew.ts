@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
+import { useAuth } from './useAuth';
 
 export interface LeadNew {
   id: string;
@@ -35,6 +36,8 @@ export interface LeadNew {
   client_history_alert?: string;
   matched_hr_provider_id?: string;
   matched_hr_provider_name?: string;
+  contacted_by_user_id?: string;
+  phone_contact_by_user_id?: string;
 }
 
 export const useLeadsNew = () => {
@@ -44,7 +47,9 @@ export const useLeadsNew = () => {
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
   const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const { isAdmin } = useUserRole();
+  const { user } = useAuth();
 
   const fetchLeads = async () => {
     try {
@@ -95,17 +100,18 @@ export const useLeadsNew = () => {
       const leadDate = new Date(lead.latest_post_date || lead.posted_at_iso || '');
       const now = new Date();
       const diffTime = now.getTime() - leadDate.getTime();
+      const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       switch (selectedDateFilter) {
-        case 'today':
-          if (diffDays > 1) return false;
+        case '24h':
+          if (diffHours > 24) return false;
           break;
-        case 'week':
+        case '48h':
+          if (diffHours > 48) return false;
+          break;
+        case '7days':
           if (diffDays > 7) return false;
-          break;
-        case 'month':
-          if (diffDays > 30) return false;
           break;
       }
     }
@@ -115,13 +121,59 @@ export const useLeadsNew = () => {
       const hasContact = lead.last_contact_at || lead.phone_contact_status || lead.linkedin_message_sent_at;
       
       switch (selectedContactFilter) {
-        case 'contacted':
-          if (!hasContact) return false;
+        case 'exclude_none':
+          // Inclure tous les leads
           break;
-        case 'not_contacted':
+        case 'exclude_1week':
+          if (hasContact && lead.last_contact_at) {
+            const contactDate = new Date(lead.last_contact_at);
+            const diffDays = Math.ceil((new Date().getTime() - contactDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 7) return false;
+          }
+          break;
+        case 'exclude_2weeks':
+          if (hasContact && lead.last_contact_at) {
+            const contactDate = new Date(lead.last_contact_at);
+            const diffDays = Math.ceil((new Date().getTime() - contactDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 14) return false;
+          }
+          break;
+        case 'exclude_1month':
+          if (hasContact && lead.last_contact_at) {
+            const contactDate = new Date(lead.last_contact_at);
+            const diffDays = Math.ceil((new Date().getTime() - contactDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 30) return false;
+          }
+          break;
+        case 'exclude_all_contacted':
           if (hasContact) return false;
           break;
+        case 'only_my_contacts':
+          // Afficher uniquement les leads contactés par l'utilisateur actuel
+          if (!user) return false;
+          const wasContactedByMe = (
+            (lead.linkedin_message_sent_at && lead.contacted_by_user_id === user.id) ||
+            (lead.phone_contact_status && lead.phone_contact_by_user_id === user.id)
+          );
+          if (!wasContactedByMe) return false;
+          break;
       }
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const searchableText = [
+        lead.author_name,
+        lead.company_name,
+        lead.unipile_company,
+        lead.openai_step3_categorie,
+        lead.openai_step2_localisation,
+        lead.text,
+        lead.title
+      ].join(' ').toLowerCase();
+      
+      if (!searchableText.includes(query)) return false;
     }
 
     return true;
@@ -146,6 +198,8 @@ export const useLeadsNew = () => {
     selectedContactFilter,
     setSelectedContactFilter,
     availableCategories,
+    searchQuery,
+    setSearchQuery,
     refreshLeads
   };
 };
