@@ -20,18 +20,14 @@ const MistargetedPostButton = ({ lead, onFeedbackSubmitted }: MistargetedPostBut
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
 
   const handleClick = () => {
-    console.log('🎯 MistargetedPostButton clicked for lead:', lead.id);
     setShowFeedbackDialog(true);
-    console.log('🎯 Dialog should now be open:', true);
   };
 
   const handleDialogClose = (open: boolean) => {
-    console.log('🎯 Dialog close requested:', open);
     setShowFeedbackDialog(open);
   };
 
   const handleFeedbackSubmitted = () => {
-    console.log('🎯 Feedback submitted for lead:', lead.id);
     setShowFeedbackDialog(false);
     onFeedbackSubmitted();
   };
@@ -41,9 +37,9 @@ const MistargetedPostButton = ({ lead, onFeedbackSubmitted }: MistargetedPostBut
       <Button
         variant="outline"
         onClick={handleClick}
-        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 h-auto text-left justify-start hover:bg-gray-100"
+        className="w-full bg-white border border-gray-200 rounded-lg p-3 h-auto text-left justify-start hover:bg-gray-50 transition-colors"
       >
-        <TriangleAlert className="h-5 w-5 mr-3" />
+        <TriangleAlert className="h-4 w-4 mr-3 text-gray-600" />
         <span className="font-medium text-gray-700">Publication mal ciblée</span>
       </Button>
 
@@ -53,11 +49,6 @@ const MistargetedPostButton = ({ lead, onFeedbackSubmitted }: MistargetedPostBut
         lead={lead}
         onFeedbackSubmitted={handleFeedbackSubmitted}
       />
-
-      {/* Debug info */}
-      <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-100 rounded">
-        🎯 MistargetedPostButton Debug: showFeedbackDialog = {showFeedbackDialog.toString()}
-      </div>
     </>
   );
 };
