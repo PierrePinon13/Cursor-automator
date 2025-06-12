@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -26,7 +26,7 @@ interface FeedbackDialogProps {
     title?: string;
     text?: string;
     url?: string;
-    // Données OpenAI Steps
+    // Données OpenAI Steps (partielles depuis leads)
     openai_step1_recrute_poste?: string;
     openai_step1_postes?: string;
     openai_step2_reponse?: string;
@@ -45,8 +45,48 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
   const [category2, setCategory2] = useState(''); // La localisation des postes ne convient pas
   const [category3, setCategory3] = useState(''); // Les postes recherchés ne conviennent pas
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [linkedinPostData, setLinkedinPostData] = useState<any>(null);
+  const [loadingPostData, setLoadingPostData] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Récupérer les données complètes du post LinkedIn quand le dialogue s'ouvre
+  useEffect(() => {
+    if (open && lead.id) {
+      fetchLinkedinPostData();
+    }
+  }, [open, lead.id]);
+
+  const fetchLinkedinPostData = async () => {
+    setLoadingPostData(true);
+    try {
+      console.log('🔍 Fetching LinkedIn post data for lead:', lead.id);
+      
+      // Chercher le post LinkedIn correspondant à ce lead
+      const { data: linkedinPost, error } = await supabase
+        .from('linkedin_posts')
+        .select('*')
+        .eq('lead_id', lead.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Error fetching LinkedIn post data:', error);
+        // Continuer avec les données partielles du lead
+        return;
+      }
+
+      if (linkedinPost) {
+        console.log('✅ LinkedIn post data found:', linkedinPost);
+        setLinkedinPostData(linkedinPost);
+      } else {
+        console.log('⚠️ No LinkedIn post found for lead, using lead data only');
+      }
+    } catch (error) {
+      console.error('❌ Error in fetchLinkedinPostData:', error);
+    } finally {
+      setLoadingPostData(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!user) {
@@ -71,7 +111,10 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
     setIsSubmitting(true);
 
     try {
-      // Préparer les données pour le webhook N8N avec les données OpenAI regroupées par step
+      // Utiliser les données du post LinkedIn si disponibles, sinon fallback sur les données du lead
+      const sourceData = linkedinPostData || lead;
+
+      // Préparer les données pour le webhook N8N avec les données OpenAI complètes
       const feedbackData = {
         lead_id: lead.id,
         author_name: lead.author_name,
@@ -87,25 +130,28 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
           location_mismatch: category2.trim() || null,
           position_mismatch: category3.trim() || null,
         },
-        // Données OpenAI regroupées par step
+        // Données OpenAI complètes regroupées par step
         openai_step1: {
-          recrute_poste: lead.openai_step1_recrute_poste,
-          postes: lead.openai_step1_postes,
+          recrute_poste: sourceData.openai_step1_recrute_poste,
+          postes: sourceData.openai_step1_postes,
+          response: sourceData.openai_step1_response || null,
         },
         openai_step2: {
-          reponse: lead.openai_step2_reponse,
-          langue: lead.openai_step2_langue,
-          localisation_detectee: lead.openai_step2_localisation,
-          raison: lead.openai_step2_raison,
+          reponse: sourceData.openai_step2_reponse,
+          langue: sourceData.openai_step2_langue,
+          localisation_detectee: sourceData.openai_step2_localisation,
+          raison: sourceData.openai_step2_raison,
+          response: sourceData.openai_step2_response || null,
         },
         openai_step3: {
-          categorie: lead.openai_step3_categorie,
-          postes_selectionnes: lead.openai_step3_postes_selectionnes,
-          justification: lead.openai_step3_justification,
+          categorie: sourceData.openai_step3_categorie,
+          postes_selectionnes: sourceData.openai_step3_postes_selectionnes,
+          justification: sourceData.openai_step3_justification,
+          response: sourceData.openai_step3_response || null,
         }
       };
 
-      console.log('🔔 Sending feedback to N8N webhook with grouped OpenAI data:', feedbackData);
+      console.log('🔔 Sending feedback to N8N webhook with complete OpenAI data:', feedbackData);
 
       // Envoyer au webhook N8N
       const webhookResponse = await fetch('https://n8n.getpro.co/webhook/8c1fc6fc-7581-4579-9ca0-eae618a90004', {
@@ -195,6 +241,9 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
               </ul>
             </div>
             <p>Publication de <strong>{lead.author_name}</strong></p>
+            {loadingPostData && (
+              <p className="text-xs text-gray-500">Chargement des données complètes...</p>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -248,7 +297,7 @@ const FeedbackDialog = ({ open, onOpenChange, lead, onFeedbackSubmitted }: Feedb
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || loadingPostData}
             className="bg-red-600 hover:bg-red-700"
           >
             {isSubmitting ? 'Envoi...' : 'Envoyer le feedback'}
