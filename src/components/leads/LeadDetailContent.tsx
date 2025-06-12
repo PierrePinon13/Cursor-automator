@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import PhoneContactStatus from './PhoneContactStatus';
 import CompanyHoverCard from './CompanyHoverCard';
 import FeedbackDialog from './FeedbackDialog';
 import RecruitmentAgencyButton from './RecruitmentAgencyButton';
+import SimpleNoteButton from './SimpleNoteButton';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -263,16 +265,12 @@ const LeadDetailContent = ({
               )}
             </div>
 
-            {/* Planifier un rappel */}
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <Button
-                onClick={() => onAction('schedule_reminder')}
-                className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-medium"
-                size="lg"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Planifier un rappel
-              </Button>
+            {/* Ajouter une note */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <SimpleNoteButton
+                leadId={lead.id}
+                leadName={lead.author_name}
+              />
             </div>
 
             {/* Section Signalement */}
@@ -313,11 +311,6 @@ const LeadDetailContent = ({
         lead={lead}
         onFeedbackSubmitted={handleFeedbackSubmitted}
       />
-
-      {/* Debug info */}
-      <div className="text-xs text-gray-500 fixed bottom-4 right-4 bg-white p-2 rounded shadow border">
-        🎯 Debug: showFeedbackDialog = {showFeedbackDialog.toString()}
-      </div>
     </div>
   );
 };
