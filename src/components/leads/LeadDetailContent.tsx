@@ -15,7 +15,7 @@ import PhoneContactStatus from './PhoneContactStatus';
 import CompanyHoverCard from './CompanyHoverCard';
 import FeedbackDialog from './FeedbackDialog';
 import RecruitmentAgencyButton from './RecruitmentAgencyButton';
-import SimpleNoteButton from './SimpleNoteButton';
+import ReminderDialog from './ReminderDialog';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -42,7 +42,7 @@ const LeadDetailContent = ({
   onPhoneRetrieved,
   onContactUpdate
 }: LeadDetailContentProps) => {
-  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
@@ -65,18 +65,6 @@ const LeadDetailContent = ({
     }
   };
 
-  const handleMauvaisCiblageClick = () => {
-    console.log('🎯 Mauvais ciblage button clicked for lead:', lead.id);
-    setShowFeedbackDialog(true);
-    console.log('🎯 showFeedbackDialog set to true');
-  };
-
-  const handleFeedbackSubmitted = () => {
-    console.log('🎯 Feedback submitted for lead:', lead.id);
-    setShowFeedbackDialog(false);
-    onActionCompleted();
-  };
-
   const companyName = lead.company_name || lead.unipile_company;
   const companyId = lead.company_id;
   const isMessageTooLong = customMessage.length > 300;
@@ -87,7 +75,7 @@ const LeadDetailContent = ({
     <div className="h-full flex flex-col bg-gray-50">
       {/* Alert entreprise cliente - Affichage spécifique des entreprises */}
       {lead.has_previous_client_company && lead.previous_client_companies?.length > 0 && (
-        <div className="bg-yellow-100 border border-yellow-300 p-3 mx-6 mt-4 rounded">
+        <div className="bg-yellow-100 border border-yellow-300 p-3 mx-6 mb-2 rounded">
           <div className="flex items-start gap-2 text-yellow-800">
             <Crown className="h-4 w-4 mt-0.5" />
             <div>
@@ -104,7 +92,7 @@ const LeadDetailContent = ({
         </div>
       )}
 
-      {/* Layout 3 colonnes */}
+      {/* Layout 3 colonnes - Espace réduit en haut */}
       <div className="flex-1 flex overflow-hidden">
         {/* COLONNE GAUCHE - Poste recherché + Publication */}
         <div className="w-1/3 bg-white p-6 border-r border-gray-200">
@@ -220,7 +208,6 @@ const LeadDetailContent = ({
                 </div>
                 <div>
                   <h4 className="font-semibold text-blue-900">Message LinkedIn</h4>
-                  <p className="text-xs text-blue-700">Action principale</p>
                 </div>
               </div>
               
@@ -265,12 +252,18 @@ const LeadDetailContent = ({
               )}
             </div>
 
-            {/* Ajouter une note */}
+            {/* Planifier un rappel */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <SimpleNoteButton
-                leadId={lead.id}
-                leadName={lead.author_name}
-              />
+              <Button
+                onClick={() => setShowReminderDialog(true)}
+                variant="outline"
+                className="w-full h-10 justify-start bg-white hover:bg-yellow-50 border-yellow-200"
+              >
+                <div className="p-1 bg-yellow-100 rounded mr-3">
+                  <Calendar className="h-4 w-4 text-yellow-600" />
+                </div>
+                Planifier un rappel
+              </Button>
             </div>
 
             {/* Section Signalement */}
@@ -283,16 +276,6 @@ const LeadDetailContent = ({
               </div>
               
               <div className="space-y-3">
-                {/* Nouveau bouton Mauvais ciblage */}
-                <Button
-                  onClick={handleMauvaisCiblageClick}
-                  variant="outline"
-                  className="w-full h-10 justify-start bg-white hover:bg-red-50 border-red-200"
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2 text-red-600" />
-                  Mauvais ciblage
-                </Button>
-                
                 {/* Nouveau bouton Cabinet de recrutement */}
                 <RecruitmentAgencyButton
                   lead={lead}
@@ -304,12 +287,12 @@ const LeadDetailContent = ({
         </div>
       </div>
 
-      {/* Dialogue de feedback */}
-      <FeedbackDialog
-        open={showFeedbackDialog}
-        onOpenChange={setShowFeedbackDialog}
-        lead={lead}
-        onFeedbackSubmitted={handleFeedbackSubmitted}
+      {/* Dialogue de rappel */}
+      <ReminderDialog
+        open={showReminderDialog}
+        onOpenChange={setShowReminderDialog}
+        leadId={lead.id}
+        leadName={lead.author_name || 'Lead sans nom'}
       />
     </div>
   );
