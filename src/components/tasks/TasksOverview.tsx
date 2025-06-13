@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { IntegratedTaskCard } from './IntegratedTaskCard';
+import { CompactTaskCard } from './CompactTaskCard';
 import { CompletedTasksSection } from './CompletedTasksSection';
 import { Task } from '@/hooks/useTasks';
 import { Badge } from '@/components/ui/badge';
@@ -57,18 +57,17 @@ export const TasksOverview = ({
 
       {/* Tasks en retard */}
       {overdueTasks.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <h2 className="text-lg font-semibold text-red-700 flex items-center gap-2">
             ⚠️ Tasks en retard ({overdueTasks.length})
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-1">
             {overdueTasks.map((task) => (
               <div 
-                key={task.id} 
-                id={`task-${task.id}`}
+                key={task.id}
                 className={selectedTaskId === task.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}
               >
-                <IntegratedTaskCard
+                <CompactTaskCard
                   task={task}
                   onComplete={onComplete}
                   onUpdateStatus={onUpdateStatus}
@@ -83,18 +82,17 @@ export const TasksOverview = ({
 
       {/* Tasks à venir */}
       {upcomingTasks.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
             📋 Tasks à venir ({upcomingTasks.length})
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-1">
             {upcomingTasks.map((task) => (
               <div 
-                key={task.id} 
-                id={`task-${task.id}`}
+                key={task.id}
                 className={selectedTaskId === task.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}
               >
-                <IntegratedTaskCard
+                <CompactTaskCard
                   task={task}
                   onComplete={onComplete}
                   onUpdateStatus={onUpdateStatus}
