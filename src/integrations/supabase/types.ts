@@ -779,6 +779,51 @@ export type Database = {
           },
         ]
       }
+      dataset_processing_tasks: {
+        Row: {
+          batch_data: Json | null
+          batch_errors: number
+          batches_sent: number
+          completed_at: string | null
+          created_at: string
+          dataset_id: string
+          id: string
+          last_batch_sent_at: string | null
+          started_processing_at: string | null
+          status: string
+          total_batches: number
+          total_items: number
+        }
+        Insert: {
+          batch_data?: Json | null
+          batch_errors?: number
+          batches_sent?: number
+          completed_at?: string | null
+          created_at?: string
+          dataset_id: string
+          id?: string
+          last_batch_sent_at?: string | null
+          started_processing_at?: string | null
+          status?: string
+          total_batches?: number
+          total_items?: number
+        }
+        Update: {
+          batch_data?: Json | null
+          batch_errors?: number
+          batches_sent?: number
+          completed_at?: string | null
+          created_at?: string
+          dataset_id?: string
+          id?: string
+          last_batch_sent_at?: string | null
+          started_processing_at?: string | null
+          status?: string
+          total_batches?: number
+          total_items?: number
+        }
+        Relationships: []
+      }
       hr_providers: {
         Row: {
           company_linkedin_id: string | null
