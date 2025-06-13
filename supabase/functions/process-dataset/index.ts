@@ -228,68 +228,38 @@ serve(async (req) => {
       }
     }
 
-    // ✅ PHASE 6: Envoi vers n8n par batches de 100 avec délai de 10s
-    console.log('🚀 Starting n8n batch processing...')
+    // ✅ PHASE 6: Créer une tâche de traitement séparée pour n8n
+    console.log('🚀 Scheduling n8n batch processing...')
     
-    const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/ce694cea-07a6-4b38-a2a9-eb1ffd6fd14c'
-    const N8N_BATCH_SIZE = 100
-    const DELAY_BETWEEN_BATCHES = 10000 // 10 secondes
+    const totalBatches = Math.ceil(newItems.length / 100)
     
-    let batchesSent = 0
-    let batchErrors = 0
-
-    for (let i = 0; i < newItems.length; i += N8N_BATCH_SIZE) {
-      const batch = newItems.slice(i, i + N8N_BATCH_SIZE)
-      const batchId = `${datasetId}_batch_${Math.floor(i / N8N_BATCH_SIZE) + 1}_${Date.now()}`
-      
-      try {
-        console.log(`📤 Sending batch ${Math.floor(i / N8N_BATCH_SIZE) + 1}/${Math.ceil(newItems.length / N8N_BATCH_SIZE)} to n8n (${batch.length} items)`)
-        
-        const response = await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            batch_id: batchId,
-            dataset_id: datasetId,
-            batch_number: Math.floor(i / N8N_BATCH_SIZE) + 1,
-            total_batches: Math.ceil(newItems.length / N8N_BATCH_SIZE),
-            posts: batch.map(item => ({
-              urn: item.urn,
-              text: item.text,
-              title: item.title || '', // Ajouter le titre ou string vide si absent
-              url: item.url,
-              posted_at_iso: item.postedAtIso,
-              posted_at_timestamp: item.postedAtTimestamp,
-              author_type: item.authorType,
-              author_profile_url: item.authorProfileUrl,
-              author_profile_id: item.authorProfileId,
-              author_name: item.authorName,
-              author_headline: item.authorHeadline,
-              raw_data: item
-            }))
-          })
+    // Stocker la tâche de traitement
+    try {
+      const { error: taskError } = await supabaseClient
+        .from('dataset_processing_tasks')
+        .insert({
+          dataset_id: datasetId,
+          total_items: newItems.length,
+          total_batches: totalBatches,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          batch_data: newItems
         })
 
-        if (response.ok) {
-          batchesSent++
-          console.log(`✅ Batch ${batchId} sent successfully to n8n`)
-        } else {
-          batchErrors++
-          console.error(`❌ Error sending batch ${batchId} to n8n: ${response.status} ${response.statusText}`)
-        }
-
-        // Délai entre les batches (sauf pour le dernier)
-        if (i + N8N_BATCH_SIZE < newItems.length) {
-          console.log(`⏳ Waiting ${DELAY_BETWEEN_BATCHES / 1000}s before next batch...`)
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES))
-        }
-
-      } catch (error) {
-        batchErrors++
-        console.error(`❌ Exception sending batch ${batchId} to n8n:`, error?.message)
+      if (taskError) {
+        console.error('❌ Error creating processing task:', taskError)
+      } else {
+        console.log('✅ Processing task created successfully')
+        
+        // Déclencher immédiatement le processeur de batches
+        supabaseClient.functions.invoke('n8n-batch-processor', {
+          body: { dataset_id: datasetId }
+        }).catch(err => {
+          console.error('❌ Error triggering batch processor:', err)
+        })
       }
+    } catch (error) {
+      console.error('❌ Exception creating processing task:', error)
     }
 
     // ✅ Stockage des statistiques
@@ -302,9 +272,8 @@ serve(async (req) => {
       after_filtering: filteredItems.length,
       after_deduplication: newItems.length,
       items_stored: totalStored,
-      batches_sent_to_n8n: batchesSent,
-      batch_errors: batchErrors,
-      pipeline_version: 'n8n_integration_v1',
+      batches_scheduled: totalBatches,
+      pipeline_version: 'n8n_integration_v2_optimized',
       completed_at: new Date().toISOString()
     }
 
@@ -316,23 +285,22 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 N8N INTEGRATION PIPELINE: Dataset processing completed successfully')
+    console.log('🎉 OPTIMIZED N8N INTEGRATION: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'n8n_integration_dataset_processing',
+      action: 'n8n_integration_dataset_processing_v2',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'n8n_integration_v1',
-      message: `Dataset ${datasetId} processed. ${totalStored} items stored, ${batchesSent} batches sent to n8n.`,
-      n8n_webhook_url: N8N_WEBHOOK_URL,
+      pipeline_version: 'n8n_integration_v2_optimized',
+      message: `Dataset ${datasetId} processed and stored. ${totalStored} items ready for batch processing.`,
+      batch_processing: 'scheduled_separately',
       improvements: [
-        'Integrated with n8n for OpenAI processing',
-        'Reliable batch processing with 10s delays',
+        'Fast response with batch processing scheduled separately',
+        'No timeout issues with large datasets',
+        'Robust error handling for individual batches',
         'Filtering: no reposts, Person only',
-        'Internal and database deduplication',
-        'Batch tracking with unique IDs',
-        'Error handling for individual batches'
+        'Internal and database deduplication'
       ]
     }), { 
       status: 200,
@@ -340,11 +308,11 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in n8n-integration process-dataset:', error?.message)
+    console.error('❌ Error in optimized process-dataset:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'n8n_integration_v1'
+      pipeline_version: 'n8n_integration_v2_optimized'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
