@@ -9,6 +9,7 @@ import { fr } from 'date-fns/locale';
 import { TaskStatusSelect } from './TaskStatusSelect';
 import { FollowUpDatePicker } from './FollowUpDatePicker';
 import { TaskCommentInput } from './TaskCommentInput';
+import { TaskCompletionDialog } from './TaskCompletionDialog';
 
 interface CompactTaskCardProps {
   task: Task;
@@ -26,18 +27,32 @@ export const CompactTaskCard = ({
   onUpdateFollowUpDate 
 }: CompactTaskCardProps) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
-  const [showAnimation, setShowAnimation] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
-  const handleCompleteClick = async () => {
-    setIsCompleting(true);
-    setShowAnimation(true);
+  const handleBulletClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (task.isCompleted) return;
     
-    setTimeout(async () => {
-      await onComplete(task.id, task.type);
-      setIsCompleting(false);
-      setShowAnimation(false);
-    }, 800);
+    // Pour les reminders, compléter directement
+    if (task.type === 'reminder') {
+      onComplete(task.id, task.type);
+      return;
+    }
+    
+    // Pour les autres types, ouvrir le dialogue de sélection
+    setShowCompletionDialog(true);
+  };
+
+  const handleTaskClick = () => {
+    setShowDetails(!showDetails);
+  };
+
+  const handleCompleteWithStatus = (status: string) => {
+    if (status) {
+      onUpdateStatus(task.id, task.type, status);
+    }
+    onComplete(task.id, task.type);
+    setShowCompletionDialog(false);
   };
 
   const getTaskIcon = () => {
@@ -108,107 +123,120 @@ export const CompactTaskCard = ({
   const clientInfo = getClientInfo();
 
   return (
-    <div 
-      id={`task-${task.id}`}
-      className={`flex items-center gap-3 p-3 border-l-2 ${
-        task.isOverdue ? 'border-l-red-500 bg-red-50/50' : 
-        task.isCompleted ? 'border-l-green-500 bg-green-50/50' : 
-        'border-l-blue-500 bg-white'
-      } rounded-r-md hover:shadow-sm transition-all`}
-    >
-      {/* Checkbox */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="p-0 h-5 w-5 flex-shrink-0"
-        onClick={handleCompleteClick}
-        disabled={isCompleting || task.isCompleted}
+    <>
+      <div 
+        id={`task-${task.id}`}
+        className={`flex items-center gap-3 p-3 border-l-2 cursor-pointer ${
+          task.isOverdue ? 'border-l-red-500 bg-red-50/50' : 
+          task.isCompleted ? 'border-l-green-500 bg-green-50/50' : 
+          'border-l-blue-500 bg-white'
+        } rounded-r-md hover:shadow-sm transition-all`}
+        onClick={handleTaskClick}
       >
-        {showAnimation || task.isCompleted ? (
-          <CheckCircle2 className="h-4 w-4 text-green-600 animate-scale-in" />
-        ) : (
-          <Circle className={`h-4 w-4 transition-colors ${
-            task.isOverdue ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-blue-600'
-          }`} />
-        )}
-      </Button>
+        {/* Checkbox */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="p-0 h-5 w-5 flex-shrink-0"
+          onClick={handleBulletClick}
+          disabled={task.isCompleted}
+        >
+          {task.isCompleted ? (
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          ) : (
+            <Circle className={`h-4 w-4 transition-colors ${
+              task.isOverdue ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-blue-600'
+            }`} />
+          )}
+        </Button>
 
-      {/* Task content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          {getTaskIcon()}
-          <span className={`text-sm font-medium truncate ${
-            task.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'
-          }`}>
-            {clientInfo ? `${clientInfo.clientName} - ${clientInfo.jobTitle}` : task.title}
-          </span>
-          
-          {task.isOverdue && (
-            <Badge variant="destructive" className="text-xs py-0 px-1">
-              <Clock className="h-2 w-2 mr-1" />
-              Retard
-            </Badge>
+        {/* Task content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            {getTaskIcon()}
+            <span className={`text-sm font-medium truncate ${
+              task.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'
+            }`}>
+              {clientInfo ? `${clientInfo.clientName} - ${clientInfo.jobTitle}` : task.title}
+            </span>
+            
+            {task.isOverdue && (
+              <Badge variant="destructive" className="text-xs py-0 px-1">
+                <Clock className="h-2 w-2 mr-1" />
+                Retard
+              </Badge>
+            )}
+          </div>
+
+          {/* Quick actions when expanded */}
+          {showDetails && (
+            <div className="mt-2 space-y-2 p-2 bg-gray-50 rounded" onClick={(e) => e.stopPropagation()}>
+              {needsStatusSelection && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-12">Statut:</span>
+                  <TaskStatusSelect
+                    currentStatus={getCurrentStatus()}
+                    onStatusChange={handleStatusChange}
+                    disabled={task.isCompleted}
+                  />
+                </div>
+              )}
+              
+              {getCurrentStatus() === 'a_relancer' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-12">Relance:</span>
+                  <FollowUpDatePicker
+                    value={getCurrentFollowUpDate()}
+                    onChange={handleFollowUpDateChange}
+                    onAsapSelect={handleAsapFollowUp}
+                  />
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-12">Note:</span>
+                <TaskCommentInput
+                  value={getCurrentComment()}
+                  onChange={handleCommentChange}
+                />
+              </div>
+
+              {task.dueDate && (
+                <p className={`text-xs ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                  Échéance: {formatDistanceToNow(new Date(task.dueDate), { 
+                    addSuffix: true, 
+                    locale: fr 
+                  })}
+                </p>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Quick actions when expanded */}
-        {showDetails && (
-          <div className="mt-2 space-y-2 p-2 bg-gray-50 rounded">
-            {needsStatusSelection && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-12">Statut:</span>
-                <TaskStatusSelect
-                  currentStatus={getCurrentStatus()}
-                  onStatusChange={handleStatusChange}
-                  disabled={task.isCompleted}
-                />
-              </div>
-            )}
-            
-            {getCurrentStatus() === 'a_relancer' && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-12">Relance:</span>
-                <FollowUpDatePicker
-                  value={getCurrentFollowUpDate()}
-                  onChange={handleFollowUpDateChange}
-                  onAsapSelect={handleAsapFollowUp}
-                />
-              </div>
-            )}
-            
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 w-12">Note:</span>
-              <TaskCommentInput
-                value={getCurrentComment()}
-                onChange={handleCommentChange}
-              />
-            </div>
-
-            {task.dueDate && (
-              <p className={`text-xs ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                Échéance: {formatDistanceToNow(new Date(task.dueDate), { 
-                  addSuffix: true, 
-                  locale: fr 
-                })}
-              </p>
-            )}
-          </div>
-        )}
+        {/* Expand button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDetails(!showDetails);
+          }}
+          className="h-6 w-6 p-0 flex-shrink-0"
+        >
+          {showDetails ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </Button>
       </div>
 
-      {/* Expand button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setShowDetails(!showDetails)}
-        className="h-6 w-6 p-0 flex-shrink-0"
-      >
-        {showDetails ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
-      </Button>
-    </div>
+      <TaskCompletionDialog
+        open={showCompletionDialog}
+        onOpenChange={setShowCompletionDialog}
+        task={task}
+        onComplete={handleCompleteWithStatus}
+      />
+    </>
   );
 };
