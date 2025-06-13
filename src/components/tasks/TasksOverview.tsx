@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { TaskCard } from './TaskCard';
+import { IntegratedTaskCard } from './IntegratedTaskCard';
 import { CompletedTasksSection } from './CompletedTasksSection';
 import { Task } from '@/hooks/useTasks';
 import { Badge } from '@/components/ui/badge';
@@ -22,13 +22,15 @@ export const TasksOverview = ({
   onUpdateFollowUpDate,
   selectedTaskId 
 }: TasksOverviewProps) => {
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const pendingTasks = tasks.filter(task => !task.isCompleted);
+  const completedTasks = tasks.filter(task => task.isCompleted);
 
-  // Ouvrir automatiquement la tâche sélectionnée
+  const overdueTasks = pendingTasks.filter(task => task.isOverdue);
+  const upcomingTasks = pendingTasks.filter(task => !task.isOverdue);
+
+  // Auto-scroll to selected task
   useEffect(() => {
     if (selectedTaskId) {
-      setExpandedTaskId(selectedTaskId);
-      // Scroll vers la tâche après un petit délai
       setTimeout(() => {
         const element = document.getElementById(`task-${selectedTaskId}`);
         if (element) {
@@ -37,16 +39,6 @@ export const TasksOverview = ({
       }, 100);
     }
   }, [selectedTaskId]);
-
-  const pendingTasks = tasks.filter(task => !task.isCompleted);
-  const completedTasks = tasks.filter(task => task.isCompleted);
-
-  const overdueTasks = pendingTasks.filter(task => task.isOverdue);
-  const upcomingTasks = pendingTasks.filter(task => !task.isOverdue);
-
-  const handleTaskToggle = (taskId: string) => {
-    setExpandedTaskId(expandedTaskId === taskId ? null : taskId);
-  };
 
   return (
     <div className="space-y-6">
@@ -76,14 +68,12 @@ export const TasksOverview = ({
                 id={`task-${task.id}`}
                 className={selectedTaskId === task.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}
               >
-                <TaskCard
+                <IntegratedTaskCard
                   task={task}
                   onComplete={onComplete}
                   onUpdateStatus={onUpdateStatus}
                   onUpdateComment={onUpdateComment}
                   onUpdateFollowUpDate={onUpdateFollowUpDate}
-                  isExpanded={expandedTaskId === task.id}
-                  onToggle={() => handleTaskToggle(task.id)}
                 />
               </div>
             ))}
@@ -104,14 +94,12 @@ export const TasksOverview = ({
                 id={`task-${task.id}`}
                 className={selectedTaskId === task.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}
               >
-                <TaskCard
+                <IntegratedTaskCard
                   task={task}
                   onComplete={onComplete}
                   onUpdateStatus={onUpdateStatus}
                   onUpdateComment={onUpdateComment}
                   onUpdateFollowUpDate={onUpdateFollowUpDate}
-                  isExpanded={expandedTaskId === task.id}
-                  onToggle={() => handleTaskToggle(task.id)}
                 />
               </div>
             ))}

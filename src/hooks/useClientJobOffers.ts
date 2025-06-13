@@ -78,6 +78,9 @@ export function useClientJobOffers() {
       console.log(`⏰ Job offers from last 48 hours: ${recentOffers.length}`);
 
       setJobOffers(data || []);
+
+      // Auto-attribution pour les nouvelles offres non assignées
+      await autoAssignNewOffers(data || []);
     } catch (error) {
       console.error('❌ Error in fetchJobOffers:', error);
       setJobOffers([]);
@@ -102,6 +105,67 @@ export function useClientJobOffers() {
       setUsers(data || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
+    }
+  };
+
+  const autoAssignNewOffers = async (offers: ClientJobOffer[]) => {
+    try {
+      console.log('🤖 Starting auto-assignment for new offers...');
+      
+      // Récupérer toutes les offres non assignées qui ont un client associé
+      const unassignedOffers = offers.filter(offer => 
+        !offer.assigned_to_user_id && 
+        offer.matched_client_id && 
+        offer.status !== 'archivee'
+      );
+
+      if (unassignedOffers.length === 0) {
+        console.log('ℹ️ No unassigned offers found for auto-assignment');
+        return;
+      }
+
+      console.log(`🎯 Found ${unassignedOffers.length} unassigned offers for auto-assignment`);
+
+      for (const offer of unassignedOffers) {
+        // Récupérer les collaborateurs du client
+        const { data: collaborators, error: collaboratorsError } = await supabase
+          .from('client_collaborators')
+          .select('user_id')
+          .eq('client_id', offer.matched_client_id);
+
+        if (collaboratorsError) {
+          console.error('❌ Error fetching collaborators for client:', offer.matched_client_id, collaboratorsError);
+          continue;
+        }
+
+        if (collaborators && collaborators.length > 0) {
+          // Sélectionner un collaborateur (round-robin ou aléatoire)
+          const randomCollaborator = collaborators[Math.floor(Math.random() * collaborators.length)];
+          
+          console.log(`🔄 Auto-assigning offer ${offer.id} to user ${randomCollaborator.user_id}`);
+          
+          // Assigner l'offre
+          const { error: assignError } = await supabase
+            .from('client_job_offers')
+            .update({
+              assigned_to_user_id: randomCollaborator.user_id,
+              assigned_at: new Date().toISOString(),
+              status: 'en_attente',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', offer.id);
+
+          if (assignError) {
+            console.error('❌ Error auto-assigning offer:', assignError);
+          } else {
+            console.log(`✅ Successfully auto-assigned offer ${offer.id}`);
+          }
+        }
+      }
+
+      console.log('✅ Auto-assignment process completed');
+    } catch (error) {
+      console.error('❌ Error in autoAssignNewOffers:', error);
     }
   };
 

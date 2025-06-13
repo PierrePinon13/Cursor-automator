@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -155,6 +154,47 @@ export const useTasks = () => {
     }
   };
 
+  const addUserToClient = async (userId: string, clientId: string) => {
+    try {
+      console.log('🔗 Adding user to client automatically:', { userId, clientId });
+      
+      // Vérifier si l'utilisateur est déjà collaborateur
+      const { data: existingCollaborator, error: checkError } = await supabase
+        .from('client_collaborators')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('client_id', clientId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ Error checking existing collaborator:', checkError);
+        return;
+      }
+
+      // Si pas déjà collaborateur, l'ajouter
+      if (!existingCollaborator) {
+        const { error: insertError } = await supabase
+          .from('client_collaborators')
+          .insert({
+            user_id: userId,
+            client_id: clientId
+          });
+
+        if (insertError) {
+          console.error('❌ Error adding user as client collaborator:', insertError);
+        } else {
+          console.log('✅ User automatically added as client collaborator');
+          toast({
+            title: "Succès",
+            description: "Vous avez été automatiquement ajouté comme collaborateur de ce client",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error in addUserToClient:', error);
+    }
+  };
+
   const completeTask = async (taskId: string, taskType: Task['type']) => {
     try {
       if (taskType === 'reminder') {
@@ -164,12 +204,26 @@ export const useTasks = () => {
           .eq('id', taskId);
         if (error) throw error;
       } else if (taskType === 'lead_assignment') {
+        const task = tasks.find(t => t.id === taskId);
+        
+        // Auto-rattachement si c'est un lead client
+        if (task?.data.matched_client_id && user) {
+          await addUserToClient(user.id, task.data.matched_client_id);
+        }
+        
         const { error } = await supabase
           .from('leads')
           .update({ assignment_completed_at: new Date().toISOString() })
           .eq('id', taskId);
         if (error) throw error;
       } else if (taskType === 'job_offer_assignment') {
+        const task = tasks.find(t => t.id === taskId);
+        
+        // Auto-rattachement si c'est une offre d'emploi client
+        if (task?.data.matched_client_id && user) {
+          await addUserToClient(user.id, task.data.matched_client_id);
+        }
+        
         const { error } = await supabase
           .from('client_job_offers')
           .update({ assignment_completed_at: new Date().toISOString() })
