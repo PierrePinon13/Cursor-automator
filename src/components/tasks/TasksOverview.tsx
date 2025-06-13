@@ -13,6 +13,7 @@ interface TasksOverviewProps {
   onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => Promise<void>;
   onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => Promise<void>;
   onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => Promise<void>;
+  onReactivateTask: (taskId: string, taskType: Task['type']) => Promise<void>;
   selectedTaskId?: string | null;
 }
 
@@ -22,6 +23,7 @@ export const TasksOverview = ({
   onUpdateStatus, 
   onUpdateComment, 
   onUpdateFollowUpDate,
+  onReactivateTask,
   selectedTaskId 
 }: TasksOverviewProps) => {
   const [dateRange, setDateRange] = useState('15');
@@ -68,6 +70,10 @@ export const TasksOverview = ({
       await onUpdateStatus(taskId, taskType, status);
     }
     await onComplete(taskId, taskType);
+  };
+
+  const handleTaskReactivate = async (taskId: string, taskType: Task['type']) => {
+    await onReactivateTask(taskId, taskType);
   };
 
   return (
@@ -159,6 +165,7 @@ export const TasksOverview = ({
           onUpdateStatus={onUpdateStatus}
           onUpdateComment={onUpdateComment}
           onUpdateFollowUpDate={onUpdateFollowUpDate}
+          onTaskClick={handleTaskClick}
         />
       )}
 
@@ -168,6 +175,8 @@ export const TasksOverview = ({
         onOpenChange={setShowTaskDialog}
         task={selectedTask}
         onComplete={handleTaskComplete}
+        onReactivate={handleTaskReactivate}
+        onUpdateFollowUpDate={onUpdateFollowUpDate}
       />
     </div>
   );

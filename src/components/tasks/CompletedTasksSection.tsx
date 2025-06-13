@@ -10,13 +10,15 @@ interface CompletedTasksSectionProps {
   onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => Promise<void>;
   onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => Promise<void>;
   onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => Promise<void>;
+  onTaskClick: (task: Task) => void;
 }
 
 export const CompletedTasksSection = ({ 
   tasks, 
   onUpdateStatus, 
   onUpdateComment, 
-  onUpdateFollowUpDate 
+  onUpdateFollowUpDate,
+  onTaskClick 
 }: CompletedTasksSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
@@ -52,16 +54,21 @@ export const CompletedTasksSection = ({
       {isExpanded && (
         <div className="space-y-3">
           {tasks.map((task) => (
-            <TaskCard
+            <div 
               key={task.id}
-              task={task}
-              onComplete={handleComplete}
-              onUpdateStatus={onUpdateStatus}
-              onUpdateComment={onUpdateComment}
-              onUpdateFollowUpDate={onUpdateFollowUpDate}
-              isExpanded={expandedTaskId === task.id}
-              onToggle={() => handleTaskToggle(task.id)}
-            />
+              className="cursor-pointer"
+              onClick={() => onTaskClick(task)}
+            >
+              <TaskCard
+                task={task}
+                onComplete={handleComplete}
+                onUpdateStatus={onUpdateStatus}
+                onUpdateComment={onUpdateComment}
+                onUpdateFollowUpDate={onUpdateFollowUpDate}
+                isExpanded={expandedTaskId === task.id}
+                onToggle={() => handleTaskToggle(task.id)}
+              />
+            </div>
           ))}
         </div>
       )}

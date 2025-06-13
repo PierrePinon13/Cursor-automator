@@ -250,6 +250,47 @@ export const useTasks = () => {
     }
   };
 
+  const reactivateTask = async (taskId: string, taskType: Task['type']) => {
+    try {
+      if (taskType === 'reminder') {
+        const { error } = await supabase
+          .from('reminders')
+          .update({ read: false })
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'lead_assignment') {
+        const { error } = await supabase
+          .from('leads')
+          .update({ assignment_completed_at: null })
+          .eq('id', taskId);
+        if (error) throw error;
+      } else if (taskType === 'job_offer_assignment') {
+        const { error } = await supabase
+          .from('client_job_offers')
+          .update({ assignment_completed_at: null })
+          .eq('id', taskId);
+        if (error) throw error;
+      }
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, isCompleted: false } : task
+      ));
+      setPendingCount(prev => prev + 1);
+
+      toast({
+        title: "Succès",
+        description: "Tâche remise en actif",
+      });
+    } catch (error) {
+      console.error('Error reactivating task:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de remettre la tâche en actif",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateTaskStatus = async (taskId: string, taskType: Task['type'], status: string) => {
     try {
       if (taskType === 'job_offer_assignment') {
@@ -390,6 +431,7 @@ export const useTasks = () => {
     loading,
     pendingCount,
     completeTask,
+    reactivateTask,
     updateTaskStatus,
     updateTaskComment,
     updateTaskFollowUpDate,

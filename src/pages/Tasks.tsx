@@ -1,75 +1,49 @@
 
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { TasksOverview } from '@/components/tasks/TasksOverview';
+import React, { useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
-import UserActionsDropdown from '@/components/UserActionsDropdown';
-import { Loader2 } from 'lucide-react';
+import { TasksOverview } from '@/components/tasks/TasksOverview';
 import { useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 
 const Tasks = () => {
-  const { 
-    tasks, 
-    loading, 
-    completeTask, 
-    updateTaskStatus, 
-    updateTaskComment, 
-    updateTaskFollowUpDate 
-  } = useTasks();
-  
   const [searchParams] = useSearchParams();
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
-  // Récupérer le taskId depuis l'URL si présent
-  useEffect(() => {
-    const taskId = searchParams.get('taskId');
-    if (taskId) {
-      setSelectedTaskId(taskId);
-    }
-  }, [searchParams]);
+  const selectedTaskId = searchParams.get('taskId');
+  
+  const {
+    tasks,
+    loading,
+    completeTask,
+    reactivateTask,
+    updateTaskStatus,
+    updateTaskComment,
+    updateTaskFollowUpDate
+  } = useTasks();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-          </div>
-          <UserActionsDropdown />
-        </div>
-
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-600">Chargement des tasks...</span>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-gray-600">Chargement des tâches...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <SidebarTrigger />
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-        </div>
-        
-        <UserActionsDropdown />
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Mes tâches</h1>
+        <p className="text-gray-600 mt-1">
+          Gérez vos tâches et suivez leur progression
+        </p>
       </div>
 
-      <div className="max-w-4xl mx-auto">
-        <TasksOverview 
-          tasks={tasks} 
-          onComplete={completeTask}
-          onUpdateStatus={updateTaskStatus}
-          onUpdateComment={updateTaskComment}
-          onUpdateFollowUpDate={updateTaskFollowUpDate}
-          selectedTaskId={selectedTaskId}
-        />
-      </div>
+      <TasksOverview
+        tasks={tasks}
+        onComplete={completeTask}
+        onUpdateStatus={updateTaskStatus}
+        onUpdateComment={updateTaskComment}
+        onUpdateFollowUpDate={updateTaskFollowUpDate}
+        onReactivateTask={reactivateTask}
+        selectedTaskId={selectedTaskId}
+      />
     </div>
   );
 };
