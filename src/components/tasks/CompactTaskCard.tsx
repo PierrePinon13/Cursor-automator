@@ -1,14 +1,11 @@
 
 import { useState } from 'react';
-import { Circle, CheckCircle2, Calendar, User, Briefcase, Clock, ChevronRight, ChevronDown } from 'lucide-react';
+import { Circle, CheckCircle2, Calendar, User, Briefcase, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Task } from '@/hooks/useTasks';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { TaskStatusSelect } from './TaskStatusSelect';
-import { FollowUpDatePicker } from './FollowUpDatePicker';
-import { TaskCommentInput } from './TaskCommentInput';
 import { TaskCompletionDialog } from './TaskCompletionDialog';
 
 interface CompactTaskCardProps {
@@ -17,6 +14,7 @@ interface CompactTaskCardProps {
   onUpdateStatus: (taskId: string, taskType: Task['type'], status: string) => void;
   onUpdateComment: (taskId: string, taskType: Task['type'], comment: string) => void;
   onUpdateFollowUpDate: (taskId: string, taskType: Task['type'], date: Date | null) => void;
+  onTaskClick: (task: Task) => void;
 }
 
 export const CompactTaskCard = ({ 
@@ -24,9 +22,9 @@ export const CompactTaskCard = ({
   onComplete, 
   onUpdateStatus, 
   onUpdateComment,
-  onUpdateFollowUpDate 
+  onUpdateFollowUpDate,
+  onTaskClick
 }: CompactTaskCardProps) => {
-  const [showDetails, setShowDetails] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
   const handleBulletClick = (e: React.MouseEvent) => {
@@ -44,7 +42,7 @@ export const CompactTaskCard = ({
   };
 
   const handleTaskClick = () => {
-    setShowDetails(!showDetails);
+    onTaskClick(task);
   };
 
   const handleCompleteWithStatus = (status: string) => {
@@ -64,45 +62,6 @@ export const CompactTaskCard = ({
       case 'job_offer_assignment':
         return <Briefcase className="h-3 w-3" />;
     }
-  };
-
-  const getCurrentStatus = () => {
-    if (task.type === 'job_offer_assignment') {
-      return task.data.status || 'en_attente';
-    } else if (task.type === 'lead_assignment') {
-      return task.data.phone_contact_status || 'en_attente';
-    }
-    return 'en_attente';
-  };
-
-  const getCurrentComment = () => {
-    return task.data.task_comment || '';
-  };
-
-  const getCurrentFollowUpDate = () => {
-    return task.data.follow_up_date ? new Date(task.data.follow_up_date) : null;
-  };
-
-  const needsStatusSelection = task.type === 'job_offer_assignment' || task.type === 'lead_assignment';
-
-  const handleStatusChange = (status: string) => {
-    onUpdateStatus(task.id, task.type, status);
-    
-    if (status === 'a_relancer' && !getCurrentFollowUpDate()) {
-      onUpdateFollowUpDate(task.id, task.type, new Date());
-    }
-  };
-
-  const handleCommentChange = (comment: string) => {
-    onUpdateComment(task.id, task.type, comment);
-  };
-
-  const handleFollowUpDateChange = (date: Date | null) => {
-    onUpdateFollowUpDate(task.id, task.type, date);
-  };
-
-  const handleAsapFollowUp = () => {
-    onUpdateFollowUpDate(task.id, task.type, new Date());
   };
 
   const getClientInfo = () => {
@@ -168,67 +127,15 @@ export const CompactTaskCard = ({
             )}
           </div>
 
-          {/* Quick actions when expanded */}
-          {showDetails && (
-            <div className="mt-2 space-y-2 p-2 bg-gray-50 rounded" onClick={(e) => e.stopPropagation()}>
-              {needsStatusSelection && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-12">Statut:</span>
-                  <TaskStatusSelect
-                    currentStatus={getCurrentStatus()}
-                    onStatusChange={handleStatusChange}
-                    disabled={task.isCompleted}
-                  />
-                </div>
-              )}
-              
-              {getCurrentStatus() === 'a_relancer' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-12">Relance:</span>
-                  <FollowUpDatePicker
-                    value={getCurrentFollowUpDate()}
-                    onChange={handleFollowUpDateChange}
-                    onAsapSelect={handleAsapFollowUp}
-                  />
-                </div>
-              )}
-              
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-12">Note:</span>
-                <TaskCommentInput
-                  value={getCurrentComment()}
-                  onChange={handleCommentChange}
-                />
-              </div>
-
-              {task.dueDate && (
-                <p className={`text-xs ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                  Échéance: {formatDistanceToNow(new Date(task.dueDate), { 
-                    addSuffix: true, 
-                    locale: fr 
-                  })}
-                </p>
-              )}
-            </div>
+          {task.dueDate && (
+            <p className={`text-xs ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+              Échéance: {formatDistanceToNow(new Date(task.dueDate), { 
+                addSuffix: true, 
+                locale: fr 
+              })}
+            </p>
           )}
         </div>
-
-        {/* Expand button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowDetails(!showDetails);
-          }}
-          className="h-6 w-6 p-0 flex-shrink-0"
-        >
-          {showDetails ? (
-            <ChevronDown className="h-3 w-3" />
-          ) : (
-            <ChevronRight className="h-3 w-3" />
-          )}
-        </Button>
       </div>
 
       <TaskCompletionDialog

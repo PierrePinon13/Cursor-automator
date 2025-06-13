@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { CompactTaskCard } from './CompactTaskCard';
+import { TaskDetailDialog } from './TaskDetailDialog';
+import { DateRangeFilter } from './DateRangeFilter';
 import { CompletedTasksSection } from './CompletedTasksSection';
 import { Task } from '@/hooks/useTasks';
 import { Badge } from '@/components/ui/badge';
@@ -22,8 +24,24 @@ export const TasksOverview = ({
   onUpdateFollowUpDate,
   selectedTaskId 
 }: TasksOverviewProps) => {
-  const pendingTasks = tasks.filter(task => !task.isCompleted);
-  const completedTasks = tasks.filter(task => task.isCompleted);
+  const [dateRange, setDateRange] = useState('15');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+
+  // Filtrer les tâches par date
+  const filteredTasks = tasks.filter(task => {
+    if (dateRange === 'all') return true;
+    
+    const taskDate = new Date(task.createdAt);
+    const now = new Date();
+    const daysBack = parseInt(dateRange);
+    const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+    
+    return taskDate >= cutoffDate;
+  });
+
+  const pendingTasks = filteredTasks.filter(task => !task.isCompleted);
+  const completedTasks = filteredTasks.filter(task => task.isCompleted);
 
   const overdueTasks = pendingTasks.filter(task => task.isOverdue);
   const upcomingTasks = pendingTasks.filter(task => !task.isOverdue);
@@ -40,19 +58,36 @@ export const TasksOverview = ({
     }
   }, [selectedTaskId]);
 
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setShowTaskDialog(true);
+  };
+
+  const handleTaskComplete = async (taskId: string, taskType: Task['type'], status?: string) => {
+    if (status) {
+      await onUpdateStatus(taskId, taskType, status);
+    }
+    await onComplete(taskId, taskType);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Statistiques */}
-      <div className="flex gap-4 flex-wrap">
-        <Badge variant="destructive" className="text-sm">
-          {overdueTasks.length} task{overdueTasks.length > 1 ? 's' : ''} en retard
-        </Badge>
-        <Badge variant="secondary" className="text-sm">
-          {upcomingTasks.length} task{upcomingTasks.length > 1 ? 's' : ''} à venir
-        </Badge>
-        <Badge variant="outline" className="text-sm">
-          {completedTasks.length} task{completedTasks.length > 1 ? 's' : ''} terminée{completedTasks.length > 1 ? 's' : ''}
-        </Badge>
+      {/* Filtre de date */}
+      <div className="flex justify-between items-center">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        
+        {/* Statistiques */}
+        <div className="flex gap-4 flex-wrap">
+          <Badge variant="destructive" className="text-sm">
+            {overdueTasks.length} task{overdueTasks.length > 1 ? 's' : ''} en retard
+          </Badge>
+          <Badge variant="secondary" className="text-sm">
+            {upcomingTasks.length} task{upcomingTasks.length > 1 ? 's' : ''} à venir
+          </Badge>
+          <Badge variant="outline" className="text-sm">
+            {completedTasks.length} task{completedTasks.length > 1 ? 's' : ''} terminée{completedTasks.length > 1 ? 's' : ''}
+          </Badge>
+        </div>
       </div>
 
       {/* Tasks en retard */}
@@ -73,6 +108,7 @@ export const TasksOverview = ({
                   onUpdateStatus={onUpdateStatus}
                   onUpdateComment={onUpdateComment}
                   onUpdateFollowUpDate={onUpdateFollowUpDate}
+                  onTaskClick={handleTaskClick}
                 />
               </div>
             ))}
@@ -98,6 +134,7 @@ export const TasksOverview = ({
                   onUpdateStatus={onUpdateStatus}
                   onUpdateComment={onUpdateComment}
                   onUpdateFollowUpDate={onUpdateFollowUpDate}
+                  onTaskClick={handleTaskClick}
                 />
               </div>
             ))}
@@ -124,6 +161,14 @@ export const TasksOverview = ({
           onUpdateFollowUpDate={onUpdateFollowUpDate}
         />
       )}
+
+      {/* Dialog de traitement de tâche */}
+      <TaskDetailDialog
+        open={showTaskDialog}
+        onOpenChange={setShowTaskDialog}
+        task={selectedTask}
+        onComplete={handleTaskComplete}
+      />
     </div>
   );
 };

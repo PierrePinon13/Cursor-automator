@@ -31,7 +31,7 @@ export const useTasks = () => {
       const now = new Date();
       const tasks: Task[] = [];
 
-      // 1. Récupérer les rappels
+      // 1. Récupérer les rappels (tous, y compris lus)
       const { data: reminders, error: remindersError } = await supabase
         .from('reminders')
         .select(`
@@ -65,12 +65,11 @@ export const useTasks = () => {
         });
       });
 
-      // 2. Récupérer les leads assignés
+      // 2. Récupérer les leads assignés (tous, y compris terminés)
       const { data: assignedLeads, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .eq('assigned_to_user_id', user.id)
-        .is('assignment_completed_at', null)
         .order('assigned_at', { ascending: false });
 
       if (leadsError) throw leadsError;
@@ -78,7 +77,8 @@ export const useTasks = () => {
       // Transformer les leads assignés en tâches
       assignedLeads?.forEach(lead => {
         const assignedDate = lead.assigned_at ? new Date(lead.assigned_at) : new Date();
-        const isOverdue = (now.getTime() - assignedDate.getTime()) > (7 * 24 * 60 * 60 * 1000); // Plus de 7 jours
+        const isCompleted = !!lead.assignment_completed_at;
+        const isOverdue = !isCompleted && (now.getTime() - assignedDate.getTime()) > (7 * 24 * 60 * 60 * 1000);
         
         tasks.push({
           id: lead.id,
@@ -87,19 +87,18 @@ export const useTasks = () => {
           description: `${lead.company_name || 'Entreprise inconnue'} - ${lead.openai_step3_categorie || 'Catégorie non définie'}`,
           dueDate: null,
           isOverdue,
-          isCompleted: false,
+          isCompleted,
           priority: isOverdue ? 'high' : 'medium',
           data: lead,
           createdAt: lead.assigned_at || lead.created_at
         });
       });
 
-      // 3. Récupérer les offres d'emploi assignées
+      // 3. Récupérer les offres d'emploi assignées (toutes, y compris terminées)
       const { data: assignedJobOffers, error: jobOffersError } = await supabase
         .from('client_job_offers')
         .select('*')
         .eq('assigned_to_user_id', user.id)
-        .is('assignment_completed_at', null)
         .order('assigned_at', { ascending: false });
 
       if (jobOffersError) throw jobOffersError;
@@ -107,7 +106,8 @@ export const useTasks = () => {
       // Transformer les offres d'emploi assignées en tâches
       assignedJobOffers?.forEach(jobOffer => {
         const assignedDate = jobOffer.assigned_at ? new Date(jobOffer.assigned_at) : new Date();
-        const isOverdue = (now.getTime() - assignedDate.getTime()) > (7 * 24 * 60 * 60 * 1000); // Plus de 7 jours
+        const isCompleted = !!jobOffer.assignment_completed_at;
+        const isOverdue = !isCompleted && (now.getTime() - assignedDate.getTime()) > (7 * 24 * 60 * 60 * 1000);
         
         tasks.push({
           id: jobOffer.id,
@@ -116,7 +116,7 @@ export const useTasks = () => {
           description: `${jobOffer.company_name || 'Entreprise inconnue'} - ${jobOffer.location || 'Localisation non définie'}`,
           dueDate: null,
           isOverdue,
-          isCompleted: false,
+          isCompleted,
           priority: isOverdue ? 'high' : 'medium',
           data: jobOffer,
           createdAt: jobOffer.assigned_at || jobOffer.created_at
