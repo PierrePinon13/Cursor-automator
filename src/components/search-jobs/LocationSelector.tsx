@@ -116,7 +116,7 @@ export const LocationSelector = ({ selectedLocations, onChange }: LocationSelect
               <MapPin className="h-3 w-3" />
               {location.label}
               {!location.isResolved && (
-                <Search className="h-3 w-3 text-orange-500" title="Sera résolu dynamiquement" />
+                <Search className="h-3 w-3 text-orange-500" />
               )}
               <Button
                 type="button"
