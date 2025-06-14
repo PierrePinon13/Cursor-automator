@@ -10,6 +10,8 @@ import { Separator } from '@/components/ui/separator';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
 const JobSearch = () => {
+  console.log('JobSearch component rendering');
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [location, setLocation] = useState('');
   const [jobType, setJobType] = useState('');
