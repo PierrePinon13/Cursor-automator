@@ -3,14 +3,18 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { MapPin, X } from 'lucide-react';
+import { LocationSelector } from './LocationSelector';
+
+interface SelectedLocation {
+  label: string;
+  geoId: number | null;
+  isResolved: boolean;
+}
 
 interface JobSearchFiltersProps {
   filters: {
     keywords: string;
-    location: string[];
+    location: SelectedLocation[];
     date_posted: string;
     sort_by: string;
   };
@@ -18,30 +22,11 @@ interface JobSearchFiltersProps {
 }
 
 export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) => {
-  const [locationInput, setLocationInput] = useState('');
-
-  const addLocation = () => {
-    if (locationInput.trim() && !filters.location.includes(locationInput.trim())) {
-      onChange({
-        ...filters,
-        location: [...filters.location, locationInput.trim()]
-      });
-      setLocationInput('');
-    }
-  };
-
-  const removeLocation = (location: string) => {
+  const handleLocationChange = (locations: SelectedLocation[]) => {
     onChange({
       ...filters,
-      location: filters.location.filter(l => l !== location)
+      location: locations
     });
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addLocation();
-    }
   };
 
   return (
@@ -57,39 +42,12 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
         />
       </div>
 
-      {/* Localisation */}
+      {/* Localisation avec auto-complétion */}
       <div className="lg:col-span-2">
-        <Label htmlFor="location">Localisation</Label>
-        <div className="flex gap-2 mb-2">
-          <div className="relative flex-1">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              id="location"
-              placeholder="Ajouter une localisation..."
-              value={locationInput}
-              onChange={(e) => setLocationInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="pl-10"
-            />
-          </div>
-          <Button type="button" onClick={addLocation} disabled={!locationInput.trim()}>
-            Ajouter
-          </Button>
-        </div>
-        
-        {filters.location.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {filters.location.map((location, index) => (
-              <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                {location}
-                <X
-                  className="h-3 w-3 cursor-pointer hover:text-red-500"
-                  onClick={() => removeLocation(location)}
-                />
-              </Badge>
-            ))}
-          </div>
-        )}
+        <LocationSelector
+          selectedLocations={filters.location}
+          onChange={handleLocationChange}
+        />
       </div>
 
       {/* Date de publication */}

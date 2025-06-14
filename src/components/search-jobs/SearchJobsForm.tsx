@@ -1,17 +1,20 @@
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { X, Save, Play, Loader2 } from 'lucide-react';
 import { JobSearchFilters } from './JobSearchFilters';
 import { PersonaFilters } from './PersonaFilters';
 import { MessageTemplate } from './MessageTemplate';
-import { Search, Target, MessageSquare, Save, Play } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+
+interface SelectedLocation {
+  label: string;
+  geoId: number | null;
+  isResolved: boolean;
+}
 
 interface SearchJobsFormProps {
   onSubmit: (config: any) => Promise<any>;
@@ -20,136 +23,187 @@ interface SearchJobsFormProps {
 }
 
 export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFormProps) => {
-  const [searchName, setSearchName] = useState(initialData?.name || '');
-  const [jobFilters, setJobFilters] = useState(initialData?.jobFilters || {
+  const [searchName, setSearchName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const [jobFilters, setJobFilters] = useState({
     keywords: '',
-    location: [],
+    location: [] as SelectedLocation[],
     date_posted: 'any',
     sort_by: 'date'
   });
-  const [personaFilters, setPersonaFilters] = useState(initialData?.personaFilters || {
+  
+  const [personaFilters, setPersonaFilters] = useState({
     keywords: '',
-    role: [],
+    role: [] as string[],
     profile_language: 'fr'
   });
-  const [messageTemplate, setMessageTemplate] = useState(initialData?.messageTemplate || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [messageTemplate, setMessageTemplate] = useState('');
+
+  // Charger les données initiales si fournies
+  useEffect(() => {
+    if (initialData) {
+      setSearchName(initialData.name || '');
+      setJobFilters(initialData.jobFilters || jobFilters);
+      setPersonaFilters(initialData.personaFilters || personaFilters);
+      setMessageTemplate(initialData.messageTemplate || '');
+    }
+  }, [initialData]);
+
+  const validateForm = () => {
+    if (!jobFilters.keywords.trim()) {
+      toast({
+        title: "Validation échouée",
+        description: "Les mots-clés sont obligatoires pour la recherche d'emploi.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    if (personaFilters.role.length === 0) {
+      toast({
+        title: "Validation échouée", 
+        description: "Veuillez sélectionner au moins un titre de poste pour le ciblage persona.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    return true;
+  };
 
   const handleSubmit = async (saveOnly = false) => {
-    setIsSubmitting(true);
+    if (!validateForm()) return;
+    
+    if (saveOnly && !searchName.trim()) {
+      toast({
+        title: "Nom requis",
+        description: "Veuillez donner un nom à votre recherche pour la sauvegarder.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
     try {
       const config = {
         name: searchName,
         search_jobs: jobFilters,
-        personna_filters: personaFilters,
-        message_template: messageTemplate,
+        personna_filters: {
+          ...personaFilters,
+          role: { keywords: personaFilters.role }
+        },
+        message_template: messageTemplate.trim() || undefined,
         saveOnly
       };
-      
+
       await onSubmit(config);
+    } catch (error) {
+      console.error('Erreur lors de la soumission:', error);
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Configuration de la recherche
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Card className="shadow-lg">
+      <CardHeader className="border-b">
+        <div className="flex items-center justify-between">
           <div>
-            <Label htmlFor="searchName">Nom de la recherche</Label>
-            <Input
-              id="searchName"
-              placeholder="Ex: Développeurs React Paris"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-            />
+            <CardTitle className="text-xl">
+              {initialData ? 'Modifier la recherche' : 'Nouvelle recherche d\'emplois'}
+            </CardTitle>
+            <CardDescription>
+              Configurez votre recherche d'offres d'emploi et le ciblage des prospects
+            </CardDescription>
           </div>
-        </CardContent>
-      </Card>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
 
-      {/* Filtres de recherche d'emploi */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5 text-blue-600" />
-            1. Recherche d'emploi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <CardContent className="p-6 space-y-8">
+        {/* Nom de la recherche */}
+        <div className="space-y-2">
+          <Label htmlFor="search-name">Nom de la recherche</Label>
+          <Input
+            id="search-name"
+            placeholder="Ex: Développeurs React Paris"
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+          />
+        </div>
+
+        {/* Filtres de recherche d'emploi */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            🔍 Recherche d'emplois
+          </h3>
           <JobSearchFilters
             filters={jobFilters}
             onChange={setJobFilters}
           />
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Filtres de personas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-green-600" />
-            2. Ciblage des personas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Filtres de persona */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            🧑‍💼 Ciblage des prospects
+          </h3>
           <PersonaFilters
             filters={personaFilters}
             onChange={setPersonaFilters}
           />
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Template de message */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-purple-600" />
-            3. Message LinkedIn (optionnel)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Template de message */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            ✍️ Message LinkedIn (optionnel)
+          </h3>
           <MessageTemplate
             template={messageTemplate}
             onChange={setMessageTemplate}
           />
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={onCancel}>
-          Annuler
-        </Button>
-        
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => handleSubmit(true)}
-            disabled={isSubmitting || !searchName}
-            className="flex items-center gap-2"
-          >
-            <Save className="h-4 w-4" />
-            Sauvegarder
+        {/* Actions */}
+        <div className="flex justify-between pt-4 border-t">
+          <Button variant="outline" onClick={onCancel}>
+            Annuler
           </Button>
           
-          <Button
-            onClick={() => handleSubmit(false)}
-            disabled={isSubmitting || !searchName || !jobFilters.keywords}
-            className="flex items-center gap-2"
-          >
-            <Play className="h-4 w-4" />
-            {isSubmitting ? 'Lancement...' : 'Lancer la recherche'}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleSubmit(true)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Sauvegarder
+            </Button>
+            
+            <Button
+              onClick={() => handleSubmit(false)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              Lancer la recherche
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };

@@ -5,6 +5,12 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+interface SelectedLocation {
+  label: string;
+  geoId: number | null;
+  isResolved: boolean;
+}
+
 interface SavedSearch {
   id: string;
   name: string;
@@ -75,6 +81,26 @@ export const useSearchJobs = () => {
     try {
       console.log('Configuration envoyée au webhook:', searchConfig);
       
+      // Transformer les localisations pour l'API
+      const locationIds = searchConfig.search_jobs.location
+        .filter((loc: SelectedLocation) => loc.geoId !== null)
+        .map((loc: SelectedLocation) => loc.geoId);
+      
+      // Localisations non résolues (à traiter par N8N)
+      const unresolvedLocations = searchConfig.search_jobs.location
+        .filter((loc: SelectedLocation) => loc.geoId === null)
+        .map((loc: SelectedLocation) => loc.label);
+
+      // Préparer les données pour l'API
+      const apiPayload = {
+        ...searchConfig,
+        search_jobs: {
+          ...searchConfig.search_jobs,
+          location: locationIds,
+          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined
+        }
+      };
+
       // Appel à l'API N8N avec mode no-cors pour éviter les problèmes CORS
       const response = await fetch('https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1', {
         method: 'POST',
@@ -82,7 +108,7 @@ export const useSearchJobs = () => {
           'Content-Type': 'application/json',
         },
         mode: 'no-cors',
-        body: JSON.stringify(searchConfig),
+        body: JSON.stringify(apiPayload),
       });
 
       // Avec no-cors, on ne peut pas lire la réponse, donc on simule le succès
