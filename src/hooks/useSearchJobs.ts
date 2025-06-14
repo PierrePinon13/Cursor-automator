@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
@@ -82,7 +83,7 @@ export const useSearchJobs = () => {
     setIsLoading(true);
     
     try {
-      console.log('Configuration de recherche reçue:', searchConfig);
+      console.log('🔍 Configuration de recherche reçue:', searchConfig);
       
       // Transformer les localisations pour l'API
       const locationIds = searchConfig.search_jobs.location
@@ -93,11 +94,6 @@ export const useSearchJobs = () => {
       const unresolvedLocations = searchConfig.search_jobs.location
         .filter((loc: SelectedLocation) => loc.geoId === null)
         .map((loc: SelectedLocation) => loc.label);
-
-      // Corriger la structure des données persona
-      const personaRole = Array.isArray(searchConfig.personna_filters.role) 
-        ? searchConfig.personna_filters.role 
-        : (searchConfig.personna_filters.role?.keywords || []);
 
       // Préparer les données pour l'API avec la structure correcte
       const apiPayload = {
@@ -110,14 +106,16 @@ export const useSearchJobs = () => {
         personna_filters: {
           ...searchConfig.personna_filters,
           role: {
-            keywords: personaRole
+            keywords: Array.isArray(searchConfig.personna_filters.role) 
+              ? searchConfig.personna_filters.role 
+              : searchConfig.personna_filters.role?.keywords || []
           }
         },
         message_template: searchConfig.message_template,
         saveOnly: searchConfig.saveOnly
       };
 
-      console.log('Données envoyées au webhook N8N:', apiPayload);
+      console.log('📤 Données envoyées au webhook N8N:', apiPayload);
 
       // Si c'est une sauvegarde uniquement
       if (searchConfig.saveOnly) {
@@ -129,28 +127,45 @@ export const useSearchJobs = () => {
         return { success: true, searchId: savedSearch.id };
       }
 
+      // Test de connectivité avant l'appel principal
+      const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1';
+      console.log('🌐 Test de connectivité vers:', N8N_WEBHOOK_URL);
+
       // Appel à l'API N8N avec timeout et meilleure gestion d'erreur
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes timeout
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Timeout de 30 secondes atteint');
+        controller.abort();
+      }, 30000);
 
       try {
-        const response = await fetch('https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1', {
+        console.log('📡 Envoi de la requête vers N8N...');
+        
+        const response = await fetch(N8N_WEBHOOK_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
           body: JSON.stringify(apiPayload),
           signal: controller.signal
         });
 
         clearTimeout(timeoutId);
+        console.log('📥 Réponse reçue de N8N:', response.status, response.statusText);
 
         if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Erreur inconnue');
+          console.error('❌ Erreur API N8N:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText
+          });
           throw new Error(`Erreur API N8N: ${response.status} - ${response.statusText}`);
         }
 
         const results = await response.json();
-        console.log('Résultats de l\'API N8N:', results);
+        console.log('✅ Résultats de l\'API N8N:', results);
 
         // Transformer les résultats en format attendu
         const formattedResults: JobResult[] = results.jobs?.map((job: any, index: number) => ({
@@ -194,16 +209,25 @@ export const useSearchJobs = () => {
 
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
+        console.error('💥 Erreur détaillée lors de l\'appel N8N:', {
+          name: fetchError.name,
+          message: fetchError.message,
+          stack: fetchError.stack
+        });
         
         if (fetchError.name === 'AbortError') {
-          throw new Error('Timeout: La recherche a pris trop de temps à répondre');
+          throw new Error('⏰ Timeout: La recherche a pris trop de temps à répondre (30s)');
+        }
+        
+        if (fetchError.message === 'Failed to fetch') {
+          throw new Error('🌐 Impossible de contacter le serveur N8N. Vérifiez votre connexion internet ou contactez l\'administrateur.');
         }
         
         throw fetchError;
       }
 
     } catch (error: any) {
-      console.error('Erreur lors de la recherche:', error);
+      console.error('🚨 Erreur lors de la recherche:', error);
       
       // En cas d'erreur, utiliser des résultats mock pour la démo
       const mockResults: JobResult[] = [
@@ -256,8 +280,8 @@ export const useSearchJobs = () => {
       setCurrentResults(mockResults);
       
       toast({
-        title: "Erreur de connexion",
-        description: `Impossible de contacter l'API N8N. Affichage des résultats de démonstration. Erreur: ${error.message}`,
+        title: "Problème de connexion",
+        description: `${error.message} Affichage des résultats de démonstration.`,
         variant: "destructive"
       });
       
