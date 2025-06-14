@@ -34,7 +34,20 @@ const SearchJobs = () => {
     return result;
   };
 
-  const handleExecuteSavedSearch = (search: any) => {
+  const handleDirectExecute = async (search: any) => {
+    // Convertir la recherche sauvegardée en format attendu par executeSearch
+    const searchConfig = {
+      name: search.name,
+      search_jobs: search.jobFilters,
+      personna_filters: search.personaFilters,
+      message_template: search.messageTemplate,
+      saveOnly: false
+    };
+    
+    await executeSearch(searchConfig);
+  };
+
+  const handleEditSearch = (search: any) => {
     setSelectedSearch(search);
     setShowForm(true);
   };
@@ -74,7 +87,8 @@ const SearchJobs = () => {
         {/* Recherches sauvegardées */}
         <SavedSearches
           searches={savedSearches}
-          onExecute={handleExecuteSavedSearch}
+          onExecute={handleDirectExecute}
+          onEdit={handleEditSearch}
           onDelete={deleteSearch}
           onLoadResults={handleLoadResults}
         />

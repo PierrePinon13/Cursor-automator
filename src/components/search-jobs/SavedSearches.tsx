@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Trash2, Calendar, MapPin, Users, FileText } from 'lucide-react';
+import { Play, Trash2, Calendar, MapPin, Users, FileText, Pencil } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -31,11 +31,12 @@ interface SavedSearch {
 interface SavedSearchesProps {
   searches: SavedSearch[];
   onExecute: (search: SavedSearch) => void;
+  onEdit: (search: SavedSearch) => void;
   onDelete: (searchId: string) => void;
   onLoadResults: (searchId: string) => void;
 }
 
-export const SavedSearches = ({ searches, onExecute, onDelete, onLoadResults }: SavedSearchesProps) => {
+export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadResults }: SavedSearchesProps) => {
   if (searches.length === 0) {
     return (
       <Card>
@@ -153,6 +154,16 @@ export const SavedSearches = ({ searches, onExecute, onDelete, onLoadResults }: 
                       Exécuter
                     </Button>
 
+                    <Button
+                      variant="outline"
+                      onClick={() => onEdit(search)}
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Modifier
+                    </Button>
+
                     {typeof search.resultsCount === 'number' && search.resultsCount > 0 && (
                       <Button
                         variant="outline"
@@ -161,7 +172,7 @@ export const SavedSearches = ({ searches, onExecute, onDelete, onLoadResults }: 
                         className="flex items-center gap-2"
                       >
                         <FileText className="h-4 w-4" />
-                        Voir résultats
+                        Résultats
                       </Button>
                     )}
 
