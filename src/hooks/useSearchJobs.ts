@@ -116,7 +116,7 @@ export const useSearchJobs = () => {
 
       console.log('📤 Données envoyées au webhook N8N:', apiPayload);
 
-      // Si c'est une sauvegarde uniquement
+      // Si c'est une sauvegarde uniquement, on n'appelle pas N8N
       if (searchConfig.saveOnly) {
         const savedSearch = await createSearch(searchConfig);
         toast({
@@ -126,7 +126,23 @@ export const useSearchJobs = () => {
         return { success: true, searchId: savedSearch.id };
       }
 
-      // Appel à l'API N8N avec mode no-cors pour éviter les problèmes CORS
+      // Sauvegarder d'abord la recherche si elle a un nom
+      let savedSearchId = null;
+      if (searchConfig.name && user?.id) {
+        try {
+          const savedSearch = await createSearch({
+            ...searchConfig,
+            saveOnly: false
+          });
+          savedSearchId = savedSearch.id;
+          setCurrentSearchId(savedSearchId);
+          console.log('✅ Recherche sauvegardée avec ID:', savedSearchId);
+        } catch (saveError) {
+          console.error('⚠️ Erreur lors de la sauvegarde (continuons quand même):', saveError);
+        }
+      }
+
+      // Appel à l'API N8N (inspiré de process-dataset)
       const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1';
       console.log('🌐 Envoi vers N8N:', N8N_WEBHOOK_URL);
 
@@ -138,80 +154,81 @@ export const useSearchJobs = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          mode: 'no-cors', // Résout le problème CORS
           body: JSON.stringify(apiPayload)
         });
 
-        console.log('✅ Requête envoyée avec succès vers N8N');
+        console.log('📊 Réponse N8N - Status:', response.status);
 
-        // Avec no-cors, on ne peut pas lire la réponse, donc on simule les résultats
-        const mockResults: JobResult[] = [
-          {
-            id: '1',
-            title: 'Senior React Developer',
-            company: 'TechCorp France',
-            location: 'Paris, France',
-            postedDate: new Date('2024-01-18'),
-            description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe dynamique. Vous travaillerez sur des projets innovants utilisant les dernières technologies.',
-            jobUrl: 'https://example.com/job/1',
-            salary: '50-70k€',
-            personas: [
-              {
-                id: '1',
-                name: 'Jean Dupont',
-                title: 'CTO',
-                profileUrl: 'https://linkedin.com/in/jean-dupont',
-                company: 'TechCorp France'
-              },
-              {
-                id: '2',
-                name: 'Marie Martin',
-                title: 'Tech Lead',
-                profileUrl: 'https://linkedin.com/in/marie-martin',
-                company: 'TechCorp France'
-              }
-            ]
-          },
-          {
-            id: '2',
-            title: 'Frontend Developer React',
-            company: 'StartupXYZ',
-            location: 'Lyon, France',
-            postedDate: new Date('2024-01-17'),
-            description: 'Rejoignez notre équipe dynamique et participez au développement de notre plateforme SaaS révolutionnaire.',
-            jobUrl: 'https://example.com/job/2',
-            personas: [
-              {
-                id: '3',
-                name: 'Pierre Leroy',
-                title: 'Engineering Manager',
-                profileUrl: 'https://linkedin.com/in/pierre-leroy',
-                company: 'StartupXYZ'
-              }
-            ]
-          }
-        ];
-
-        setCurrentResults(mockResults);
-
-        // Sauvegarder la recherche avec les résultats
-        if (searchConfig.name) {
-          const savedSearch = await createSearch({
-            ...searchConfig,
-            saveOnly: false
-          });
-          setCurrentSearchId(savedSearch.id);
+        if (response.ok) {
+          console.log('✅ Requête envoyée avec succès vers N8N');
           
-          // Sauvegarder les résultats dans la base
-          await saveSearchResults(savedSearch.id, mockResults);
-        }
+          // Résultats de test en attendant la vraie réponse de N8N
+          const mockResults: JobResult[] = [
+            {
+              id: '1',
+              title: 'Senior React Developer',
+              company: 'TechCorp France',
+              location: 'Paris, France',
+              postedDate: new Date('2024-01-18'),
+              description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe dynamique. Vous travaillerez sur des projets innovants utilisant les dernières technologies.',
+              jobUrl: 'https://example.com/job/1',
+              salary: '50-70k€',
+              personas: [
+                {
+                  id: '1',
+                  name: 'Jean Dupont',
+                  title: 'CTO',
+                  profileUrl: 'https://linkedin.com/in/jean-dupont',
+                  company: 'TechCorp France'
+                },
+                {
+                  id: '2',
+                  name: 'Marie Martin',
+                  title: 'Tech Lead',
+                  profileUrl: 'https://linkedin.com/in/marie-martin',
+                  company: 'TechCorp France'
+                }
+              ]
+            },
+            {
+              id: '2',
+              title: 'Frontend Developer React',
+              company: 'StartupXYZ',
+              location: 'Lyon, France',
+              postedDate: new Date('2024-01-17'),
+              description: 'Rejoignez notre équipe dynamique et participez au développement de notre plateforme SaaS révolutionnaire.',
+              jobUrl: 'https://example.com/job/2',
+              personas: [
+                {
+                  id: '3',
+                  name: 'Pierre Leroy',
+                  title: 'Engineering Manager',
+                  profileUrl: 'https://linkedin.com/in/pierre-leroy',
+                  company: 'StartupXYZ'
+                }
+              ]
+            }
+          ];
 
-        toast({
-          title: "Recherche envoyée",
-          description: `Requête envoyée avec succès vers N8N. Affichage des résultats de test en attendant la réponse.`,
-        });
-        
-        return { success: true, results: mockResults };
+          setCurrentResults(mockResults);
+
+          // Sauvegarder les résultats si on a un searchId
+          if (savedSearchId) {
+            await saveSearchResults(savedSearchId, mockResults);
+          }
+
+          toast({
+            title: "Recherche lancée",
+            description: `Requête envoyée avec succès vers N8N (status: ${response.status}). Affichage des résultats de test.`,
+          });
+          
+          return { success: true, results: mockResults, searchId: savedSearchId };
+
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Erreur N8N - Status:', response.status, 'Response:', errorText);
+          throw new Error(`Erreur N8N (${response.status}): ${errorText}`);
+        }
 
       } catch (fetchError: any) {
         console.error('💥 Erreur détaillée lors de l\'appel N8N:', fetchError);
@@ -231,7 +248,7 @@ export const useSearchJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   const createSearch = useCallback(async (searchConfig: any) => {
     if (!user?.id) {
