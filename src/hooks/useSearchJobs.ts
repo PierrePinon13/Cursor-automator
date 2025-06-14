@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
@@ -83,7 +82,7 @@ export const useSearchJobs = () => {
     setIsLoading(true);
     
     try {
-      console.log('Configuration envoyée au webhook:', searchConfig);
+      console.log('Configuration de recherche reçue:', searchConfig);
       
       // Transformer les localisations pour l'API
       const locationIds = searchConfig.search_jobs.location
@@ -95,9 +94,14 @@ export const useSearchJobs = () => {
         .filter((loc: SelectedLocation) => loc.geoId === null)
         .map((loc: SelectedLocation) => loc.label);
 
+      // Corriger la structure des données persona
+      const personaRole = Array.isArray(searchConfig.personna_filters.role) 
+        ? searchConfig.personna_filters.role 
+        : (searchConfig.personna_filters.role?.keywords || []);
+
       // Préparer les données pour l'API avec la structure correcte
       const apiPayload = {
-        ...searchConfig,
+        name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
           location: locationIds,
@@ -106,10 +110,14 @@ export const useSearchJobs = () => {
         personna_filters: {
           ...searchConfig.personna_filters,
           role: {
-            keywords: searchConfig.personna_filters.role || []
+            keywords: personaRole
           }
-        }
+        },
+        message_template: searchConfig.message_template,
+        saveOnly: searchConfig.saveOnly
       };
+
+      console.log('Données envoyées au webhook N8N:', apiPayload);
 
       // Si c'est une sauvegarde uniquement
       if (searchConfig.saveOnly) {
@@ -121,62 +129,80 @@ export const useSearchJobs = () => {
         return { success: true, searchId: savedSearch.id };
       }
 
-      // Appel à l'API N8N
-      const response = await fetch('https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiPayload),
-      });
+      // Appel à l'API N8N avec timeout et meilleure gestion d'erreur
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes timeout
 
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-
-      const results = await response.json();
-      console.log('Résultats de l\'API:', results);
-
-      // Transformer les résultats en format attendu
-      const formattedResults: JobResult[] = results.jobs?.map((job: any, index: number) => ({
-        id: job.id || `job-${index}`,
-        title: job.title || job.jobTitle || 'Titre non disponible',
-        company: job.company || job.companyName || 'Entreprise non spécifiée',
-        location: job.location || 'Localisation non spécifiée',
-        postedDate: job.postedDate ? new Date(job.postedDate) : new Date(),
-        description: job.description || job.jobDescription || 'Description non disponible',
-        jobUrl: job.url || job.jobUrl,
-        salary: job.salary,
-        personas: job.personas?.map((persona: any, pIndex: number) => ({
-          id: persona.id || `persona-${index}-${pIndex}`,
-          name: persona.name || persona.fullName || 'Nom non disponible',
-          title: persona.title || persona.jobTitle || 'Titre non spécifié',
-          profileUrl: persona.profileUrl || persona.linkedinUrl || '#',
-          company: persona.company || job.company
-        })) || []
-      })) || [];
-
-      setCurrentResults(formattedResults);
-
-      // Sauvegarder la recherche avec les résultats
-      if (searchConfig.name) {
-        const savedSearch = await createSearch({
-          ...searchConfig,
-          saveOnly: false
+      try {
+        const response = await fetch('https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(apiPayload),
+          signal: controller.signal
         });
-        setCurrentSearchId(savedSearch.id);
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Erreur API N8N: ${response.status} - ${response.statusText}`);
+        }
+
+        const results = await response.json();
+        console.log('Résultats de l\'API N8N:', results);
+
+        // Transformer les résultats en format attendu
+        const formattedResults: JobResult[] = results.jobs?.map((job: any, index: number) => ({
+          id: job.id || `job-${index}`,
+          title: job.title || job.jobTitle || 'Titre non disponible',
+          company: job.company || job.companyName || 'Entreprise non spécifiée',
+          location: job.location || 'Localisation non spécifiée',
+          postedDate: job.postedDate ? new Date(job.postedDate) : new Date(),
+          description: job.description || job.jobDescription || 'Description non disponible',
+          jobUrl: job.url || job.jobUrl,
+          salary: job.salary,
+          personas: job.personas?.map((persona: any, pIndex: number) => ({
+            id: persona.id || `persona-${index}-${pIndex}`,
+            name: persona.name || persona.fullName || 'Nom non disponible',
+            title: persona.title || persona.jobTitle || 'Titre non spécifié',
+            profileUrl: persona.profileUrl || persona.linkedinUrl || '#',
+            company: persona.company || job.company
+          })) || []
+        })) || [];
+
+        setCurrentResults(formattedResults);
+
+        // Sauvegarder la recherche avec les résultats
+        if (searchConfig.name) {
+          const savedSearch = await createSearch({
+            ...searchConfig,
+            saveOnly: false
+          });
+          setCurrentSearchId(savedSearch.id);
+          
+          // Sauvegarder les résultats dans la base
+          await saveSearchResults(savedSearch.id, formattedResults);
+        }
+
+        toast({
+          title: "Recherche terminée",
+          description: `${formattedResults.length} résultat(s) trouvé(s).`,
+        });
         
-        // Sauvegarder les résultats dans la base
-        await saveSearchResults(savedSearch.id, formattedResults);
+        return { success: true, results: formattedResults };
+
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Timeout: La recherche a pris trop de temps à répondre');
+        }
+        
+        throw fetchError;
       }
 
-      toast({
-        title: "Recherche terminée",
-        description: `${formattedResults.length} résultat(s) trouvé(s).`,
-      });
-      
-      return { success: true, results: formattedResults };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la recherche:', error);
       
       // En cas d'erreur, utiliser des résultats mock pour la démo
@@ -230,11 +256,12 @@ export const useSearchJobs = () => {
       setCurrentResults(mockResults);
       
       toast({
-        title: "Recherche lancée (mode démo)",
-        description: "Résultats de démonstration affichés. L'API sera intégrée prochainement.",
+        title: "Erreur de connexion",
+        description: `Impossible de contacter l'API N8N. Affichage des résultats de démonstration. Erreur: ${error.message}`,
+        variant: "destructive"
       });
       
-      return { success: true, results: mockResults };
+      return { success: false, results: mockResults, error: error.message };
     } finally {
       setIsLoading(false);
     }
@@ -279,7 +306,7 @@ export const useSearchJobs = () => {
         posted_date: result.postedDate.toISOString(),
         job_description: result.description,
         job_url: result.jobUrl,
-        personas: JSON.stringify(result.personas) // Convert personas array to JSON string for storage
+        personas: JSON.stringify(result.personas)
       }));
 
       const { error } = await supabase
@@ -321,7 +348,7 @@ export const useSearchJobs = () => {
         postedDate: new Date(result.posted_date),
         description: result.job_description || '',
         jobUrl: result.job_url,
-        personas: result.personas ? JSON.parse(result.personas as string) : [] // Parse JSON string back to personas array
+        personas: result.personas ? JSON.parse(result.personas as string) : []
       }));
 
       setCurrentResults(formattedResults);
