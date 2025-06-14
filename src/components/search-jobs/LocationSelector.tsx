@@ -133,65 +133,59 @@ export const LocationSelector = ({ selectedLocations, onChange }: LocationSelect
       )}
 
       {/* Input avec auto-complétion */}
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              ref={inputRef}
-              id="location"
-              placeholder="Tapez une ville, région ou pays..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="pl-10"
-              autoComplete="off"
-            />
-          </div>
-        </PopoverTrigger>
+      <div className="relative">
+        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          ref={inputRef}
+          id="location"
+          placeholder="Tapez une ville, région ou pays..."
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyPress={handleKeyPress}
+          onFocus={() => {
+            if (inputValue.length >= 2 && suggestions.length > 0) {
+              setIsOpen(true);
+            }
+          }}
+          className="pl-10"
+          autoComplete="off"
+        />
         
+        {/* Dropdown des suggestions */}
         {isOpen && suggestions.length > 0 && (
-          <PopoverContent className="w-[400px] p-0" align="start">
-            <Command>
-              <CommandList>
-                <CommandGroup>
-                  {suggestions.map((location) => (
-                    <CommandItem
-                      key={`${location.label}-${location.geoId}`}
-                      onSelect={() => handleSuggestionSelect(location)}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <MapPin className="h-4 w-4 text-gray-400" />
-                      <div>
-                        <div className="font-medium">{location.label}</div>
-                        {location.country && location.country !== location.label && (
-                          <div className="text-xs text-gray-500">{location.country}</div>
-                        )}
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-                
-                {/* Option pour ajouter une localisation non trouvée */}
-                {inputValue.trim() && !suggestions.some(s => s.label.toLowerCase() === inputValue.toLowerCase()) && (
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={addUnresolvedLocation}
-                      className="flex items-center gap-2 cursor-pointer border-t"
-                    >
-                      <Search className="h-4 w-4 text-orange-500" />
-                      <div>
-                        <div className="font-medium">🔍 Rechercher "{inputValue}"</div>
-                        <div className="text-xs text-gray-500">Sera résolu dynamiquement</div>
-                      </div>
-                    </CommandItem>
-                  </CommandGroup>
-                )}
-              </CommandList>
-            </Command>
-          </PopoverContent>
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            {suggestions.map((location) => (
+              <div
+                key={`${location.label}-${location.geoId}`}
+                onClick={() => handleSuggestionSelect(location)}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+              >
+                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 truncate">{location.label}</div>
+                  {location.country && location.country !== location.label && (
+                    <div className="text-xs text-gray-500 truncate">{location.country}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {/* Option pour ajouter une localisation non trouvée */}
+            {inputValue.trim() && !suggestions.some(s => s.label.toLowerCase() === inputValue.toLowerCase()) && (
+              <div
+                onClick={addUnresolvedLocation}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-orange-50 border-t border-gray-200"
+              >
+                <Search className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 truncate">🔍 Rechercher "{inputValue}"</div>
+                  <div className="text-xs text-gray-500">Sera résolu dynamiquement</div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
-      </Popover>
+      </div>
     </div>
   );
 };

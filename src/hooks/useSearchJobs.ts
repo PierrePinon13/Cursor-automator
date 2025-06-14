@@ -279,7 +279,7 @@ export const useSearchJobs = () => {
         posted_date: result.postedDate.toISOString(),
         job_description: result.description,
         job_url: result.jobUrl,
-        personas: result.personas
+        personas: JSON.stringify(result.personas) // Convert personas array to JSON string for storage
       }));
 
       const { error } = await supabase
@@ -321,7 +321,7 @@ export const useSearchJobs = () => {
         postedDate: new Date(result.posted_date),
         description: result.job_description || '',
         jobUrl: result.job_url,
-        personas: result.personas || []
+        personas: result.personas ? JSON.parse(result.personas as string) : [] // Parse JSON string back to personas array
       }));
 
       setCurrentResults(formattedResults);
