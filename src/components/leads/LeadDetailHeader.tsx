@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -50,6 +49,14 @@ const LeadDetailHeader = ({
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Toujours passer tous les ids si disponibles
+  const companyName = lead.company_name || lead.unipile_company || '';
+  const companyId = lead.company_id;
+  const companyLinkedInId =
+    (lead as any).company_1_linkedin_id ||
+    (lead as any).unipile_company_linkedin_id ||
+    (lead as any).company_linkedin_id;
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
@@ -58,9 +65,6 @@ const LeadDetailHeader = ({
   const handleProfileClick = () => {
     navigate('/profile');
   };
-
-  const companyName = lead.company_name || lead.unipile_company;
-  const companyId = lead.company_id;
 
   return (
     <div className="px-6 py-4 bg-white border-b border-gray-100">
@@ -87,7 +91,8 @@ const LeadDetailHeader = ({
             {lead.unipile_position && companyName && <span className="mx-1 text-gray-400">@</span>}
             {companyName && (
               <CompanyHoverCard 
-                companyId={companyId} 
+                companyId={companyId}
+                companyLinkedInId={companyLinkedInId}
                 companyName={companyName}
               >
                 <span className="text-blue-600 hover:text-blue-700 cursor-pointer hover:underline transition-colors">
