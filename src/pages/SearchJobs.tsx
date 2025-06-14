@@ -1,8 +1,8 @@
 
 import { useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
-import { GlobalPageHeader } from '@/components/GlobalPageHeader';
-import { PageLayout } from '@/components/PageLayout';
+import GlobalPageHeader from '@/components/GlobalPageHeader';
+import PageLayout from '@/components/PageLayout';
 import { SearchJobsForm } from '@/components/search-jobs/SearchJobsForm';
 import { SavedSearches } from '@/components/search-jobs/SavedSearches';
 import { SearchResults } from '@/components/search-jobs/SearchResults';
