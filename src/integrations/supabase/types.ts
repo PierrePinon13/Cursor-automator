@@ -851,6 +851,53 @@ export type Database = {
         }
         Relationships: []
       }
+      job_search_results: {
+        Row: {
+          company_name: string
+          created_at: string
+          id: string
+          job_description: string | null
+          job_title: string
+          job_url: string | null
+          location: string | null
+          personas: Json | null
+          posted_date: string | null
+          search_id: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          id?: string
+          job_description?: string | null
+          job_title: string
+          job_url?: string | null
+          location?: string | null
+          personas?: Json | null
+          posted_date?: string | null
+          search_id: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          id?: string
+          job_description?: string | null
+          job_title?: string
+          job_url?: string | null
+          location?: string | null
+          personas?: Json | null
+          posted_date?: string | null
+          search_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_search_results_search_id_fkey"
+            columns: ["search_id"]
+            isOneToOne: false
+            referencedRelation: "saved_job_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_assignments: {
         Row: {
           assigned_at: string | null
@@ -1880,6 +1927,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      saved_job_searches: {
+        Row: {
+          created_at: string
+          id: string
+          job_filters: Json
+          last_executed_at: string | null
+          message_template: string | null
+          name: string
+          persona_filters: Json
+          results_count: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_filters: Json
+          last_executed_at?: string | null
+          message_template?: string | null
+          name: string
+          persona_filters: Json
+          results_count?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_filters?: Json
+          last_executed_at?: string | null
+          message_template?: string | null
+          name?: string
+          persona_filters?: Json
+          results_count?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_stats: {
         Row: {
