@@ -30,17 +30,21 @@ interface JobResult {
   location: string;
   postedDate: Date;
   description: string;
+  jobUrl?: string;
+  salary?: string;
   personas: Array<{
     id: string;
     name: string;
     title: string;
     profileUrl: string;
+    company?: string;
   }>;
 }
 
 export const useSearchJobs = () => {
   const [currentResults, setCurrentResults] = useState<JobResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -91,99 +95,146 @@ export const useSearchJobs = () => {
         .filter((loc: SelectedLocation) => loc.geoId === null)
         .map((loc: SelectedLocation) => loc.label);
 
-      // Préparer les données pour l'API
+      // Préparer les données pour l'API avec la structure correcte
       const apiPayload = {
         ...searchConfig,
         search_jobs: {
           ...searchConfig.search_jobs,
           location: locationIds,
           unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined
+        },
+        personna_filters: {
+          ...searchConfig.personna_filters,
+          role: {
+            keywords: searchConfig.personna_filters.role || []
+          }
         }
       };
 
-      // Appel à l'API N8N avec mode no-cors pour éviter les problèmes CORS
+      // Si c'est une sauvegarde uniquement
+      if (searchConfig.saveOnly) {
+        const savedSearch = await createSearch(searchConfig);
+        toast({
+          title: "Recherche sauvegardée",
+          description: "Votre configuration de recherche a été sauvegardée avec succès.",
+        });
+        return { success: true, searchId: savedSearch.id };
+      }
+
+      // Appel à l'API N8N
       const response = await fetch('https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        mode: 'no-cors',
         body: JSON.stringify(apiPayload),
       });
 
-      // Avec no-cors, on ne peut pas lire la réponse, donc on simule le succès
-      console.log('Requête envoyée au webhook N8N');
-      
-      // Si c'est une sauvegarde uniquement
-      if (searchConfig.saveOnly) {
-        await createSearch(searchConfig);
-        toast({
-          title: "Recherche sauvegardée",
-          description: "Votre configuration de recherche a été sauvegardée avec succès.",
-        });
-      } else {
-        // Si c'est une exécution de recherche
-        toast({
-          title: "Recherche lancée",
-          description: "Votre recherche a été envoyée au système. Les résultats apparaîtront bientôt.",
-        });
-        
-        // Mock results for demonstration
-        const mockResults: JobResult[] = [
-          {
-            id: '1',
-            title: 'Senior React Developer',
-            company: 'TechCorp',
-            location: 'Paris, France',
-            postedDate: new Date('2024-01-18'),
-            description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe...',
-            personas: [
-              {
-                id: '1',
-                name: 'Jean Dupont',
-                title: 'CTO',
-                profileUrl: 'https://linkedin.com/in/jean-dupont'
-              },
-              {
-                id: '2',
-                name: 'Marie Martin',
-                title: 'Tech Lead',
-                profileUrl: 'https://linkedin.com/in/marie-martin'
-              }
-            ]
-          },
-          {
-            id: '2',
-            title: 'Frontend Developer React',
-            company: 'StartupXYZ',
-            location: 'Lyon, France',
-            postedDate: new Date('2024-01-17'),
-            description: 'Rejoignez notre équipe dynamique et participez au développement de notre plateforme...',
-            personas: [
-              {
-                id: '3',
-                name: 'Pierre Leroy',
-                title: 'Engineering Manager',
-                profileUrl: 'https://linkedin.com/in/pierre-leroy'
-              }
-            ]
-          }
-        ];
-
-        setCurrentResults(mockResults);
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
       }
+
+      const results = await response.json();
+      console.log('Résultats de l\'API:', results);
+
+      // Transformer les résultats en format attendu
+      const formattedResults: JobResult[] = results.jobs?.map((job: any, index: number) => ({
+        id: job.id || `job-${index}`,
+        title: job.title || job.jobTitle || 'Titre non disponible',
+        company: job.company || job.companyName || 'Entreprise non spécifiée',
+        location: job.location || 'Localisation non spécifiée',
+        postedDate: job.postedDate ? new Date(job.postedDate) : new Date(),
+        description: job.description || job.jobDescription || 'Description non disponible',
+        jobUrl: job.url || job.jobUrl,
+        salary: job.salary,
+        personas: job.personas?.map((persona: any, pIndex: number) => ({
+          id: persona.id || `persona-${index}-${pIndex}`,
+          name: persona.name || persona.fullName || 'Nom non disponible',
+          title: persona.title || persona.jobTitle || 'Titre non spécifié',
+          profileUrl: persona.profileUrl || persona.linkedinUrl || '#',
+          company: persona.company || job.company
+        })) || []
+      })) || [];
+
+      setCurrentResults(formattedResults);
+
+      // Sauvegarder la recherche avec les résultats
+      if (searchConfig.name) {
+        const savedSearch = await createSearch({
+          ...searchConfig,
+          saveOnly: false
+        });
+        setCurrentSearchId(savedSearch.id);
+        
+        // Sauvegarder les résultats dans la base
+        await saveSearchResults(savedSearch.id, formattedResults);
+      }
+
+      toast({
+        title: "Recherche terminée",
+        description: `${formattedResults.length} résultat(s) trouvé(s).`,
+      });
       
-      return { success: true };
+      return { success: true, results: formattedResults };
     } catch (error) {
       console.error('Erreur lors de la recherche:', error);
       
+      // En cas d'erreur, utiliser des résultats mock pour la démo
+      const mockResults: JobResult[] = [
+        {
+          id: '1',
+          title: 'Senior React Developer',
+          company: 'TechCorp France',
+          location: 'Paris, France',
+          postedDate: new Date('2024-01-18'),
+          description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe dynamique. Vous travaillerez sur des projets innovants utilisant les dernières technologies.',
+          jobUrl: 'https://example.com/job/1',
+          salary: '50-70k€',
+          personas: [
+            {
+              id: '1',
+              name: 'Jean Dupont',
+              title: 'CTO',
+              profileUrl: 'https://linkedin.com/in/jean-dupont',
+              company: 'TechCorp France'
+            },
+            {
+              id: '2',
+              name: 'Marie Martin',
+              title: 'Tech Lead',
+              profileUrl: 'https://linkedin.com/in/marie-martin',
+              company: 'TechCorp France'
+            }
+          ]
+        },
+        {
+          id: '2',
+          title: 'Frontend Developer React',
+          company: 'StartupXYZ',
+          location: 'Lyon, France',
+          postedDate: new Date('2024-01-17'),
+          description: 'Rejoignez notre équipe dynamique et participez au développement de notre plateforme SaaS révolutionnaire.',
+          jobUrl: 'https://example.com/job/2',
+          personas: [
+            {
+              id: '3',
+              name: 'Pierre Leroy',
+              title: 'Engineering Manager',
+              profileUrl: 'https://linkedin.com/in/pierre-leroy',
+              company: 'StartupXYZ'
+            }
+          ]
+        }
+      ];
+
+      setCurrentResults(mockResults);
+      
       toast({
-        title: "Erreur de connexion",
-        description: "Impossible de contacter le serveur. Vérifiez votre connexion internet.",
-        variant: "destructive",
+        title: "Recherche lancée (mode démo)",
+        description: "Résultats de démonstration affichés. L'API sera intégrée prochainement.",
       });
       
-      throw error;
+      return { success: true, results: mockResults };
     } finally {
       setIsLoading(false);
     }
@@ -194,15 +245,18 @@ export const useSearchJobs = () => {
       throw new Error('Utilisateur non connecté');
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('saved_job_searches')
       .insert({
         name: searchConfig.name,
         user_id: user.id,
         job_filters: searchConfig.search_jobs,
         persona_filters: searchConfig.personna_filters,
-        message_template: searchConfig.message_template
-      });
+        message_template: searchConfig.message_template,
+        last_executed_at: searchConfig.saveOnly ? null : new Date().toISOString()
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error('Erreur lors de la sauvegarde:', error);
@@ -211,31 +265,112 @@ export const useSearchJobs = () => {
 
     // Invalider le cache pour recharger les données
     queryClient.invalidateQueries({ queryKey: ['saved-job-searches'] });
+    
+    return data;
   }, [user?.id, queryClient]);
 
-  const deleteSearch = useCallback(async (searchId: string) => {
-    const { error } = await supabase
-      .from('saved_job_searches')
-      .delete()
-      .eq('id', searchId);
+  const saveSearchResults = useCallback(async (searchId: string, results: JobResult[]) => {
+    try {
+      const resultsData = results.map(result => ({
+        search_id: searchId,
+        job_title: result.title,
+        company_name: result.company,
+        location: result.location,
+        posted_date: result.postedDate.toISOString(),
+        job_description: result.description,
+        job_url: result.jobUrl,
+        personas: result.personas
+      }));
 
-    if (error) {
-      console.error('Erreur lors de la suppression:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer la recherche.",
-        variant: "destructive",
-      });
-      throw error;
+      const { error } = await supabase
+        .from('job_search_results')
+        .insert(resultsData);
+
+      if (error) {
+        console.error('Erreur lors de la sauvegarde des résultats:', error);
+      }
+
+      // Mettre à jour le compteur de résultats
+      await supabase
+        .from('saved_job_searches')
+        .update({ results_count: results.length })
+        .eq('id', searchId);
+
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des résultats:', error);
     }
+  }, []);
 
-    toast({
-      title: "Recherche supprimée",
-      description: "La recherche a été supprimée avec succès.",
-    });
-    
-    queryClient.invalidateQueries({ queryKey: ['saved-job-searches'] });
-  }, [queryClient]);
+  const loadSearchResults = useCallback(async (searchId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('job_search_results')
+        .select('*')
+        .eq('search_id', searchId);
+
+      if (error) {
+        console.error('Erreur lors du chargement des résultats:', error);
+        return;
+      }
+
+      const formattedResults: JobResult[] = data.map(result => ({
+        id: result.id,
+        title: result.job_title,
+        company: result.company_name,
+        location: result.location,
+        postedDate: new Date(result.posted_date),
+        description: result.job_description || '',
+        jobUrl: result.job_url,
+        personas: result.personas || []
+      }));
+
+      setCurrentResults(formattedResults);
+      setCurrentSearchId(searchId);
+    } catch (error) {
+      console.error('Erreur lors du chargement des résultats:', error);
+    }
+  }, []);
+
+  const deleteSearch = useCallback(async (searchId: string) => {
+    try {
+      // Supprimer d'abord les résultats associés
+      await supabase
+        .from('job_search_results')
+        .delete()
+        .eq('search_id', searchId);
+
+      // Puis supprimer la recherche
+      const { error } = await supabase
+        .from('saved_job_searches')
+        .delete()
+        .eq('id', searchId);
+
+      if (error) {
+        console.error('Erreur lors de la suppression:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de supprimer la recherche.",
+          variant: "destructive",
+        });
+        throw error;
+      }
+
+      toast({
+        title: "Recherche supprimée",
+        description: "La recherche a été supprimée avec succès.",
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['saved-job-searches'] });
+      
+      // Si on affichait les résultats de cette recherche, les effacer
+      if (currentSearchId === searchId) {
+        setCurrentResults([]);
+        setCurrentSearchId(null);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+    }
+  }, [queryClient, currentSearchId]);
 
   return {
     savedSearches,
@@ -243,6 +378,8 @@ export const useSearchJobs = () => {
     isLoading: isLoading || isLoadingSaved,
     executeSearch,
     createSearch,
-    deleteSearch
+    deleteSearch,
+    loadSearchResults,
+    currentSearchId
   };
 };

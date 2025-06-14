@@ -15,13 +15,13 @@ const SearchJobs = () => {
     savedSearches,
     currentResults,
     isLoading,
-    createSearch,
     executeSearch,
-    deleteSearch
+    deleteSearch,
+    loadSearchResults
   } = useSearchJobs();
 
   const [showForm, setShowForm] = useState(false);
-  const [selectedSearch, setSelectedSearch] = useState<string | null>(null);
+  const [selectedSearch, setSelectedSearch] = useState<any>(null);
 
   const handleNewSearch = () => {
     setShowForm(true);
@@ -32,6 +32,15 @@ const SearchJobs = () => {
     const result = await executeSearch(searchConfig);
     setShowForm(false);
     return result;
+  };
+
+  const handleExecuteSavedSearch = (search: any) => {
+    setSelectedSearch(search);
+    setShowForm(true);
+  };
+
+  const handleLoadResults = (searchId: string) => {
+    loadSearchResults(searchId);
   };
 
   return (
@@ -58,27 +67,23 @@ const SearchJobs = () => {
           <SearchJobsForm
             onSubmit={handleExecuteSearch}
             onCancel={() => setShowForm(false)}
-            initialData={selectedSearch ? savedSearches.find(s => s.id === selectedSearch) : undefined}
+            initialData={selectedSearch}
           />
         )}
 
         {/* Recherches sauvegardées */}
         <SavedSearches
           searches={savedSearches}
-          onExecute={(search) => {
-            setSelectedSearch(search.id);
-            setShowForm(true);
-          }}
+          onExecute={handleExecuteSavedSearch}
           onDelete={deleteSearch}
+          onLoadResults={handleLoadResults}
         />
 
         {/* Résultats */}
-        {currentResults.length > 0 && (
-          <SearchResults
-            results={currentResults}
-            isLoading={isLoading}
-          />
-        )}
+        <SearchResults
+          results={currentResults}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Bouton d'action flottant */}
