@@ -109,7 +109,7 @@ const JobSearch = () => {
                     <SelectValue placeholder="Type de contrat" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tous</SelectItem>
+                    <SelectItem value="all">Tous</SelectItem>
                     <SelectItem value="full-time">CDI</SelectItem>
                     <SelectItem value="part-time">Temps partiel</SelectItem>
                     <SelectItem value="contract">Freelance</SelectItem>
