@@ -19,11 +19,14 @@ interface PersonaFiltersProps {
 export const PersonaFilters = ({ filters, onChange }: PersonaFiltersProps) => {
   const [roleInput, setRoleInput] = useState('');
 
+  // Ensure role is always an array
+  const safeRole = Array.isArray(filters.role) ? filters.role : [];
+
   const addRole = () => {
-    if (roleInput.trim() && !filters.role.includes(roleInput.trim())) {
+    if (roleInput.trim() && !safeRole.includes(roleInput.trim())) {
       onChange({
         ...filters,
-        role: [...filters.role, roleInput.trim()]
+        role: [...safeRole, roleInput.trim()]
       });
       setRoleInput('');
     }
@@ -32,7 +35,7 @@ export const PersonaFilters = ({ filters, onChange }: PersonaFiltersProps) => {
   const removeRole = (role: string) => {
     onChange({
       ...filters,
-      role: filters.role.filter(r => r !== role)
+      role: safeRole.filter(r => r !== role)
     });
   };
 
@@ -92,14 +95,14 @@ export const PersonaFilters = ({ filters, onChange }: PersonaFiltersProps) => {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  if (!filters.role.includes(role)) {
+                  if (!safeRole.includes(role)) {
                     onChange({
                       ...filters,
-                      role: [...filters.role, role]
+                      role: [...safeRole, role]
                     });
                   }
                 }}
-                disabled={filters.role.includes(role)}
+                disabled={safeRole.includes(role)}
                 className="text-xs h-7"
               >
                 {role}
@@ -109,9 +112,9 @@ export const PersonaFilters = ({ filters, onChange }: PersonaFiltersProps) => {
         </div>
         
         {/* Rôles sélectionnés */}
-        {filters.role.length > 0 && (
+        {safeRole.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {filters.role.map((role, index) => (
+            {safeRole.map((role, index) => (
               <Badge key={index} variant="default" className="flex items-center gap-1">
                 {role}
                 <X

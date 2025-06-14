@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,7 +45,16 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     if (initialData) {
       setSearchName(initialData.name || '');
       setJobFilters(initialData.jobFilters || jobFilters);
-      setPersonaFilters(initialData.personaFilters || personaFilters);
+      
+      // Ensure persona role is properly formatted as array
+      const initialPersonaFilters = initialData.personaFilters || personaFilters;
+      setPersonaFilters({
+        ...initialPersonaFilters,
+        role: Array.isArray(initialPersonaFilters.role) 
+          ? initialPersonaFilters.role 
+          : (initialPersonaFilters.role?.keywords || [])
+      });
+      
       setMessageTemplate(initialData.messageTemplate || '');
     }
   }, [initialData]);
