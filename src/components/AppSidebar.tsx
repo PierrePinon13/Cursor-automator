@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { BarChart3, Users, Briefcase, Building2, UserCheck, Settings, History, CheckSquare } from 'lucide-react';
+import { BarChart3, Users, Briefcase, Building2, UserCheck, Settings, History, CheckSquare, Search } from 'lucide-react';
 
 const AppSidebar = () => {
   const { user } = useAuth();
@@ -32,6 +32,11 @@ const AppSidebar = () => {
       title: "Tasks",
       url: "/tasks",
       icon: CheckSquare,
+    },
+    {
+      title: "Job Search",
+      url: "/job-search",
+      icon: Search,
     },
     {
       title: "Historique",
