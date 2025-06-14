@@ -14,6 +14,7 @@ import LeadsNew from "./pages/LeadsNew";
 import Clients from "./pages/Clients";
 import Tasks from "./pages/Tasks";
 import JobSearch from "./pages/JobSearch";
+import SearchJobs from "./pages/SearchJobs";
 import HrProviders from "./pages/HrProviders";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
@@ -47,6 +48,7 @@ function App() {
                     <Route path="/clients" element={<Clients />} />
                     <Route path="/tasks" element={<Tasks />} />
                     <Route path="/job-search" element={<JobSearch />} />
+                    <Route path="/search-jobs" element={<SearchJobs />} />
                     <Route path="/hr-providers" element={<HrProviders />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/admin" element={<Admin />} />

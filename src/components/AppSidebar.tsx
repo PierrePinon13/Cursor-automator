@@ -29,6 +29,12 @@ const AppSidebar = () => {
       description: "Gérer vos prospects"
     },
     {
+      title: "Search Jobs",
+      url: "/search-jobs",
+      icon: Search,
+      description: "Recherche d'emplois ciblée"
+    },
+    {
       title: "Clients",
       url: "/clients",
       icon: Building2,
