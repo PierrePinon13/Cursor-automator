@@ -95,15 +95,26 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   const executeSearch = useCallback(async (searchConfig: any) => {
     setIsLoading(true);
     try {
-      // Ici on utilise les labels uniquement (plus d'ids)
-      const locationLabels = searchConfig.search_jobs.location.map((loc: any) => loc.label);
+      // Préparation location pour N8N : id uniquement
+      const locationIds = searchConfig.search_jobs.location.map((loc: any) => loc.geoId);
+      // location_id_is_known : true si toutes avec geoId, false sinon
+      const location_id_is_known = searchConfig.search_jobs.location.every((loc: any) => !!loc.geoId);
+      // date_posted en secondes
+      let datePostedSeconds = "";
+      if (searchConfig.search_jobs.date_posted !== "" && searchConfig.search_jobs.date_posted !== undefined) {
+        const days = Number(searchConfig.search_jobs.date_posted);
+        if (!isNaN(days)) {
+          datePostedSeconds = String(days * 24 * 3600);
+        }
+      }
 
       let apiPayload: any = {
         name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
-          location: locationLabels, // Envoi des labels uniquement !
-          // NE PLUS ENVOYER unresolved_locations
+          location: locationIds, // On renvoie la liste des ids !
+          location_id_is_known,
+          date_posted: datePostedSeconds,
         },
         personna_filters: {
           ...searchConfig.personna_filters,
@@ -163,7 +174,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
   }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults]);
 
-  // Relance une recherche sauvegardée (labels, pas d'ids)
+  // Relance une recherche sauvegardée (idem: ids + location_id_is_known + date en secondes)
   const reRunSavedSearch = useCallback(async (search: any) => {
     if (!user?.id) {
       toast({ title: "Erreur", description: "Utilisateur non connecté", variant: "destructive" });
@@ -172,13 +183,23 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     setIsLoading(true);
     try {
       const searchId = search.id;
-      const locationLabels = search.jobFilters.location.map((loc: any) => loc.label);
+      const locationIds = search.jobFilters.location.map((loc: any) => loc.geoId);
+      const location_id_is_known = search.jobFilters.location.every((loc: any) => !!loc.geoId);
+      let datePostedSeconds = "";
+      if (search.jobFilters.date_posted !== "" && search.jobFilters.date_posted !== undefined) {
+        const days = Number(search.jobFilters.date_posted);
+        if (!isNaN(days)) {
+          datePostedSeconds = String(days * 24 * 3600);
+        }
+      }
 
       let apiPayload: any = {
         name: search.name,
         search_jobs: {
           ...search.jobFilters,
-          location: locationLabels, // Passage aux labels
+          location: locationIds,
+          location_id_is_known,
+          date_posted: datePostedSeconds,
         },
         personna_filters: {
           ...search.personaFilters,
