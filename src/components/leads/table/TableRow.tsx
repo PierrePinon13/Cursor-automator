@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Column } from './columnDefinitions';
 import { Tables } from '@/integrations/supabase/types';
@@ -10,14 +9,17 @@ interface TableRowProps {
   rowIndex: number;
   displayedColumns: Column[];
   onRowClick: (leadIndex: number, event: React.MouseEvent) => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-const TableRow = ({ lead, rowIndex, displayedColumns, onRowClick }: TableRowProps) => {
+const TableRow = ({ lead, rowIndex, displayedColumns, onRowClick, className = "", style }: TableRowProps) => {
   return (
     <tr
       className={`hover:bg-gray-50 cursor-pointer ${
         rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
-      }`}
+      } ${className}`}
+      style={style}
       onClick={(event) => onRowClick(rowIndex, event)}
     >
       {displayedColumns.map((column, colIndex) => (
