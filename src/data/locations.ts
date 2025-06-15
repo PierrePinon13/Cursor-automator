@@ -1,12 +1,11 @@
-
 export interface LocationData {
   label: string;
   geoId: number;
   country?: string;
 }
 
+// Pays européens
 export const locationData: LocationData[] = [
-  // Pays européens
   { label: "France", geoId: 105015875, country: "France" },
   { label: "Germany", geoId: 101282230, country: "Germany" },
   { label: "Allemagne", geoId: 101282230, country: "Germany" },
@@ -83,20 +82,20 @@ export const locationData: LocationData[] = [
   { label: "Nancy", geoId: 104735083, country: "France" },
   { label: "Metz", geoId: 104735086, country: "France" },
 
-  // Régions françaises
-  { label: "Île-de-France", geoId: 101620260, country: "France" },
-  { label: "Auvergne-Rhône-Alpes", geoId: 104735153, country: "France" },
-  { label: "Provence-Alpes-Côte d'Azur", geoId: 104735044, country: "France" },
-  { label: "Occitanie", geoId: 105015876, country: "France" },
-  { label: "Nouvelle-Aquitaine", geoId: 104735041, country: "France" },
-  { label: "Grand Est", geoId: 104735047, country: "France" },
-  { label: "Hauts-de-France", geoId: 106101353, country: "France" },
-  { label: "Bretagne", geoId: 104735050, country: "France" },
-  { label: "Normandie", geoId: 104735065, country: "France" },
-  { label: "Pays de la Loire", geoId: 106052653, country: "France" },
-  { label: "Centre-Val de Loire", geoId: 104735062, country: "France" },
-  { label: "Bourgogne-Franche-Comté", geoId: 104735074, country: "France" },
-  { label: "Corse", geoId: 104735083, country: "France" },
+  // Régions françaises — Nouvelles correspondances LinkedIn (uniquement !)
+  // IMPORTANT : Utiliser uniquement ces équivalences pour les régions françaises dans Search Jobs
+
+  // Régions françaises (NOUVELLE LISTE)
+  { label: "Île-de-France, France", geoId: 104246759, country: "France" },
+  { label: "Paris, Île-de-France, France", geoId: 106383538, country: "France" },
+  { label: "Nouvelle-Aquitaine, France", geoId: 105563475, country: "France" },
+  { label: "Hauts-de-France, France", geoId: 105007536, country: "France" },
+  { label: "Grand Est, France", geoId: 101735443, country: "France" },
+  { label: "Pays de la Loire, France", geoId: 104731846, country: "France" },
+  { label: "Auvergne-Rhône-Alpes, France", geoId: 103623254, country: "France" },
+  { label: "Occitanie, France", geoId: 103876217, country: "France" },
+  { label: "Provence-Alpes-Côte d'Azur, France", geoId: 102203735, country: "France" },
+  { label: "France", geoId: 105015875, country: "France" },
 
   // Autres villes importantes
   { label: "Bruxelles", geoId: 101620260, country: "Belgium" },
