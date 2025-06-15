@@ -21,11 +21,17 @@ const AppSidebar = () => {
 
   const isAuthorized = user?.email === 'ppinon@getpro.fr';
 
+  // Identité visuelle harmonisée + libellés mis à jour
   const menuItems = [
     {
       title: "Leads",
       url: "/leads",
       icon: Briefcase,
+    },
+    {
+      title: "Job Offers",
+      url: "/job-search",
+      icon: Search,
     },
     {
       title: "Search Jobs",
@@ -38,14 +44,9 @@ const AppSidebar = () => {
       icon: Building2,
     },
     {
-      title: "Tâches",
+      title: "Tasks",
       url: "/tasks",
       icon: CheckSquare,
-    },
-    {
-      title: "Recherche d'emploi",
-      url: "/job-search",
-      icon: Search,
     },
     {
       title: "Historique",
@@ -77,9 +78,11 @@ const AppSidebar = () => {
               >
                 <button
                   onClick={() => navigate(item.url)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-gray-50 data-[active=true]:bg-blue-50 data-[active=true]:text-blue-700 data-[active=true]:border-blue-200"
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-gray-50 data-[active=true]:bg-blue-50 data-[active=true]:text-blue-700 data-[active=true]:border-blue-200 ${
+                    location.pathname === item.url ? 'font-semibold' : ''
+                  }`}
                 >
-                  <item.icon className="h-5 w-5 text-gray-600 group-data-[active=true]:text-blue-600" />
+                  <item.icon className={`h-5 w-5 ${location.pathname === item.url ? 'text-blue-600' : 'text-gray-600'} group-data-[active=true]:text-blue-600`} />
                   <span className="font-medium text-sm">{item.title}</span>
                 </button>
               </SidebarMenuButton>
