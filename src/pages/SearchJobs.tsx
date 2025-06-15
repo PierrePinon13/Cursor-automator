@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -17,7 +16,8 @@ const SearchJobs = () => {
     isLoading,
     executeSearch,
     deleteSearch,
-    loadSearchResults
+    loadSearchResults,
+    reRunSavedSearch
   } = useSearchJobs();
 
   const [showForm, setShowForm] = useState(false);
@@ -35,16 +35,7 @@ const SearchJobs = () => {
   };
 
   const handleDirectExecute = async (search: any) => {
-    // Convertir la recherche sauvegardée en format attendu par executeSearch
-    const searchConfig = {
-      name: search.name,
-      search_jobs: search.jobFilters,
-      personna_filters: search.personaFilters,
-      message_template: search.messageTemplate,
-      saveOnly: false
-    };
-    
-    await executeSearch(searchConfig);
+    await reRunSavedSearch(search);
   };
 
   const handleEditSearch = (search: any) => {

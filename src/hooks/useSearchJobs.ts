@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -179,6 +179,152 @@ export const useSearchJobs = () => {
       console.error('Erreur lors de la suppression:', error);
     }
   }, [queryClient, currentSearchId]);
+
+  /**
+   * NOUVEAU : Exécuter une recherche sauvegardée en réutilisant le searchId argument
+   */
+  const reRunSavedSearch = useCallback(
+    async (search: any) => {
+      if (!user?.id) {
+        toast({
+          title: "Erreur",
+          description: "Utilisateur non connecté",
+          variant: "destructive"
+        });
+        return { success: false, error: "Utilisateur non connecté" };
+      }
+
+      setIsLoading(true);
+
+      try {
+        // Reprendre la structure d'une recherche sauvegardée
+        // -- search contient { id, name, jobFilters, personaFilters, messageTemplate }
+        const searchId = search.id;
+
+        // Préparer payload pour N8N
+        // Localisations (comme d'habitude)
+        const locationIds = search.jobFilters.location
+          .filter((loc: SelectedLocation) => loc.geoId !== null)
+          .map((loc: SelectedLocation) => loc.geoId);
+
+        const unresolvedLocations = search.jobFilters.location
+          .filter((loc: SelectedLocation) => loc.geoId === null)
+          .map((loc: SelectedLocation) => loc.label);
+
+        let apiPayload: any = {
+          name: search.name,
+          search_jobs: {
+            ...search.jobFilters,
+            location: locationIds,
+            unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined
+          },
+          personna_filters: {
+            ...search.personaFilters,
+            role: {
+              keywords: Array.isArray(search.personaFilters.role)
+                ? search.personaFilters.role
+                : search.personaFilters.role?.keywords || []
+            }
+          },
+          message_template: search.messageTemplate,
+          saveOnly: false,
+          search_id: searchId,
+        };
+
+        // Appel à N8N
+        const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1';
+
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(apiPayload)
+        });
+
+        if (response.ok) {
+          // Met à jour en base : last_executed_at
+          await supabase
+            .from('saved_job_searches')
+            .update({
+              last_executed_at: new Date().toISOString()
+            })
+            .eq('id', searchId);
+
+          // Résultats de test
+          const mockResults: JobResult[] = [
+            {
+              id: '1', title: 'Senior React Developer', company: 'TechCorp France', location: 'Paris, France',
+              postedDate: new Date('2024-01-18'),
+              description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe dynamique. Vous travaillerez sur des projets innovants utilisant les dernières technologies.',
+              jobUrl: 'https://example.com/job/1',
+              salary: '50-70k€',
+              personas: [
+                { id: '1', name: 'Jean Dupont', title: 'CTO', profileUrl: 'https://linkedin.com/in/jean-dupont', company: 'TechCorp France' },
+                { id: '2', name: 'Marie Martin', title: 'Tech Lead', profileUrl: 'https://linkedin.com/in/marie-martin', company: 'TechCorp France' }
+              ]
+            },
+            {
+              id: '2', title: 'Frontend Developer React', company: 'StartupXYZ', location: 'Lyon, France',
+              postedDate: new Date('2024-01-17'),
+              description: 'Rejoignez notre équipe dynamique et participez au développement de notre plateforme SaaS révolutionnaire.',
+              jobUrl: 'https://example.com/job/2',
+              personas: [
+                { id: '3', name: 'Pierre Leroy', title: 'Engineering Manager', profileUrl: 'https://linkedin.com/in/pierre-leroy', company: 'StartupXYZ' }
+              ]
+            }
+          ];
+
+          setCurrentResults(mockResults);
+          setCurrentSearchId(searchId);
+
+          await supabase
+            .from('job_search_results')
+            .insert(mockResults.map(result => ({
+              search_id: searchId,
+              job_title: result.title,
+              company_name: result.company,
+              location: result.location,
+              posted_date: result.postedDate.toISOString(),
+              job_description: result.description,
+              job_url: result.jobUrl,
+              personas: JSON.stringify(result.personas)
+            })));
+
+          // update results_count (comme executeSearch)
+          await supabase
+            .from('saved_job_searches')
+            .update({ results_count: mockResults.length })
+            .eq('id', searchId);
+
+          toast({
+            title: "Recherche relancée",
+            description: "Les nouveaux résultats sont disponibles dans la même recherche.",
+          });
+
+          queryClient.invalidateQueries({ queryKey: ['saved-job-searches'] });
+
+          return { success: true, results: mockResults, searchId };
+        } else {
+          const errorText = await response.text();
+          toast({
+            title: "Erreur",
+            description: `Erreur N8N (${response.status}): ${errorText}`,
+            variant: "destructive"
+          });
+          return { success: false, error: errorText };
+        }
+      } catch (e: any) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de relancer la recherche",
+          variant: "destructive"
+        });
+        return { success: false, error: e.message };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user?.id, queryClient, setCurrentResults, setCurrentSearchId]
+  );
 
   // --- Hook executeSearch POSITIONNÉ APRÈS ---
   const executeSearch = useCallback(async (searchConfig: any) => {
@@ -400,6 +546,7 @@ export const useSearchJobs = () => {
     createSearch,
     deleteSearch,
     loadSearchResults,
-    currentSearchId
+    currentSearchId,
+    reRunSavedSearch // NOUVEAU : expose la fonction pour relancer une recherche sauvegardée
   };
 };
