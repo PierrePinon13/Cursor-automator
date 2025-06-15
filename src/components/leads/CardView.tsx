@@ -103,7 +103,7 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
           {leads.map((lead, index) => {
             const colors = getCategoryColors(lead.openai_step3_categorie || '');
             const postesCount = lead.openai_step3_postes_selectionnes?.length || 0;
-            const fontSizeClass = postesCount > 2 ? 'text-xs' : postesCount > 1 ? 'text-sm' : 'text-sm';
+            const fontSizeClass = postesCount > 2 ? 'text-sm' : 'text-base';
             
             return (
               <div 
@@ -111,25 +111,17 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                 className={`${colors.card} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[220px]`}
                 onClick={(event) => handleCardClick(index, event)}
               >
-                {/* En-tête avec gradient moderne */}
-                <div className={`${colors.header} p-4 border-b min-h-[58px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
-                  <div className="flex-1 flex items-center min-h-0">
-                    <div className="space-y-1 flex-1">
-                      {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
-                        <div key={index}>
-                          <div 
-                            className={`text-emerald-700 font-semibold hover:text-emerald-800 hover:underline cursor-pointer transition-colors ${fontSizeClass} leading-tight`}
-                            data-clickable="true"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (lead.url) window.open(lead.url, '_blank');
-                            }}
-                          >
-                            {poste}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                {/* En-tête avec Titre renforcé */}
+                <div className={`${colors.header} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
+                  <div className="flex-1 flex flex-col min-h-0 justify-center">
+                    {lead.openai_step3_postes_selectionnes?.length ? (
+                      <div className={`font-bold leading-tight ${fontSizeClass} mb-1`} style={{
+                        color: colors.badge.includes('text-') && colors.badge.split(' ').find((c:string) => c.startsWith('text-')),
+                        textShadow: '0 1px 2px rgba(0,0,0,0.07)'
+                      }}>
+                        {lead.openai_step3_postes_selectionnes.join(' / ')}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="ml-3 flex-shrink-0">
                     <Badge 
@@ -160,13 +152,11 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                       </a>
                     )}
                   </div>
-
                   {(lead.unipile_position || lead.company_position) && (
                     <div className="text-gray-700 text-sm font-medium bg-white/40 px-3 py-1 rounded-lg">
                       {lead.unipile_position || lead.company_position}
                     </div>
                   )}
-
                   {lead.unipile_company || lead.company_name ? (
                     <div 
                       className="text-blue-700 hover:text-blue-800 hover:underline cursor-pointer text-sm font-semibold transition-colors bg-blue-50/40 px-3 py-2 rounded-lg"
