@@ -136,26 +136,38 @@ const DraggableTable = ({
     .filter(Boolean);
 
   return (
-    <div className="w-full">
+    <div className="w-full bg-gradient-to-br from-slate-50/30 to-gray-100/30 p-4 rounded-xl shadow-sm">
       <DragDropContext onDragEnd={handleOnDragEnd}>
-        <table className="w-full border-collapse bg-white min-h-screen">
-          <DraggableTableHeader 
-            displayedColumns={displayedColumns} 
-            sortConfig={sortConfig}
-            onSort={handleSort}
-          />
-          <tbody>
-            {sortedLeads.map((lead, rowIndex) => (
-              <TableRow
-                key={lead.id}
-                lead={lead}
-                rowIndex={rowIndex}
-                displayedColumns={displayedColumns}
-                onRowClick={handleRowClick}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-auto rounded-lg border border-gray-200 bg-white shadow-md">
+          <table className="w-full border-collapse [&_th]:font-semibold [&_th]:bg-blue-50 [&_th]:text-blue-700 [&_th]:px-4 [&_th]:py-3 [&_th]:border-b [&_th]:border-blue-100 [&_th]:text-sm [&_td]:text-sm [&_td]:px-4 [&_td]:py-3">
+            <DraggableTableHeader 
+              displayedColumns={displayedColumns} 
+              sortConfig={sortConfig}
+              onSort={handleSort}
+            />
+            <tbody>
+              {sortedLeads.map((lead, rowIndex) => (
+                <TableRow
+                  key={lead.id}
+                  lead={lead}
+                  rowIndex={rowIndex}
+                  displayedColumns={displayedColumns}
+                  onRowClick={handleRowClick}
+                  className={`transition-all duration-150 hover:bg-blue-50/40 cursor-pointer ${
+                    rowIndex % 2 === 1 ? 'bg-gray-50/80' : 'bg-white'
+                  }`}
+                  style={{
+                    boxShadow:
+                      selectedLeadIndex === rowIndex
+                        ? '0 2px 8px 0 rgba(56,132,255,0.14)'
+                        : undefined,
+                    borderRadius: '0.6rem',
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </DragDropContext>
       
       <LeadDetailDialog 
@@ -171,3 +183,4 @@ const DraggableTable = ({
 };
 
 export default DraggableTable;
+
