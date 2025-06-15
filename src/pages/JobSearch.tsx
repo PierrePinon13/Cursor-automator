@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Search, MapPin, Building, Calendar, Filter, Briefcase, Star, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,17 +92,17 @@ const JobSearch = () => {
 
   return (
     <div className="flex-1 flex flex-col h-screen bg-gradient-to-br from-gray-50 to-white">
-      {/* Enhanced Header */}
+      {/* Unified Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="flex items-center gap-4">
           <CustomSidebarTrigger />
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Briefcase className="h-6 w-6 text-blue-600" />
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <Briefcase className="h-6 w-6 text-indigo-700" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Recherche d'emploi</h1>
-              <p className="text-sm text-gray-600">Trouvez votre prochain défi professionnel</p>
+              <h1 className="text-2xl font-bold text-gray-900">Job Offers</h1>
+              <p className="text-sm text-gray-600">Find your next professional challenge</p>
             </div>
           </div>
         </div>
@@ -109,15 +110,15 @@ const JobSearch = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {/* Enhanced Search Section */}
+        {/* Unified Search Section */}
         <Card className="mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-3 text-xl">
-              <Search className="h-6 w-6 text-blue-600" />
-              Rechercher des opportunités
+              <Search className="h-6 w-6 text-indigo-600" />
+              Search for Job Offers
             </CardTitle>
             <CardDescription className="text-base">
-              Explorez des milliers d'offres d'emploi adaptées à votre profil
+              Explore thousands of job offers adapted to your profile
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -125,22 +126,22 @@ const JobSearch = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-1">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Poste ou entreprise
+                  Position or Company
                 </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Ex: Développeur React, Product Manager..."
+                    placeholder="Ex: React Developer, Product Manager..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    className="pl-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Localisation
+                  Location
                 </label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -148,21 +149,21 @@ const JobSearch = () => {
                     placeholder="Ex: Paris, Lyon, Remote..."
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    className="pl-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Type de contrat
+                  Job Type
                 </label>
                 <Select value={jobType} onValueChange={setJobType}>
-                  <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                    <SelectValue placeholder="Tous les types" />
+                  <SelectTrigger className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tous les types</SelectItem>
+                    <SelectItem value="all">All types</SelectItem>
                     <SelectItem value="cdi">CDI</SelectItem>
                     <SelectItem value="cdd">CDD</SelectItem>
                     <SelectItem value="freelance">Freelance</SelectItem>
@@ -174,13 +175,13 @@ const JobSearch = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
-              <Button size="lg" className="px-8">
+              <Button size="lg" className="px-8 bg-indigo-700 hover:bg-indigo-800 text-white">
                 <Search className="h-4 w-4 mr-2" />
-                Rechercher
+                Search
               </Button>
-              <Button variant="outline" size="lg" className="px-6">
+              <Button variant="outline" size="lg" className="px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                 <Filter className="h-4 w-4 mr-2" />
-                Filtres avancés
+                Advanced Filters
               </Button>
             </div>
           </CardContent>
@@ -190,10 +191,10 @@ const JobSearch = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {filteredJobs.length} offres trouvées
+              {filteredJobs.length} job offers found
             </h2>
             <p className="text-gray-600 mt-1">
-              Triées par pertinence et date de publication
+              Sorted by relevance and date of publication
             </p>
           </div>
           <Select defaultValue="recent">
@@ -201,15 +202,15 @@ const JobSearch = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recent">Plus récentes</SelectItem>
-              <SelectItem value="relevant">Plus pertinentes</SelectItem>
-              <SelectItem value="salary">Salaire croissant</SelectItem>
-              <SelectItem value="company">Entreprise A-Z</SelectItem>
+              <SelectItem value="recent">Most Recent</SelectItem>
+              <SelectItem value="relevant">Most Relevant</SelectItem>
+              <SelectItem value="salary">Salary Ascending</SelectItem>
+              <SelectItem value="company">Company A-Z</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Harmonisation des Cartes Offres */}
+        {/* Harmonized Job Offers Cards */}
         <div className="space-y-6">
           {filteredJobs.map((job) => {
             const colorSet = jobTypeColors[job.type] || jobTypeColors['CDI'];
@@ -263,7 +264,7 @@ const JobSearch = () => {
                   </div>
                   <div className="flex items-center gap-2 text-gray-600 text-xs">
                     <Calendar className="h-4 w-4" />
-                    Posté il y a {job.posted}
+                    Posted {job.posted} ago
                   </div>
                   <p className="text-sm text-gray-600 line-clamp-2">
                     {job.description}
@@ -275,7 +276,7 @@ const JobSearch = () => {
                         <Badge
                           key={idx}
                           variant="outline"
-                          className="text-xs px-3 py-1 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors"
+                          className="text-xs px-3 py-1 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-colors"
                         >
                           {skill}
                         </Badge>
@@ -285,7 +286,7 @@ const JobSearch = () => {
                 </div>
                 {/* Footer harmonisé */}
                 <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0 flex justify-end`}>
-                  <Button size="sm" className="px-6">Postuler maintenant</Button>
+                  <Button size="sm" className="px-6 bg-indigo-700 hover:bg-indigo-800 text-white">Apply Now</Button>
                 </div>
               </div>
             );
@@ -300,17 +301,17 @@ const JobSearch = () => {
                 <Search className="h-10 w-10 text-gray-400" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">
-                Aucune offre trouvée
+                No job offer found
               </h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                Essayez de modifier vos critères de recherche ou explorez d'autres mots-clés pour découvrir plus d'opportunités.
+                Try modifying your search criteria or use other keywords to discover more opportunities.
               </p>
               <Button variant="outline" onClick={() => {
                 setSearchTerm('');
                 setLocation('');
                 setJobType('');
               }}>
-                Réinitialiser les filtres
+                Reset filters
               </Button>
             </CardContent>
           </Card>
@@ -321,3 +322,4 @@ const JobSearch = () => {
 };
 
 export default JobSearch;
+
