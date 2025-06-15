@@ -34,9 +34,20 @@ interface SavedSearchesProps {
   onEdit: (search: SavedSearch) => void;
   onDelete: (searchId: string) => void;
   onLoadResults: (searchId: string) => void;
+  // amélioration
+  onSelect?: (search: SavedSearch) => void;
+  selectedSearchId?: string | null; // pour marquer la carte active
 }
 
-export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadResults }: SavedSearchesProps) => {
+export const SavedSearches = ({
+  searches,
+  onExecute,
+  onEdit,
+  onDelete,
+  onLoadResults,
+  onSelect,
+  selectedSearchId,
+}: SavedSearchesProps) => {
   if (searches.length === 0) {
     return (
       <Card>
@@ -67,8 +78,19 @@ export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadRes
             // Log to spot how many results are available for this search
             console.log("SavedSearch card", search.name, "resultsCount:", search.resultsCount);
 
+            // onSelect: permet le clic pour sélectionner la recherche et afficher ses résultats
+            const isSelected = selectedSearchId === search.id;
+
             return (
-              <Card key={search.id} className="hover:shadow-md transition-shadow">
+              <Card
+                key={search.id}
+                className={`hover:shadow-md transition-shadow cursor-pointer border-2 ${
+                  isSelected
+                    ? "border-blue-700 ring-2 ring-blue-300"
+                    : "border-transparent"
+                }`}
+                onClick={() => onSelect && onSelect(search)}
+              >
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {/* Nom de la recherche */}
@@ -157,7 +179,10 @@ export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadRes
                     {/* Actions */}
                     <div className="flex gap-2 pt-2">
                       <Button
-                        onClick={() => onExecute(search)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          onExecute(search);
+                        }}
                         size="sm"
                         className="flex-1 flex items-center gap-2"
                       >
@@ -167,7 +192,10 @@ export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadRes
 
                       <Button
                         variant="outline"
-                        onClick={() => onEdit(search)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          onEdit(search);
+                        }}
                         size="sm"
                         className="flex items-center gap-2"
                       >
@@ -179,7 +207,10 @@ export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadRes
                       {typeof search.resultsCount === 'number' && search.resultsCount > 0 && (
                         <Button
                           variant="outline"
-                          onClick={() => onLoadResults(search.id)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            onLoadResults(search.id);
+                          }}
                           size="sm"
                           className="flex items-center gap-2"
                         >
@@ -224,3 +255,5 @@ export const SavedSearches = ({ searches, onExecute, onEdit, onDelete, onLoadRes
     </Card>
   );
 };
+
+// fin du fichier
