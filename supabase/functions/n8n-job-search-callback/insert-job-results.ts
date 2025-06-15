@@ -12,12 +12,12 @@ export async function insertJobResults({
 }) {
   if (!results.length) return { error: null };
 
-  // Dédoublonnage en mémoire par job_url (ou job_id si existant)
+  // Dédoublonnage STRICTEMENT sur job_id
   const seen = new Set();
   const dedupedResults = results.filter((result: any) => {
-    // Utiliser job_url comme identifiant principal
-    const key = result.job_id ? `${result.job_id}` : (result.job_url ? result.job_url : null);
-    if (!key) return false; // Si pas d'identifiant : skip
+    // Uniquement les résultats avec un job_id
+    if (!result.job_id) return false;
+    const key = String(result.job_id);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -25,11 +25,12 @@ export async function insertJobResults({
 
   // On log le nombre de doublons ignorés
   if (dedupedResults.length < results.length) {
-    console.log(`insertJobResults: Doublons retirés lors de l'insertion: ${results.length - dedupedResults.length}`);
+    console.log(`insertJobResults: Doublons retirés (job_id) lors de l'insertion: ${results.length - dedupedResults.length}`);
   }
 
   const rows = dedupedResults.map((result: any) => ({
     search_id,
+    job_id: result.job_id,
     job_title: result.job_title,
     company_name: result.company_name,
     location: result.location,
@@ -41,10 +42,10 @@ export async function insertJobResults({
     personas: JSON.stringify(result.personas ?? []),
   }));
 
-  // Faire un upsert (via insert + onConflict) sur search_id + job_url
+  // Faire un upsert sur search_id + job_id
   const { error } = await supabase
     .from('job_search_results')
-    .upsert(rows, { onConflict: 'search_id,job_url' });
+    .upsert(rows, { onConflict: 'search_id,job_id' });
 
   if (error) {
     console.error('Erreur lors du upsert des résultats jobs :', error);
