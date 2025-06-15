@@ -893,6 +893,7 @@ export type Database = {
           job_url: string | null
           location: string | null
           personas: Json | null
+          personnas_searched: boolean
           posted_date: string | null
           search_id: string
         }
@@ -907,6 +908,7 @@ export type Database = {
           job_url?: string | null
           location?: string | null
           personas?: Json | null
+          personnas_searched?: boolean
           posted_date?: string | null
           search_id: string
         }
@@ -921,6 +923,7 @@ export type Database = {
           job_url?: string | null
           location?: string | null
           personas?: Json | null
+          personnas_searched?: boolean
           posted_date?: string | null
           search_id?: string
         }

@@ -43,11 +43,12 @@ serve(async (req) => {
     ) {
       console.log('Trigger persona search: search_id=', search_id);
 
-      // 1. On récupère tous les jobs liés à la search
+      // 1. On récupère tous les jobs liés à la search qui n'ont pas encore été recherchés (personnas_searched = false)
       const { data: jobResults, error: jobResultsErr } = await supabase
         .from('job_search_results')
-        .select('company_id')
-        .eq('search_id', search_id);
+        .select('company_id, job_id')
+        .eq('search_id', search_id)
+        .eq('personnas_searched', false);
 
       if (jobResultsErr) {
         console.error('Erreur lors de la récupération des job_search_results:', jobResultsErr);
@@ -56,16 +57,31 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.log('job_search_results found:', (jobResults || []).length);
+      console.log('job_search_results PERSONA-RECHERCHE à lancer (non recherchés):', (jobResults || []).length);
 
-      // 2. Extraction company_ids uniques et non nulles
+      // Extraction company_ids uniques et non nulles
       const uniqueCompanyIds: string[] = [];
+      const jobIdsToUpdate: string[] = [];
       (jobResults || []).forEach(res => {
         if (res.company_id && typeof res.company_id === "string" && !uniqueCompanyIds.includes(res.company_id)) {
           uniqueCompanyIds.push(res.company_id);
         }
+        // Stocker aussi les job_id pour le update après
+        if (res.job_id && typeof res.job_id === "string") {
+          jobIdsToUpdate.push(res.job_id);
+        }
       });
-      console.log('Unique company_ids:', uniqueCompanyIds);
+      console.log('Unique company_ids (not searched):', uniqueCompanyIds);
+      console.log('job_ids à mettre à jour (personnas_searched = true):', jobIdsToUpdate);
+
+      // Si tout a déjà été recherché, on ne fait rien
+      if (uniqueCompanyIds.length === 0) {
+        console.log("Aucune nouvelle job offer à envoyer vers la recherche de personas (tout est traité).");
+        return new Response(
+          JSON.stringify({ success: true, persona_company_search_launched: false, already_done: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       // 3. On récupère les filters personas de la recherche
       const { data: search, error: searchErr } = await supabase
@@ -102,6 +118,20 @@ serve(async (req) => {
         console.log("Webhook N8N personas response status:", n8nResponse.status);
       } catch (err) {
         console.error('Erreur lors de l’appel au webhook N8N personas/company :', err);
+      }
+
+      // 5. Mise à jour des job_search_results : personnas_searched à true pour ces jobs
+      if (jobIdsToUpdate.length > 0) {
+        const { error: updateErr } = await supabase
+          .from('job_search_results')
+          .update({ personnas_searched: true })
+          .in('job_id', jobIdsToUpdate)
+          .eq('search_id', search_id);
+        if (updateErr) {
+          console.error("Erreur lors de la mise à jour personnas_searched:", updateErr);
+        } else {
+          console.log("personnas_searched mis à true pour job_ids:", jobIdsToUpdate.length);
+        }
       }
 
       console.log("✅ Webhook N8N personas lancé pour compagnie_ids:", uniqueCompanyIds.length, "| search_id:", search_id, "| resp status:", n8nResponse?.status);
