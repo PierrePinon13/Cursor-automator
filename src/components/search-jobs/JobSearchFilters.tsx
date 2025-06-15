@@ -1,4 +1,3 @@
-
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -41,7 +40,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
     onChange({ ...filters, date_posted: value === "any" ? "" : Number(value) });
   };
 
-  // For current select state, use "any" if value is "" (no filter)
+  // Always use string for Select value; "any" means all, otherwise stringified number
   const datePostedValue =
     filters.date_posted === "" || filters.date_posted === undefined
       ? "any"
@@ -76,7 +75,12 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           onValueChange={handleDateChange}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Any time" />
+            <SelectValue
+              // Affiche la bonne étiquette même en édition
+              placeholder={
+                DATE_OPTIONS.find(opt => opt.value === datePostedValue)?.label || "Any time"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {DATE_OPTIONS.map(opt => (
@@ -104,4 +108,3 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
     </div>
   );
 };
-
