@@ -59,3 +59,7 @@ verify_jwt = false
 
 [functions.apify-client-jobs-webhook]
 verify_jwt = false
+
+[functions.n8n-job-search-callback]
+verify_jwt = false
+
