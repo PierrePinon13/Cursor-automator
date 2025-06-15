@@ -95,14 +95,20 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   const executeSearch = useCallback(async (searchConfig: any) => {
     setIsLoading(true);
     try {
-      // Construction de la liste d'expressions textuelles : on extrait les labels seulement !
+      // On force location à n'être que des chaînes de caractères (jamais d'ID !)
       const locations = searchConfig.search_jobs.location;
-      const locationLabels = locations.map((loc: any) => typeof loc === "string" ? loc : loc.label);
+      const locationLabels = locations.map((loc: any) => {
+        // Si c'est déjà une chaîne, on garde.
+        if (typeof loc === "string") return loc;
+        // Si c'est un objet avec un label string, on prend le label.
+        if (loc && typeof loc.label === "string") return loc.label;
+        // Si c'est juste un nombre ou tout autre cas, on jette.
+        return "";
+      }).filter(Boolean);
 
-      // Nouvelle variable : true si on a déjà appris qu’on connaissait l’id, sinon false (pour cette version : toujours false)
       const location_id_is_known = false;
 
-      // date_posted reste converti en secondes (24h, semaine, mois : respecter l’ancienne logique)
+      // date_posted reste converti en secondes (24h, semaine, mois)
       let datePostedSeconds: string | "" = "";
       if (searchConfig.search_jobs.date_posted !== "" && searchConfig.search_jobs.date_posted !== undefined) {
         const days = Number(searchConfig.search_jobs.date_posted);
@@ -186,7 +192,11 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       const searchId = search.id;
       // location as text only
       const locations = search.jobFilters.location;
-      const locationLabels = locations.map((loc: any) => typeof loc === "string" ? loc : loc.label);
+      const locationLabels = locations.map((loc: any) => {
+        if (typeof loc === "string") return loc;
+        if (loc && typeof loc.label === "string") return loc.label;
+        return "";
+      }).filter(Boolean);
 
       const location_id_is_known = false;
 
