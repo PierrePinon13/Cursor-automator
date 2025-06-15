@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { JobResultDetail } from './JobResultDetail';
+import { CompanyLogo } from "./CompanyLogo";
 
 // Palette de couleurs pour types d'offres (pour harmoniser)
 const jobTypeColors: Record<string, { 
@@ -140,8 +140,8 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {visibleResults.map((job) => {
               const colorSet = jobTypeColors[job.type || 'CDI'] || jobTypeColors['CDI'];
-              // Titre: taille selon la longueur, gardons la même logique harmonisée
               const fontSizeClass = job.title.length > 35 ? 'text-base' : 'text-xl';
+
               return (
                 <div 
                   key={job.id}
@@ -150,12 +150,21 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                 >
                   {/* Header harmonisé */}
                   <div className={`${colorSet.header} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
-                    <div className="flex-1 flex flex-col min-h-0 justify-center">
-                      <div className={`font-bold leading-tight ${fontSizeClass} mb-1`} style={{
-                        color: colorSet.badge.includes('text-') && colorSet.badge.split(' ').find((c:string) => c.startsWith('text-')),
-                        textShadow: '0 1px 2px rgba(0,0,0,0.07)'
-                      }}>
-                        {job.title}
+                    <div className="flex items-center gap-3 flex-1 min-h-0">
+                      {/* NEW: company logo */}
+                      <CompanyLogo
+                        logoUrl={job["company_logo"]}
+                        companyName={job.company}
+                        size={36}
+                        className="mr-2 shadow-sm"
+                      />
+                      <div className="flex flex-col min-h-0 justify-center flex-1">
+                        <div className={`font-bold leading-tight ${fontSizeClass} mb-1`} style={{
+                          color: colorSet.badge.includes('text-') && colorSet.badge.split(' ').find((c:string) => c.startsWith('text-')),
+                          textShadow: '0 1px 2px rgba(0,0,0,0.07)'
+                        }}>
+                          {job.title}
+                        </div>
                       </div>
                     </div>
                     <div className="ml-3 flex-shrink-0">
@@ -281,4 +290,3 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
     </>
   );
 };
-
