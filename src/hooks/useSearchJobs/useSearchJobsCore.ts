@@ -95,11 +95,14 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   const executeSearch = useCallback(async (searchConfig: any) => {
     setIsLoading(true);
     try {
-      // Calcul id des localisations + location_id_is_known pour N8N
+      // Construction de la liste d'expressions textuelles : on extrait les labels seulement !
       const locations = searchConfig.search_jobs.location;
-      const locationIds = locations.map((loc: any) => loc.geoId);
-      const location_id_is_known = locations.length > 0 && locations.every((loc: any) => !!loc.geoId && typeof loc.geoId === "number");
-      // date_posted en secondes
+      const locationLabels = locations.map((loc: any) => typeof loc === "string" ? loc : loc.label);
+
+      // Nouvelle variable : true si on a déjà appris qu’on connaissait l’id, sinon false (pour cette version : toujours false)
+      const location_id_is_known = false;
+
+      // date_posted reste converti en secondes (24h, semaine, mois : respecter l’ancienne logique)
       let datePostedSeconds: string | "" = "";
       if (searchConfig.search_jobs.date_posted !== "" && searchConfig.search_jobs.date_posted !== undefined) {
         const days = Number(searchConfig.search_jobs.date_posted);
@@ -112,17 +115,15 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
-          location: locationIds,
+          location: locationLabels,
           location_id_is_known,
           date_posted: datePostedSeconds,
         },
         personna_filters: {
           ...searchConfig.personna_filters,
-          role: {
-            keywords: Array.isArray(searchConfig.personna_filters.role)
-              ? searchConfig.personna_filters.role
-              : searchConfig.personna_filters.role?.keywords || []
-          }
+          role: Array.isArray(searchConfig.personna_filters.role)
+            ? { keywords: searchConfig.personna_filters.role }
+            : { keywords: searchConfig.personna_filters.role?.keywords || [] }
         },
         message_template: searchConfig.message_template,
         saveOnly: searchConfig.saveOnly
@@ -183,9 +184,12 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     setIsLoading(true);
     try {
       const searchId = search.id;
+      // location as text only
       const locations = search.jobFilters.location;
-      const locationIds = locations.map((loc: any) => loc.geoId);
-      const location_id_is_known = locations.length > 0 && locations.every((loc: any) => !!loc.geoId && typeof loc.geoId === "number");
+      const locationLabels = locations.map((loc: any) => typeof loc === "string" ? loc : loc.label);
+
+      const location_id_is_known = false;
+
       let datePostedSeconds: string | "" = "";
       if (search.jobFilters.date_posted !== "" && search.jobFilters.date_posted !== undefined) {
         const days = Number(search.jobFilters.date_posted);
@@ -198,7 +202,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         name: search.name,
         search_jobs: {
           ...search.jobFilters,
-          location: locationIds,
+          location: locationLabels,
           location_id_is_known,
           date_posted: datePostedSeconds,
         },
