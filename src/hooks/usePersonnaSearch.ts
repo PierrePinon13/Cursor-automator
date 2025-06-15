@@ -28,26 +28,40 @@ interface UsePersonnaSearchOptions {
 }
 
 /**
- * Fonction utilitaire : extrait la liste des personas d’un JSON venant de la DB
+ * Parse et sécurise le contenu personas venant de la DB.
+ * Garantit toujours la forme {job_id, personas: Persona[]}, sinon [].
  */
-function extractPersonasPerJob(raw: any): Array<{ job_id: string; personas: Persona[] }> {
+function parsePersonasList(raw: any): Array<{ job_id: string; personas: Persona[] }> {
   if (!Array.isArray(raw)) return [];
-  // On ne garde que les objets au bon format
+  // On ne garde que les éléments valides et on les sanitize fortement
   return raw.filter(
     (item) =>
-      item &&
+      !!item &&
       typeof item === "object" &&
       typeof item.job_id === "string" &&
       Array.isArray(item.personas)
-  ) as Array<{ job_id: string; personas: Persona[] }>;
+  ).map((item) => ({
+    job_id: String(item.job_id),
+    personas: Array.isArray(item.personas)
+      ? item.personas
+          .filter((p) =>
+            p &&
+            typeof p === "object" &&
+            typeof p.full_name === "string" &&
+            typeof p.title === "string" &&
+            typeof p.profile_url === "string"
+          )
+          // On caste vraiment chaque persona pour éviter les mauvaises surprises
+          .map((p) => ({
+            full_name: String(p.full_name),
+            title: String(p.title),
+            profile_url: String(p.profile_url),
+            location: typeof p.location === "string" ? p.location : undefined,
+          }))
+      : [],
+  }));
 }
 
-/**
- * Ce hook :
- * - Appelle n8n pour chaque job_id afin de déclencher la recherche personas
- * - Poll Dynamiquement la base pour chaque job_id pour peupler la réponse
- * - Renvoie loading/loaded/personas/error pour chaque job_id
- */
 export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) {
   const [jobStatus, setJobStatus] = useState<JobPersonasStatus>({});
   const launchedRef = useRef<{ [jobId: string]: boolean }>({});
@@ -56,7 +70,6 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
     async function launchPersonnaSearch() {
       for (let i = 0; i < jobs.length; i++) {
         const job = jobs[i];
-
         if (launchedRef.current[job.job_id]) continue;
         launchedRef.current[job.job_id] = true;
 
@@ -81,7 +94,6 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
               }),
             }
           );
-          // On rate-limit si > 25, ici minimum 200ms
           await new Promise((r) =>
             setTimeout(r, jobs.length > 25 ? 1000 : 200)
           );
@@ -100,25 +112,20 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
     if (jobs.length > 0) launchPersonnaSearch();
   }, [searchId, jobs]);
 
-  // Synchronise jobStatus avec la DB
   useEffect(() => {
     let interval: any;
     const poll = async () => {
-      // Charge l’entrée globale personas pour la recherche
       const { data, error } = await supabase
         .from("job_search_personas")
         .select("personas")
         .eq("search_id", searchId)
         .maybeSingle();
 
-      if (error) {
-        return;
-      }
+      if (error) return;
 
-      const personasList = extractPersonasPerJob(data?.personas);
+      const personasList = parsePersonasList(data?.personas);
 
       (jobs || []).forEach((job) => {
-        // On cherche l'objet correspondant au job_id
         const found = personasList.find((p) => p.job_id === job.job_id);
         const personasForJob: Persona[] = found ? found.personas : [];
         setJobStatus((prev) => ({
@@ -129,7 +136,7 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
     };
     if (searchId && jobs.length) {
       poll();
-      interval = setInterval(poll, 2500); // refresh toutes les 2,5s
+      interval = setInterval(poll, 2500);
     }
     return () => clearInterval(interval);
   }, [searchId, jobs]);
