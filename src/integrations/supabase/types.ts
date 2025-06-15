@@ -851,6 +851,36 @@ export type Database = {
         }
         Relationships: []
       }
+      job_search_personas: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          personas: Json
+          search_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          personas: Json
+          search_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          personas?: Json
+          search_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_search_results: {
         Row: {
           company_name: string
