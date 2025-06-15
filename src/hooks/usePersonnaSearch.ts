@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -89,16 +88,29 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
       if (error) {
         return;
       }
-      // Defensive: personas should be an array of {job_id, personas: []}
+
       const personasList = Array.isArray(data?.personas) ? data.personas : [];
 
       (jobs || []).forEach(job => {
         let personasForJob: Persona[] = [];
+
         if (Array.isArray(personasList)) {
-          // Find personas array for this job.job_id
-          const foundItem = personasList.find((p: any) => p.job_id === job.job_id && Array.isArray(p.personas));
-          personasForJob = foundItem ? foundItem.personas : [];
+          const foundItem = personasList.find((p: any) => {
+            // Type guard: ensure p is an object and has a personas array
+            return (
+              p &&
+              typeof p === "object" &&
+              "job_id" in p &&
+              p.job_id === job.job_id &&
+              "personas" in p &&
+              Array.isArray(p.personas)
+            );
+          });
+          personasForJob = foundItem && Array.isArray(foundItem.personas)
+            ? foundItem.personas
+            : [];
         }
+
         setJobStatus(prev => ({
           ...prev,
           [job.job_id]: { isLoading: false, personas: personasForJob },
