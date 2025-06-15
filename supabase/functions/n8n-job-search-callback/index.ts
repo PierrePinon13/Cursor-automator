@@ -1,6 +1,6 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { handlePersonaSearch } from './persona-search.ts';
 import { insertJobResults } from './insert-job-results.ts';
 
 const corsHeaders = {
@@ -34,21 +34,22 @@ serve(async (req) => {
       all_results_returned_value: all_results_returned
     });
 
-    // 🚦 NOUVELLE LOGIQUE: Traitement de fin de scraping => recherche de personas par COMPANY IDs
+    // 🚦 LOGIQUE: Déclenchement de la recherche de personas quand le scraping est terminé
     if (
       search_id &&
       Array.isArray(results) &&
       results.length === 0 &&
       all_results_returned === true
     ) {
-      console.log('Trigger persona search: search_id=', search_id);
+      console.log('Déclenchement recherche personas: search_id=', search_id);
 
-      // 1. On récupère tous les jobs liés à la search qui n'ont pas encore été recherchés (personnas_searched = false)
+      // 1. Récupérer tous les jobs non encore traités pour les personas
       const { data: jobResults, error: jobResultsErr } = await supabase
         .from('job_search_results')
         .select('company_id, job_id')
         .eq('search_id', search_id)
-        .eq('personnas_searched', false);
+        .eq('personnas_searched', false)
+        .not('company_id', 'is', null);
 
       if (jobResultsErr) {
         console.error('Erreur lors de la récupération des job_search_results:', jobResultsErr);
@@ -57,33 +58,27 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.log('job_search_results PERSONA-RECHERCHE à lancer (non recherchés):', (jobResults || []).length);
 
-      // Extraction company_ids uniques et non nulles
-      const uniqueCompanyIds: string[] = [];
-      const jobIdsToUpdate: string[] = [];
-      (jobResults || []).forEach(res => {
-        if (res.company_id && typeof res.company_id === "string" && !uniqueCompanyIds.includes(res.company_id)) {
-          uniqueCompanyIds.push(res.company_id);
-        }
-        // Stocker aussi les job_id pour le update après
-        if (res.job_id && typeof res.job_id === "string") {
-          jobIdsToUpdate.push(res.job_id);
-        }
-      });
-      console.log('Unique company_ids (not searched):', uniqueCompanyIds);
-      console.log('job_ids à mettre à jour (personnas_searched = true):', jobIdsToUpdate);
+      console.log('Jobs non traités pour personas:', (jobResults || []).length);
 
-      // Si tout a déjà été recherché, on ne fait rien
+      // Extraction des company_ids uniques
+      const uniqueCompanyIds = [...new Set(
+        (jobResults || [])
+          .map(res => res.company_id)
+          .filter(id => id && typeof id === "string")
+      )];
+
+      console.log('Company IDs uniques à traiter:', uniqueCompanyIds);
+
       if (uniqueCompanyIds.length === 0) {
-        console.log("Aucune nouvelle job offer à envoyer vers la recherche de personas (tout est traité).");
+        console.log("Aucune nouvelle company à traiter pour les personas.");
         return new Response(
-          JSON.stringify({ success: true, persona_company_search_launched: false, already_done: true }),
+          JSON.stringify({ success: true, persona_search_launched: false, reason: 'no_companies' }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // 3. On récupère les filters personas de la recherche
+      // 2. Récupérer les filtres personas de la recherche
       const { data: search, error: searchErr } = await supabase
         .from('saved_job_searches')
         .select('persona_filters')
@@ -97,16 +92,19 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.log('persona_filters:', search?.persona_filters);
 
-      // 4. Construction et POST N8N
+      console.log('Persona filters récupérés:', search?.persona_filters);
+
+      // 3. Appel du webhook N8N pour la recherche de personas
       const N8N_PERSONA_WEBHOOK_URL = "https://n8n.getpro.co/webhook/fb2a74b3-e840-400c-b788-f43972c61334";
 
       const payloadToSend = {
         search_id,
         company_ids: uniqueCompanyIds,
-        persona_filters: search?.persona_filters ?? {},
+        persona_filters: search?.persona_filters || {}
       };
+
+      console.log('Payload envoyé vers N8N personas:', JSON.stringify(payloadToSend));
 
       let n8nResponse: Response | undefined;
       try {
@@ -115,29 +113,53 @@ serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadToSend),
         });
-        console.log("Webhook N8N personas response status:", n8nResponse.status);
+        console.log("Webhook N8N personas - status:", n8nResponse.status);
       } catch (err) {
-        console.error('Erreur lors de l’appel au webhook N8N personas/company :', err);
+        console.error('Erreur lors de l\'appel au webhook N8N personas:', err);
       }
 
-      // 5. Mise à jour des job_search_results : personnas_searched à true pour ces jobs
+      // 4. Marquer les jobs comme traités pour les personas
+      const jobIdsToUpdate = (jobResults || [])
+        .map(res => res.job_id)
+        .filter(id => id && typeof id === "string");
+
       if (jobIdsToUpdate.length > 0) {
         const { error: updateErr } = await supabase
           .from('job_search_results')
           .update({ personnas_searched: true })
           .in('job_id', jobIdsToUpdate)
           .eq('search_id', search_id);
+        
         if (updateErr) {
           console.error("Erreur lors de la mise à jour personnas_searched:", updateErr);
         } else {
-          console.log("personnas_searched mis à true pour job_ids:", jobIdsToUpdate.length);
+          console.log("Marqué comme traité pour personas:", jobIdsToUpdate.length, "jobs");
         }
       }
 
-      console.log("✅ Webhook N8N personas lancé pour compagnie_ids:", uniqueCompanyIds.length, "| search_id:", search_id, "| resp status:", n8nResponse?.status);
+      // 5. Mettre à jour le compteur de résultats dans saved_job_searches
+      const { count: totalResults } = await supabase
+        .from('job_search_results')
+        .select('*', { count: 'exact', head: true })
+        .eq('search_id', search_id);
+
+      if (totalResults !== null) {
+        await supabase
+          .from('saved_job_searches')
+          .update({ results_count: totalResults })
+          .eq('id', search_id);
+        console.log("Compteur de résultats mis à jour:", totalResults);
+      }
+
+      console.log("✅ Recherche personas lancée pour", uniqueCompanyIds.length, "companies | search_id:", search_id);
 
       return new Response(
-        JSON.stringify({ success: true, persona_company_search_launched: true, company_ids: uniqueCompanyIds }),
+        JSON.stringify({ 
+          success: true, 
+          persona_search_launched: true, 
+          company_ids: uniqueCompanyIds,
+          webhook_status: n8nResponse?.status
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -150,7 +172,7 @@ serve(async (req) => {
       );
     }
 
-    // Traitement normal : insertion des résultats (avec dédoublonnage/anti-doublons dans insertJobResults)
+    // Traitement normal : insertion des résultats
     if (results.length > 0) {
       const { error } = await insertJobResults({
         search_id,
@@ -158,13 +180,28 @@ serve(async (req) => {
         supabase,
         corsHeaders
       });
+      
       if (error) {
         return new Response(
           JSON.stringify({ success: false, error: error.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.log(`Résultats insérés/upsertés pour search_id=${search_id}, count=${results.length}`);
+      
+      console.log(`Résultats insérés pour search_id=${search_id}, count=${results.length}`);
+
+      // Mettre à jour le compteur de résultats
+      const { count: totalResults } = await supabase
+        .from('job_search_results')
+        .select('*', { count: 'exact', head: true })
+        .eq('search_id', search_id);
+
+      if (totalResults !== null) {
+        await supabase
+          .from('saved_job_searches')
+          .update({ results_count: totalResults })
+          .eq('id', search_id);
+      }
     }
 
     return new Response(
@@ -172,11 +209,10 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error('Erreur générale (n8n-job-search-callback) :', err);
+    console.error('Erreur générale (n8n-job-search-callback) :', err);
     return new Response(
       JSON.stringify({ success: false, error: String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
-// fin du fichier
