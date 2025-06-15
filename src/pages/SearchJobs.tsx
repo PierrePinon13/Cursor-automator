@@ -93,6 +93,7 @@ const SearchJobs = () => {
   const handleDeleteSearch = async (searchId: string) => {
     await deleteSearch(searchId); // Effectue la suppression + reset résultats côté core
     setSelectedSearch(null);      // On s'assure de "désélectionner" s’il s’agissait de la sélection courante
+    resetCurrentResults();        // <-- Ajouté ici : on nettoie aussi les résultats affichés 
   };
 
   // Synchroniser le reset explicit des résultats avec le state local
