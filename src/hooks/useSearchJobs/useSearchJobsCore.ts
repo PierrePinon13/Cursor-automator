@@ -95,19 +95,15 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   const executeSearch = useCallback(async (searchConfig: any) => {
     setIsLoading(true);
     try {
-      // Adaptation date_posted: envoyer valeur ("" ou nombre), JOURS attendus.
-      const locationIds = searchConfig.search_jobs.location.filter((loc: any) => loc.geoId !== null).map((loc: any) => loc.geoId);
-      const unresolvedLocations = searchConfig.search_jobs.location.filter((loc: any) => loc.geoId === null).map((loc: any) => loc.label);
-      // Plus besoin de transformation en secondes.
-      const datePosted = searchConfig.search_jobs.date_posted;
+      // Ici on utilise les labels uniquement (plus d'ids)
+      const locationLabels = searchConfig.search_jobs.location.map((loc: any) => loc.label);
 
       let apiPayload: any = {
         name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
-          location: locationIds,
-          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined,
-          ...(datePosted ? { date_posted: datePosted } : {}),
+          location: locationLabels, // Envoi des labels uniquement !
+          // NE PLUS ENVOYER unresolved_locations
         },
         personna_filters: {
           ...searchConfig.personna_filters,
@@ -167,7 +163,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
   }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults]);
 
-  // Relance une recherche sauvegardée (idem : JOURS, plus secondes)
+  // Relance une recherche sauvegardée (labels, pas d'ids)
   const reRunSavedSearch = useCallback(async (search: any) => {
     if (!user?.id) {
       toast({ title: "Erreur", description: "Utilisateur non connecté", variant: "destructive" });
@@ -176,17 +172,13 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     setIsLoading(true);
     try {
       const searchId = search.id;
-      const locationIds = search.jobFilters.location.filter((loc: any) => loc.geoId !== null).map((loc: any) => loc.geoId);
-      const unresolvedLocations = search.jobFilters.location.filter((loc: any) => loc.geoId === null).map((loc: any) => loc.label);
-      const datePosted = search.jobFilters.date_posted;
+      const locationLabels = search.jobFilters.location.map((loc: any) => loc.label);
 
       let apiPayload: any = {
         name: search.name,
         search_jobs: {
           ...search.jobFilters,
-          location: locationIds,
-          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined,
-          ...(datePosted ? { date_posted: datePosted } : {}),
+          location: locationLabels, // Passage aux labels
         },
         personna_filters: {
           ...search.personaFilters,
