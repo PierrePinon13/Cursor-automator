@@ -181,7 +181,8 @@ export const useSearchJobs = () => {
   }, [queryClient, currentSearchId]);
 
   /**
-   * NOUVEAU : Exécuter une recherche sauvegardée en réutilisant le searchId argument
+   * Mise à jour : reRunSavedSearch ne remonte plus de mockResults,
+   * mais lance la recherche N8N puis rafraîchit les résultats depuis la DB.
    */
   const reRunSavedSearch = useCallback(
     async (search: any) => {
@@ -197,19 +198,16 @@ export const useSearchJobs = () => {
       setIsLoading(true);
 
       try {
-        // Reprendre la structure d'une recherche sauvegardée
-        // -- search contient { id, name, jobFilters, personaFilters, messageTemplate }
         const searchId = search.id;
 
-        // Préparer payload pour N8N
-        // Localisations (comme d'habitude)
+        // Préparation du payload (inchangé)
         const locationIds = search.jobFilters.location
-          .filter((loc: SelectedLocation) => loc.geoId !== null)
-          .map((loc: SelectedLocation) => loc.geoId);
+          .filter((loc: any) => loc.geoId !== null)
+          .map((loc: any) => loc.geoId);
 
         const unresolvedLocations = search.jobFilters.location
-          .filter((loc: SelectedLocation) => loc.geoId === null)
-          .map((loc: SelectedLocation) => loc.label);
+          .filter((loc: any) => loc.geoId === null)
+          .map((loc: any) => loc.label);
 
         let apiPayload: any = {
           name: search.name,
@@ -231,7 +229,6 @@ export const useSearchJobs = () => {
           search_id: searchId,
         };
 
-        // Appel à N8N
         const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1';
 
         const response = await fetch(N8N_WEBHOOK_URL, {
@@ -249,60 +246,18 @@ export const useSearchJobs = () => {
             })
             .eq('id', searchId);
 
-          // Résultats de test
-          const mockResults: JobResult[] = [
-            {
-              id: '1', title: 'Senior React Developer', company: 'TechCorp France', location: 'Paris, France',
-              postedDate: new Date('2024-01-18'),
-              description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe dynamique. Vous travaillerez sur des projets innovants utilisant les dernières technologies.',
-              jobUrl: 'https://example.com/job/1',
-              salary: '50-70k€',
-              personas: [
-                { id: '1', name: 'Jean Dupont', title: 'CTO', profileUrl: 'https://linkedin.com/in/jean-dupont', company: 'TechCorp France' },
-                { id: '2', name: 'Marie Martin', title: 'Tech Lead', profileUrl: 'https://linkedin.com/in/marie-martin', company: 'TechCorp France' }
-              ]
-            },
-            {
-              id: '2', title: 'Frontend Developer React', company: 'StartupXYZ', location: 'Lyon, France',
-              postedDate: new Date('2024-01-17'),
-              description: 'Rejoignez notre équipe dynamique et participez au développement de notre plateforme SaaS révolutionnaire.',
-              jobUrl: 'https://example.com/job/2',
-              personas: [
-                { id: '3', name: 'Pierre Leroy', title: 'Engineering Manager', profileUrl: 'https://linkedin.com/in/pierre-leroy', company: 'StartupXYZ' }
-              ]
-            }
-          ];
-
-          setCurrentResults(mockResults);
-          setCurrentSearchId(searchId);
-
-          await supabase
-            .from('job_search_results')
-            .insert(mockResults.map(result => ({
-              search_id: searchId,
-              job_title: result.title,
-              company_name: result.company,
-              location: result.location,
-              posted_date: result.postedDate.toISOString(),
-              job_description: result.description,
-              job_url: result.jobUrl,
-              personas: JSON.stringify(result.personas)
-            })));
-
-          // update results_count (comme executeSearch)
-          await supabase
-            .from('saved_job_searches')
-            .update({ results_count: mockResults.length })
-            .eq('id', searchId);
-
           toast({
             title: "Recherche relancée",
-            description: "Les nouveaux résultats sont disponibles dans la même recherche.",
+            description: "Les nouveaux résultats seront affichés dès qu'ils seront disponibles.",
           });
+
+          // Nouvelle logique : désormais on attend la DB
+          // Rafraîchit immédiatement les résultats pour afficher ceux réellement stockés
+          await loadSearchResults(searchId);
 
           queryClient.invalidateQueries({ queryKey: ['saved-job-searches'] });
 
-          return { success: true, results: mockResults, searchId };
+          return { success: true, searchId };
         } else {
           const errorText = await response.text();
           toast({
@@ -323,7 +278,7 @@ export const useSearchJobs = () => {
         setIsLoading(false);
       }
     },
-    [user?.id, queryClient, setCurrentResults, setCurrentSearchId]
+    [user?.id, queryClient, loadSearchResults]
   );
 
   // --- Hook executeSearch POSITIONNÉ APRÈS ---
