@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Search, MapPin, Building, Calendar, Filter, Briefcase, Star, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,6 +89,11 @@ const JobSearch = () => {
     job.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Ajout hook responsive
+  // (utilise le hook déjà existant dans src/hooks/use-mobile.tsx)
+  const { useIsMobile } = require('@/hooks/use-mobile');
+  const isMobile = useIsMobile();
+
   return (
     <div className="flex-1 flex flex-col h-screen bg-gradient-to-br from-gray-50 to-white">
       {/* Unified Header */}
@@ -109,9 +113,9 @@ const JobSearch = () => {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className={`flex-1 overflow-auto ${isMobile ? 'px-2 pt-4 pb-6' : 'p-6'}`}>
         {/* Unified Search Section */}
-        <Card className="mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+        <Card className={`${isMobile ? 'mb-4 border-none bg-white/90' : 'mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm'}`}>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-3 text-xl">
               <Search className="h-6 w-6 text-indigo-600" />
@@ -121,10 +125,10 @@ const JobSearch = () => {
               Explore thousands of job offers adapted to your profile
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className={isMobile ? 'space-y-4' : 'space-y-6'}>
             {/* Search Inputs */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-1">
+            <div className={isMobile ? 'flex flex-col gap-3' : 'grid grid-cols-1 lg:grid-cols-3 gap-4'}>
+              <div className={isMobile ? '' : 'lg:col-span-1'}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Position or Company
                 </label>
@@ -134,7 +138,7 @@ const JobSearch = () => {
                     placeholder="Ex: React Developer, Product Manager..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                    className={`pl-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${isMobile ? 'text-base' : ''}`}
                   />
                 </div>
               </div>
@@ -149,7 +153,7 @@ const JobSearch = () => {
                     placeholder="Ex: Paris, Lyon, Remote..."
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="pl-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                    className={`pl-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${isMobile ? 'text-base' : ''}`}
                   />
                 </div>
               </div>
@@ -159,7 +163,7 @@ const JobSearch = () => {
                   Job Type
                 </label>
                 <Select value={jobType} onValueChange={setJobType}>
-                  <SelectTrigger className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                  <SelectTrigger className={`h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${isMobile ? 'text-base' : ''}`}>
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -174,12 +178,12 @@ const JobSearch = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Button size="lg" className="px-8 bg-indigo-700 hover:bg-indigo-800 text-white">
+            <div className={`flex flex-wrap gap-3 ${isMobile ? 'justify-center' : ''}`}>
+              <Button size={isMobile ? 'sm' : 'lg'} className={`px-8 bg-indigo-700 hover:bg-indigo-800 text-white w-full ${isMobile ? 'max-w-xs mx-auto' : ''}`}>
                 <Search className="h-4 w-4 mr-2" />
                 Search
               </Button>
-              <Button variant="outline" size="lg" className="px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+              <Button variant="outline" size={isMobile ? 'sm' : 'lg'} className={`px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 w-full ${isMobile ? 'max-w-xs mx-auto' : ''}`}>
                 <Filter className="h-4 w-4 mr-2" />
                 Advanced Filters
               </Button>
@@ -188,7 +192,7 @@ const JobSearch = () => {
         </Card>
 
         {/* Results Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className={`flex items-center justify-between mb-6 ${isMobile ? "flex-col gap-2" : ""}`}>
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
               {filteredJobs.length} job offers found
@@ -198,7 +202,7 @@ const JobSearch = () => {
             </p>
           </div>
           <Select defaultValue="recent">
-            <SelectTrigger className="w-56 h-10">
+            <SelectTrigger className={isMobile ? "w-full h-10 mt-2" : "w-56 h-10"}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -211,29 +215,36 @@ const JobSearch = () => {
         </div>
 
         {/* Harmonized Job Offers Cards */}
-        <div className="space-y-6">
+        <div className={isMobile ? "flex flex-col gap-4" : "space-y-6"}>
           {filteredJobs.map((job) => {
             const colorSet = jobTypeColors[job.type] || jobTypeColors['CDI'];
-            const fontSizeClass = job.title.length > 35 ? 'text-base' : 'text-xl';
+            const fontSizeClass = job.title.length > 35 ? (isMobile ? "text-base" : "text-xl") : (isMobile ? "text-lg" : "text-xl");
             return (
               <div
                 key={job.id}
-                className={`${colorSet.card} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[230px]`}
+                className={`
+                  ${colorSet.card} rounded-xl border shadow-sm transition-all duration-300 overflow-hidden flex flex-col
+                  ${isMobile
+                    ? "min-h-[170px] active:scale-[0.97] touch-manipulation"
+                    : "min-h-[230px] hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] cursor-pointer"
+                  }
+                `}
               >
                 {/* Header style CardView */}
-                <div className={`${colorSet.header} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
+                <div className={`${colorSet.header} border-b min-h-[56px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm ${isMobile ? "p-3" : "p-4"}`}>
                   <div className="flex-1 flex flex-col min-h-0 justify-center">
-                    <div className={`font-bold leading-tight ${fontSizeClass} mb-1`} style={{
+                    <div className={`font-bold leading-tight ${fontSizeClass} mb-1 truncate`} style={{
                       color: colorSet.badge.includes('text-') && colorSet.badge.split(' ').find((c:string) => c.startsWith('text-')),
                       textShadow: '0 1px 2px rgba(0,0,0,0.07)'
                     }}>
                       {job.title}
                     </div>
                   </div>
-                  <div className="ml-3 flex-shrink-0">
+                  <div className="ml-2 flex-shrink-0">
                     <Badge 
                       variant="secondary" 
-                      className={`text-xs px-3 py-1 ${colorSet.badge} border font-semibold backdrop-blur-sm`}
+                      className={`text-xs px-2 py-1 ${colorSet.badge} border font-semibold backdrop-blur-sm`}
+                      style={isMobile ? { fontSize: 12, padding: '3px 8px' } : undefined}
                     >
                       {job.type}
                     </Badge>
@@ -241,9 +252,9 @@ const JobSearch = () => {
                 </div>
 
                 {/* Corps harmonisé */}
-                <div className="p-4 space-y-3 flex-1 bg-white/20 backdrop-blur-sm">
+                <div className={`flex-1 bg-white/20 backdrop-blur-sm ${isMobile ? "p-3 space-y-2" : "p-4 space-y-3"}`}>
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    <span className={`font-semibold text-gray-900 flex items-center gap-2 ${isMobile ? "text-xs" : "text-sm"}`}>
                       <Building className="h-4 w-4" />
                       {job.company}
                     </span>
@@ -253,7 +264,7 @@ const JobSearch = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-gray-700 text-sm">
+                  <div className={`flex items-center gap-2 text-gray-700 ${isMobile ? "text-xs" : "text-sm"}`}>
                     <MapPin className="h-4 w-4" />
                     {job.location}
                     {job.remote && (
@@ -266,7 +277,7 @@ const JobSearch = () => {
                     <Calendar className="h-4 w-4" />
                     Posted {job.posted} ago
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">
+                  <p className="text-xs text-gray-600 line-clamp-2">
                     {job.description}
                   </p>
                   {/* Liste skills */}
@@ -285,8 +296,8 @@ const JobSearch = () => {
                   )}
                 </div>
                 {/* Footer harmonisé */}
-                <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0 flex justify-end`}>
-                  <Button size="sm" className="px-6 bg-indigo-700 hover:bg-indigo-800 text-white">Apply Now</Button>
+                <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0 flex ${isMobile ? 'justify-center' : 'justify-end'}`}>
+                  <Button size={isMobile ? "sm" : "sm"} className="px-6 bg-indigo-700 hover:bg-indigo-800 text-white">Apply Now</Button>
                 </div>
               </div>
             );
@@ -295,12 +306,12 @@ const JobSearch = () => {
 
         {/* Enhanced Empty State */}
         {filteredJobs.length === 0 && (
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-12 text-center">
-              <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-                <Search className="h-10 w-10 text-gray-400" />
+          <Card className={`bg-white/90 border-none`}>
+            <CardContent className="p-8 text-center">
+              <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+                <Search className="h-8 w-8 text-gray-400" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">
                 No job offer found
               </h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
@@ -322,4 +333,3 @@ const JobSearch = () => {
 };
 
 export default JobSearch;
-
