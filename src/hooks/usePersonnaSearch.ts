@@ -89,13 +89,16 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
       if (error) {
         return;
       }
-      if (!data?.personas) return;
-      // personaLinkId: on attend structure [{job_id, personas[]}]
+      // Defensive: personas should be an array of {job_id, personas: []}
+      const personasList = Array.isArray(data?.personas) ? data.personas : [];
+
       (jobs || []).forEach(job => {
-        const personasForJob = (data.personas.find
-          ? data.personas.find((p: any) => p.job_id === job.job_id)?.personas
-          : []
-        ) || [];
+        let personasForJob: Persona[] = [];
+        if (Array.isArray(personasList)) {
+          // Find personas array for this job.job_id
+          const foundItem = personasList.find((p: any) => p.job_id === job.job_id && Array.isArray(p.personas));
+          personasForJob = foundItem ? foundItem.personas : [];
+        }
         setJobStatus(prev => ({
           ...prev,
           [job.job_id]: { isLoading: false, personas: personasForJob },
