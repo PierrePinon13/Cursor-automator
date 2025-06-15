@@ -37,7 +37,6 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
     });
   };
 
-  // Gérer les changements de période de publication
   const handleDateChange = (value: number | "") => {
     onChange({ ...filters, date_posted: value });
   };
@@ -66,15 +65,21 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
       {/* Date de publication */}
       <div>
         <Label htmlFor="date_posted">Date de publication</Label>
-        <Select value={filters.date_posted === "" ? "" : String(filters.date_posted)} onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}>
+        <Select
+          value={filters.date_posted === "" ? "" : String(filters.date_posted)}
+          onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}
+        >
           <SelectTrigger>
+            {/* Placeholder : affiche le label de "Toutes les dates" */}
             <SelectValue placeholder="Toutes les dates" />
           </SelectTrigger>
           <SelectContent>
-            {DATE_OPTIONS.map(opt => (
-              <SelectItem key={opt.value} value={opt.value === "" ? "" : String(opt.value)}>
-                {opt.label}
-              </SelectItem>
+            {/* On ne rend que les valeurs non vides */}
+            {DATE_OPTIONS.filter(opt => opt.value !== "")
+              .map(opt => (
+                <SelectItem key={opt.value} value={String(opt.value)}>
+                  {opt.label}
+                </SelectItem>
             ))}
           </SelectContent>
         </Select>
