@@ -36,17 +36,17 @@ const History = () => {
   });
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header minimal avec juste les boutons de navigation */}
-      <div className="flex items-center justify-between px-3 py-2 bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      {/* Header modernisé avec gradient subtil */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-200/60 shadow-sm">
         <SidebarTrigger />
         <UserActionsDropdown />
       </div>
 
-      <div className="flex h-[calc(100vh-48px)]">
-        {/* Colonne de gauche : Fil d'actualité avec filtres - 25% de largeur */}
-        <div className="w-1/4 bg-white border-r flex flex-col">
-          <div className="p-2 border-b">
+      <div className="flex h-[calc(100vh-64px)]">
+        {/* Colonne de gauche : Fil d'actualité avec filtres - Style modernisé */}
+        <div className="w-1/4 bg-white/60 backdrop-blur-sm border-r border-gray-200/60 flex flex-col shadow-sm">
+          <div className="p-4 border-b border-gray-200/60 bg-gradient-to-r from-slate-50/80 to-gray-50/80">
             <HistoryFilters
               filterBy={filterBy}
               onFilterByChange={setFilterBy}
@@ -66,8 +66,8 @@ const History = () => {
             {loading ? (
               <div className="flex items-center justify-center p-8 min-h-[200px]">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Chargement des activités...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-600 font-medium">Chargement des activités...</p>
                 </div>
               </div>
             ) : (
@@ -80,16 +80,19 @@ const History = () => {
           </div>
         </div>
 
-        {/* Colonne de droite : Détail de l'activité - 75% de largeur */}
-        <div className="w-3/4 bg-white">
+        {/* Colonne de droite : Détail de l'activité - Style harmonisé */}
+        <div className="w-3/4 bg-white/40 backdrop-blur-sm">
           {selectedActivity ? (
             <ActivityDetail activity={selectedActivity} />
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <p className="text-lg">Sélectionnez une activité pour voir les détails</p>
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center bg-white/60 backdrop-blur-sm rounded-xl p-8 shadow-sm border border-gray-200/60">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-8 h-8 bg-blue-200 rounded-full"></div>
+                </div>
+                <p className="text-lg font-semibold text-gray-900 mb-2">Sélectionnez une activité pour voir les détails</p>
                 {!loading && (
-                  <p className="text-sm mt-2">
+                  <p className="text-sm text-gray-600">
                     {activities.length} activité{activities.length > 1 ? 's' : ''} disponible{activities.length > 1 ? 's' : ''}
                   </p>
                 )}
