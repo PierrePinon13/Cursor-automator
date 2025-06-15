@@ -95,7 +95,7 @@ export const useSearchJobs = () => {
         .map((loc: SelectedLocation) => loc.label);
 
       // Préparer les données pour l'API avec la structure correcte
-      const apiPayload = {
+      let apiPayload: any = {
         name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
@@ -114,7 +114,7 @@ export const useSearchJobs = () => {
         saveOnly: searchConfig.saveOnly
       };
 
-      console.log('📤 Données envoyées au webhook N8N:', apiPayload);
+      console.log('📤 Données envoyées au webhook N8N (avant ajout search_id):', apiPayload);
 
       // Si c'est une sauvegarde uniquement, on n'appelle pas N8N
       if (searchConfig.saveOnly) {
@@ -137,6 +137,14 @@ export const useSearchJobs = () => {
           savedSearchId = savedSearch.id;
           setCurrentSearchId(savedSearchId);
           console.log('✅ Recherche sauvegardée avec ID:', savedSearchId);
+
+          // search_id dans payload
+          apiPayload = {
+            ...apiPayload,
+            search_id: savedSearchId,
+          };
+          console.log('✅ search_id ajouté au payload N8N:', savedSearchId);
+
         } catch (saveError) {
           console.error('⚠️ Erreur lors de la sauvegarde (continuons quand même):', saveError);
         }
@@ -248,7 +256,7 @@ export const useSearchJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, createSearch, saveSearchResults, setCurrentSearchId, setCurrentResults]);
 
   const createSearch = useCallback(async (searchConfig: any) => {
     if (!user?.id) {
