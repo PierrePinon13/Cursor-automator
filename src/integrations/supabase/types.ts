@@ -883,6 +883,7 @@ export type Database = {
       }
       job_search_results: {
         Row: {
+          company_id: string | null
           company_logo: string | null
           company_name: string
           created_at: string
@@ -896,6 +897,7 @@ export type Database = {
           search_id: string
         }
         Insert: {
+          company_id?: string | null
           company_logo?: string | null
           company_name: string
           created_at?: string
@@ -909,6 +911,7 @@ export type Database = {
           search_id: string
         }
         Update: {
+          company_id?: string | null
           company_logo?: string | null
           company_name?: string
           created_at?: string
