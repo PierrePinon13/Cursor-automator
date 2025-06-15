@@ -20,12 +20,12 @@ interface JobSearchFiltersProps {
   onChange: (filters: any) => void;
 }
 
-// Filtres LinkedIn adaptés, valeurs = jours
+// LinkedIn-like filter options (in days), non-empty string for "Any time"
 const DATE_OPTIONS = [
-  { label: "Any time", value: "" },
-  { label: "Past month", value: 30 },
-  { label: "Past week", value: 7 },
-  { label: "Past 24 hours", value: 1 }
+  { label: "Any time", value: "any" },
+  { label: "Past month", value: "30" },
+  { label: "Past week", value: "7" },
+  { label: "Past 24 hours", value: "1" }
 ];
 
 export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) => {
@@ -36,9 +36,16 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
     });
   };
 
-  const handleDateChange = (value: number | "") => {
-    onChange({ ...filters, date_posted: value });
+  // Handle date change, convert "any" to "" for no filter
+  const handleDateChange = (value: string) => {
+    onChange({ ...filters, date_posted: value === "any" ? "" : Number(value) });
   };
+
+  // For current select state, use "any" if value is "" (no filter)
+  const datePostedValue =
+    filters.date_posted === "" || filters.date_posted === undefined
+      ? "any"
+      : String(filters.date_posted);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -65,15 +72,15 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
       <div>
         <Label htmlFor="date_posted">Date de publication</Label>
         <Select
-          value={filters.date_posted === "" ? "" : String(filters.date_posted)}
-          onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}
+          value={datePostedValue}
+          onValueChange={handleDateChange}
         >
           <SelectTrigger>
             <SelectValue placeholder="Any time" />
           </SelectTrigger>
           <SelectContent>
             {DATE_OPTIONS.map(opt => (
-              <SelectItem key={opt.value} value={String(opt.value)}>
+              <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>
             ))}
