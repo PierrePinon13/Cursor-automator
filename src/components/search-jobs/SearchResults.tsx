@@ -72,7 +72,25 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
     }
   };
 
-  const visibleResults = results.filter(job => !hiddenJobs.has(job.id));
+  // Dédoublonnage par job_id (au cas où plusieurs objets aient le même dans la recherche)
+  function deduplicateByJobId(jobs: JobResult[]) {
+    const seen = new Set<string>();
+    return jobs.filter((job) => {
+      // Supporte à la fois job.id, job.job_id, etc.
+      const jobIdValue =
+        (job as any).job_id
+        ?? job.id
+        ?? (job as any).jobId;
+      if (!jobIdValue) return true; // Cas pathologique, on laisse passer
+      if (seen.has(jobIdValue)) return false;
+      seen.add(jobIdValue);
+      return true;
+    });
+  }
+
+  // Appliquer le dédoublonnage AVANT de cacher les jobs
+  const dedupedResults = deduplicateByJobId(results);
+  const visibleResults = dedupedResults.filter(job => !hiddenJobs.has(job.id));
 
   if (isLoading) {
     return (
