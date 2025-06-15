@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ExternalLink, Linkedin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -109,11 +108,11 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
             return (
               <div 
                 key={lead.id} 
-                className={`${colors.card} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col h-64`}
+                className={`${colors.card} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[220px]`}
                 onClick={(event) => handleCardClick(index, event)}
               >
                 {/* En-tête avec gradient moderne */}
-                <div className={`${colors.header} p-4 border-b h-20 flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
+                <div className={`${colors.header} p-4 border-b min-h-[58px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
                   <div className="flex-1 flex items-center min-h-0">
                     <div className="space-y-1 flex-1">
                       {lead.openai_step3_postes_selectionnes?.map((poste, index) => (
@@ -144,7 +143,6 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
 
                 {/* Section centrale modernisée */}
                 <div className="p-4 space-y-3 flex-1 bg-white/20 backdrop-blur-sm">
-                  {/* Nom du lead avec LinkedIn */}
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-gray-900 text-sm">
                       {lead.author_name || 'N/A'}
@@ -163,14 +161,12 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
                     )}
                   </div>
 
-                  {/* Poste du lead */}
                   {(lead.unipile_position || lead.company_position) && (
                     <div className="text-gray-700 text-sm font-medium bg-white/40 px-3 py-1 rounded-lg">
                       {lead.unipile_position || lead.company_position}
                     </div>
                   )}
 
-                  {/* Entreprise */}
                   {lead.unipile_company || lead.company_name ? (
                     <div 
                       className="text-blue-700 hover:text-blue-800 hover:underline cursor-pointer text-sm font-semibold transition-colors bg-blue-50/40 px-3 py-2 rounded-lg"
