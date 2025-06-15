@@ -24,20 +24,21 @@ interface SearchJobsFormProps {
 export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFormProps) => {
   const [searchName, setSearchName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
+  // date_posted: "" = toutes, sinon nombre de jours (1,2,7,14,30)
   const [jobFilters, setJobFilters] = useState({
     keywords: '',
     location: [] as SelectedLocation[],
-    date_posted: 'any',
+    date_posted: '', // default: toutes
     sort_by: 'date'
   });
-  
+
   const [personaFilters, setPersonaFilters] = useState({
     keywords: '',
     role: [] as string[],
     profile_language: 'fr'
   });
-  
+
   const [messageTemplate, setMessageTemplate] = useState('');
 
   // Charger les données initiales si fournies
@@ -45,18 +46,19 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     if (initialData) {
       setSearchName(initialData.name || '');
       setJobFilters(initialData.jobFilters || jobFilters);
-      
+
       // Ensure persona role is properly formatted as array
       const initialPersonaFilters = initialData.personaFilters || personaFilters;
       setPersonaFilters({
         ...initialPersonaFilters,
-        role: Array.isArray(initialPersonaFilters.role) 
-          ? initialPersonaFilters.role 
+        role: Array.isArray(initialPersonaFilters.role)
+          ? initialPersonaFilters.role
           : (initialPersonaFilters.role?.keywords || [])
       });
-      
+
       setMessageTemplate(initialData.messageTemplate || '');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
 
   const validateForm = () => {

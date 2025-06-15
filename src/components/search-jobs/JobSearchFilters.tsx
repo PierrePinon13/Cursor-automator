@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,19 +15,20 @@ interface JobSearchFiltersProps {
   filters: {
     keywords: string;
     location: SelectedLocation[];
-    date_posted: string;
+    date_posted: string | number;
     sort_by: string;
   };
   onChange: (filters: any) => void;
 }
 
+// Les valeurs sont en JOURS maintenant, plus besoin de secondes !
 const DATE_OPTIONS = [
   { label: "Toutes les dates", value: "" },
-  { label: "Dernières 24h", value: 86400 },
-  { label: "Dernières 48h", value: 172800 },
-  { label: "Derniers 7 jours", value: 604800 },
-  { label: "Derniers 14 jours", value: 1209600 },
-  { label: "Derniers 30 jours", value: 2592000 },
+  { label: "Dernières 24h", value: 1 },
+  { label: "Dernières 48h", value: 2 },
+  { label: "Derniers 7 jours", value: 7 },
+  { label: "Derniers 14 jours", value: 14 },
+  { label: "Derniers 30 jours", value: 30 },
 ];
 
 export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) => {
@@ -70,11 +72,10 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}
         >
           <SelectTrigger>
-            {/* Placeholder pour "Toutes les dates" */}
             <SelectValue placeholder="Toutes les dates" />
           </SelectTrigger>
           <SelectContent>
-            {/* Ne pas rendre l’item avec value="" */}
+            {/* On laisse le vide pour "Toutes les dates" */}
             {DATE_OPTIONS.filter(opt => opt.value !== "")
               .map(opt => (
                 <SelectItem key={opt.value} value={String(opt.value)}>

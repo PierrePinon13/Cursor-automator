@@ -1,4 +1,3 @@
-
 import { useCallback, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,7 +91,83 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     });
   }, [setCurrentResults, setCurrentSearchId, invalidateSaved]);
 
-  // Relance une recherche sauvegardée
+  // Exécute une recherche instantanée ou sauvegarde
+  const executeSearch = useCallback(async (searchConfig: any) => {
+    setIsLoading(true);
+    try {
+      // Adaptation date_posted: envoyer valeur ("" ou nombre), JOURS attendus.
+      const locationIds = searchConfig.search_jobs.location.filter((loc: any) => loc.geoId !== null).map((loc: any) => loc.geoId);
+      const unresolvedLocations = searchConfig.search_jobs.location.filter((loc: any) => loc.geoId === null).map((loc: any) => loc.label);
+      // Plus besoin de transformation en secondes.
+      const datePosted = searchConfig.search_jobs.date_posted;
+
+      let apiPayload: any = {
+        name: searchConfig.name,
+        search_jobs: {
+          ...searchConfig.search_jobs,
+          location: locationIds,
+          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined,
+          ...(datePosted ? { date_posted: datePosted } : {}),
+        },
+        personna_filters: {
+          ...searchConfig.personna_filters,
+          role: {
+            keywords: Array.isArray(searchConfig.personna_filters.role)
+              ? searchConfig.personna_filters.role
+              : searchConfig.personna_filters.role?.keywords || []
+          }
+        },
+        message_template: searchConfig.message_template,
+        saveOnly: searchConfig.saveOnly
+      };
+
+      if (searchConfig.saveOnly) {
+        const savedSearch = await createSearch(searchConfig);
+        toast({ title: "Recherche sauvegardée", description: "Votre configuration de recherche a été sauvegardée avec succès." });
+        return { success: true, searchId: savedSearch.id };
+      }
+
+      let savedSearchId = null;
+      if (searchConfig.name && user?.id) {
+        try {
+          const savedSearch = await createSearch({ ...searchConfig, saveOnly: false });
+          savedSearchId = savedSearch.id;
+          setCurrentSearchId(savedSearchId);
+          apiPayload = { ...apiPayload, search_id: savedSearchId };
+        } catch {}
+      }
+
+      const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1';
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Recherche lancée",
+          description: `Requête envoyée avec succès vers N8N (status: ${response.status}). Données à venir.`,
+        });
+        if (savedSearchId) {
+          await loadSearchResults(savedSearchId);
+        } else {
+          setCurrentResults([]);
+        }
+        return { success: true, searchId: savedSearchId };
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Erreur N8N (${response.status}): ${errorText}`);
+      }
+    } catch (error: any) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults]);
+
+  // Relance une recherche sauvegardée (idem : JOURS, plus secondes)
   const reRunSavedSearch = useCallback(async (search: any) => {
     if (!user?.id) {
       toast({ title: "Erreur", description: "Utilisateur non connecté", variant: "destructive" });
@@ -103,17 +178,22 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       const searchId = search.id;
       const locationIds = search.jobFilters.location.filter((loc: any) => loc.geoId !== null).map((loc: any) => loc.geoId);
       const unresolvedLocations = search.jobFilters.location.filter((loc: any) => loc.geoId === null).map((loc: any) => loc.label);
+      const datePosted = search.jobFilters.date_posted;
+
       let apiPayload: any = {
         name: search.name,
         search_jobs: {
           ...search.jobFilters,
           location: locationIds,
-          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined
+          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined,
+          ...(datePosted ? { date_posted: datePosted } : {}),
         },
         personna_filters: {
           ...search.personaFilters,
           role: {
-            keywords: Array.isArray(search.personaFilters.role) ? search.personaFilters.role : search.personaFilters.role?.keywords || []
+            keywords: Array.isArray(search.personaFilters.role)
+              ? search.personaFilters.role
+              : search.personaFilters.role?.keywords || []
           }
         },
         message_template: search.messageTemplate,
@@ -150,81 +230,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       setIsLoading(false);
     }
   }, [user?.id, loadSearchResults, invalidateSaved]);
-
-  // Exécute une recherche instantanée ou sauvegarde
-  const executeSearch = useCallback(async (searchConfig: any) => {
-    setIsLoading(true);
-    try {
-      // Adaptation date_posted (seconds or nothing)
-      const locationIds = searchConfig.search_jobs.location.filter((loc: SelectedLocation) => loc.geoId !== null).map((loc: SelectedLocation) => loc.geoId);
-      const unresolvedLocations = searchConfig.search_jobs.location.filter((loc: SelectedLocation) => loc.geoId === null).map((loc: SelectedLocation) => loc.label);
-      const datePosted = typeof searchConfig.search_jobs.date_posted === "number" ? searchConfig.search_jobs.date_posted : "";
-      let apiPayload: any = {
-        name: searchConfig.name,
-        search_jobs: {
-          ...searchConfig.search_jobs,
-          location: locationIds,
-          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined,
-          ...(datePosted ? { date_posted: datePosted } : {}),
-        },
-        personna_filters: {
-          ...searchConfig.personna_filters,
-          role: {
-            keywords: Array.isArray(searchConfig.personna_filters.role) 
-              ? searchConfig.personna_filters.role 
-              : searchConfig.personna_filters.role?.keywords || []
-          }
-        },
-        message_template: searchConfig.message_template,
-        saveOnly: searchConfig.saveOnly
-      };
-
-      if (searchConfig.saveOnly) {
-        const savedSearch = await createSearch(searchConfig);
-        toast({ title: "Recherche sauvegardée", description: "Votre configuration de recherche a été sauvegardée avec succès." });
-        return { success: true, searchId: savedSearch.id };
-      }
-
-      let savedSearchId = null;
-      if (searchConfig.name && user?.id) {
-        try {
-          const savedSearch = await createSearch({ ...searchConfig, saveOnly: false });
-          savedSearchId = savedSearch.id;
-          setCurrentSearchId(savedSearchId);
-          apiPayload = { ...apiPayload, search_id: savedSearchId };
-        } catch {}
-      }
-
-      const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1';
-
-      const response = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(apiPayload)
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Recherche lancée",
-          description: `Requête envoyée avec succès vers N8N (status: ${response.status}). Données à venir.`,
-        });
-        if (savedSearchId) {
-          await loadSearchResults(savedSearchId);
-        } else {
-          setCurrentResults([]);
-        }
-        return { success: true, searchId: savedSearchId };
-      } else {
-        const errorText = await response.text();
-        throw new Error(`Erreur N8N (${response.status}): ${errorText}`);
-      }
-    } catch (error: any) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-      return { success: false, error: error.message };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults]);
 
   return {
     isLoading,
