@@ -70,11 +70,11 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}
         >
           <SelectTrigger>
-            {/* Placeholder : affiche le label de "Toutes les dates" */}
+            {/* Placeholder pour "Toutes les dates" */}
             <SelectValue placeholder="Toutes les dates" />
           </SelectTrigger>
           <SelectContent>
-            {/* On ne rend que les valeurs non vides */}
+            {/* Ne pas rendre l’item avec value="" */}
             {DATE_OPTIONS.filter(opt => opt.value !== "")
               .map(opt => (
                 <SelectItem key={opt.value} value={String(opt.value)}>
