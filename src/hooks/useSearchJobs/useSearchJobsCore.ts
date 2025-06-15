@@ -95,12 +95,12 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   const executeSearch = useCallback(async (searchConfig: any) => {
     setIsLoading(true);
     try {
-      // Préparation location pour N8N : id uniquement
-      const locationIds = searchConfig.search_jobs.location.map((loc: any) => loc.geoId);
-      // location_id_is_known : true si toutes avec geoId, false sinon
-      const location_id_is_known = searchConfig.search_jobs.location.every((loc: any) => !!loc.geoId);
+      // Calcul id des localisations + location_id_is_known pour N8N
+      const locations = searchConfig.search_jobs.location;
+      const locationIds = locations.map((loc: any) => loc.geoId);
+      const location_id_is_known = locations.length > 0 && locations.every((loc: any) => !!loc.geoId && typeof loc.geoId === "number");
       // date_posted en secondes
-      let datePostedSeconds = "";
+      let datePostedSeconds: string | "" = "";
       if (searchConfig.search_jobs.date_posted !== "" && searchConfig.search_jobs.date_posted !== undefined) {
         const days = Number(searchConfig.search_jobs.date_posted);
         if (!isNaN(days)) {
@@ -112,7 +112,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
-          location: locationIds, // On renvoie la liste des ids !
+          location: locationIds,
           location_id_is_known,
           date_posted: datePostedSeconds,
         },
@@ -174,7 +174,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
   }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults]);
 
-  // Relance une recherche sauvegardée (idem: ids + location_id_is_known + date en secondes)
+  // Relance une recherche sauvegardée (ids, location_id_is_known, date en secondes)
   const reRunSavedSearch = useCallback(async (search: any) => {
     if (!user?.id) {
       toast({ title: "Erreur", description: "Utilisateur non connecté", variant: "destructive" });
@@ -183,9 +183,10 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     setIsLoading(true);
     try {
       const searchId = search.id;
-      const locationIds = search.jobFilters.location.map((loc: any) => loc.geoId);
-      const location_id_is_known = search.jobFilters.location.every((loc: any) => !!loc.geoId);
-      let datePostedSeconds = "";
+      const locations = search.jobFilters.location;
+      const locationIds = locations.map((loc: any) => loc.geoId);
+      const location_id_is_known = locations.length > 0 && locations.every((loc: any) => !!loc.geoId && typeof loc.geoId === "number");
+      let datePostedSeconds: string | "" = "";
       if (search.jobFilters.date_posted !== "" && search.jobFilters.date_posted !== undefined) {
         const days = Number(search.jobFilters.date_posted);
         if (!isNaN(days)) {
@@ -203,11 +204,9 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         },
         personna_filters: {
           ...search.personaFilters,
-          role: {
-            keywords: Array.isArray(search.personaFilters.role)
-              ? search.personaFilters.role
-              : search.personaFilters.role?.keywords || []
-          }
+          role: Array.isArray(search.personaFilters.role)
+            ? { keywords: search.personaFilters.role }
+            : { keywords: search.personaFilters.role?.keywords || [] }
         },
         message_template: search.messageTemplate,
         saveOnly: false,
