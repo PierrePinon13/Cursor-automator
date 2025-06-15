@@ -2,6 +2,7 @@
 import { useClientJobOffers } from '@/hooks/useClientJobOffers';
 import { VisualJobOffersFilters } from './VisualJobOffersFilters';
 import { GroupedJobOffersTable } from './GroupedJobOffersTable';
+import { Button } from "@/components/ui/button";
 
 export function JobOffersSection() {
   const { 
@@ -20,10 +21,12 @@ export function JobOffersSection() {
     availableClients,
     assignJobOffer,
     updateJobOfferStatus,
-    animatingItems
+    animatingItems,
+    hasMore,
+    loadMore
   } = useClientJobOffers();
 
-  if (loading) {
+  if (loading && filteredJobOffers.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -54,6 +57,20 @@ export function JobOffersSection() {
         onUpdateStatus={updateJobOfferStatus}
         animatingItems={animatingItems}
       />
+
+      {/* Ajout bouton 'Charger plus' si pagination */}
+      {hasMore && !loading && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={loadMore}
+            className="mx-auto my-4"
+          >
+            Charger plus d’offres
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
+

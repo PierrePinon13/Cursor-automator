@@ -37,50 +37,50 @@ export function useClientJobOffers() {
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('unassigned');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(['active']);
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [hasMore, setHasMore] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchJobOffers();
     fetchUsers();
-  }, []);
+    // autoAssign ne doit pas bloquer le rendu, on fait un fire-and-forget
+    // Il sera déclenché après le 1er fetch, en tache de fond
+    // eslint-disable-next-line
+    // (rien ici)
+  }, [pageIndex, pageSize]);
 
   const fetchJobOffers = async () => {
     try {
       setLoading(true);
-      console.log('📋 Fetching client job offers...');
-      
-      const { count, error: countError } = await supabase
-        .from('client_job_offers')
-        .select('*', { count: 'exact', head: true });
+      setHasMore(true);
 
-      if (countError) {
-        console.error('❌ Error counting job offers:', countError);
-      } else {
-        console.log(`🔢 Total job offers in database: ${count}`);
-      }
+      // ⚡️ Optimisation : chargement paginé
+      // (pas de select count(*), head: true)
+      const from = pageIndex * pageSize;
+      const to = from + pageSize - 1;
 
       const { data, error } = await supabase
         .from('client_job_offers')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.error('❌ Error fetching job offers:', error);
         throw error;
       }
 
-      console.log(`✅ Successfully fetched ${data?.length || 0} job offers from query`);
-      console.log('📊 Sample data:', data?.slice(0, 2));
+      // Si moins d'offres que pageSize -> plus de pages à charger
+      if (data && data.length < pageSize) setHasMore(false);
+
+      // maj state (page 0 = remplacement, page >0 = concaténation)
+      setJobOffers(prev => pageIndex === 0 ? (data || []) : [...prev, ...(data || [])]);
       
-      const last48Hours = new Date();
-      last48Hours.setHours(last48Hours.getHours() - 48);
-      const recentOffers = data?.filter(offer => new Date(offer.created_at) > last48Hours) || [];
-      console.log(`⏰ Job offers from last 48 hours: ${recentOffers.length}`);
+      // ⚡️ L'auto-assign ne bloque plus le rendu : lancement en arrière-plan désormais
+      if (pageIndex === 0 && data) autoAssignNewOffers(data);
 
-      setJobOffers(data || []);
-
-      // Auto-attribution pour les nouvelles offres non assignées
-      await autoAssignNewOffers(data || []);
     } catch (error) {
       console.error('❌ Error in fetchJobOffers:', error);
       setJobOffers([]);
@@ -309,6 +309,11 @@ export function useClientJobOffers() {
     }
   };
 
+  // Pagination handler à exposer
+  const loadMore = () => {
+    if (hasMore && !loading) setPageIndex(prev => prev + 1);
+  };
+
   // Filtrage par date
   const filteredByDate = jobOffers.filter(jobOffer => {
     if (selectedDateFilter === 'all') return true;
@@ -399,7 +404,13 @@ export function useClientJobOffers() {
     availableClients,
     assignJobOffer,
     updateJobOfferStatus,
-    refreshJobOffers: fetchJobOffers,
-    animatingItems
+    refreshJobOffers: () => { setPageIndex(0); fetchJobOffers(); },
+    animatingItems,
+    pageIndex,
+    setPageIndex,
+    hasMore,
+    loadMore,
+    pageSize,
+    setPageSize
   };
 }
