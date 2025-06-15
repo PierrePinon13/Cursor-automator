@@ -1,5 +1,4 @@
 
-import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,14 +20,12 @@ interface JobSearchFiltersProps {
   onChange: (filters: any) => void;
 }
 
-// Les valeurs sont en JOURS maintenant, plus besoin de secondes !
+// Filtres LinkedIn adaptés, valeurs = jours
 const DATE_OPTIONS = [
-  { label: "Toutes les dates", value: "" },
-  { label: "Dernières 24h", value: 1 },
-  { label: "Dernières 48h", value: 2 },
-  { label: "Derniers 7 jours", value: 7 },
-  { label: "Derniers 14 jours", value: 14 },
-  { label: "Derniers 30 jours", value: 30 },
+  { label: "Any time", value: "" },
+  { label: "Past month", value: 30 },
+  { label: "Past week", value: 7 },
+  { label: "Past 24 hours", value: 1 }
 ];
 
 export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) => {
@@ -72,15 +69,13 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Toutes les dates" />
+            <SelectValue placeholder="Any time" />
           </SelectTrigger>
           <SelectContent>
-            {/* On laisse le vide pour "Toutes les dates" */}
-            {DATE_OPTIONS.filter(opt => opt.value !== "")
-              .map(opt => (
-                <SelectItem key={opt.value} value={String(opt.value)}>
-                  {opt.label}
-                </SelectItem>
+            {DATE_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={String(opt.value)}>
+                {opt.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -102,3 +97,4 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
     </div>
   );
 };
+
