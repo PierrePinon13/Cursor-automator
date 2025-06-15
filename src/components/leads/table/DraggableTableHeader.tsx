@@ -62,7 +62,7 @@ const DraggableTableHeader = ({ displayedColumns, sortConfig, onSort }: Draggabl
     <Droppable droppableId="columns" direction="horizontal">
       {(provided) => (
         <thead ref={provided.innerRef} {...provided.droppableProps}>
-          <tr>
+          <tr className="border-b border-gray-200 bg-gray-50">
             {displayedColumns.map((column, index) => (
               <Draggable key={column.id} draggableId={column.id} index={index}>
                 {(provided, snapshot) => (
@@ -70,20 +70,24 @@ const DraggableTableHeader = ({ displayedColumns, sortConfig, onSort }: Draggabl
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`text-left p-2 font-medium text-xs bg-gray-50 cursor-grab select-none whitespace-nowrap border-b border-gray-200 ${
-                      index < displayedColumns.length - 1 ? 'border-r border-gray-200' : ''
-                    } ${
-                      snapshot.isDragging ? 'shadow-lg cursor-grabbing' : ''
-                    }`}
+                    className={`
+                      text-left px-4 py-2 font-medium text-xs whitespace-nowrap
+                      border-b border-gray-100
+                      ${index < displayedColumns.length - 1 ? 'border-r border-gray-100' : ''}
+                      bg-inherit
+                      ${snapshot.isDragging ? 'shadow outline outline-1 outline-blue-200' : ''}
+                      transition-all
+                    `}
                     style={{
                       ...provided.draggableProps.style,
                       width: column.width,
                       minWidth: column.minWidth || column.width,
                       maxWidth: column.width,
+                      backgroundColor: 'inherit'
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <span>{column.label}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-700">{column.label}</span>
                       {renderSortButton(column.id)}
                     </div>
                   </th>

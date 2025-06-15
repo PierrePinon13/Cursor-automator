@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { allColumns } from './table/columnDefinitions';
@@ -136,10 +135,10 @@ const DraggableTable = ({
     .filter(Boolean);
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-50/30 to-gray-100/30 p-4 rounded-xl shadow-sm">
+    <div className="w-full">
       <DragDropContext onDragEnd={handleOnDragEnd}>
-        <div className="overflow-auto rounded-lg border border-gray-200 bg-white shadow-md">
-          <table className="w-full border-collapse [&_th]:font-semibold [&_th]:bg-blue-50 [&_th]:text-blue-700 [&_th]:px-4 [&_th]:py-3 [&_th]:border-b [&_th]:border-blue-100 [&_th]:text-sm [&_td]:text-sm [&_td]:px-4 [&_td]:py-3">
+        <div className="overflow-auto">
+          <table className="w-full border-collapse">
             <DraggableTableHeader 
               displayedColumns={displayedColumns} 
               sortConfig={sortConfig}
@@ -153,15 +152,14 @@ const DraggableTable = ({
                   rowIndex={rowIndex}
                   displayedColumns={displayedColumns}
                   onRowClick={handleRowClick}
-                  className={`transition-all duration-150 hover:bg-blue-50/40 cursor-pointer ${
-                    rowIndex % 2 === 1 ? 'bg-gray-50/80' : 'bg-white'
-                  }`}
+                  className={`
+                    transition-all duration-150 cursor-pointer
+                    ${rowIndex % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                    ${selectedLeadIndex === rowIndex ? 'ring-2 ring-blue-200' : ''}
+                  `}
                   style={{
-                    boxShadow:
-                      selectedLeadIndex === rowIndex
-                        ? '0 2px 8px 0 rgba(56,132,255,0.14)'
-                        : undefined,
-                    borderRadius: '0.6rem',
+                    // Arrondi sur la case active uniquement
+                    borderRadius: selectedLeadIndex === rowIndex ? '0.6rem' : undefined,
                   }}
                 />
               ))}
@@ -183,4 +181,3 @@ const DraggableTable = ({
 };
 
 export default DraggableTable;
-
