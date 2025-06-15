@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,6 +26,22 @@ interface UsePersonnaSearchOptions {
     personna_filters: any;
   }>;
 }
+
+/**
+ * Fonction utilitaire : extrait la liste des personas d’un JSON venant de la DB
+ */
+function extractPersonasPerJob(raw: any): Array<{ job_id: string; personas: Persona[] }> {
+  if (!Array.isArray(raw)) return [];
+  // On ne garde que les objets au bon format
+  return raw.filter(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      typeof item.job_id === "string" &&
+      Array.isArray(item.personas)
+  ) as Array<{ job_id: string; personas: Persona[] }>;
+}
+
 /**
  * Ce hook :
  * - Appelle n8n pour chaque job_id afin de déclencher la recherche personas
@@ -43,30 +60,39 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
         if (launchedRef.current[job.job_id]) continue;
         launchedRef.current[job.job_id] = true;
 
-        setJobStatus(prev => ({
+        setJobStatus((prev) => ({
           ...prev,
           [job.job_id]: { isLoading: true },
         }));
 
         try {
-          await fetch("https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              search_type: "personna",
-              search_id: searchId,
-              job_id: job.job_id,
-              company_name: job.company_name,
-              company_id: job.company_id,
-              personna_filters: job.personna_filters,
-            }),
-          });
+          await fetch(
+            "https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                search_type: "personna",
+                search_id: searchId,
+                job_id: job.job_id,
+                company_name: job.company_name,
+                company_id: job.company_id,
+                personna_filters: job.personna_filters,
+              }),
+            }
+          );
           // On rate-limit si > 25, ici minimum 200ms
-          await new Promise(r => setTimeout(r, jobs.length > 25 ? 1000 : 200));
+          await new Promise((r) =>
+            setTimeout(r, jobs.length > 25 ? 1000 : 200)
+          );
         } catch (err: any) {
-          setJobStatus(prev => ({
+          setJobStatus((prev) => ({
             ...prev,
-            [job.job_id]: { isLoading: false, personas: [], error: String(err) },
+            [job.job_id]: {
+              isLoading: false,
+              personas: [],
+              error: String(err),
+            },
           }));
         }
       }
@@ -89,29 +115,13 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
         return;
       }
 
-      const personasList = Array.isArray(data?.personas) ? data.personas : [];
+      const personasList = extractPersonasPerJob(data?.personas);
 
-      (jobs || []).forEach(job => {
-        let personasForJob: Persona[] = [];
-
-        if (Array.isArray(personasList)) {
-          const foundItem = personasList.find((p: any) => {
-            // Type guard: ensure p is an object and has a personas array
-            return (
-              p &&
-              typeof p === "object" &&
-              "job_id" in p &&
-              p.job_id === job.job_id &&
-              "personas" in p &&
-              Array.isArray(p.personas)
-            );
-          });
-          personasForJob = foundItem && Array.isArray(foundItem.personas)
-            ? foundItem.personas
-            : [];
-        }
-
-        setJobStatus(prev => ({
+      (jobs || []).forEach((job) => {
+        // On cherche l'objet correspondant au job_id
+        const found = personasList.find((p) => p.job_id === job.job_id);
+        const personasForJob: Persona[] = found ? found.personas : [];
+        setJobStatus((prev) => ({
           ...prev,
           [job.job_id]: { isLoading: false, personas: personasForJob },
         }));
