@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -19,20 +18,35 @@ const SearchJobs = () => {
     executeSearch,
     deleteSearch,
     loadSearchResults,
-    reRunSavedSearch
+    reRunSavedSearch,
+    currentSearchId
   } = useSearchJobs();
 
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
 
-  // -- Nouvel état pour la recherche sélectionnée et ses résultats
-  // On n'affiche les résultats que pour la recherche sélectionnée.
+  // Ajout: avoir accès à la méthode de reset des résultats
+  // Correction: nettoie les résultats à chaque changement explicite de recherche pour éviter flash data obsolète
+
+  // Nouvelle méthode: reset explicite des résultats (appelée en début de chaque sélection)
+  const resetCurrentResults = () => {
+    if (typeof window !== "undefined") {
+      // sécurité SSR même si normalement jamais utile pour une page dashboard
+      const evt = new CustomEvent('job-results-reset');
+      window.dispatchEvent(evt);
+    }
+  };
+
+  // handleNewSearch: reset résultats quand on démarre une création
   const handleNewSearch = () => {
     setShowForm(true);
     setSelectedSearch(null);
+    resetCurrentResults();
   };
 
   const handleExecuteSearch = async (searchConfig: any) => {
+    // On vide les résultats avant de lancer la recherche
+    resetCurrentResults();
     const result = await executeSearch(searchConfig);
     setShowForm(false);
     return result;
@@ -40,21 +54,24 @@ const SearchJobs = () => {
 
   // Exécution directe d'une recherche sauvegardée
   const handleDirectExecute = async (search: any) => {
+    resetCurrentResults();
     await reRunSavedSearch(search);
   };
 
   const handleEditSearch = (search: any) => {
     setSelectedSearch(search);
     setShowForm(true);
+    resetCurrentResults();
   };
 
   // Sélection d'une recherche pour afficher ses résultats
   const handleSelectSearch = (search: any) => {
     setSelectedSearch(search);
+    // Vidage immédiat AVANT d'aller charger (sinon flash d'anciens jobs)
+    resetCurrentResults();
     if (search?.id) {
       loadSearchResults(search.id);
     } else {
-      // IMPORTANT : si pas de search, on vide aussi les résultats
       loadSearchResults(null);
     }
   };
@@ -63,10 +80,11 @@ const SearchJobs = () => {
     const match = savedSearches.find((s) => s.id === searchId);
     if (match) {
       setSelectedSearch(match);
+      resetCurrentResults();
       loadSearchResults(searchId);
     } else {
-      // IMPORTANT : si la recherche n’existe plus, on vide selectedSearch et les résultats
       setSelectedSearch(null);
+      resetCurrentResults();
       loadSearchResults(null);
     }
   };
@@ -76,6 +94,20 @@ const SearchJobs = () => {
     await deleteSearch(searchId); // Effectue la suppression + reset résultats côté core
     setSelectedSearch(null);      // On s'assure de "désélectionner" s’il s’agissait de la sélection courante
   };
+
+  // Synchroniser le reset explicit des résultats avec le state local
+  useEffect(() => {
+    function listener() {
+      // Force le cleanup complet 
+      if (typeof window !== "undefined" && window.lovableJobResultsHack) {
+        window.lovableJobResultsHack([]);
+      }
+    }
+    window.addEventListener('job-results-reset', listener);
+    return () => {
+      window.removeEventListener('job-results-reset', listener);
+    };
+  }, []);
 
   // Abonnement Realtime à job_search_results pour la recherche sélectionnée
   useEffect(() => {
@@ -105,6 +137,7 @@ const SearchJobs = () => {
       !savedSearches.some((s) => s.id === selectedSearch.id)
     ) {
       setSelectedSearch(null);
+      resetCurrentResults();
     }
   }, [savedSearches, selectedSearch]);
 
@@ -158,7 +191,10 @@ const SearchJobs = () => {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => loadSearchResults(selectedSearch.id)}
+                onClick={() => {
+                  resetCurrentResults();
+                  loadSearchResults(selectedSearch.id)
+                }}
                 className="flex items-center gap-2"
                 title="Rafraîchir les résultats"
               >
@@ -168,8 +204,8 @@ const SearchJobs = () => {
             </div>
             <SearchResults
               results={currentResults}
-              isLoading={isLoading}
-              key={selectedSearch.id} // force re-render when search changes
+              isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)} // force loading quand SELECTED mais rien n'est arrivé
+              key={selectedSearch.id}
             />
           </div>
         )}
@@ -196,4 +232,3 @@ const SearchJobs = () => {
 export default SearchJobs;
 
 // fin du fichier
-
