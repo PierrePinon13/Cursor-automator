@@ -12,7 +12,23 @@ export async function insertJobResults({
 }) {
   if (!results.length) return { error: null };
 
-  const rows = results.map((result: any) => ({
+  // Dédoublonnage en mémoire par job_url (ou job_id si existant)
+  const seen = new Set();
+  const dedupedResults = results.filter((result: any) => {
+    // Utiliser job_url comme identifiant principal
+    const key = result.job_id ? `${result.job_id}` : (result.job_url ? result.job_url : null);
+    if (!key) return false; // Si pas d'identifiant : skip
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // On log le nombre de doublons ignorés
+  if (dedupedResults.length < results.length) {
+    console.log(`insertJobResults: Doublons retirés lors de l'insertion: ${results.length - dedupedResults.length}`);
+  }
+
+  const rows = dedupedResults.map((result: any) => ({
     search_id,
     job_title: result.job_title,
     company_name: result.company_name,
@@ -25,12 +41,13 @@ export async function insertJobResults({
     personas: JSON.stringify(result.personas ?? []),
   }));
 
+  // Faire un upsert (via insert + onConflict) sur search_id + job_url
   const { error } = await supabase
     .from('job_search_results')
-    .insert(rows);
+    .upsert(rows, { onConflict: 'search_id,job_url' });
 
   if (error) {
-    console.error('Erreur lors de l\'insertion des résultats jobs :', error);
+    console.error('Erreur lors du upsert des résultats jobs :', error);
     return { error };
   }
   return { error: null };

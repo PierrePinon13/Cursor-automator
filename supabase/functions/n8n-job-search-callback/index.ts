@@ -29,6 +29,8 @@ serve(async (req) => {
       results.length === 0 &&
       all_results_returned === true
     ) {
+      console.log('Trigger persona search: search_id=', search_id);
+
       // 1. On récupère tous les jobs liés à la search
       const { data: jobResults, error: jobResultsErr } = await supabase
         .from('job_search_results')
@@ -42,6 +44,7 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      console.log('job_search_results found:', (jobResults || []).length);
 
       // 2. Extraction company_ids uniques et non nulles
       const uniqueCompanyIds: string[] = [];
@@ -50,6 +53,7 @@ serve(async (req) => {
           uniqueCompanyIds.push(res.company_id);
         }
       });
+      console.log('Unique company_ids:', uniqueCompanyIds);
 
       // 3. On récupère les filters personas de la recherche
       const { data: search, error: searchErr } = await supabase
@@ -65,6 +69,7 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      console.log('persona_filters:', search?.persona_filters);
 
       // 4. Construction et POST N8N
       const N8N_PERSONA_WEBHOOK_URL = "https://n8n.getpro.co/webhook/fb2a74b3-e840-400c-b788-f43972c61334";
@@ -82,6 +87,7 @@ serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadToSend),
         });
+        console.log("Webhook N8N personas response status:", n8nResponse.status);
       } catch (err) {
         console.error('Erreur lors de l’appel au webhook N8N personas/company :', err);
       }
@@ -102,7 +108,7 @@ serve(async (req) => {
       );
     }
 
-    // Traitement normal : insertion des résultats
+    // Traitement normal : insertion des résultats (avec dédoublonnage/anti-doublons dans insertJobResults)
     if (results.length > 0) {
       const { error } = await insertJobResults({
         search_id,
@@ -116,6 +122,7 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      console.log(`Résultats insérés/upsertés pour search_id=${search_id}, count=${results.length}`);
     }
 
     return new Response(
@@ -131,4 +138,3 @@ serve(async (req) => {
   }
 });
 // fin du fichier
-
