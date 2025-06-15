@@ -73,6 +73,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       description: result.job_description || '',
       jobUrl: result.job_url,
       personas: result.personas ? JSON.parse(result.personas as string) : [],
+      company_logo: result.company_logo, // <-- on mappe la colonne company_logo !
     }));
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
