@@ -32,7 +32,8 @@ serve(async (req) => {
     //       posted_date: "...", // Format ISO !
     //       job_description: "...",
     //       job_url: "...",
-    //       personas: [ ... ]
+    //       personas: [ ... ],
+    //       company_logo: "..."   <----- nouveau champ pris en charge
     //     }, ...
     //   ]
     // }
@@ -45,7 +46,7 @@ serve(async (req) => {
       });
     }
 
-    // On mappe les résultats pour les insérer en masse dans la table job_search_results
+    // On mappe les résultats pour les insérer en masse dans la table job_search_results, inclut company_logo !
     const rows = results.map((result: any) => ({
       search_id: search_id,
       job_title: result.job_title,
@@ -54,6 +55,7 @@ serve(async (req) => {
       posted_date: result.posted_date,
       job_description: result.job_description,
       job_url: result.job_url,
+      company_logo: result.company_logo ?? null, // <-- PRIS EN CHARGE !
       personas: JSON.stringify(result.personas ?? []),
     }));
 
