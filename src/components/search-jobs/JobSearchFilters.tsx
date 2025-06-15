@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,12 +20,26 @@ interface JobSearchFiltersProps {
   onChange: (filters: any) => void;
 }
 
+const DATE_OPTIONS = [
+  { label: "Toutes les dates", value: "" },
+  { label: "Dernières 24h", value: 86400 },
+  { label: "Dernières 48h", value: 172800 },
+  { label: "Derniers 7 jours", value: 604800 },
+  { label: "Derniers 14 jours", value: 1209600 },
+  { label: "Derniers 30 jours", value: 2592000 },
+];
+
 export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) => {
   const handleLocationChange = (locations: SelectedLocation[]) => {
     onChange({
       ...filters,
       location: locations
     });
+  };
+
+  // Gérer les changements de période de publication
+  const handleDateChange = (value: number | "") => {
+    onChange({ ...filters, date_posted: value });
   };
 
   return (
@@ -53,15 +66,16 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
       {/* Date de publication */}
       <div>
         <Label htmlFor="date_posted">Date de publication</Label>
-        <Select value={filters.date_posted} onValueChange={(value) => onChange({ ...filters, date_posted: value })}>
+        <Select value={filters.date_posted === "" ? "" : String(filters.date_posted)} onValueChange={(value) => handleDateChange(value === "" ? "" : Number(value))}>
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue placeholder="Toutes les dates" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="any">Toutes les dates</SelectItem>
-            <SelectItem value="past_24h">Dernières 24h</SelectItem>
-            <SelectItem value="past_week">Dernière semaine</SelectItem>
-            <SelectItem value="past_month">Dernier mois</SelectItem>
+            {DATE_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value === "" ? "" : String(opt.value)}>
+                {opt.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

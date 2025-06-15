@@ -298,13 +298,21 @@ export const useSearchJobs = () => {
         .filter((loc: SelectedLocation) => loc.geoId === null)
         .map((loc: SelectedLocation) => loc.label);
 
+      // ----------- AJOUT: mapping date_posted → seconds ou rien ------------
+      const datePosted =
+        typeof searchConfig.search_jobs.date_posted === "number"
+          ? searchConfig.search_jobs.date_posted
+          : "";
+
       // Préparer les données pour l'API avec la structure correcte
       let apiPayload: any = {
         name: searchConfig.name,
         search_jobs: {
           ...searchConfig.search_jobs,
           location: locationIds,
-          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined
+          unresolved_locations: unresolvedLocations.length > 0 ? unresolvedLocations : undefined,
+          // Suralimente date_posted uniquement si différent du vide
+          ...(datePosted ? { date_posted: datePosted } : {}),
         },
         personna_filters: {
           ...searchConfig.personna_filters,
