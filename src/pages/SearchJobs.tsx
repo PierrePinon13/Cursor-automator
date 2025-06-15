@@ -53,6 +53,9 @@ const SearchJobs = () => {
     setSelectedSearch(search);
     if (search?.id) {
       loadSearchResults(search.id);
+    } else {
+      // IMPORTANT : si pas de search, on vide aussi les résultats
+      loadSearchResults(null);
     }
   };
 
@@ -61,7 +64,17 @@ const SearchJobs = () => {
     if (match) {
       setSelectedSearch(match);
       loadSearchResults(searchId);
+    } else {
+      // IMPORTANT : si la recherche n’existe plus, on vide selectedSearch et les résultats
+      setSelectedSearch(null);
+      loadSearchResults(null);
     }
+  };
+
+  // Ajout : handler suppression avec reset d'état local aussi
+  const handleDeleteSearch = async (searchId: string) => {
+    await deleteSearch(searchId); // Effectue la suppression + reset résultats côté core
+    setSelectedSearch(null);      // On s'assure de "désélectionner" s’il s’agissait de la sélection courante
   };
 
   // Abonnement Realtime à job_search_results pour la recherche sélectionnée
@@ -84,6 +97,16 @@ const SearchJobs = () => {
       supabase.removeChannel(channel);
     };
   }, [selectedSearch?.id, loadSearchResults]);
+
+  // Si la liste des recherches change et que la recherche sélectionnée n’existe plus, on reset
+  useEffect(() => {
+    if (
+      selectedSearch &&
+      !savedSearches.some((s) => s.id === selectedSearch.id)
+    ) {
+      setSelectedSearch(null);
+    }
+  }, [savedSearches, selectedSearch]);
 
   return (
     <PageLayout>
@@ -118,7 +141,7 @@ const SearchJobs = () => {
           searches={savedSearches}
           onExecute={handleDirectExecute}
           onEdit={handleEditSearch}
-          onDelete={deleteSearch}
+          onDelete={handleDeleteSearch} // Change ici !
           onLoadResults={handleLoadResults}
           // Ajout de la props onSelect (nouveau)
           onSelect={handleSelectSearch}
@@ -173,3 +196,4 @@ const SearchJobs = () => {
 export default SearchJobs;
 
 // fin du fichier
+
