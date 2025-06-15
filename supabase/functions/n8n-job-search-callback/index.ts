@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handlePersonaSearch } from './persona-search.ts';
@@ -20,7 +19,20 @@ serve(async (req) => {
     );
 
     const body = await req.json();
+
+    // LOG BODY REÇU (debug extrême)
+    console.log('[n8n-job-search-callback] Payload reçu :', JSON.stringify(body));
+
     const { search_id, results, all_results_returned } = body;
+
+    // LOG DES PARAMS DE CONDITION
+    console.log('Check end-of-search condition :', {
+      search_id_type: typeof search_id,
+      results_type: Array.isArray(results),
+      results_length: results?.length,
+      all_results_returned_type: typeof all_results_returned,
+      all_results_returned_value: all_results_returned
+    });
 
     // 🚦 NOUVELLE LOGIQUE: Traitement de fin de scraping => recherche de personas par COMPANY IDs
     if (
