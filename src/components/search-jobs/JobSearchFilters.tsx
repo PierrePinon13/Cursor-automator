@@ -1,3 +1,4 @@
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -5,8 +6,6 @@ import { LocationSelector } from './LocationSelector';
 
 interface SelectedLocation {
   label: string;
-  geoId: number | null;
-  isResolved: boolean;
 }
 
 interface JobSearchFiltersProps {

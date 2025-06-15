@@ -5,14 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, X, Search } from 'lucide-react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { locationData, searchLocations, findLocationByLabel, type LocationData } from '@/data/locations';
 
 interface SelectedLocation {
   label: string;
-  geoId: number | null; // null pour les localisations non trouvées
-  isResolved: boolean;
 }
 
 interface LocationSelectorProps {
@@ -23,12 +18,40 @@ interface LocationSelectorProps {
 export const LocationSelector = ({ selectedLocations, onChange }: LocationSelectorProps) => {
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [suggestions, setSuggestions] = useState<LocationData[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Suggestions de base sans geoId
+  const commonLocations = [
+    "Paris, France",
+    "Lyon, France", 
+    "Marseille, France",
+    "Toulouse, France",
+    "Lille, France",
+    "Bordeaux, France",
+    "Nantes, France",
+    "Nice, France",
+    "Strasbourg, France",
+    "Montpellier, France",
+    "Rennes, France",
+    "Grenoble, France",
+    "France",
+    "Remote",
+    "Télétravail",
+    "London, UK",
+    "Berlin, Germany",
+    "Amsterdam, Netherlands",
+    "Brussels, Belgium",
+    "Geneva, Switzerland",
+    "Barcelona, Spain",
+    "Milan, Italy"
+  ];
 
   useEffect(() => {
     if (inputValue.length >= 2) {
-      const results = searchLocations(inputValue);
+      const results = commonLocations.filter(location =>
+        location.toLowerCase().includes(inputValue.toLowerCase())
+      ).slice(0, 10);
       setSuggestions(results);
       setIsOpen(results.length > 0);
     } else {
@@ -37,24 +60,10 @@ export const LocationSelector = ({ selectedLocations, onChange }: LocationSelect
     }
   }, [inputValue]);
 
-  const addLocation = (location: LocationData | string) => {
-    let newLocation: SelectedLocation;
-    
-    if (typeof location === 'string') {
-      // Localisation non trouvée - sera résolue dynamiquement
-      newLocation = {
-        label: location,
-        geoId: null,
-        isResolved: false
-      };
-    } else {
-      // Localisation trouvée dans la base locale
-      newLocation = {
-        label: location.label,
-        geoId: location.geoId,
-        isResolved: true
-      };
-    }
+  const addLocation = (locationText: string) => {
+    const newLocation: SelectedLocation = {
+      label: locationText
+    };
 
     // Vérifier si la localisation n'est pas déjà sélectionnée
     const isAlreadySelected = selectedLocations.some(
@@ -78,23 +87,15 @@ export const LocationSelector = ({ selectedLocations, onChange }: LocationSelect
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && inputValue.trim()) {
       e.preventDefault();
-      
-      // Chercher d'abord dans les suggestions
-      const foundLocation = findLocationByLabel(inputValue.trim());
-      if (foundLocation) {
-        addLocation(foundLocation);
-      } else {
-        // Ajouter comme localisation non résolue
-        addLocation(inputValue.trim());
-      }
+      addLocation(inputValue.trim());
     }
   };
 
-  const handleSuggestionSelect = (location: LocationData) => {
+  const handleSuggestionSelect = (location: string) => {
     addLocation(location);
   };
 
-  const addUnresolvedLocation = () => {
+  const addCustomLocation = () => {
     if (inputValue.trim()) {
       addLocation(inputValue.trim());
     }
@@ -110,14 +111,11 @@ export const LocationSelector = ({ selectedLocations, onChange }: LocationSelect
           {selectedLocations.map((location, index) => (
             <Badge 
               key={index} 
-              variant={location.isResolved ? "secondary" : "outline"}
+              variant="secondary"
               className="flex items-center gap-1 pr-1"
             >
               <MapPin className="h-3 w-3" />
               {location.label}
-              {!location.isResolved && (
-                <Search className="h-3 w-3 text-orange-500" />
-              )}
               <Button
                 type="button"
                 variant="ghost"
@@ -154,32 +152,29 @@ export const LocationSelector = ({ selectedLocations, onChange }: LocationSelect
         {/* Dropdown des suggestions */}
         {isOpen && suggestions.length > 0 && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-            {suggestions.map((location) => (
+            {suggestions.map((location, index) => (
               <div
-                key={`${location.label}-${location.geoId}`}
+                key={index}
                 onClick={() => handleSuggestionSelect(location)}
                 className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
               >
                 <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{location.label}</div>
-                  {location.country && location.country !== location.label && (
-                    <div className="text-xs text-gray-500 truncate">{location.country}</div>
-                  )}
+                  <div className="font-medium text-gray-900 truncate">{location}</div>
                 </div>
               </div>
             ))}
             
-            {/* Option pour ajouter une localisation non trouvée */}
-            {inputValue.trim() && !suggestions.some(s => s.label.toLowerCase() === inputValue.toLowerCase()) && (
+            {/* Option pour ajouter une localisation personnalisée */}
+            {inputValue.trim() && !suggestions.some(s => s.toLowerCase() === inputValue.toLowerCase()) && (
               <div
-                onClick={addUnresolvedLocation}
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-orange-50 border-t border-gray-200"
+                onClick={addCustomLocation}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-blue-50 border-t border-gray-200"
               >
-                <Search className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                <Search className="h-4 w-4 text-blue-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">🔍 Rechercher "{inputValue}"</div>
-                  <div className="text-xs text-gray-500">Sera résolu dynamiquement</div>
+                  <div className="font-medium text-gray-900 truncate">Ajouter "{inputValue}"</div>
+                  <div className="text-xs text-gray-500">Localisation personnalisée</div>
                 </div>
               </div>
             )}
