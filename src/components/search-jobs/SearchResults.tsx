@@ -166,22 +166,20 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                   className={`${colorSet.card} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[250px] relative group`}
                   onClick={() => setSelectedJob(job)}
                 >
-                  {/* Header harmonisé */}
+                  {/* Header harmonisé --- LOGO --- NOM ENTREPRISE */}
                   <div className={`${colorSet.header} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
                     <div className="flex items-center gap-3 flex-1 min-h-0">
-                      {/* NEW: company logo */}
+                      {/* Logo entreprise */}
                       <CompanyLogo
                         logoUrl={job["company_logo"]}
                         companyName={job.company}
                         size={36}
                         className="mr-2 shadow-sm"
                       />
+                      {/* Nom entreprise à droite du logo */}
                       <div className="flex flex-col min-h-0 justify-center flex-1">
-                        <div className={`font-bold leading-tight ${fontSizeClass} mb-1`} style={{
-                          color: colorSet.badge.includes('text-') && colorSet.badge.split(' ').find((c:string) => c.startsWith('text-')),
-                          textShadow: '0 1px 2px rgba(0,0,0,0.07)'
-                        }}>
-                          {job.title}
+                        <div className="font-bold text-lg text-gray-800 leading-tight mb-0.5">
+                          {job.company}
                         </div>
                       </div>
                     </div>
@@ -213,18 +211,12 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
 
                   {/* Corps de la carte */}
                   <div className="p-4 space-y-3 flex-1 bg-white/20 backdrop-blur-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-                        <Building className="h-4 w-4" />
-                        {job.company}
-                      </span>
-                      {job.salary && (
-                        <span className="font-medium text-green-700 flex items-center gap-1">
-                          <Euro className="h-4 w-4" />
-                          {job.salary}
-                        </span>
-                      )}
+                    {/* 1ère ligne = Poste */}
+                    <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" />
+                      {job.title}
                     </div>
+                    {/* 2ᵉ ligne = Lieu */}
                     <div className="flex items-center gap-2 text-gray-700 text-sm">
                       <MapPin className="h-4 w-4" />
                       {job.location}
