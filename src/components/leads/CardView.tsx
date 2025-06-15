@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ExternalLink, Linkedin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +5,7 @@ import { getTimeAgo } from '@/utils/timeUtils';
 import LeadDetailDialog from './LeadDetailDialog';
 import { Tables } from '@/integrations/supabase/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { LeadCard } from './LeadCard';
 
 type Lead = Tables<'leads'>;
 
@@ -64,7 +64,6 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
   const isMobile = useIsMobile();
 
   const handleCardClick = (leadIndex: number, event: React.MouseEvent) => {
-    // Ne pas ouvrir la dialog si on clique sur un lien
     if ((event.target as HTMLElement).closest('a, button, [data-clickable]')) {
       return;
     }
@@ -109,109 +108,14 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
               : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6"
           }
         >
-          {leads.map((lead, index) => {
-            const colors = getCategoryColors(lead.openai_step3_categorie || '');
-            const postesCount = lead.openai_step3_postes_selectionnes?.length || 0;
-            const fontSizeClass = postesCount > 2 ? (isMobile ? 'text-xs' : 'text-sm') : (isMobile ? 'text-base' : 'text-xl');
-
-            return (
-              <div 
-                key={lead.id}
-                className={`
-                  ${colors.card} rounded-xl border shadow-sm transition-all duration-300
-                  overflow-hidden flex flex-col
-                  ${isMobile
-                    ? "min-h-[160px] active:scale-[0.97] touch-manipulation"
-                    : "min-h-[220px] hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] cursor-pointer"
-                  }
-                `}
-                onClick={(event) => handleCardClick(index, event)}
-                style={isMobile ? { touchAction: 'manipulation' } : undefined}
-              >
-                {/* En-tête avec Titre renforcé */}
-                <div className={`
-                  ${colors.header} border-b min-h-[56px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm
-                  ${isMobile ? "p-3" : "p-4"}
-                `}>
-                  <div className="flex-1 flex flex-col min-h-0 justify-center">
-                    {lead.openai_step3_postes_selectionnes?.length ? (
-                      <div className={`font-bold leading-tight ${fontSizeClass} mb-1 truncate`} style={{
-                        color: colors.badge.includes('text-') && colors.badge.split(' ').find((c:string) => c.startsWith('text-')),
-                        textShadow: '0 1px 2px rgba(0,0,0,0.07)'
-                      }}>
-                        {lead.openai_step3_postes_selectionnes.join(' / ')}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="ml-2 flex-shrink-0">
-                    <Badge 
-                      variant="secondary" 
-                      className={`text-xs px-2 py-1 ${colors.badge} border font-semibold backdrop-blur-sm`}
-                      style={isMobile ? { fontSize: 12, padding: '3px 8px' } : undefined}
-                    >
-                      {lead.openai_step3_categorie}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Section centrale modernisée */}
-                <div className={`flex-1 bg-white/20 backdrop-blur-sm ${isMobile ? 'p-3 space-y-2' : 'p-4 space-y-3'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className={`font-semibold text-gray-900 ${isMobile ? "text-xs" : "text-sm"}`}>
-                      {lead.author_name || 'N/A'}
-                    </span>
-                    {lead.author_profile_url && (
-                      <a
-                        href={lead.author_profile_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        data-clickable="true"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`p-2 rounded-lg bg-blue-50/60 hover:bg-blue-100/60 transition-all duration-200 ${isMobile ? '' : 'hover:scale-110'}`}
-                        style={isMobile ? { fontSize: 18 } : undefined}
-                      >
-                        <Linkedin className="h-4 w-4 text-blue-600" />
-                      </a>
-                    )}
-                  </div>
-                  {(lead.unipile_position || lead.company_position) && (
-                    <div className={`${isMobile ? "text-xs" : "text-sm"} text-gray-700 font-medium bg-white/40 px-3 py-1 rounded-lg`}>
-                      {lead.unipile_position || lead.company_position}
-                    </div>
-                  )}
-                  {lead.unipile_company || lead.company_name ? (
-                    <div
-                      className="text-blue-700 hover:text-blue-800 hover:underline cursor-pointer text-sm font-semibold transition-colors bg-blue-50/40 px-3 py-2 rounded-lg"
-                      data-clickable="true"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (lead.author_profile_url) window.open(lead.author_profile_url, '_blank');
-                      }}
-                      style={isMobile ? { fontSize: 13 } : undefined}
-                    >
-                      {lead.unipile_company || lead.company_name}
-                    </div>
-                  ) : (
-                    <div className="text-amber-600 text-xs font-medium bg-amber-50/40 px-3 py-2 rounded-lg">
-                      Données non disponibles
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer modernisé */}
-                <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0`}>
-                  <div className={`flex items-center justify-between text-xs text-gray-700 ${isMobile ? 'text-[10px]' : ''}`}>
-                    <span className="font-medium bg-white/40 px-2 py-1 rounded">
-                      Posté {getTimeAgo(lead.posted_at_iso || lead.created_at, lead.posted_at_timestamp)}
-                    </span>
-                    <span className="font-semibold bg-emerald-50/60 text-emerald-700 px-2 py-1 rounded">
-                      {lead.openai_step2_localisation || 'France'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {leads.map((lead, index) => (
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              isMobile={isMobile}
+              onClick={(event) => handleCardClick(index, event)}
+            />
+          ))}
         </div>
       </div>
       
@@ -228,4 +132,3 @@ const CardView = ({ leads, onActionCompleted, selectedLeadIndex, onLeadSelect }:
 };
 
 export default CardView;
-
