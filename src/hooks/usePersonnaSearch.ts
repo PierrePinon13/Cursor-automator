@@ -80,7 +80,8 @@ export function usePersonnaSearch({ searchId, jobs }: UsePersonnaSearchOptions) 
 
         try {
           await fetch(
-            "https://n8n.getpro.co/webhook/dbffc3a4-dba8-49b9-9628-109e8329ddb1",
+            // Nouvelle URL persona search
+            "https://n8n.getpro.co/webhook/fb2a74b3-e840-400c-b788-f43972c61334",
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
