@@ -1,5 +1,4 @@
-
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,13 +56,24 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
   }, []);
 
-  // Charge les résultats suivant un id de recherche
+  // Charge les résultats suivant un id de recherche (version améliorée)
   const loadSearchResults = useCallback(async (searchId: string) => {
+    if (!searchId) {
+      setCurrentResults([]);
+      setCurrentSearchId(null);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('job_search_results')
       .select('*')
       .eq('search_id', searchId);
-    if (!data || error) return;
+    
+    if (!data || error) {
+      console.error('Error loading search results:', error);
+      return;
+    }
+    
     const formatted: JobResult[] = data.map(result => ({
       id: result.id,
       title: result.job_title,
@@ -73,11 +83,28 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       description: result.job_description || '',
       jobUrl: result.job_url,
       personas: result.personas ? JSON.parse(result.personas as string) : [],
-      company_logo: result.company_logo, // <-- on mappe la colonne company_logo !
+      company_logo: result.company_logo,
     }));
+    
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
   }, [setCurrentResults, setCurrentSearchId]);
+
+  // Écouter les événements de rechargement
+  useEffect(() => {
+    const handleReloadResults = (event: CustomEvent) => {
+      const { searchId } = event.detail;
+      if (searchId) {
+        loadSearchResults(searchId);
+      }
+    };
+
+    window.addEventListener('reload-job-results', handleReloadResults as EventListener);
+    
+    return () => {
+      window.removeEventListener('reload-job-results', handleReloadResults as EventListener);
+    };
+  }, [loadSearchResults]);
 
   // Supprime une recherche
   const deleteSearch = useCallback(async (searchId: string) => {

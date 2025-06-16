@@ -74,8 +74,7 @@ serve(async (req) => {
       const { error: updateError } = await supabase
         .from('job_search_results')
         .update({ 
-          personas: JSON.stringify(results),
-          updated_at: new Date().toISOString()
+          personas: JSON.stringify(results)
         })
         .eq('id', jobResult.id);
 
@@ -92,20 +91,19 @@ serve(async (req) => {
       .from('job_search_personas')
       .upsert({
         search_id,
-        company_id,
         personas: results,
         status: 'loaded',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'search_id,company_id'
+        onConflict: 'search_id'
       });
 
     if (upsertError) {
       console.error('⚠️ Error upserting to job_search_personas:', upsertError);
       // Non-bloquant, on continue
     } else {
-      console.log(`✅ Upserted personas data for search_id=${search_id}, company_id=${company_id}`);
+      console.log(`✅ Upserted personas data for search_id=${search_id}`);
     }
 
     console.log(`🎉 Persona callback completed successfully. Updated ${updatedCount}/${jobResults.length} job results`);
