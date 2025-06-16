@@ -88,6 +88,7 @@ serve(async (req) => {
     }
 
     // Sauvegarder aussi dans la table job_search_personas pour un suivi global
+    // Utiliser la contrainte unique (search_id, company_id) pour l'upsert
     const { error: upsertError } = await supabase
       .from('job_search_personas')
       .upsert({
@@ -98,7 +99,7 @@ serve(async (req) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'search_id'
+        onConflict: 'search_id,company_id'
       });
 
     if (upsertError) {
