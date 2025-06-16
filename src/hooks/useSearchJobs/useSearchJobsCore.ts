@@ -1,4 +1,3 @@
-
 import { useCallback, useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,9 +84,18 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         // Gestion robuste du parsing des personas
         if (result.personas) {
           if (typeof result.personas === 'string') {
-            personas = JSON.parse(result.personas);
+            // Si c'est une string, on essaie de la parser
+            const parsed = JSON.parse(result.personas);
+            if (Array.isArray(parsed)) {
+              personas = parsed;
+            } else {
+              console.warn('Parsed personas is not an array for job:', result.id);
+            }
           } else if (Array.isArray(result.personas)) {
+            // Si c'est déjà un array, on l'utilise directement
             personas = result.personas;
+          } else {
+            console.warn('Personas format not recognized for job:', result.id, typeof result.personas);
           }
         }
       } catch (e) {
@@ -95,7 +103,20 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         personas = [];
       }
 
-      console.log('👥 Job', result.job_title, 'has', personas.length, 'personas');
+      // Normaliser les personas pour s'assurer qu'elles ont le bon format
+      const normalizedPersonas = personas.map((p: any) => {
+        if (!p || typeof p !== 'object') return null;
+        
+        return {
+          id: p.linkedin_id || p.id || Math.random().toString(),
+          name: p.full_name || p.name || 'Unknown',
+          title: p.headline || p.title || '',
+          profileUrl: p.public_profile_url || p.profileUrl || '',
+          company: p.company || ''
+        };
+      }).filter(Boolean); // Enlever les null
+
+      console.log('👥 Job', result.job_title, 'has', normalizedPersonas.length, 'personas after normalization');
 
       return {
         id: result.id,
@@ -105,16 +126,13 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         postedDate: new Date(result.posted_date),
         description: result.job_description || '',
         jobUrl: result.job_url,
-        personas: personas.map((p: any) => ({
-          id: p.linkedin_id || p.id || Math.random().toString(),
-          name: p.full_name || p.name || 'Unknown',
-          title: p.headline || p.title || '',
-          profileUrl: p.public_profile_url || p.profileUrl || '',
-          company: p.company || ''
-        })),
+        personas: normalizedPersonas,
         company_logo: result.company_logo,
+        type: 'CDI', // Valeur par défaut, peut être enrichie plus tard
       };
     });
+    
+    console.log('🎯 Final formatted results:', formatted.map(r => ({ title: r.title, personasCount: r.personas.length })));
     
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
