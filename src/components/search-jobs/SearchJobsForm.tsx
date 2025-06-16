@@ -82,6 +82,15 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
       return false;
     }
     
+    if (!personaFilters.location.trim()) {
+      toast({
+        title: "Validation échouée",
+        description: "La localisation des profils est obligatoire pour le ciblage persona.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
     return true;
   };
 
