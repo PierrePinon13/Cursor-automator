@@ -1,3 +1,4 @@
+
 import { useCallback, useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,6 +65,8 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       return;
     }
 
+    console.log('🔄 Loading search results for:', searchId);
+
     const { data, error } = await supabase
       .from('job_search_results')
       .select('*')
@@ -74,17 +77,44 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       return;
     }
     
-    const formatted: JobResult[] = data.map(result => ({
-      id: result.id,
-      title: result.job_title,
-      company: result.company_name,
-      location: result.location,
-      postedDate: new Date(result.posted_date),
-      description: result.job_description || '',
-      jobUrl: result.job_url,
-      personas: result.personas ? JSON.parse(result.personas as string) : [],
-      company_logo: result.company_logo,
-    }));
+    console.log('📊 Loaded', data.length, 'job results');
+    
+    const formatted: JobResult[] = data.map(result => {
+      let personas = [];
+      try {
+        // Gestion robuste du parsing des personas
+        if (result.personas) {
+          if (typeof result.personas === 'string') {
+            personas = JSON.parse(result.personas);
+          } else if (Array.isArray(result.personas)) {
+            personas = result.personas;
+          }
+        }
+      } catch (e) {
+        console.warn('Error parsing personas for job:', result.id, e);
+        personas = [];
+      }
+
+      console.log('👥 Job', result.job_title, 'has', personas.length, 'personas');
+
+      return {
+        id: result.id,
+        title: result.job_title,
+        company: result.company_name,
+        location: result.location,
+        postedDate: new Date(result.posted_date),
+        description: result.job_description || '',
+        jobUrl: result.job_url,
+        personas: personas.map((p: any) => ({
+          id: p.linkedin_id || p.id || Math.random().toString(),
+          name: p.full_name || p.name || 'Unknown',
+          title: p.headline || p.title || '',
+          profileUrl: p.public_profile_url || p.profileUrl || '',
+          company: p.company || ''
+        })),
+        company_logo: result.company_logo,
+      };
+    });
     
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
@@ -94,6 +124,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   useEffect(() => {
     const handleReloadResults = (event: CustomEvent) => {
       const { searchId } = event.detail;
+      console.log('🔄 Reload results event received for:', searchId);
       if (searchId) {
         loadSearchResults(searchId);
       }
