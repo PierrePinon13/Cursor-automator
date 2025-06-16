@@ -853,6 +853,7 @@ export type Database = {
       }
       job_search_personas: {
         Row: {
+          company_id: string | null
           created_at: string
           error_message: string | null
           id: string
@@ -862,6 +863,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -871,6 +873,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -897,6 +900,7 @@ export type Database = {
           personnas_searched: boolean
           posted_date: string | null
           search_id: string
+          updated_at: string
         }
         Insert: {
           company_id?: string | null
@@ -913,6 +917,7 @@ export type Database = {
           personnas_searched?: boolean
           posted_date?: string | null
           search_id: string
+          updated_at?: string
         }
         Update: {
           company_id?: string | null
@@ -929,6 +934,7 @@ export type Database = {
           personnas_searched?: boolean
           posted_date?: string | null
           search_id?: string
+          updated_at?: string
         }
         Relationships: [
           {

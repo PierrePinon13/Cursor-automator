@@ -74,7 +74,8 @@ serve(async (req) => {
       const { error: updateError } = await supabase
         .from('job_search_results')
         .update({ 
-          personas: JSON.stringify(results)
+          personas: results,
+          updated_at: new Date().toISOString()
         })
         .eq('id', jobResult.id);
 
@@ -86,11 +87,12 @@ serve(async (req) => {
       }
     }
 
-    // Optionnel : sauvegarder aussi dans la table job_search_personas pour un suivi global
+    // Sauvegarder aussi dans la table job_search_personas pour un suivi global
     const { error: upsertError } = await supabase
       .from('job_search_personas')
       .upsert({
         search_id,
+        company_id,
         personas: results,
         status: 'loaded',
         created_at: new Date().toISOString(),
@@ -103,8 +105,11 @@ serve(async (req) => {
       console.error('⚠️ Error upserting to job_search_personas:', upsertError);
       // Non-bloquant, on continue
     } else {
-      console.log(`✅ Upserted personas data for search_id=${search_id}`);
+      console.log(`✅ Upserted personas data for search_id=${search_id} and company_id=${company_id}`);
     }
+
+    // Déclencher un événement pour informer le frontend de la mise à jour
+    console.log(`🔔 Triggering persona update event for search_id=${search_id}`);
 
     console.log(`🎉 Persona callback completed successfully. Updated ${updatedCount}/${jobResults.length} job results`);
 
