@@ -1,8 +1,10 @@
-import { useState } from 'react';
+
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro, Briefcase } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro, Briefcase, Filter } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { JobResultDetail } from './JobResultDetail';
@@ -64,6 +66,8 @@ interface SearchResultsProps {
 export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsProps) => {
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
   const [hiddenJobs, setHiddenJobs] = useState<Set<string>>(new Set());
+  const [personaFilter, setPersonaFilter] = useState<'all' | 'with-personas' | 'without-personas'>('all');
+  const [cityFilter, setCityFilter] = useState<string>('all');
 
   const hideJob = (jobId: string) => {
     setHiddenJobs(prev => new Set([...prev, jobId]));
@@ -88,9 +92,36 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
     });
   }
 
-  // Appliquer le dédoublonnage AVANT de cacher les jobs
-  const dedupedResults = deduplicateByJobId(results);
-  const visibleResults = dedupedResults.filter(job => !hiddenJobs.has(job.id));
+  // Extraire les villes uniques pour le filtre
+  const uniqueCities = useMemo(() => {
+    const cities = Array.from(new Set(
+      results
+        .map(job => job.location)
+        .filter(location => location && location.trim() !== '')
+    )).sort();
+    return cities;
+  }, [results]);
+
+  // Appliquer les filtres
+  const filteredResults = useMemo(() => {
+    let filtered = deduplicateByJobId(results);
+    
+    // Filtre par personas
+    if (personaFilter === 'with-personas') {
+      filtered = filtered.filter(job => job.personas && job.personas.length > 0);
+    } else if (personaFilter === 'without-personas') {
+      filtered = filtered.filter(job => !job.personas || job.personas.length === 0);
+    }
+    
+    // Filtre par ville
+    if (cityFilter !== 'all') {
+      filtered = filtered.filter(job => job.location === cityFilter);
+    }
+    
+    return filtered;
+  }, [results, personaFilter, cityFilter]);
+
+  const visibleResults = filteredResults.filter(job => !hiddenJobs.has(job.id));
 
   if (isLoading) {
     return (
@@ -141,17 +172,49 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className="flex items-center justify-between flex-wrap gap-4">
             <span>Résultats de recherche ({visibleResults.length})</span>
-            {hiddenJobs.size > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setHiddenJobs(new Set())}
-              >
-                Afficher les résultats masqués ({hiddenJobs.size})
-              </Button>
-            )}
+            
+            {/* Filtres */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <Select value={personaFilter} onValueChange={(value: any) => setPersonaFilter(value)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les offres</SelectItem>
+                    <SelectItem value="with-personas">Avec contacts</SelectItem>
+                    <SelectItem value="without-personas">Sans contacts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {uniqueCities.length > 1 && (
+                <Select value={cityFilter} onValueChange={setCityFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Toutes les villes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les villes</SelectItem>
+                    {uniqueCities.map(city => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              
+              {hiddenJobs.size > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHiddenJobs(new Set())}
+                >
+                  Afficher les résultats masqués ({hiddenJobs.size})
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -159,15 +222,21 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
             {visibleResults.map((job) => {
               const colorSet = jobTypeColors[job.type || 'CDI'] || jobTypeColors['CDI'];
               const fontSizeClass = job.title.length > 35 ? 'text-base' : 'text-xl';
+              const hasPersonas = job.personas && job.personas.length > 0;
+              
+              // Classes pour griser les cartes sans personas
+              const cardOpacity = hasPersonas ? 'opacity-100' : 'opacity-60';
+              const cardSaturation = hasPersonas ? 'saturate-100' : 'saturate-50';
+              const cardClasses = `${colorSet.card} ${cardOpacity} ${cardSaturation}`;
 
               return (
                 <div 
                   key={job.id}
-                  className={`${colorSet.card} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[250px] relative group`}
+                  className={`${cardClasses} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[250px] relative group`}
                   onClick={() => setSelectedJob(job)}
                 >
                   {/* Header harmonisé --- LOGO --- NOM ENTREPRISE */}
-                  <div className={`${colorSet.header} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
+                  <div className={`${colorSet.header} ${cardSaturation} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
                     <div className="flex items-center gap-3 flex-1 min-h-0">
                       {/* Logo entreprise */}
                       <CompanyLogo
@@ -228,13 +297,18 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                     <p className="text-sm text-gray-600 line-clamp-2">
                       {job.description}
                     </p>
-                    {/* Section personas */}
+                    {/* Section personas avec indicateur visuel */}
                     <div>
                       <div className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-1">
                         <Users className="h-4 w-4" />
-                        Contacts ({job.personas.length})
+                        <span>Contacts ({job.personas?.length || 0})</span>
+                        {!hasPersonas && (
+                          <Badge variant="outline" className="text-xs text-gray-500">
+                            Aucun contact
+                          </Badge>
+                        )}
                       </div>
-                      {job.personas.length > 0 && (
+                      {hasPersonas && (
                         <div className="flex flex-wrap gap-1">
                           {job.personas.slice(0, 3).map((persona) => (
                             <Badge key={persona.id} variant="secondary" className="text-xs">
@@ -251,7 +325,7 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                     </div>
                   </div>
                   {/* Footer harmonisé */}
-                  <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0`}>
+                  <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0 ${cardSaturation}`}>
                     <div className="flex items-center justify-between text-xs text-gray-700">
                       <Button
                         onClick={e => {
@@ -260,9 +334,10 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                         }}
                         className="flex items-center gap-2"
                         size="sm"
+                        disabled={!hasPersonas}
                       >
                         <MessageSquare className="h-4 w-4" />
-                        Prendre contact
+                        {hasPersonas ? 'Prendre contact' : 'Aucun contact'}
                       </Button>  
                       {job.jobUrl && (
                         <Button
