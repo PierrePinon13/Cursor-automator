@@ -59,6 +59,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   // Charge les résultats suivant un id de recherche (version améliorée)
   const loadSearchResults = useCallback(async (searchId: string) => {
     if (!searchId) {
+      console.log('🔄 No searchId provided, clearing results');
       setCurrentResults([]);
       setCurrentSearchId(null);
       return;
@@ -69,56 +70,84 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     const { data, error } = await supabase
       .from('job_search_results')
       .select('*')
-      .eq('search_id', searchId);
+      .eq('search_id', searchId)
+      .order('created_at', { ascending: false }); // Trier par date de création
     
-    if (!data || error) {
-      console.error('Error loading search results:', error);
+    if (error) {
+      console.error('❌ Error loading search results:', error);
       return;
     }
     
-    console.log('📊 Loaded', data.length, 'job results');
+    if (!data || data.length === 0) {
+      console.log('📊 No job results found for search:', searchId);
+      setCurrentResults([]);
+      return;
+    }
+    
+    console.log('📊 Raw data loaded:', data.length, 'job results');
+    console.log('📊 Sample raw data:', data[0]);
     
     const formatted: JobResult[] = data.map(result => {
       let personas = [];
+      
+      console.log('🔍 Processing job:', result.job_title, 'Raw personas:', result.personas, 'Type:', typeof result.personas);
+      
       try {
         // Gestion robuste du parsing des personas
         if (result.personas) {
           if (typeof result.personas === 'string') {
-            // Si c'est une string, on essaie de la parser
-            const parsed = JSON.parse(result.personas);
-            if (Array.isArray(parsed)) {
-              personas = parsed;
-            } else {
-              console.warn('Parsed personas is not an array for job:', result.id);
+            try {
+              const parsed = JSON.parse(result.personas);
+              if (Array.isArray(parsed)) {
+                personas = parsed;
+                console.log('✅ Successfully parsed personas from string:', personas.length);
+              } else {
+                console.warn('⚠️ Parsed personas is not an array for job:', result.id, parsed);
+              }
+            } catch (parseError) {
+              console.error('❌ Error parsing personas JSON string:', parseError);
             }
           } else if (Array.isArray(result.personas)) {
             // Si c'est déjà un array, on l'utilise directement
             personas = result.personas;
+            console.log('✅ Using personas array directly:', personas.length);
+          } else if (typeof result.personas === 'object' && result.personas !== null) {
+            // Si c'est un objet mais pas un array, on essaie de le convertir
+            console.log('🔄 Converting object to array:', result.personas);
+            personas = [result.personas];
           } else {
-            console.warn('Personas format not recognized for job:', result.id, typeof result.personas);
+            console.warn('⚠️ Personas format not recognized for job:', result.id, typeof result.personas);
           }
+        } else {
+          console.log('ℹ️ No personas data for job:', result.job_title);
         }
       } catch (e) {
-        console.warn('Error parsing personas for job:', result.id, e);
+        console.error('❌ Error processing personas for job:', result.id, e);
         personas = [];
       }
 
       // Normaliser les personas pour s'assurer qu'elles ont le bon format
-      const normalizedPersonas = personas.map((p: any) => {
-        if (!p || typeof p !== 'object') return null;
+      const normalizedPersonas = personas.map((p: any, index: number) => {
+        if (!p || typeof p !== 'object') {
+          console.warn('⚠️ Invalid persona at index', index, ':', p);
+          return null;
+        }
         
-        return {
-          id: p.linkedin_id || p.id || Math.random().toString(),
+        const normalized = {
+          id: p.linkedin_id || p.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
           name: p.full_name || p.name || 'Unknown',
           title: p.headline || p.title || '',
           profileUrl: p.public_profile_url || p.profileUrl || '',
           company: p.company || ''
         };
+        
+        console.log('🔄 Normalized persona:', normalized);
+        return normalized;
       }).filter(Boolean); // Enlever les null
 
-      console.log('👥 Job', result.job_title, 'has', normalizedPersonas.length, 'personas after normalization');
+      console.log('👥 Job', result.job_title, 'final personas count:', normalizedPersonas.length);
 
-      return {
+      const formattedResult = {
         id: result.id,
         title: result.job_title,
         company: result.company_name,
@@ -130,28 +159,59 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         company_logo: result.company_logo,
         type: 'CDI', // Valeur par défaut, peut être enrichie plus tard
       };
+      
+      console.log('✅ Formatted job result:', {
+        title: formattedResult.title,
+        personasCount: formattedResult.personas.length,
+        personas: formattedResult.personas.map(p => ({ name: p.name, title: p.title }))
+      });
+      
+      return formattedResult;
     });
     
-    console.log('🎯 Final formatted results:', formatted.map(r => ({ title: r.title, personasCount: r.personas.length })));
+    console.log('🎯 Final formatted results summary:', formatted.map(r => ({ 
+      title: r.title, 
+      personasCount: r.personas.length 
+    })));
     
+    console.log('🎯 Setting current results with', formatted.length, 'jobs');
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
+    
+    // Vérifier immédiatement après avoir défini les résultats
+    setTimeout(() => {
+      console.log('🔍 Verification: Results should now be set in state');
+    }, 100);
   }, [setCurrentResults, setCurrentSearchId]);
 
-  // Écouter les événements de rechargement
+  // Écouter les événements de rechargement avec debouncing
   useEffect(() => {
+    let reloadTimeout: NodeJS.Timeout;
+    
     const handleReloadResults = (event: CustomEvent) => {
       const { searchId } = event.detail;
       console.log('🔄 Reload results event received for:', searchId);
-      if (searchId) {
-        loadSearchResults(searchId);
+      
+      // Debounce pour éviter les rechargements multiples
+      if (reloadTimeout) {
+        clearTimeout(reloadTimeout);
       }
+      
+      reloadTimeout = setTimeout(() => {
+        if (searchId) {
+          console.log('🔄 Executing delayed reload for:', searchId);
+          loadSearchResults(searchId);
+        }
+      }, 500); // Attendre 500ms avant de recharger
     };
 
     window.addEventListener('reload-job-results', handleReloadResults as EventListener);
     
     return () => {
       window.removeEventListener('reload-job-results', handleReloadResults as EventListener);
+      if (reloadTimeout) {
+        clearTimeout(reloadTimeout);
+      }
     };
   }, [loadSearchResults]);
 
