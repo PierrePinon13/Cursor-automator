@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,7 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
   const [personaFilters, setPersonaFilters] = useState({
     keywords: '',
     role: [] as string[],
-    profile_language: 'fr'
+    location: ''
   });
 
   const [messageTemplate, setMessageTemplate] = useState('');
@@ -47,13 +48,14 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
       setSearchName(initialData.name || '');
       setJobFilters(initialData.jobFilters || jobFilters);
 
-      // Ensure persona role is properly formatted as array
+      // Ensure persona role is properly formatted as array and handle location
       const initialPersonaFilters = initialData.personaFilters || personaFilters;
       setPersonaFilters({
-        ...initialPersonaFilters,
+        keywords: initialPersonaFilters.keywords || '',
         role: Array.isArray(initialPersonaFilters.role)
           ? initialPersonaFilters.role
-          : (initialPersonaFilters.role?.keywords || [])
+          : (initialPersonaFilters.role?.keywords || []),
+        location: initialPersonaFilters.location || ''
       });
 
       setMessageTemplate(initialData.messageTemplate || '');

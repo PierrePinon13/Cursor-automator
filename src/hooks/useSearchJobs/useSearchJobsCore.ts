@@ -1,3 +1,4 @@
+
 import { useCallback, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,7 +130,9 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
           ...searchConfig.personna_filters,
           role: Array.isArray(searchConfig.personna_filters.role)
             ? { keywords: searchConfig.personna_filters.role }
-            : { keywords: searchConfig.personna_filters.role?.keywords || [] }
+            : { keywords: searchConfig.personna_filters.role?.keywords || [] },
+          // Ajouter la location pour la recherche de profils
+          location: searchConfig.personna_filters.location || ""
         },
         message_template: searchConfig.message_template,
         saveOnly: searchConfig.saveOnly
@@ -220,7 +223,9 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
           ...search.personaFilters,
           role: Array.isArray(search.personaFilters.role)
             ? { keywords: search.personaFilters.role }
-            : { keywords: search.personaFilters.role?.keywords || [] }
+            : { keywords: search.personaFilters.role?.keywords || [] },
+          // Ajouter la location pour la recherche de profils
+          location: search.personaFilters.location || ""
         },
         message_template: search.messageTemplate,
         saveOnly: false,

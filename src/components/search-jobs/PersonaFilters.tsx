@@ -2,16 +2,15 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { User, X } from 'lucide-react';
+import { User, X, MapPin } from 'lucide-react';
 
 interface PersonaFiltersProps {
   filters: {
     keywords: string;
     role: string[];
-    profile_language: string;
+    location: string;
   };
   onChange: (filters: any) => void;
 }
@@ -127,21 +126,22 @@ export const PersonaFilters = ({ filters, onChange }: PersonaFiltersProps) => {
         )}
       </div>
 
-      {/* Langue du profil */}
+      {/* Localisation des profils */}
       <div>
-        <Label htmlFor="profile_language">Langue du profil</Label>
-        <Select value={filters.profile_language} onValueChange={(value) => onChange({ ...filters, profile_language: value })}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="fr">Français</SelectItem>
-            <SelectItem value="en">Anglais</SelectItem>
-            <SelectItem value="es">Espagnol</SelectItem>
-            <SelectItem value="de">Allemand</SelectItem>
-            <SelectItem value="it">Italien</SelectItem>
-          </SelectContent>
-        </Select>
+        <Label htmlFor="profile_location">Localisation des profils</Label>
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            id="profile_location"
+            placeholder="Ex: Paris, France ou Remote..."
+            value={filters.location || ''}
+            onChange={(e) => onChange({ ...filters, location: e.target.value })}
+            className="pl-10"
+          />
+        </div>
+        <p className="text-sm text-gray-500 mt-1">
+          Localisation où rechercher les profils correspondants
+        </p>
       </div>
     </div>
   );
