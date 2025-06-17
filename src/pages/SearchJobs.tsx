@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -25,19 +26,14 @@ const SearchJobs = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
 
-  // Ajout: avoir accès à la méthode de reset des résultats
-  // Correction: nettoie les résultats à chaque changement explicite de recherche pour éviter flash data obsolète
-
-  // Nouvelle méthode: reset explicite des résultats (appelée en début de chaque sélection)
+  // Reset explicite des résultats
   const resetCurrentResults = () => {
     if (typeof window !== "undefined") {
-      // sécurité SSR même si normalement jamais utile pour une page dashboard
       const evt = new CustomEvent('job-results-reset');
       window.dispatchEvent(evt);
     }
   };
 
-  // handleNewSearch: reset résultats quand on démarre une création
   const handleNewSearch = () => {
     setShowForm(true);
     setSelectedSearch(null);
@@ -45,14 +41,12 @@ const SearchJobs = () => {
   };
 
   const handleExecuteSearch = async (searchConfig: any) => {
-    // On vide les résultats avant de lancer la recherche
     resetCurrentResults();
     const result = await executeSearch(searchConfig);
     setShowForm(false);
     return result;
   };
 
-  // Exécution directe d'une recherche sauvegardée
   const handleDirectExecute = async (search: any) => {
     resetCurrentResults();
     await reRunSavedSearch(search);
@@ -64,10 +58,8 @@ const SearchJobs = () => {
     resetCurrentResults();
   };
 
-  // Sélection d'une recherche pour afficher ses résultats
   const handleSelectSearch = (search: any) => {
     setSelectedSearch(search);
-    // Vidage immédiat AVANT d'aller charger (sinon flash d'anciens jobs)
     resetCurrentResults();
     if (search?.id) {
       loadSearchResults(search.id);
@@ -89,17 +81,15 @@ const SearchJobs = () => {
     }
   };
 
-  // Ajout : handler suppression avec reset d'état local aussi
   const handleDeleteSearch = async (searchId: string) => {
-    await deleteSearch(searchId); // Effectue la suppression + reset résultats côté core
-    setSelectedSearch(null);      // On s'assure de "désélectionner" s’il s’agissait de la sélection courante
-    resetCurrentResults();        // <-- Ajouté ici : on nettoie aussi les résultats affichés 
+    await deleteSearch(searchId);
+    setSelectedSearch(null);
+    resetCurrentResults();
   };
 
   // Synchroniser le reset explicit des résultats avec le state local
   useEffect(() => {
     function listener() {
-      // Force le cleanup complet 
       if (typeof window !== "undefined" && window.lovableJobResultsHack) {
         window.lovableJobResultsHack([]);
       }
@@ -121,7 +111,6 @@ const SearchJobs = () => {
         table: 'job_search_results',
         filter: `search_id=eq.${selectedSearch.id}`
       }, (payload) => {
-        // Rafraîchir résultats si une nouvelle ligne correspond à la recherche sélectionnée
         loadSearchResults(selectedSearch.id);
       })
       .subscribe();
@@ -131,7 +120,7 @@ const SearchJobs = () => {
     };
   }, [selectedSearch?.id, loadSearchResults]);
 
-  // Si la liste des recherches change et que la recherche sélectionnée n’existe plus, on reset
+  // Si la liste des recherches change et que la recherche sélectionnée n'existe plus, on reset
   useEffect(() => {
     if (
       selectedSearch &&
@@ -170,22 +159,40 @@ const SearchJobs = () => {
           />
         )}
 
-        {/* Liste des recherches sauvegardées (ajout du click pour sélection) */}
-        <CompactSavedSearches
-          searches={savedSearches}
-          onExecute={handleDirectExecute}
-          onEdit={handleEditSearch}
-          onDelete={handleDeleteSearch} // Change ici !
-          onLoadResults={handleLoadResults}
-          // Ajout de la props onSelect (nouveau)
-          onSelect={handleSelectSearch}
-          selectedSearchId={selectedSearch?.id}
-        />
+        {/* Recherches sauvegardées - Toujours visible et développée par défaut */}
+        {savedSearches.length > 0 && (
+          <CompactSavedSearches
+            searches={savedSearches}
+            onExecute={handleDirectExecute}
+            onEdit={handleEditSearch}
+            onDelete={handleDeleteSearch}
+            onLoadResults={handleLoadResults}
+            onSelect={handleSelectSearch}
+            selectedSearchId={selectedSearch?.id}
+          />
+        )}
+
+        {/* Guide pour créer la première recherche */}
+        {savedSearches.length === 0 && !showForm && (
+          <div className="text-center py-16 bg-white rounded-lg border-2 border-dashed border-gray-200">
+            <Search className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Aucune recherche sauvegardée
+            </h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Créez votre première recherche d'emplois pour commencer à identifier et cibler des prospects automatiquement.
+            </p>
+            <Button onClick={handleNewSearch} className="flex items-center gap-2 mx-auto">
+              <Plus className="h-4 w-4" />
+              Créer ma première recherche
+            </Button>
+          </div>
+        )}
 
         {/* Résultats */}
         {selectedSearch && (
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-4">
               <h3 className="text-xl font-bold text-gray-900">
                 Résultats pour : <span className="text-blue-700">{selectedSearch.name}</span>
               </h3>
@@ -205,18 +212,18 @@ const SearchJobs = () => {
             </div>
             <SearchResults
               results={currentResults}
-              isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)} // force loading quand SELECTED mais rien n'est arrivé
+              isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)}
               key={selectedSearch.id}
             />
           </div>
         )}
 
-        {/* Guide UX si aucune recherche sélectionnée */}
-        {!selectedSearch && (
+        {/* Guide UX si aucune recherche sélectionnée mais qu'il y en a des sauvegardées */}
+        {!selectedSearch && savedSearches.length > 0 && (
           <div className="text-gray-500 text-center py-16">
             <Search className="h-10 w-10 mx-auto mb-4 text-blue-300" />
             <div className="text-lg font-semibold">Cliquez sur une recherche sauvegardée pour afficher ses résultats.</div>
-            <div className="text-sm mt-2">Vous pouvez exécuter une recherche, l’éditer ou voir ses résultats plus tard.</div>
+            <div className="text-sm mt-2">Vous pouvez exécuter une recherche, l'éditer ou voir ses résultats plus tard.</div>
           </div>
         )}
       </div>
@@ -231,5 +238,3 @@ const SearchJobs = () => {
 };
 
 export default SearchJobs;
-
-// fin du fichier

@@ -5,11 +5,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { X, Plus } from 'lucide-react';
+import { LocationSelector } from './LocationSelector';
+
+interface SelectedLocation {
+  label: string;
+  geoId: number | null;
+  isResolved: boolean;
+}
 
 interface PersonaFiltersProps {
   filters: {
     role: string[];
-    location: string;
+    location: SelectedLocation[];
   };
   onChange: (filters: any) => void;
 }
@@ -89,10 +96,9 @@ export const PersonaFilters = ({ filters, onChange }: PersonaFiltersProps) => {
         {/* Localisation des profils */}
         <div className="space-y-3">
           <Label className="text-base font-medium">Localisation des profils *</Label>
-          <Input
-            placeholder="Ex: Paris, France"
-            value={filters.location}
-            onChange={(e) => onChange({ ...filters, location: e.target.value })}
+          <LocationSelector
+            selectedLocations={filters.location}
+            onChange={(locations) => onChange({ ...filters, location: locations })}
           />
           <p className="text-sm text-gray-500">
             Localisation géographique des prospects à cibler

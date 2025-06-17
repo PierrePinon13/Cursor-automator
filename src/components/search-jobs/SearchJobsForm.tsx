@@ -27,12 +27,12 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     keywords: '',
     location: [] as SelectedLocation[],
     date_posted: '',
-    category: ''
+    category: [] as string[]
   });
 
   const [personaFilters, setPersonaFilters] = useState({
     role: [] as string[],
-    location: ''
+    location: [] as SelectedLocation[]
   });
 
   const [messageTemplate, setMessageTemplate] = useState('');
@@ -48,7 +48,9 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
         role: Array.isArray(initialPersonaFilters.role)
           ? initialPersonaFilters.role
           : (initialPersonaFilters.role?.keywords || []),
-        location: initialPersonaFilters.location || ''
+        location: Array.isArray(initialPersonaFilters.location) 
+          ? initialPersonaFilters.location 
+          : []
       });
 
       setMessageTemplate(initialData.messageTemplate || '');
@@ -61,9 +63,11 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     const locations = jobFilters.location.length > 0 
       ? jobFilters.location.map(l => l.label).join(', ') 
       : '';
-    const category = jobFilters.category ? ` - ${jobFilters.category}` : '';
+    const categories = Array.isArray(jobFilters.category) && jobFilters.category.length > 0
+      ? ` - ${jobFilters.category.join(', ')}`
+      : '';
     
-    return `${keywords}${locations ? ` à ${locations}` : ''}${category}`;
+    return `${keywords}${locations ? ` à ${locations}` : ''}${categories}`;
   };
 
   const validateForm = () => {
@@ -85,7 +89,7 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
       return false;
     }
     
-    if (!personaFilters.location.trim()) {
+    if (!personaFilters.location || personaFilters.location.length === 0) {
       toast({
         title: "Validation échouée",
         description: "La localisation des profils est obligatoire pour le ciblage persona.",

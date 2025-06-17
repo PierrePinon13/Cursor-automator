@@ -5,7 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Plus } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { X, Plus, ChevronDown } from 'lucide-react';
 import { LocationSelector } from './LocationSelector';
 
 interface SelectedLocation {
@@ -19,7 +21,7 @@ interface JobSearchFiltersProps {
     keywords: string;
     location: SelectedLocation[];
     date_posted: string;
-    category?: string;
+    category?: string | string[];
   };
   onChange: (filters: any) => void;
 }
@@ -29,6 +31,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
   const [keywordsList, setKeywordsList] = useState<string[]>(
     filters.keywords ? filters.keywords.split(',').map(k => k.trim()).filter(k => k) : []
   );
+  const [categoryOpen, setCategoryOpen] = useState(false);
 
   const categories = [
     'Comptelio',
@@ -44,9 +47,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
   const dateOptions = [
     { value: 'all', label: 'Toutes les dates' },
     { value: '1', label: 'Dernières 24h' },
-    { value: '3', label: '3 derniers jours' },
     { value: '7', label: 'Dernière semaine' },
-    { value: '14', label: '2 dernières semaines' },
     { value: '30', label: 'Dernier mois' }
   ];
 
@@ -80,15 +81,25 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
     }
   };
 
-  const handleCategoryChange = (value: string) => {
-    const categoryValue = value === 'none' ? '' : value;
-    onChange({ ...filters, category: categoryValue });
+  const handleCategoryChange = (categoryValue: string) => {
+    const currentCategories = Array.isArray(filters.category) ? filters.category : (filters.category ? [filters.category] : []);
+    
+    let newCategories;
+    if (currentCategories.includes(categoryValue)) {
+      newCategories = currentCategories.filter(cat => cat !== categoryValue);
+    } else {
+      newCategories = [...currentCategories, categoryValue];
+    }
+    
+    onChange({ ...filters, category: newCategories });
   };
 
   const handleDateChange = (value: string) => {
     const dateValue = value === 'all' ? '' : value;
     onChange({ ...filters, date_posted: dateValue });
   };
+
+  const selectedCategories = Array.isArray(filters.category) ? filters.category : (filters.category ? [filters.category] : []);
 
   return (
     <div className="space-y-6">
@@ -138,32 +149,66 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           </p>
         </div>
 
-        {/* Catégorie */}
+        {/* Catégorie Multi-Select */}
         <div className="space-y-3">
-          <Label className="text-base font-medium">Catégorie</Label>
-          <Select 
-            value={filters.category || 'none'} 
-            onValueChange={handleCategoryChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner une catégorie" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Aucune catégorie</SelectItem>
-              {categories.map(category => (
-                <SelectItem key={category} value={category}>
+          <Label className="text-base font-medium">Catégories</Label>
+          <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+              >
+                {selectedCategories.length > 0 
+                  ? `${selectedCategories.length} catégorie(s) sélectionnée(s)`
+                  : "Sélectionner des catégories"
+                }
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="start">
+              <div className="p-4 space-y-2">
+                {categories.map(category => (
+                  <div key={category} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={category}
+                      checked={selectedCategories.includes(category)}
+                      onCheckedChange={() => handleCategoryChange(category)}
+                    />
+                    <label
+                      htmlFor={category}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {category}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          {selectedCategories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedCategories.map((category) => (
+                <Badge
+                  key={category}
+                  variant="secondary"
+                  className="flex items-center gap-1 px-3 py-1"
+                >
                   {category}
-                </SelectItem>
+                  <X
+                    className="h-3 w-3 cursor-pointer hover:text-red-500"
+                    onClick={() => handleCategoryChange(category)}
+                  />
+                </Badge>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Localisation */}
         <div className="space-y-3">
-          <Label className="text-base font-medium">Localisation</Label>
+          <Label className="text-base font-medium">Localisation des emplois</Label>
           <LocationSelector
             selectedLocations={filters.location}
             onChange={(locations) => onChange({ ...filters, location: locations })}
