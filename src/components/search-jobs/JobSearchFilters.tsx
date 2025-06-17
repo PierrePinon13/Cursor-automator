@@ -42,7 +42,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
   ];
 
   const dateOptions = [
-    { value: '', label: 'Toutes les dates' },
+    { value: 'all', label: 'Toutes les dates' },
     { value: '1', label: 'Dernières 24h' },
     { value: '3', label: '3 derniers jours' },
     { value: '7', label: 'Dernière semaine' },
@@ -78,6 +78,16 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
       e.preventDefault();
       addKeyword();
     }
+  };
+
+  const handleCategoryChange = (value: string) => {
+    const categoryValue = value === 'none' ? '' : value;
+    onChange({ ...filters, category: categoryValue });
+  };
+
+  const handleDateChange = (value: string) => {
+    const dateValue = value === 'all' ? '' : value;
+    onChange({ ...filters, date_posted: dateValue });
   };
 
   return (
@@ -132,14 +142,14 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
         <div className="space-y-3">
           <Label className="text-base font-medium">Catégorie</Label>
           <Select 
-            value={filters.category || ''} 
-            onValueChange={(value) => onChange({ ...filters, category: value })}
+            value={filters.category || 'none'} 
+            onValueChange={handleCategoryChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="Sélectionner une catégorie" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Aucune catégorie</SelectItem>
+              <SelectItem value="none">Aucune catégorie</SelectItem>
               {categories.map(category => (
                 <SelectItem key={category} value={category}>
                   {category}
@@ -164,8 +174,8 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
         <div className="space-y-3">
           <Label className="text-base font-medium">Date de publication</Label>
           <Select 
-            value={filters.date_posted} 
-            onValueChange={(value) => onChange({ ...filters, date_posted: value })}
+            value={filters.date_posted || 'all'} 
+            onValueChange={handleDateChange}
           >
             <SelectTrigger>
               <SelectValue />
