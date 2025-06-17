@@ -10,6 +10,7 @@ export interface JobResult {
   description: string;
   jobUrl?: string;
   company_logo?: string;
+  messageTemplate?: string; // Ajouter le template de message
   personas: Array<{
     id: string;
     name: string;

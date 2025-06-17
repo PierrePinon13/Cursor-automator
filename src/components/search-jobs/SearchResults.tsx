@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +46,7 @@ interface JobResult {
   description: string;
   jobUrl?: string;
   salary?: string;
+  messageTemplate?: string;
   personas: Array<{
     id: string;
     name: string;
@@ -54,7 +54,7 @@ interface JobResult {
     profileUrl: string;
     company?: string;
   }>;
-  type?: string; // Ajouté pour harmoniser la couleur
+  type?: string;
 }
 
 interface SearchResultsProps {
@@ -365,10 +365,13 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
         </CardContent>
       </Card>
 
-      {/* Modal de détail */}
+      {/* Modal de détail avec template de message */}
       {selectedJob && (
         <JobResultDetail
-          job={selectedJob}
+          job={{
+            ...selectedJob,
+            messageTemplate: selectedJob.messageTemplate
+          }}
           onClose={() => setSelectedJob(null)}
         />
       )}

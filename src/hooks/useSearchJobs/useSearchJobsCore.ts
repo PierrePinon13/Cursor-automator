@@ -56,7 +56,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
   }, []);
 
-  // Charge les résultats suivant un id de recherche (version améliorée)
+  // Charge les résultats suivant un id de recherche (version améliorée avec template)
   const loadSearchResults = useCallback(async (searchId: string) => {
     if (!searchId) {
       console.log('🔄 No searchId provided, clearing results');
@@ -67,11 +67,25 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
 
     console.log('🔄 Loading search results for:', searchId);
 
+    // Récupérer d'abord les informations de la recherche pour le template
+    const { data: searchData, error: searchError } = await supabase
+      .from('saved_job_searches')
+      .select('message_template')
+      .eq('id', searchId)
+      .single();
+
+    if (searchError) {
+      console.error('❌ Error loading search data:', searchError);
+    }
+
+    const messageTemplate = searchData?.message_template || '';
+    console.log('📝 Message template found:', messageTemplate);
+
     const { data, error } = await supabase
       .from('job_search_results')
       .select('*')
       .eq('search_id', searchId)
-      .order('created_at', { ascending: false }); // Trier par date de création
+      .order('created_at', { ascending: false });
     
     if (error) {
       console.error('❌ Error loading search results:', error);
@@ -85,7 +99,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
     
     console.log('📊 Raw data loaded:', data.length, 'job results');
-    console.log('📊 Sample raw data:', data[0]);
     
     const formatted: JobResult[] = data.map(result => {
       let personas = [];
@@ -93,7 +106,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       console.log('🔍 Processing job:', result.job_title, 'Raw personas:', result.personas, 'Type:', typeof result.personas);
       
       try {
-        // Gestion robuste du parsing des personas
         if (result.personas) {
           if (typeof result.personas === 'string') {
             try {
@@ -108,11 +120,9 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
               console.error('❌ Error parsing personas JSON string:', parseError);
             }
           } else if (Array.isArray(result.personas)) {
-            // Si c'est déjà un array, on l'utilise directement
             personas = result.personas;
             console.log('✅ Using personas array directly:', personas.length);
           } else if (typeof result.personas === 'object' && result.personas !== null) {
-            // Si c'est un objet mais pas un array, on essaie de le convertir
             console.log('🔄 Converting object to array:', result.personas);
             personas = [result.personas];
           } else {
@@ -126,7 +136,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         personas = [];
       }
 
-      // Normaliser les personas pour s'assurer qu'elles ont le bon format
       const normalizedPersonas = personas.map((p: any, index: number) => {
         if (!p || typeof p !== 'object') {
           console.warn('⚠️ Invalid persona at index', index, ':', p);
@@ -143,7 +152,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         
         console.log('🔄 Normalized persona:', normalized);
         return normalized;
-      }).filter(Boolean); // Enlever les null
+      }).filter(Boolean);
 
       console.log('👥 Job', result.job_title, 'final personas count:', normalizedPersonas.length);
 
@@ -157,13 +166,14 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         jobUrl: result.job_url,
         personas: normalizedPersonas,
         company_logo: result.company_logo,
-        type: 'CDI', // Valeur par défaut, peut être enrichie plus tard
+        type: 'CDI',
+        messageTemplate: messageTemplate, // Ajouter le template ici
       };
       
       console.log('✅ Formatted job result:', {
         title: formattedResult.title,
         personasCount: formattedResult.personas.length,
-        personas: formattedResult.personas.map(p => ({ name: p.name, title: p.title }))
+        hasTemplate: !!formattedResult.messageTemplate
       });
       
       return formattedResult;
@@ -171,14 +181,14 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     
     console.log('🎯 Final formatted results summary:', formatted.map(r => ({ 
       title: r.title, 
-      personasCount: r.personas.length 
+      personasCount: r.personas.length,
+      hasTemplate: !!r.messageTemplate
     })));
     
     console.log('🎯 Setting current results with', formatted.length, 'jobs');
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
     
-    // Vérifier immédiatement après avoir défini les résultats
     setTimeout(() => {
       console.log('🔍 Verification: Results should now be set in state');
     }, 100);
