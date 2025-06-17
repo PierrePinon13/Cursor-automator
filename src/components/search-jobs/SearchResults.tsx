@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -379,7 +378,6 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
             messageTemplate: selectedJob.messageTemplate
           }}
           key={`job-detail-${selectedJob.id}-${Date.now()}`}
-          onClose={() => setSelectedJob(null)}
         />
       )}
     </>
