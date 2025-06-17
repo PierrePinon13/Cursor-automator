@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, Clock, CheckCircle, AlertCircle, User } from 'lucide-react';
-import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
 interface Persona {
@@ -45,7 +46,7 @@ export const MessagePreviewModal = ({
   const [customTemplate, setCustomTemplate] = useState(initialTemplate);
   const [messageStatuses, setMessageStatuses] = useState<MessageStatus[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const { sendMessage } = useLinkedInMessage();
+  const { user } = useAuth();
 
   // Fonction pour remplacer les variables dans le template
   const replaceVariables = (template: string, persona: Persona) => {
@@ -69,6 +70,88 @@ export const MessagePreviewModal = ({
     setMessageStatuses(personas.map(p => ({ personaId: p.id, status: 'pending' })));
   });
 
+  const sendMessageToPersona = async (persona: Persona, message: string): Promise<boolean> => {
+    if (!user) {
+      console.error('❌ No user found for message sending');
+      return false;
+    }
+
+    try {
+      console.log('🚀 Sending message to persona:', persona.name);
+      
+      // Créer ou trouver un lead temporaire pour ce persona
+      let leadId = persona.id;
+      
+      // Vérifier si un lead existe déjà pour ce profil
+      const { data: existingLead, error: leadError } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('author_profile_url', persona.profileUrl)
+        .maybeSingle();
+
+      if (leadError) {
+        console.error('❌ Error checking existing lead:', leadError);
+      }
+
+      if (existingLead) {
+        leadId = existingLead.id;
+        console.log('✅ Using existing lead:', leadId);
+      } else {
+        // Créer un lead temporaire pour ce persona
+        const { data: newLead, error: createError } = await supabase
+          .from('leads')
+          .insert({
+            author_name: persona.name,
+            author_profile_url: persona.profileUrl,
+            author_headline: persona.title,
+            company_name: persona.company || companyName,
+            post_content: `Contact from job search: ${jobTitle} at ${companyName}`,
+            created_at: new Date().toISOString(),
+            processed_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error('❌ Error creating lead:', createError);
+          throw new Error(`Failed to create lead: ${createError.message}`);
+        }
+
+        leadId = newLead.id;
+        console.log('✅ Created new lead:', leadId);
+      }
+
+      // Appeler la fonction edge linkedin-message
+      const { data, error } = await supabase.functions.invoke('linkedin-message', {
+        body: { 
+          leadId: leadId,
+          message: message.trim(),
+          userId: user.id,
+          userFullName: user.user_metadata?.full_name || 'Utilisateur Inconnu'
+        }
+      });
+
+      console.log('📡 LinkedIn message response:', { data, error });
+
+      if (error) {
+        console.error('❌ Function error:', error);
+        throw error;
+      }
+
+      if (data && data.success) {
+        console.log('✅ Message sent successfully to:', persona.name);
+        return true;
+      } else {
+        const errorMessage = data?.error || 'Échec de l\'envoi du message';
+        console.error('❌ Message sending failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('💥 Error sending message to persona:', persona.name, error);
+      throw error;
+    }
+  };
+
   const handleSendMessages = async () => {
     if (!customTemplate.trim() && !initialTemplate) {
       toast({
@@ -84,6 +167,9 @@ export const MessagePreviewModal = ({
     // Réinitialiser les statuts
     setMessageStatuses(personas.map(p => ({ personaId: p.id, status: 'pending' })));
 
+    let successCount = 0;
+    let errorCount = 0;
+
     for (let i = 0; i < personas.length; i++) {
       const persona = personas[i];
       const message = messagePreviews[i].preview;
@@ -96,13 +182,7 @@ export const MessagePreviewModal = ({
       ));
 
       try {
-        // Créer un lead temporaire pour l'envoi du message
-        const leadData = {
-          author_name: persona.name,
-          author_profile_url: persona.profileUrl
-        };
-
-        const success = await sendMessage(persona.id, message, leadData);
+        const success = await sendMessageToPersona(persona, message);
 
         // Mettre à jour le statut selon le résultat
         setMessageStatuses(prev => prev.map(status => 
@@ -111,6 +191,16 @@ export const MessagePreviewModal = ({
             : status
         ));
 
+        if (success) {
+          successCount++;
+          toast({
+            title: "Message envoyé",
+            description: `Message envoyé avec succès à ${persona.name}`,
+          });
+        } else {
+          errorCount++;
+        }
+
         // Délai entre les messages (3-5 secondes) pour éviter le rate limiting
         if (i < personas.length - 1) {
           const delay = Math.random() * 2000 + 3000; // 3-5 secondes
@@ -118,24 +208,40 @@ export const MessagePreviewModal = ({
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-      } catch (error) {
-        console.error('Erreur lors de l\'envoi du message:', error);
+      } catch (error: any) {
+        console.error('💥 Error sending message to:', persona.name, error);
+        errorCount++;
         setMessageStatuses(prev => prev.map(status => 
           status.personaId === persona.id 
-            ? { ...status, status: 'error', error: 'Erreur lors de l\'envoi' }
+            ? { ...status, status: 'error', error: error.message || 'Erreur lors de l\'envoi' }
             : status
         ));
+
+        toast({
+          title: "Erreur d'envoi",
+          description: `Échec de l'envoi à ${persona.name}: ${error.message}`,
+          variant: "destructive"
+        });
       }
     }
 
     setIsSending(false);
     
-    // Compter les succès
-    const successCount = messageStatuses.filter(s => s.status === 'sent').length;
-    toast({
-      title: "Envoi terminé",
-      description: `${successCount}/${personas.length} messages envoyés avec succès.`,
-    });
+    // Message de résumé final
+    if (successCount > 0) {
+      toast({
+        title: "Envoi terminé",
+        description: `${successCount}/${personas.length} messages envoyés avec succès.`,
+      });
+    }
+
+    if (errorCount === personas.length) {
+      toast({
+        title: "Échec total",
+        description: "Aucun message n'a pu être envoyé. Vérifiez votre connexion LinkedIn.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatusIcon = (status: string) => {
