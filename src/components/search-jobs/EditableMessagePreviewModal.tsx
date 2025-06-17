@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -62,13 +63,21 @@ export const EditableMessagePreviewModal = ({
   const [activeTab, setActiveTab] = useState('template');
   const { user } = useAuth();
 
-  // Fonction pour remplacer les variables dans le template
+  // Fonction pour remplacer les variables dans le template - CORRIGÉE
   const replaceVariables = (template: string, persona: Persona) => {
     const firstName = persona.name.split(' ')[0] || persona.name;
+    const lastName = persona.name.split(' ').slice(1).join(' ') || persona.name;
+    
     return template
+      // Anciennes variables avec accolades
       .replace(/\{\{\s*firstName\s*\}\}/g, firstName)
       .replace(/\{\{\s*jobTitle\s*\}\}/g, jobTitle)
-      .replace(/\{\{\s*companyName\s*\}\}/g, companyName);
+      .replace(/\{\{\s*companyName\s*\}\}/g, companyName)
+      // Nouvelles variables avec crochets
+      .replace(/\[PRENOM\]/g, firstName)
+      .replace(/\[NOM\]/g, lastName)
+      .replace(/\[POSTE\]/g, jobTitle)
+      .replace(/\[ENTREPRISE\]/g, companyName);
   };
 
   // Initialiser les messages personnalisés à partir du template global
@@ -416,7 +425,7 @@ export const EditableMessagePreviewModal = ({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="Bonjour {{ firstName }}, j'ai vu que {{ companyName }} recrute un {{ jobTitle }}..."
+                  placeholder="Bonjour [PRENOM], j'ai vu que [ENTREPRISE] recrute un [POSTE]..."
                   value={globalTemplate}
                   onChange={(e) => setGlobalTemplate(e.target.value)}
                   rows={6}
@@ -425,9 +434,10 @@ export const EditableMessagePreviewModal = ({
                 <div className="flex justify-between items-center">
                   <div className="text-xs text-gray-500 space-y-1">
                     <p><strong>Variables disponibles :</strong></p>
-                    <p><code className="bg-gray-100 px-1 rounded">{'{{ firstName }}'}</code> - Prénom du contact</p>
-                    <p><code className="bg-gray-100 px-1 rounded">{'{{ jobTitle }}'}</code> - {jobTitle}</p>
-                    <p><code className="bg-gray-100 px-1 rounded">{'{{ companyName }}'}</code> - {companyName}</p>
+                    <p><code className="bg-gray-100 px-1 rounded">[PRENOM]</code> - Prénom du contact</p>
+                    <p><code className="bg-gray-100 px-1 rounded">[NOM]</code> - Nom du contact</p>
+                    <p><code className="bg-gray-100 px-1 rounded">[POSTE]</code> - {jobTitle}</p>
+                    <p><code className="bg-gray-100 px-1 rounded">[ENTREPRISE]</code> - {companyName}</p>
                   </div>
                   <Button onClick={applyGlobalTemplate} variant="outline">
                     Appliquer à tous les messages non-modifiés

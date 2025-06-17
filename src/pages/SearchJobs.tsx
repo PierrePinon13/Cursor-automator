@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -10,6 +9,7 @@ import { ContactsOverview } from '@/components/search-jobs/ContactsOverview';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
 import { Search, Plus, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
 const SearchJobs = () => {
@@ -97,6 +97,9 @@ const SearchJobs = () => {
     }
   };
 
+  // Calculer le nombre total de contacts
+  const totalContacts = currentResults?.reduce((acc, job) => acc + (job.personas?.length || 0), 0) || 0;
+
   // Synchroniser le reset explicit des résultats avec le state local
   useEffect(() => {
     function listener() {
@@ -153,16 +156,6 @@ const SearchJobs = () => {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            {selectedSearch && currentResults?.length > 0 && (
-              <Button 
-                onClick={() => setShowContactsOverview(true)}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Users className="h-4 w-4" />
-                Tous les contacts
-              </Button>
-            )}
             <Button onClick={handleNewSearch} className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Nouvelle recherche
@@ -211,28 +204,47 @@ const SearchJobs = () => {
           </div>
         )}
 
-        {/* Résultats */}
+        {/* Résultats avec bouton de prospection volumique bien visible */}
         {selectedSearch && (
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <h3 className="text-xl font-bold text-gray-900">
-                Résultats pour : <span className="text-blue-700">{selectedSearch.name}</span>
-              </h3>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleRefresh}
-                className="flex items-center gap-2"
-                title="Rafraîchir les résultats"
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Rafraîchir
-              </Button>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Résultats pour : <span className="text-blue-700">{selectedSearch.name}</span>
+                </h3>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleRefresh}
+                  className="flex items-center gap-2"
+                  title="Rafraîchir les résultats"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Rafraîchir
+                </Button>
+              </div>
+              
+              {/* BOUTON DE PROSPECTION VOLUMIQUE BIEN VISIBLE */}
+              {totalContacts > 0 && (
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className="text-sm px-3 py-1">
+                    {totalContacts} contact{totalContacts > 1 ? 's' : ''} trouvé{totalContacts > 1 ? 's' : ''}
+                  </Badge>
+                  <Button 
+                    onClick={() => setShowContactsOverview(true)}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Users className="h-4 w-4" />
+                    Prospection volumique
+                  </Button>
+                </div>
+              )}
             </div>
+            
             <SearchResults
               results={currentResults}
               isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)}
-              key={selectedSearch.id}
+              key={`search-results-${selectedSearch.id}-${currentResults?.length || 0}`}
             />
           </div>
         )}

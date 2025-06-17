@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -230,9 +231,15 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
 
               return (
                 <div 
-                  key={job.id}
+                  key={`${job.id}-${job.title}-${Date.now()}`}
                   className={`${cardClasses} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[250px] relative group`}
-                  onClick={() => setSelectedJob(job)}
+                  onClick={(e) => {
+                    // Empêcher le clic si c'est sur le bouton de suppression
+                    if ((e.target as HTMLElement).closest('button[aria-label="Masquer l\'offre"]')) {
+                      return;
+                    }
+                    setSelectedJob(job);
+                  }}
                 >
                   {/* Header harmonisé --- LOGO --- NOM ENTREPRISE */}
                   <div className={`${colorSet.header} ${cardSaturation} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
@@ -371,6 +378,8 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
             ...selectedJob,
             messageTemplate: selectedJob.messageTemplate
           }}
+          key={`job-detail-${selectedJob.id}-${Date.now()}`}
+          onClose={() => setSelectedJob(null)}
         />
       )}
     </>
