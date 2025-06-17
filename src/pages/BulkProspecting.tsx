@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -13,19 +12,7 @@ import { ProspectingStepTemplate } from '@/components/bulk-prospecting/Prospecti
 import { ProspectingStepMessages } from '@/components/bulk-prospecting/ProspectingStepMessages';
 import { ProspectingStepValidation } from '@/components/bulk-prospecting/ProspectingStepValidation';
 import { supabase } from '@/integrations/supabase/client';
-
-interface JobData {
-  id: string;
-  title: string;
-  company: string;
-  personas: any[];
-}
-
-interface BulkProspectingState {
-  selectedPersonas: any[];
-  messageTemplate: string;
-  personalizedMessages: { [personaId: string]: string };
-}
+import { JobData, BulkProspectingState, Persona, JobSearchResult } from '@/types/jobSearch';
 
 const BulkProspecting = () => {
   const [searchParams] = useSearchParams();
@@ -61,7 +48,7 @@ const BulkProspecting = () => {
     } else if (personasParam) {
       // Utiliser les données passées en paramètres
       try {
-        const personas = JSON.parse(personasParam);
+        const personas: Persona[] = JSON.parse(personasParam);
         
         const mockJobData: JobData = {
           id: searchId,
@@ -97,15 +84,32 @@ const BulkProspecting = () => {
 
       if (error) throw error;
 
-      // Extraire tous les personas
-      const allPersonas = results
-        .filter(job => job.personas && job.personas.length > 0)
-        .flatMap(job => job.personas.map((persona: any) => ({
-          ...persona,
-          jobTitle: job.title,
-          jobCompany: job.company,
-          jobId: job.id
-        })));
+      console.log('Raw results from database:', results);
+
+      // Extraire tous les personas avec vérification de type
+      const allPersonas: Persona[] = [];
+      
+      if (Array.isArray(results)) {
+        results.forEach((job: JobSearchResult) => {
+          if (job.personas && Array.isArray(job.personas)) {
+            job.personas.forEach((persona: any) => {
+              if (persona && typeof persona === 'object' && persona.name && persona.title) {
+                allPersonas.push({
+                  id: persona.id || `${job.id}-${persona.name}`,
+                  name: persona.name,
+                  title: persona.title,
+                  company: persona.company || job.company_name || '',
+                  profile_url: persona.profile_url || '',
+                  location: persona.location,
+                  jobTitle: job.job_title || '',
+                  jobCompany: job.company_name || '',
+                  jobId: job.id
+                });
+              }
+            });
+          }
+        });
+      }
 
       const mockJobData: JobData = {
         id: searchId,

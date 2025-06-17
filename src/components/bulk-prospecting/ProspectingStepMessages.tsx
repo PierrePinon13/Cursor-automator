@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -5,17 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-
-interface JobData {
-  id: string;
-  title: string;
-  company: string;
-  personas: any[];
-}
+import { JobData, Persona } from '@/types/jobSearch';
 
 interface ProspectingStepMessagesProps {
   jobData: JobData;
-  selectedPersonas: any[];
+  selectedPersonas: Persona[];
   messageTemplate: string;
   personalizedMessages: { [personaId: string]: string };
   onMessagesChange: (messages: { [personaId: string]: string }) => void;
@@ -31,27 +26,31 @@ export const ProspectingStepMessages = ({
   const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
 
   // Fonction pour remplacer les variables avec les vraies données
-  const replaceVariables = (template: string, persona: any) => {
+  const replaceVariables = (template: string, persona: Persona) => {
+    if (!template || typeof template !== 'string') {
+      return 'Template invalide';
+    }
+
     const firstName = persona.name?.split(' ')[0] || persona.name || 'Contact';
     const lastName = persona.name?.split(' ').slice(1).join(' ') || '';
     
     return template
       .replace(/\{\{firstName\}\}/g, firstName)
       .replace(/\{\{lastName\}\}/g, lastName)
-      .replace(/\{\{jobTitle\}\}/g, persona.jobTitle || jobData.title)
-      .replace(/\{\{companyName\}\}/g, persona.jobCompany || jobData.company)
+      .replace(/\{\{jobTitle\}\}/g, persona.jobTitle || jobData?.title || 'Poste')
+      .replace(/\{\{companyName\}\}/g, persona.jobCompany || jobData?.company || 'Entreprise')
       .replace(/\{\{personaTitle\}\}/g, persona.title || 'Contact')
       .replace(/\{\{personaCompany\}\}/g, persona.company || 'Entreprise');
   };
 
   // Générer automatiquement les messages personnalisés
   useEffect(() => {
-    if (messageTemplate && selectedPersonas.length > 0) {
+    if (messageTemplate && Array.isArray(selectedPersonas) && selectedPersonas.length > 0) {
       const newMessages: { [personaId: string]: string } = {};
       selectedPersonas.forEach((persona) => {
-        if (!personalizedMessages[persona.id]) {
+        if (persona && persona.id && !personalizedMessages[persona.id]) {
           newMessages[persona.id] = replaceVariables(messageTemplate, persona);
-        } else {
+        } else if (persona && persona.id) {
           newMessages[persona.id] = personalizedMessages[persona.id];
         }
       });
@@ -66,7 +65,27 @@ export const ProspectingStepMessages = ({
     });
   };
 
+  if (!Array.isArray(selectedPersonas) || selectedPersonas.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <p className="text-gray-500">Aucun persona sélectionné</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const currentPersona = selectedPersonas[selectedPersonaIndex];
+
+  if (!currentPersona) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <p className="text-gray-500">Persona non trouvé</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -78,20 +97,22 @@ export const ProspectingStepMessages = ({
       <CardContent className="space-y-4">
         <div className="flex items-center space-x-4">
           <Avatar>
-            <AvatarImage src={currentPersona?.profileUrl} />
-            <AvatarFallback>{currentPersona?.name?.charAt(0)}</AvatarFallback>
+            <AvatarImage src={currentPersona.profile_url} />
+            <AvatarFallback>{currentPersona.name?.charAt(0) || 'C'}</AvatarFallback>
           </Avatar>
           <div>
-            <Label>{currentPersona?.name}</Label>
-            <p className="text-sm text-gray-500">{currentPersona?.title} chez {currentPersona?.company}</p>
+            <Label>{currentPersona.name || 'Nom non disponible'}</Label>
+            <p className="text-sm text-gray-500">
+              {currentPersona.title || 'Titre non disponible'} chez {currentPersona.company || 'Entreprise non disponible'}
+            </p>
           </div>
         </div>
 
         <Label htmlFor="message">Message personnalisé :</Label>
         <Textarea
           id="message"
-          value={personalizedMessages[currentPersona?.id] || ''}
-          onChange={(e) => updateMessage(currentPersona?.id, e.target.value)}
+          value={personalizedMessages[currentPersona.id] || ''}
+          onChange={(e) => updateMessage(currentPersona.id, e.target.value)}
           className="resize-none h-48"
         />
 

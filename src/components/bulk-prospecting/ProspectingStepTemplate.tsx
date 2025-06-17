@@ -4,13 +4,7 @@ import { MessageTemplate } from '@/components/search-jobs/MessageTemplate';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-interface JobData {
-  id: string;
-  title: string;
-  company: string;
-  personas: any[];
-}
+import { JobData } from '@/types/jobSearch';
 
 interface ProspectingStepTemplateProps {
   jobData: JobData;
@@ -35,11 +29,15 @@ Cordialement`;
 
   // Fonction pour remplacer les variables dans l'aperçu
   const generatePreview = (templateText: string) => {
+    if (!templateText || typeof templateText !== 'string') {
+      return 'Template invalide';
+    }
+
     return templateText
       .replace(/\{\{firstName\}\}/g, 'Marie')
       .replace(/\{\{lastName\}\}/g, 'Dupont')
-      .replace(/\{\{jobTitle\}\}/g, jobData.title)
-      .replace(/\{\{companyName\}\}/g, jobData.company)
+      .replace(/\{\{jobTitle\}\}/g, jobData?.title || 'Poste recherché')
+      .replace(/\{\{companyName\}\}/g, jobData?.company || 'Entreprise')
       .replace(/\{\{personaTitle\}\}/g, 'Directrice RH')
       .replace(/\{\{personaCompany\}\}/g, 'TechCorp');
   };
@@ -53,10 +51,10 @@ Cordialement`;
         </CardTitle>
         <div className="flex items-center gap-2">
           <Badge variant="secondary">
-            {jobData.title}
+            {jobData?.title || 'Titre non disponible'}
           </Badge>
           <Badge variant="outline">
-            {jobData.company}
+            {jobData?.company || 'Entreprise non disponible'}
           </Badge>
         </div>
       </CardHeader>
