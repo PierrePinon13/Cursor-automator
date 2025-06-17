@@ -136,11 +136,16 @@ export const SearchResults = ({
     
     // Construire les paramètres URL pour passer les données à la page de prospection
     const params = new URLSearchParams({
-      searchId: 'current',
-      jobId: job.id,
-      title: job.title,
-      company: job.company,
-      personas: JSON.stringify(job.personas),
+      searchId: 'single-job',
+      searchName: `${job.title} - ${job.company}`,
+      totalJobs: '1',
+      totalPersonas: job.personas.length.toString(),
+      personas: JSON.stringify(job.personas.map(persona => ({
+        ...persona,
+        jobTitle: job.title,
+        jobCompany: job.company,
+        jobId: job.id
+      }))),
       template: job.messageTemplate || ''
     });
     
@@ -363,6 +368,21 @@ export const SearchResults = ({
                           <MessageSquare className="h-4 w-4" />
                           {hasPersonas ? 'Voir détails' : 'Aucun contact'}
                         </Button>
+                        
+                        {/* Nouveau bouton de prospection volumique pour chaque job */}
+                        {hasPersonas && (
+                          <Button
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleBulkProspecting(job);
+                            }}
+                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                            size="sm"
+                          >
+                            <Users className="h-4 w-4" />
+                            Prospecter ({job.personas.length})
+                          </Button>
+                        )}
                       </div>
                       
                       {job.jobUrl && (

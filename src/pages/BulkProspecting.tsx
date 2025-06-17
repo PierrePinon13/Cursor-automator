@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -102,16 +103,16 @@ const BulkProspecting = () => {
               } 
               // Si c'est déjà un array, l'utiliser directement
               else if (Array.isArray(job.personas)) {
-                personas = job.personas as Persona[];
+                personas = job.personas as unknown as Persona[];
               }
               // Si c'est un objet, essayer de l'extraire
               else if (typeof job.personas === 'object' && job.personas !== null) {
                 // Traiter comme un objet qui pourrait contenir un array
                 const personasObj = job.personas as any;
                 if (Array.isArray(personasObj)) {
-                  personas = personasObj;
+                  personas = personasObj as unknown as Persona[];
                 } else if (personasObj.personas && Array.isArray(personasObj.personas)) {
-                  personas = personasObj.personas;
+                  personas = personasObj.personas as unknown as Persona[];
                 }
               }
             } catch (parseError) {
@@ -196,7 +197,18 @@ const BulkProspecting = () => {
       case 2:
         return bulkState.messageTemplate.trim().length > 0;
       case 3:
-        return Object.keys(bulkState.personalizedMessages).length === bulkState.selectedPersonas.length;
+        // Vérifier que tous les personas sélectionnés ont un message personnalisé
+        const selectedPersonaIds = bulkState.selectedPersonas.map(p => p.id);
+        const hasAllMessages = selectedPersonaIds.every(id => 
+          bulkState.personalizedMessages[id] && 
+          bulkState.personalizedMessages[id].trim().length > 0
+        );
+        console.log('Step 3 validation:', {
+          selectedPersonaIds,
+          personalizedMessages: bulkState.personalizedMessages,
+          hasAllMessages
+        });
+        return hasAllMessages;
       case 4:
         return true;
       default:

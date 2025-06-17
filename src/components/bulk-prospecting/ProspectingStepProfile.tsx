@@ -63,115 +63,120 @@ export const ProspectingStepProfile = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Sélection des profils à prospecter
-        </CardTitle>
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
+    <div className="space-y-4">
+      {/* En-tête compacte */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Sélection des profils à prospecter
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
             {filteredPersonas.length} profil(s) trouvé(s) pour cette offre
           </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={selectAll}>
-              Tout sélectionner
-            </Button>
-            <Button variant="outline" size="sm" onClick={deselectAll}>
-              Tout désélectionner
-            </Button>
-          </div>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Filtres */}
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Rechercher par nom, poste ou entreprise..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="show-selected"
-              checked={showOnlySelected}
-              onCheckedChange={handleShowOnlySelectedChange}
-            />
-            <label htmlFor="show-selected" className="text-sm">
-              Afficher seulement les sélectionnés
-            </label>
-          </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={selectAll}>
+            Tout sélectionner
+          </Button>
+          <Button variant="outline" size="sm" onClick={deselectAll}>
+            Tout désélectionner
+          </Button>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="flex gap-4">
-          <Badge variant="secondary">
-            {selectedPersonas.length} sélectionné(s)
-          </Badge>
-          <Badge variant="outline">
-            {jobData.personas.length} total
-          </Badge>
-        </div>
+      {/* Filtres compacts */}
+      <Card className="border-gray-200">
+        <CardContent className="p-4">
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Rechercher par nom, poste ou entreprise..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="show-selected"
+                checked={showOnlySelected}
+                onCheckedChange={handleShowOnlySelectedChange}
+              />
+              <label htmlFor="show-selected" className="text-sm whitespace-nowrap">
+                Seulement sélectionnés
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <Badge variant="secondary">
+                {selectedPersonas.length} sélectionné(s)
+              </Badge>
+              <Badge variant="outline">
+                {jobData.personas.length} total
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Liste des profils */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-          {filteredPersonas.map((persona) => {
-            const isSelected = selectedPersonas.some(selected => selected.id === persona.id);
-            
-            return (
-              <div
-                key={persona.id}
-                className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                  isSelected 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => togglePersona(persona)}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={isSelected}
-                    onChange={() => {}} // Handled by parent click
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                        <User className="h-4 w-4 text-gray-500" />
+      {/* Zone principale avec plus d'espace pour les cartes */}
+      <Card className="flex-1">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            {filteredPersonas.map((persona) => {
+              const isSelected = selectedPersonas.some(selected => selected.id === persona.id);
+              
+              return (
+                <div
+                  key={persona.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                    isSelected 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => togglePersona(persona)}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => {}} // Handled by parent click
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                          <User className="h-4 w-4 text-gray-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-medium text-sm text-gray-900 truncate">
+                            {persona.name}
+                          </h4>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="font-medium text-sm text-gray-900 truncate">
-                          {persona.name}
-                        </h4>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-1 line-clamp-2">
-                      {persona.title}
-                    </p>
-                    {persona.company && (
-                      <p className="text-xs text-gray-500">
-                        {persona.company}
+                      <p className="text-xs text-gray-600 mb-1 line-clamp-2">
+                        {persona.title}
                       </p>
-                    )}
+                      {persona.company && (
+                        <p className="text-xs text-gray-500">
+                          {persona.company}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredPersonas.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Aucun profil ne correspond aux critères de recherche</p>
+              );
+            })}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {filteredPersonas.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>Aucun profil ne correspond aux critères de recherche</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
