@@ -2,8 +2,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { X, Save, Play, Loader2 } from 'lucide-react';
 import { JobSearchFilters } from './JobSearchFilters';
 import { PersonaFilters } from './PersonaFilters';
@@ -23,19 +21,16 @@ interface SearchJobsFormProps {
 }
 
 export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFormProps) => {
-  const [searchName, setSearchName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // date_posted: "" = toutes, sinon nombre de jours (1,2,7,14,30)
   const [jobFilters, setJobFilters] = useState({
     keywords: '',
     location: [] as SelectedLocation[],
-    date_posted: '', // default: toutes
-    sort_by: 'date'
+    date_posted: '',
+    category: ''
   });
 
   const [personaFilters, setPersonaFilters] = useState({
-    keywords: '',
     role: [] as string[],
     location: ''
   });
@@ -45,13 +40,11 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
   // Charger les données initiales si fournies
   useEffect(() => {
     if (initialData) {
-      setSearchName(initialData.name || '');
       setJobFilters(initialData.jobFilters || jobFilters);
 
-      // Ensure persona role is properly formatted as array and handle location
+      // Ensure persona role is properly formatted as array
       const initialPersonaFilters = initialData.personaFilters || personaFilters;
       setPersonaFilters({
-        keywords: initialPersonaFilters.keywords || '',
         role: Array.isArray(initialPersonaFilters.role)
           ? initialPersonaFilters.role
           : (initialPersonaFilters.role?.keywords || []),
@@ -62,6 +55,16 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
+
+  const generateSearchName = () => {
+    const keywords = jobFilters.keywords || 'Recherche';
+    const locations = jobFilters.location.length > 0 
+      ? jobFilters.location.map(l => l.label).join(', ') 
+      : '';
+    const category = jobFilters.category ? ` - ${jobFilters.category}` : '';
+    
+    return `${keywords}${locations ? ` à ${locations}` : ''}${category}`;
+  };
 
   const validateForm = () => {
     if (!jobFilters.keywords.trim()) {
@@ -96,21 +99,12 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
 
   const handleSubmit = async (saveOnly = false) => {
     if (!validateForm()) return;
-    
-    if (saveOnly && !searchName.trim()) {
-      toast({
-        title: "Nom requis",
-        description: "Veuillez donner un nom à votre recherche pour la sauvegarder.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setIsLoading(true);
     
     try {
       const config = {
-        name: searchName,
+        name: generateSearchName(),
         search_jobs: jobFilters,
         personna_filters: {
           ...personaFilters,
@@ -129,40 +123,34 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
   };
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader className="border-b">
+    <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
+      <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-xl">
+            <CardTitle className="text-2xl text-gray-900">
               {initialData ? 'Modifier la recherche' : 'Nouvelle recherche d\'emplois'}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-base text-gray-600 mt-2">
               Configurez votre recherche d'offres d'emploi et le ciblage des prospects
             </CardDescription>
           </div>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="sm" onClick={onCancel} className="text-gray-500 hover:text-gray-700">
+            <X className="h-5 w-5" />
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="p-6 space-y-8">
-        {/* Nom de la recherche */}
-        <div className="space-y-2">
-          <Label htmlFor="search-name">Nom de la recherche</Label>
-          <Input
-            id="search-name"
-            placeholder="Ex: Développeurs React Paris"
-            value={searchName}
-            onChange={(e) => setSearchName(e.target.value)}
-          />
-        </div>
-
+      <CardContent className="p-8 space-y-10">
         {/* Filtres de recherche d'emploi */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            🔍 Recherche d'emplois
-          </h3>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <span className="text-blue-600 font-bold text-sm">1</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              Recherche d'emplois
+            </h3>
+          </div>
           <JobSearchFilters
             filters={jobFilters}
             onChange={setJobFilters}
@@ -170,10 +158,15 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
         </div>
 
         {/* Filtres de persona */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            🧑‍💼 Ciblage des prospects
-          </h3>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+              <span className="text-indigo-600 font-bold text-sm">2</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              Ciblage des prospects
+            </h3>
+          </div>
           <PersonaFilters
             filters={personaFilters}
             onChange={setPersonaFilters}
@@ -181,10 +174,18 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
         </div>
 
         {/* Template de message */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            ✍️ Message LinkedIn (optionnel)
-          </h3>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+              <span className="text-green-600 font-bold text-sm">3</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              Message LinkedIn
+            </h3>
+            <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              Optionnel
+            </span>
+          </div>
           <MessageTemplate
             template={messageTemplate}
             onChange={setMessageTemplate}
@@ -192,8 +193,8 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="outline" onClick={onCancel}>
+        <div className="flex justify-between pt-6 border-t bg-gray-50/50 -mx-8 px-8 -mb-8 pb-8 rounded-b-lg">
+          <Button variant="outline" onClick={onCancel} className="px-6">
             Annuler
           </Button>
           
@@ -202,6 +203,7 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
               variant="outline"
               onClick={() => handleSubmit(true)}
               disabled={isLoading}
+              className="px-6"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -214,6 +216,7 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
             <Button
               onClick={() => handleSubmit(false)}
               disabled={isLoading}
+              className="px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -1,108 +1,186 @@
 
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { X, Plus } from 'lucide-react';
 import { LocationSelector } from './LocationSelector';
 
 interface SelectedLocation {
   label: string;
+  geoId: number | null;
+  isResolved: boolean;
 }
 
 interface JobSearchFiltersProps {
   filters: {
     keywords: string;
     location: SelectedLocation[];
-    date_posted: string | number;
+    date_posted: string;
     sort_by: string;
+    category?: string;
   };
   onChange: (filters: any) => void;
 }
 
-// LinkedIn-like filter options (in days), non-empty string for "Any time"
-const DATE_OPTIONS = [
-  { label: "Any time", value: "any" },
-  { label: "Past month", value: "30" },
-  { label: "Past week", value: "7" },
-  { label: "Past 24 hours", value: "1" }
-];
-
 export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) => {
-  const handleLocationChange = (locations: SelectedLocation[]) => {
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keywordsList, setKeywordsList] = useState<string[]>(
+    filters.keywords ? filters.keywords.split(',').map(k => k.trim()).filter(k => k) : []
+  );
+
+  const categories = [
+    'Comptelio',
+    'RH',
+    'Product',
+    'Tech',
+    'Marketing',
+    'Commercial',
+    'Finance',
+    'Autre'
+  ];
+
+  const dateOptions = [
+    { value: '', label: 'Toutes les dates' },
+    { value: '1', label: 'Dernières 24h' },
+    { value: '3', label: '3 derniers jours' },
+    { value: '7', label: 'Dernière semaine' },
+    { value: '14', label: '2 dernières semaines' },
+    { value: '30', label: 'Dernier mois' }
+  ];
+
+  const addKeyword = () => {
+    const trimmedKeyword = keywordInput.trim();
+    if (trimmedKeyword && !keywordsList.includes(trimmedKeyword)) {
+      const newKeywords = [...keywordsList, trimmedKeyword];
+      setKeywordsList(newKeywords);
+      updateKeywords(newKeywords);
+      setKeywordInput('');
+    }
+  };
+
+  const removeKeyword = (keywordToRemove: string) => {
+    const newKeywords = keywordsList.filter(k => k !== keywordToRemove);
+    setKeywordsList(newKeywords);
+    updateKeywords(newKeywords);
+  };
+
+  const updateKeywords = (keywords: string[]) => {
     onChange({
       ...filters,
-      location: locations
+      keywords: keywords.join(', ')
     });
   };
 
-  // Handle date change, convert "any" to "" for no filter
-  const handleDateChange = (value: string) => {
-    onChange({ ...filters, date_posted: value === "any" ? "" : Number(value) });
+  const handleKeywordInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addKeyword();
+    }
   };
 
-  // Always use string for Select value; "any" means all, otherwise stringified number
-  const datePostedValue =
-    filters.date_posted === "" || filters.date_posted === undefined
-      ? "any"
-      : String(filters.date_posted);
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Mots-clés */}
-      <div className="lg:col-span-2">
-        <Label htmlFor="keywords">Mots-clés *</Label>
-        <Input
-          id="keywords"
-          placeholder="Ex: développeur react, product manager..."
-          value={filters.keywords}
-          onChange={(e) => onChange({ ...filters, keywords: e.target.value })}
-        />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Mots-clés du poste */}
+        <div className="space-y-3">
+          <Label className="text-base font-medium">Mots-clés du poste *</Label>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ex: React, Product Manager, Python..."
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                onKeyDown={handleKeywordInputKeyDown}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                onClick={addKeyword}
+                disabled={!keywordInput.trim()}
+                size="sm"
+                className="px-3"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {keywordsList.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {keywordsList.map((keyword, index) => (
+                  <Badge
+                    key={index}
+                    variant="secondary"
+                    className="flex items-center gap-1 px-3 py-1"
+                  >
+                    {keyword}
+                    <X
+                      className="h-3 w-3 cursor-pointer hover:text-red-500"
+                      onClick={() => removeKeyword(keyword)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-500">
+            Appuyez sur Entrée ou cliquez sur + pour ajouter un mot-clé
+          </p>
+        </div>
+
+        {/* Catégorie */}
+        <div className="space-y-3">
+          <Label className="text-base font-medium">Catégorie</Label>
+          <Select 
+            value={filters.category || ''} 
+            onValueChange={(value) => onChange({ ...filters, category: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner une catégorie" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Aucune catégorie</SelectItem>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Localisation avec auto-complétion */}
-      <div className="lg:col-span-2">
-        <LocationSelector
-          selectedLocations={filters.location}
-          onChange={handleLocationChange}
-        />
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Localisation */}
+        <div className="space-y-3">
+          <Label className="text-base font-medium">Localisation</Label>
+          <LocationSelector
+            selectedLocations={filters.location}
+            onLocationsChange={(locations) => onChange({ ...filters, location: locations })}
+            placeholder="Ex: Paris, Lyon, Remote..."
+          />
+        </div>
 
-      {/* Date de publication */}
-      <div>
-        <Label htmlFor="date_posted">Date de publication</Label>
-        <Select
-          value={datePostedValue}
-          onValueChange={handleDateChange}
-        >
-          <SelectTrigger>
-            <SelectValue
-              // Affiche la bonne étiquette même en édition
-              placeholder={
-                DATE_OPTIONS.find(opt => opt.value === datePostedValue)?.label || "Any time"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {DATE_OPTIONS.map(opt => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Tri */}
-      <div>
-        <Label htmlFor="sort_by">Trier par</Label>
-        <Select value={filters.sort_by} onValueChange={(value) => onChange({ ...filters, sort_by: value })}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date">Date (plus récent)</SelectItem>
-            <SelectItem value="relevance">Pertinence</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Date de publication */}
+        <div className="space-y-3">
+          <Label className="text-base font-medium">Date de publication</Label>
+          <Select 
+            value={filters.date_posted} 
+            onValueChange={(value) => onChange({ ...filters, date_posted: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {dateOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

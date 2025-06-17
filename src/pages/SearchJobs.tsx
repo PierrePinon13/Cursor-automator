@@ -3,7 +3,7 @@ import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
 import PageLayout from '@/components/PageLayout';
 import { SearchJobsForm } from '@/components/search-jobs/SearchJobsForm';
-import { SavedSearches } from '@/components/search-jobs/SavedSearches';
+import { CompactSavedSearches } from '@/components/search-jobs/CompactSavedSearches';
 import { SearchResults } from '@/components/search-jobs/SearchResults';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
 import { Search, Plus, RefreshCw } from 'lucide-react';
@@ -171,7 +171,7 @@ const SearchJobs = () => {
         )}
 
         {/* Liste des recherches sauvegardées (ajout du click pour sélection) */}
-        <SavedSearches
+        <CompactSavedSearches
           searches={savedSearches}
           onExecute={handleDirectExecute}
           onEdit={handleEditSearch}
