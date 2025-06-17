@@ -19,7 +19,6 @@ interface JobSearchFiltersProps {
     keywords: string;
     location: SelectedLocation[];
     date_posted: string;
-    sort_by: string;
     category?: string;
   };
   onChange: (filters: any) => void;
@@ -33,7 +32,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
 
   const categories = [
     'Comptelio',
-    'RH',
+    'RH', 
     'Product',
     'Tech',
     'Marketing',
@@ -157,7 +156,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           <Label className="text-base font-medium">Localisation</Label>
           <LocationSelector
             selectedLocations={filters.location}
-            onLocationsChange={(locations) => onChange({ ...filters, location: locations })}
+            onChange={(locations) => onChange({ ...filters, location: locations })}
             placeholder="Ex: Paris, Lyon, Remote..."
           />
         </div>
