@@ -6,11 +6,13 @@ import { SearchJobsForm } from '@/components/search-jobs/SearchJobsForm';
 import { CompactSavedSearches } from '@/components/search-jobs/CompactSavedSearches';
 import { SearchResults } from '@/components/search-jobs/SearchResults';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
-import { Search, Plus, RefreshCw } from 'lucide-react';
+import { Search, Plus, RefreshCw, Users, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const SearchJobs = () => {
+  const navigate = useNavigate();
   const {
     savedSearches,
     currentResults,
@@ -24,6 +26,7 @@ const SearchJobs = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
+  const [savedSearchesExpanded, setSavedSearchesExpanded] = useState(true);
 
   // Reset explicite des résultats
   const resetCurrentResults = () => {
@@ -138,6 +141,34 @@ const SearchJobs = () => {
     }
   }, [savedSearches, selectedSearch]);
 
+  const handleBulkProspectingForSearch = () => {
+    if (!selectedSearch || !currentResults || currentResults.length === 0) return;
+    
+    // Collecter tous les personas de tous les résultats
+    const allPersonas = currentResults
+      .filter(job => job.personas && job.personas.length > 0)
+      .flatMap(job => job.personas.map(persona => ({
+        ...persona,
+        jobTitle: job.title,
+        jobCompany: job.company,
+        jobId: job.id
+      })));
+    
+    if (allPersonas.length === 0) return;
+    
+    // Construire les paramètres pour la prospection volumique
+    const params = new URLSearchParams({
+      searchId: selectedSearch.id,
+      searchName: selectedSearch.name,
+      totalJobs: currentResults.length.toString(),
+      totalPersonas: allPersonas.length.toString(),
+      personas: JSON.stringify(allPersonas),
+      template: selectedSearch.messageTemplate || ''
+    });
+    
+    navigate(`/bulk-prospecting?${params.toString()}`);
+  };
+
   return (
     <PageLayout>
       <GlobalPageHeader
@@ -149,10 +180,22 @@ const SearchJobs = () => {
           { label: "Search Jobs" }
         ]}
         actions={
-          <Button onClick={handleNewSearch} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Nouvelle recherche
-          </Button>
+          <div className="flex gap-2">
+            {selectedSearch && currentResults && currentResults.length > 0 && (
+              <Button 
+                onClick={handleBulkProspectingForSearch}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                disabled={!currentResults.some(job => job.personas && job.personas.length > 0)}
+              >
+                <Users className="h-4 w-4" />
+                Prospection volumique ({currentResults.filter(job => job.personas && job.personas.length > 0).length} offres)
+              </Button>
+            )}
+            <Button onClick={handleNewSearch} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nouvelle recherche
+            </Button>
+          </div>
         }
       />
 
@@ -166,17 +209,35 @@ const SearchJobs = () => {
           />
         )}
 
-        {/* Recherches sauvegardées - Toujours visible et développée par défaut */}
+        {/* Recherches sauvegardées - Collapsible */}
         {savedSearches.length > 0 && (
-          <CompactSavedSearches
-            searches={savedSearches}
-            onExecute={handleDirectExecute}
-            onEdit={handleEditSearch}
-            onDelete={handleDeleteSearch}
-            onLoadResults={handleLoadResults}
-            onSelect={handleSelectSearch}
-            selectedSearchId={selectedSearch?.id}
-          />
+          <div className="space-y-4">
+            <div 
+              className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+              onClick={() => setSavedSearchesExpanded(!savedSearchesExpanded)}
+            >
+              {savedSearchesExpanded ? (
+                <ChevronDown className="h-5 w-5" />
+              ) : (
+                <ChevronRight className="h-5 w-5" />
+              )}
+              <h3 className="text-lg font-semibold">
+                Recherches sauvegardées ({savedSearches.length})
+              </h3>
+            </div>
+            
+            {savedSearchesExpanded && (
+              <CompactSavedSearches
+                searches={savedSearches}
+                onExecute={handleDirectExecute}
+                onEdit={handleEditSearch}
+                onDelete={handleDeleteSearch}
+                onLoadResults={handleLoadResults}
+                onSelect={handleSelectSearch}
+                selectedSearchId={selectedSearch?.id}
+              />
+            )}
+          </div>
         )}
 
         {/* Guide pour créer la première recherche */}
@@ -218,6 +279,7 @@ const SearchJobs = () => {
               results={currentResults}
               isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)}
               key={selectedSearch.id}
+              showBulkProspectingButton={false}
             />
           </div>
         )}

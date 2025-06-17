@@ -62,9 +62,15 @@ interface SearchResultsProps {
   results: JobResult[];
   isLoading: boolean;
   onHideJob?: (jobId: string) => void;
+  showBulkProspectingButton?: boolean;
 }
 
-export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsProps) => {
+export const SearchResults = ({ 
+  results, 
+  isLoading, 
+  onHideJob,
+  showBulkProspectingButton = true 
+}: SearchResultsProps) => {
   const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
   const [hiddenJobs, setHiddenJobs] = useState<Set<string>>(new Set());
@@ -355,23 +361,8 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                           disabled={!hasPersonas}
                         >
                           <MessageSquare className="h-4 w-4" />
-                          {hasPersonas ? 'Contacter' : 'Aucun contact'}
+                          {hasPersonas ? 'Voir détails' : 'Aucun contact'}
                         </Button>
-                        
-                        {hasPersonas && (
-                          <Button
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleBulkProspecting(job);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            <UserPlus className="h-4 w-4" />
-                            Prospection
-                          </Button>
-                        )}
                       </div>
                       
                       {job.jobUrl && (
