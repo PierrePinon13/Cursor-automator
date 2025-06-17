@@ -40,27 +40,36 @@ const BulkProspecting = () => {
   useEffect(() => {
     const searchId = searchParams.get('searchId');
     const jobId = searchParams.get('jobId');
+    const title = searchParams.get('title');
+    const company = searchParams.get('company');
+    const personasParam = searchParams.get('personas');
+    const templateParam = searchParams.get('template');
     
-    if (!searchId || !jobId) {
+    if (!searchId || !jobId || !title || !company) {
       navigate('/search-jobs');
       return;
     }
 
-    // Simuler la récupération des données (à adapter selon votre système)
-    // En réalité, vous devriez récupérer ces données depuis votre hook useSearchJobs
-    const mockJobData: JobData = {
-      id: jobId,
-      title: searchParams.get('title') || 'Poste non spécifié',
-      company: searchParams.get('company') || 'Entreprise non spécifiée',
-      personas: JSON.parse(searchParams.get('personas') || '[]')
-    };
-    
-    setJobData(mockJobData);
-    setBulkState(prev => ({
-      ...prev,
-      selectedPersonas: mockJobData.personas,
-      messageTemplate: searchParams.get('template') || ''
-    }));
+    try {
+      const personas = personasParam ? JSON.parse(personasParam) : [];
+      
+      const mockJobData: JobData = {
+        id: jobId,
+        title: title,
+        company: company,
+        personas: personas
+      };
+      
+      setJobData(mockJobData);
+      setBulkState(prev => ({
+        ...prev,
+        selectedPersonas: personas,
+        messageTemplate: templateParam || ''
+      }));
+    } catch (error) {
+      console.error('Erreur lors du parsing des données:', error);
+      navigate('/search-jobs');
+    }
   }, [searchParams, navigate]);
 
   const steps = [

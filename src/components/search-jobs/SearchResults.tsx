@@ -130,7 +130,7 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
     
     // Construire les paramètres URL pour passer les données à la page de prospection
     const params = new URLSearchParams({
-      searchId: 'current', // ou l'ID de la recherche actuelle
+      searchId: 'current',
       jobId: job.id,
       title: job.title,
       company: job.company,
@@ -358,7 +358,7 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                           {hasPersonas ? 'Contacter' : 'Aucun contact'}
                         </Button>
                         
-                        {hasPersonas && job.personas.length > 1 && (
+                        {hasPersonas && (
                           <Button
                             onClick={e => {
                               e.stopPropagation();

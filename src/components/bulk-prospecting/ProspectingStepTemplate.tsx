@@ -56,6 +56,8 @@ Cordialement`;
           <AlertDescription>
             Ce template sera utilisé comme base pour tous les messages. Vous pourrez personnaliser 
             chaque message individuellement à l'étape suivante.
+            <br /><br />
+            Variables disponibles : [PRENOM], [NOM], [POSTE], [ENTREPRISE], [TITRE_PERSONA], [ENTREPRISE_PERSONA]
           </AlertDescription>
         </Alert>
 
@@ -72,6 +74,8 @@ Cordialement`;
               .replace(/\[NOM\]/g, 'Dupont')
               .replace(/\[POSTE\]/g, jobData.title)
               .replace(/\[ENTREPRISE\]/g, jobData.company)
+              .replace(/\[TITRE_PERSONA\]/g, 'Directrice RH')
+              .replace(/\[ENTREPRISE_PERSONA\]/g, 'TechCorp')
             }
           </div>
         </div>

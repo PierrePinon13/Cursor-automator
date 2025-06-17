@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,14 +40,18 @@ export const ProspectingStepMessages = ({
   );
 
   const generatePersonalizedMessage = (persona: any) => {
-    const firstName = persona.name.split(' ')[0];
-    const lastName = persona.name.split(' ').slice(1).join(' ');
+    // Séparer le nom complet en prénom et nom
+    const nameParts = persona.name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
     
     return messageTemplate
       .replace(/\[PRENOM\]/g, firstName)
       .replace(/\[NOM\]/g, lastName)
       .replace(/\[POSTE\]/g, jobData.title)
-      .replace(/\[ENTREPRISE\]/g, jobData.company);
+      .replace(/\[ENTREPRISE\]/g, jobData.company)
+      .replace(/\[TITRE_PERSONA\]/g, persona.title || '')
+      .replace(/\[ENTREPRISE_PERSONA\]/g, persona.company || '');
   };
 
   const generateAllMessages = () => {

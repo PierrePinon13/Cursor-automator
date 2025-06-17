@@ -14,8 +14,10 @@ export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) =>
   const variables = [
     { name: '[PRENOM]', description: 'Prénom du contact' },
     { name: '[NOM]', description: 'Nom du contact' },
-    { name: '[POSTE]', description: 'Titre du poste' },
-    { name: '[ENTREPRISE]', description: 'Nom de l\'entreprise' }
+    { name: '[POSTE]', description: 'Titre du poste recherché' },
+    { name: '[ENTREPRISE]', description: 'Nom de l\'entreprise qui recrute' },
+    { name: '[TITRE_PERSONA]', description: 'Titre du contact' },
+    { name: '[ENTREPRISE_PERSONA]', description: 'Entreprise du contact' }
   ];
 
   const insertVariable = (variable: string) => {
