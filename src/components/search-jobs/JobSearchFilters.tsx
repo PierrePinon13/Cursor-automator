@@ -157,7 +157,6 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           <LocationSelector
             selectedLocations={filters.location}
             onChange={(locations) => onChange({ ...filters, location: locations })}
-            placeholder="Ex: Paris, Lyon, Remote..."
           />
         </div>
 
