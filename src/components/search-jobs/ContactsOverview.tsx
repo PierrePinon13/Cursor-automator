@@ -200,25 +200,18 @@ export const ContactsOverview = ({ searchResults, searchName, isOpen, onClose }:
             <Button
               onClick={() => {
                 // Redirection vers la page de prospection volumique
-                const selectedContactObjects = uniqueContacts.filter(c => 
-                  selectedContacts.includes(c.id) && (showHidden || !hiddenContacts.includes(c.id))
-                );
-
-                if (selectedContactObjects.length === 0) {
-                  const visibleContactObjects = uniqueContacts.filter(c => showHidden || !hiddenContacts.includes(c.id));
-                  selectedContactObjects.push(...visibleContactObjects);
-                }
+                const contactsToUse = selectedContactObjects.length > 0 ? selectedContactObjects : visibleContacts;
 
                 const params = new URLSearchParams({
                   searchName: encodeURIComponent(searchName),
                   jobTitle: encodeURIComponent('Recherche groupée'),
                   companyName: encodeURIComponent(searchName),
-                  contacts: encodeURIComponent(JSON.stringify(selectedContactObjects))
+                  contacts: encodeURIComponent(JSON.stringify(contactsToUse))
                 });
 
                 window.open(`/bulk-prospecting?${params.toString()}`, '_blank');
               }}
-              disabled={selectedCount === 0 && visibleCount === 0}
+              disabled={visibleCount === 0}
               className="flex items-center gap-2"
             >
               <MessageSquare className="h-4 w-4" />

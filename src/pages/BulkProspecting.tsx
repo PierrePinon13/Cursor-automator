@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useLastContactCheck } from '@/hooks/useLastContactCheck';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,11 +55,12 @@ const BulkProspecting = () => {
   const [personalizedMessages, setPersonalizedMessages] = useState<PersonalizedMessage[]>([]);
   const [messageStatuses, setMessageStatuses] = useState<MessageStatus[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const [lastContactChecks, setLastContactChecks] = useState<Record<string, any>>({});
 
-  // Récupérer les données depuis les paramètres URL ou localStorage
+  // Utiliser le hook pour vérifier les derniers contacts
+  const { lastContactChecks } = useLastContactCheck(personas);
+
+  // Récupérer les données depuis les paramètres URL
   useEffect(() => {
-    const searchId = searchParams.get('searchId');
     const contacts = searchParams.get('contacts');
     const searchNameParam = searchParams.get('searchName');
     const jobTitleParam = searchParams.get('jobTitle');
@@ -205,48 +206,6 @@ Bonne journée`;
       )
     );
   };
-
-  // Vérifier les derniers contacts
-  const checkLastContacts = async () => {
-    const checks: Record<string, any> = {};
-    
-    for (const persona of personas) {
-      try {
-        const { data: existingLead } = await supabase
-          .from('leads')
-          .select('id, last_contact_at, contacted_by_user_name')
-          .eq('author_profile_url', persona.profileUrl)
-          .eq('lead_source', 'job_search')
-          .maybeSingle();
-
-        if (existingLead?.last_contact_at) {
-          const lastContactDate = new Date(existingLead.last_contact_at);
-          const now = new Date();
-          const hoursAgo = (now.getTime() - lastContactDate.getTime()) / (1000 * 60 * 60);
-          const daysAgo = hoursAgo / 24;
-
-          if (daysAgo <= 7) {
-            checks[persona.id] = {
-              lastContactAt: existingLead.last_contact_at,
-              contactedBy: existingLead.contacted_by_user_name || 'Utilisateur inconnu',
-              hoursAgo: Math.round(hoursAgo * 10) / 10,
-              daysAgo: Math.round(daysAgo * 10) / 10
-            };
-          }
-        }
-      } catch (error) {
-        console.error('Error checking last contact for:', persona.name, error);
-      }
-    }
-    
-    setLastContactChecks(checks);
-  };
-
-  useEffect(() => {
-    if (personas.length > 0) {
-      checkLastContacts();
-    }
-  }, [personas]);
 
   // Envoyer un message à un persona
   const sendMessageToPersona = async (persona: Persona, message: string): Promise<boolean> => {
@@ -678,7 +637,7 @@ Bonne journée`;
         </div>
         
         <Button
-          onClick={handleSendMessages}
+          onClick={() => handleSendMessages()}
           disabled={isSending || personas.length === 0 || overLimitCount > 0}
           className="flex items-center gap-2"
           size="lg"
