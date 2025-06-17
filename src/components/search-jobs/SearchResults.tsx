@@ -365,14 +365,13 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
         </CardContent>
       </Card>
 
-      {/* Modal de détail avec template de message */}
+      {/* Modal de détail sans prop onClose */}
       {selectedJob && (
         <JobResultDetail
           job={{
             ...selectedJob,
             messageTemplate: selectedJob.messageTemplate
           }}
-          onClose={() => setSelectedJob(null)}
         />
       )}
     </>

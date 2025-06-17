@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -46,6 +45,7 @@ interface MessagePreview {
     lastContactAt: string;
     contactedBy: string;
     hoursAgo: number;
+    daysAgo: number;
   };
 }
 

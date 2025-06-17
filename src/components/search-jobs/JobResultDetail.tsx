@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Users, MapPin, Calendar, Building, ExternalLink } from 'lucide-react';
+import { MessageSquare, Users, MapPin, Calendar, Building, ExternalLink, X } from 'lucide-react';
 import { MessagePreviewModal } from './MessagePreviewModal';
 import { PersonaCard } from './PersonaCard';
 import { JobResult } from '@/hooks/useSearchJobs/useCurrentJobResults';
@@ -14,6 +13,7 @@ interface JobResultDetailProps {
 }
 
 export const JobResultDetail = ({ job }: JobResultDetailProps) => {
+  const [isOpen, setIsOpen] = useState(true);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
   const [hiddenPersonas, setHiddenPersonas] = useState<string[]>([]);
@@ -85,7 +85,6 @@ export const JobResultDetail = ({ job }: JobResultDetailProps) => {
 
   const openMessageModal = () => {
     if (selectedPersonas.length === 0) {
-      // Sélectionner automatiquement tous les personas visibles
       const visiblePersonas = job.personas.filter(p => !hiddenPersonas.includes(p.id));
       setSelectedPersonas(visiblePersonas.map(p => p.id));
     }
@@ -108,145 +107,156 @@ export const JobResultDetail = ({ job }: JobResultDetailProps) => {
     });
   };
 
+  if (!isOpen) {
+    return null;
+  }
+
   return (
     <>
-      <Card className="w-full">
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <CardTitle className="text-xl text-gray-900">{job.title}</CardTitle>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Building className="h-4 w-4" />
-                  <span>{job.company}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  <span>{job.location}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDate(job.postedDate)}</span>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />
+      <div className="fixed inset-4 z-50 overflow-auto">
+        <Card className="w-full max-w-6xl mx-auto">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <CardTitle className="text-xl text-gray-900">{job.title}</CardTitle>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <Building className="h-4 w-4" />
+                    <span>{job.company}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{job.location}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatDate(job.postedDate)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {visiblePersonasCount} contact{visiblePersonasCount > 1 ? 's' : ''}
-                {hiddenPersonas.length > 0 && (
-                  <span className="text-gray-500">
-                    ({hiddenPersonas.length} masqué{hiddenPersonas.length > 1 ? 's' : ''})
-                  </span>
-                )}
-              </Badge>
               
-              {job.jobUrl && (
-                <Button variant="outline" size="sm" asChild>
-                  <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Description du poste */}
-          {job.description && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Description</h4>
-              <p className="text-sm text-gray-700 line-clamp-3">{job.description}</p>
-            </div>
-          )}
-
-          {/* Section des contacts */}
-          {visiblePersonasCount > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-medium text-gray-900">
-                  Contacts ({visiblePersonasCount})
-                </h4>
-                
-                <div className="flex items-center gap-2">
-                  {selectedCount > 0 && (
-                    <span className="text-sm text-gray-600">
-                      {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {visiblePersonasCount} contact{visiblePersonasCount > 1 ? 's' : ''}
+                  {hiddenPersonas.length > 0 && (
+                    <span className="text-gray-500">
+                      ({hiddenPersonas.length} masqué{hiddenPersonas.length > 1 ? 's' : ''})
                     </span>
                   )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectedCount === visiblePersonasCount ? handleDeselectAll : handleSelectAll}
-                  >
-                    {selectedCount === visiblePersonasCount ? 'Tout désélectionner' : 'Tout sélectionner'}
+                </Badge>
+                
+                {job.jobUrl && (
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
                   </Button>
-                  
-                  <Button
-                    onClick={openMessageModal}
-                    disabled={visiblePersonasCount === 0}
-                    className="flex items-center gap-2"
-                    size="sm"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    Contacter {selectedCount > 0 ? `(${selectedCount})` : 'tous'}
-                  </Button>
-                </div>
+                )}
+                
+                <Button variant="outline" size="sm" onClick={() => setIsOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
+            </div>
+          </CardHeader>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {visiblePersonas.map((persona) => (
-                  <PersonaCard
-                    key={persona.id}
-                    persona={persona}
-                    isSelected={selectedPersonas.includes(persona.id)}
-                    onToggleSelect={handleTogglePersona}
-                    onHide={handleHidePersona}
-                    lastContactInfo={lastContactChecks[persona.id]}
-                  />
-                ))}
+          <CardContent className="space-y-6">
+            {/* Description du poste */}
+            {job.description && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Description</h4>
+                <p className="text-sm text-gray-700 line-clamp-3">{job.description}</p>
               </div>
+            )}
 
-              {hiddenPersonas.length > 0 && (
-                <div className="mt-3 text-sm text-gray-500 text-center">
-                  {hiddenPersonas.length} contact{hiddenPersonas.length > 1 ? 's' : ''} masqué{hiddenPersonas.length > 1 ? 's' : ''}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setHiddenPersonas([]);
-                      checkLastContacts(); // Recharger les infos de contact
-                    }}
-                    className="ml-2 h-6 text-xs"
-                  >
-                    Tout afficher
-                  </Button>
+            {/* Section des contacts */}
+            {visiblePersonasCount > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-900">
+                    Contacts ({visiblePersonasCount})
+                  </h4>
+                  
+                  <div className="flex items-center gap-2">
+                    {selectedCount > 0 && (
+                      <span className="text-sm text-gray-600">
+                        {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={selectedCount === visiblePersonasCount ? handleDeselectAll : handleSelectAll}
+                    >
+                      {selectedCount === visiblePersonasCount ? 'Tout désélectionner' : 'Tout sélectionner'}
+                    </Button>
+                    
+                    <Button
+                      onClick={openMessageModal}
+                      disabled={visiblePersonasCount === 0}
+                      className="flex items-center gap-2"
+                      size="sm"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Contacter {selectedCount > 0 ? `(${selectedCount})` : 'tous'}
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {visiblePersonasCount === 0 && hiddenPersonas.length > 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <p>Tous les contacts ont été masqués</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setHiddenPersonas([]);
-                  checkLastContacts();
-                }}
-                className="mt-2"
-              >
-                Tout afficher
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {visiblePersonas.map((persona) => (
+                    <PersonaCard
+                      key={persona.id}
+                      persona={persona}
+                      isSelected={selectedPersonas.includes(persona.id)}
+                      onToggleSelect={handleTogglePersona}
+                      onHide={handleHidePersona}
+                      lastContactInfo={lastContactChecks[persona.id]}
+                    />
+                  ))}
+                </div>
+
+                {hiddenPersonas.length > 0 && (
+                  <div className="mt-3 text-sm text-gray-500 text-center">
+                    {hiddenPersonas.length} contact{hiddenPersonas.length > 1 ? 's' : ''} masqué{hiddenPersonas.length > 1 ? 's' : ''}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setHiddenPersonas([]);
+                        checkLastContacts();
+                      }}
+                      className="ml-2 h-6 text-xs"
+                    >
+                      Tout afficher
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {visiblePersonasCount === 0 && hiddenPersonas.length > 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Tous les contacts ont été masqués</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setHiddenPersonas([]);
+                    checkLastContacts();
+                  }}
+                  className="mt-2"
+                >
+                  Tout afficher
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <MessagePreviewModal
         isOpen={isMessageModalOpen}
