@@ -1,125 +1,118 @@
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, Building, MapPin, X, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { User, X, Clock } from 'lucide-react';
+
+interface Persona {
+  id: string;
+  name: string;
+  title: string;
+  profileUrl: string;
+  company?: string;
+  linkedin_id?: string;
+}
 
 interface PersonaCardProps {
-  persona: {
-    id: string;
-    name: string;
-    title: string;
-    profileUrl: string;
-    company?: string;
-    jobTitle?: string;
-    jobCompany?: string;
-  };
+  persona: Persona;
   isSelected: boolean;
   onToggleSelect: (personaId: string) => void;
   onHide: (personaId: string) => void;
   lastContactInfo?: {
     lastContactAt: string;
     contactedBy: string;
-    hoursAgo: number;
     daysAgo: number;
   };
-  showJobInfo?: boolean;
 }
 
 export const PersonaCard = ({ 
   persona, 
   isSelected, 
   onToggleSelect, 
-  onHide, 
-  lastContactInfo,
-  showJobInfo = false
+  onHide,
+  lastContactInfo 
 }: PersonaCardProps) => {
-  const handleCardClick = () => {
-    onToggleSelect(persona.id);
-  };
+  const [isHidden, setIsHidden] = useState(false);
 
-  const handleHideClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleHide = () => {
+    setIsHidden(true);
     onHide(persona.id);
   };
 
-  return (
-    <Card 
-      className={`cursor-pointer transition-all duration-200 hover:shadow-md relative group ${
-        isSelected 
-          ? 'ring-2 ring-blue-500 bg-blue-50/50' 
-          : 'hover:ring-1 hover:ring-gray-300'
-      } ${
-        lastContactInfo ? 'border-orange-200 bg-orange-50/30' : ''
-      }`}
-      onClick={handleCardClick}
-    >
-      {/* Bouton de masquage */}
-      <div className="absolute top-2 right-2 z-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleHideClick}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1 h-6 w-6"
-        >
-          <X className="h-3 w-3" />
-        </Button>
-      </div>
+  if (isHidden) {
+    return null;
+  }
 
-      <CardContent className="p-4 space-y-3">
-        {/* En-tête avec photo et nom */}
+  return (
+    <Card className={`relative transition-all duration-200 hover:shadow-md ${
+      isSelected ? 'ring-2 ring-blue-500' : ''
+    } ${lastContactInfo ? 'border-orange-200' : ''}`}>
+      {/* Bouton pour masquer */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleHide}
+        className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 z-10"
+        title="Masquer ce contact"
+      >
+        <X className="h-3 w-3" />
+      </Button>
+
+      <CardHeader 
+        className="pb-3 pr-8 cursor-pointer" 
+        onClick={() => onToggleSelect(persona.id)}
+      >
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center flex-shrink-0">
-            <User className="h-5 w-5 text-blue-600" />
+          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+            <User className="h-5 w-5 text-gray-500" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-gray-900 truncate text-sm">{persona.name}</h4>
-            <p className="text-xs text-gray-600 line-clamp-2">{persona.title}</p>
+            <h4 className="font-medium text-sm text-gray-900 truncate">
+              {persona.name}
+            </h4>
+            <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+              {persona.title}
+            </p>
+            {persona.company && (
+              <p className="text-xs text-gray-400 mt-1">
+                {persona.company}
+              </p>
+            )}
           </div>
         </div>
+      </CardHeader>
 
-        {/* Entreprise */}
-        {persona.company && (
-          <div className="flex items-center gap-2 text-xs text-gray-600">
-            <Building className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{persona.company}</span>
-          </div>
-        )}
-
-        {/* Informations du job (si showJobInfo est true) */}
-        {showJobInfo && (persona.jobTitle || persona.jobCompany) && (
-          <div className="pt-2 border-t border-gray-100 space-y-1">
-            <p className="text-xs font-medium text-gray-700">Offre d'emploi :</p>
-            {persona.jobTitle && (
-              <p className="text-xs text-gray-600 truncate">{persona.jobTitle}</p>
+      <CardContent className="pt-0 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-1">
+            {isSelected && (
+              <Badge variant="default" className="text-xs">
+                Sélectionné
+              </Badge>
             )}
-            {persona.jobCompany && (
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <Building className="h-3 w-3" />
-                <span className="truncate">{persona.jobCompany}</span>
-              </div>
+            {lastContactInfo && (
+              <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
+                <Clock className="h-3 w-3 mr-1" />
+                Contacté il y a {lastContactInfo.daysAgo}j
+              </Badge>
             )}
           </div>
-        )}
-
-        {/* Alerte contact récent */}
+          
+          <Button
+            variant={isSelected ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => onToggleSelect(persona.id)}
+            className="text-xs h-7"
+          >
+            {isSelected ? 'Désélectionner' : 'Sélectionner'}
+          </Button>
+        </div>
+        
         {lastContactInfo && (
-          <div className="flex items-start gap-2 p-2 bg-orange-100 rounded-md">
-            <AlertTriangle className="h-3 w-3 text-orange-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-orange-800">
-              <p className="font-medium">Contacté récemment</p>
-              <p>Il y a {lastContactInfo.daysAgo}j par {lastContactInfo.contactedBy}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Badge de sélection */}
-        {isSelected && (
-          <div className="flex justify-center">
-            <Badge variant="default" className="bg-blue-600 text-xs">
-              Sélectionné
-            </Badge>
-          </div>
+          <p className="text-xs text-orange-600 mt-2">
+            Dernier contact par {lastContactInfo.contactedBy}
+          </p>
         )}
       </CardContent>
     </Card>

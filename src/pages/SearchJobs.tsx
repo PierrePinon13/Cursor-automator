@@ -5,17 +5,12 @@ import PageLayout from '@/components/PageLayout';
 import { SearchJobsForm } from '@/components/search-jobs/SearchJobsForm';
 import { CompactSavedSearches } from '@/components/search-jobs/CompactSavedSearches';
 import { SearchResults } from '@/components/search-jobs/SearchResults';
-import { ContactsOverview } from '@/components/search-jobs/ContactsOverview';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
-import { Search, Plus, RefreshCw, Users } from 'lucide-react';
+import { Search, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 
 const SearchJobs = () => {
-  const navigate = useNavigate();
-
   const {
     savedSearches,
     currentResults,
@@ -29,7 +24,6 @@ const SearchJobs = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
-  const [showContactsOverview, setShowContactsOverview] = useState(false);
 
   // Reset explicite des résultats
   const resetCurrentResults = () => {
@@ -100,9 +94,6 @@ const SearchJobs = () => {
     }
   };
 
-  // Calculer le nombre total de contacts
-  const totalContacts = currentResults?.reduce((acc, job) => acc + (job.personas?.length || 0), 0) || 0;
-
   // Synchroniser le reset explicit des résultats avec le state local
   useEffect(() => {
     function listener() {
@@ -158,12 +149,10 @@ const SearchJobs = () => {
           { label: "Search Jobs" }
         ]}
         actions={
-          <div className="flex items-center gap-2">
-            <Button onClick={handleNewSearch} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Nouvelle recherche
-            </Button>
-          </div>
+          <Button onClick={handleNewSearch} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Nouvelle recherche
+          </Button>
         }
       />
 
@@ -207,78 +196,28 @@ const SearchJobs = () => {
           </div>
         )}
 
-        {/* Résultats avec bouton de prospection volumique bien visible */}
+        {/* Résultats */}
         {selectedSearch && (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Résultats pour : <span className="text-blue-700">{selectedSearch.name}</span>
-                </h3>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleRefresh}
-                  className="flex items-center gap-2"
-                  title="Rafraîchir les résultats"
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Rafraîchir
-                </Button>
-              </div>
-              
-              {/* BOUTON DE PROSPECTION VOLUMIQUE - REDIRECTION VERS PAGE DÉDIÉE */}
-              {totalContacts > 0 && (
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-sm px-3 py-1">
-                    {totalContacts} contact{totalContacts > 1 ? 's' : ''} trouvé{totalContacts > 1 ? 's' : ''}
-                  </Badge>
-                  <Button 
-                    onClick={() => {
-                      console.log('🔘 Redirection vers la prospection volumique');
-                      
-                      // Préparer tous les contacts avec leurs informations de job
-                      const allContacts = currentResults.flatMap(job => 
-                        job.personas?.map((persona: any) => ({
-                          ...persona,
-                          jobTitle: job.title,
-                          jobCompany: job.company
-                        })) || []
-                      );
-
-                      // Dédupliquer par profileUrl
-                      const uniqueContacts = allContacts.reduce((acc, contact) => {
-                        const existing = acc.find(c => c.profileUrl === contact.profileUrl);
-                        if (!existing) {
-                          acc.push(contact);
-                        }
-                        return acc;
-                      }, [] as any[]);
-
-                      // Construire l'URL avec les paramètres
-                      const params = new URLSearchParams({
-                        searchId: selectedSearch.id,
-                        searchName: encodeURIComponent(selectedSearch.name),
-                        jobTitle: encodeURIComponent('Recherche groupée'),
-                        companyName: encodeURIComponent(selectedSearch.name),
-                        contacts: encodeURIComponent(JSON.stringify(uniqueContacts))
-                      });
-
-                      navigate(`/bulk-prospecting?${params.toString()}`);
-                    }}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Users className="h-4 w-4" />
-                    Prospection volumique
-                  </Button>
-                </div>
-              )}
+            <div className="flex items-center gap-3 mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                Résultats pour : <span className="text-blue-700">{selectedSearch.name}</span>
+              </h3>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleRefresh}
+                className="flex items-center gap-2"
+                title="Rafraîchir les résultats"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Rafraîchir
+              </Button>
             </div>
-            
             <SearchResults
               results={currentResults}
               isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)}
-              key={`search-results-${selectedSearch.id}-${currentResults?.length || 0}`}
+              key={selectedSearch.id}
             />
           </div>
         )}
@@ -298,8 +237,6 @@ const SearchJobs = () => {
         onClick={handleNewSearch}
         icon={<Plus className="h-5 w-5" />}
       />
-
-      {/* Suppression du modal ContactsOverview car on utilise maintenant la page dédiée */}
     </PageLayout>
   );
 };
