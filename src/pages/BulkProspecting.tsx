@@ -12,6 +12,7 @@ import { ProspectingStepProfile } from '@/components/bulk-prospecting/Prospectin
 import { ProspectingStepTemplate } from '@/components/bulk-prospecting/ProspectingStepTemplate';
 import { ProspectingStepMessages } from '@/components/bulk-prospecting/ProspectingStepMessages';
 import { ProspectingStepValidation } from '@/components/bulk-prospecting/ProspectingStepValidation';
+import { supabase } from '@/integrations/supabase/client';
 
 interface JobData {
   id: string;
@@ -47,36 +48,85 @@ const BulkProspecting = () => {
     const totalPersonasParam = searchParams.get('totalPersonas');
     const personasParam = searchParams.get('personas');
     const templateParam = searchParams.get('template');
+    const fromSavedSearch = searchParams.get('fromSavedSearch');
     
-    if (!searchId || !personasParam) {
+    if (!searchId) {
       navigate('/search-jobs');
       return;
     }
 
-    try {
-      const personas = JSON.parse(personasParam);
-      
-      // Pour la prospection volumique, on crée un objet "job" virtuel
-      const mockJobData: JobData = {
-        id: searchId,
-        title: `${totalPersonasParam || personas.length} contacts`,
-        company: `${totalJobsParam || 0} offres d'emploi`,
-        personas: personas
-      };
-      
-      setJobData(mockJobData);
-      setSearchName(searchNameParam || 'Recherche');
-      setTotalJobs(parseInt(totalJobsParam || '0'));
-      setBulkState(prev => ({
-        ...prev,
-        selectedPersonas: personas,
-        messageTemplate: templateParam || ''
-      }));
-    } catch (error) {
-      console.error('Erreur lors du parsing des données:', error);
+    // Si on vient d'une recherche sauvegardée, récupérer les résultats
+    if (fromSavedSearch === 'true') {
+      fetchSavedSearchResults(searchId, searchNameParam, templateParam);
+    } else if (personasParam) {
+      // Utiliser les données passées en paramètres
+      try {
+        const personas = JSON.parse(personasParam);
+        
+        const mockJobData: JobData = {
+          id: searchId,
+          title: `${totalPersonasParam || personas.length} contacts`,
+          company: `${totalJobsParam || 0} offres d'emploi`,
+          personas: personas
+        };
+        
+        setJobData(mockJobData);
+        setSearchName(searchNameParam || 'Recherche');
+        setTotalJobs(parseInt(totalJobsParam || '0'));
+        setBulkState(prev => ({
+          ...prev,
+          selectedPersonas: personas,
+          messageTemplate: templateParam || ''
+        }));
+      } catch (error) {
+        console.error('Erreur lors du parsing des données:', error);
+        navigate('/search-jobs');
+      }
+    } else {
       navigate('/search-jobs');
     }
   }, [searchParams, navigate]);
+
+  const fetchSavedSearchResults = async (searchId: string, searchName: string | null, template: string | null) => {
+    try {
+      // Récupérer tous les résultats de la recherche sauvegardée
+      const { data: results, error } = await supabase
+        .from('job_search_results')
+        .select('*')
+        .eq('search_id', searchId);
+
+      if (error) throw error;
+
+      // Extraire tous les personas
+      const allPersonas = results
+        .filter(job => job.personas && job.personas.length > 0)
+        .flatMap(job => job.personas.map((persona: any) => ({
+          ...persona,
+          jobTitle: job.title,
+          jobCompany: job.company,
+          jobId: job.id
+        })));
+
+      const mockJobData: JobData = {
+        id: searchId,
+        title: `${allPersonas.length} contacts`,
+        company: `${results.length} offres d'emploi`,
+        personas: allPersonas
+      };
+      
+      setJobData(mockJobData);
+      setSearchName(searchName || 'Recherche sauvegardée');
+      setTotalJobs(results.length);
+      setBulkState(prev => ({
+        ...prev,
+        selectedPersonas: allPersonas,
+        messageTemplate: template || ''
+      }));
+    } catch (error) {
+      console.error('Erreur lors de la récupération des résultats:', error);
+      navigate('/search-jobs');
+    }
+  };
 
   const steps = [
     { 

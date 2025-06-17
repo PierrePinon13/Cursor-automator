@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -169,6 +170,18 @@ const SearchJobs = () => {
     navigate(`/bulk-prospecting?${params.toString()}`);
   };
 
+  const handleBulkProspectingForSavedSearch = (search: any) => {
+    // Construire les paramètres pour la prospection volumique d'une recherche spécifique
+    const params = new URLSearchParams({
+      searchId: search.id,
+      searchName: search.name,
+      fromSavedSearch: 'true',
+      template: search.messageTemplate || ''
+    });
+    
+    navigate(`/bulk-prospecting?${params.toString()}`);
+  };
+
   return (
     <PageLayout>
       <GlobalPageHeader
@@ -209,7 +222,7 @@ const SearchJobs = () => {
           />
         )}
 
-        {/* Recherches sauvegardées - Collapsible */}
+        {/* Recherches sauvegardées - Interface directe */}
         {savedSearches.length > 0 && (
           <div className="space-y-4">
             <div 
@@ -234,6 +247,7 @@ const SearchJobs = () => {
                 onDelete={handleDeleteSearch}
                 onLoadResults={handleLoadResults}
                 onSelect={handleSelectSearch}
+                onBulkProspecting={handleBulkProspectingForSavedSearch}
                 selectedSearchId={selectedSearch?.id}
               />
             )}

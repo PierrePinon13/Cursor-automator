@@ -23,15 +23,26 @@ export const ProspectingStepTemplate = ({
   template, 
   onTemplateChange 
 }: ProspectingStepTemplateProps) => {
-  const defaultTemplate = `Bonjour [PRENOM],
+  const defaultTemplate = `Bonjour {{firstName}},
 
-J'ai vu votre annonce pour le poste de [POSTE] chez [ENTREPRISE]. 
+J'ai vu votre annonce pour le poste de {{jobTitle}} chez {{companyName}}. 
 
 Votre profil correspond parfaitement à ce que nous recherchons pour nos clients. J'aimerais vous présenter une opportunité qui pourrait vous intéresser.
 
 Êtes-vous disponible pour un échange rapide cette semaine ?
 
 Cordialement`;
+
+  // Fonction pour remplacer les variables dans l'aperçu
+  const generatePreview = (templateText: string) => {
+    return templateText
+      .replace(/\{\{firstName\}\}/g, 'Marie')
+      .replace(/\{\{lastName\}\}/g, 'Dupont')
+      .replace(/\{\{jobTitle\}\}/g, jobData.title)
+      .replace(/\{\{companyName\}\}/g, jobData.company)
+      .replace(/\{\{personaTitle\}\}/g, 'Directrice RH')
+      .replace(/\{\{personaCompany\}\}/g, 'TechCorp');
+  };
 
   return (
     <Card>
@@ -57,7 +68,7 @@ Cordialement`;
             Ce template sera utilisé comme base pour tous les messages. Vous pourrez personnaliser 
             chaque message individuellement à l'étape suivante.
             <br /><br />
-            Variables disponibles : [PRENOM], [NOM], [POSTE], [ENTREPRISE], [TITRE_PERSONA], [ENTREPRISE_PERSONA]
+            Variables disponibles : {{'{'}firstName{'}'}}, {{'{'}lastName{'}'}}, {{'{'}jobTitle{'}'}}, {{'{'}companyName{'}'}}, {{'{'}personaTitle{'}'}}, {{'{'}personaCompany{'}'}}
           </AlertDescription>
         </Alert>
 
@@ -69,14 +80,7 @@ Cordialement`;
         <div className="bg-gray-50 p-4 rounded-lg">
           <h4 className="font-medium text-sm mb-2">Aperçu avec des variables remplies :</h4>
           <div className="text-sm text-gray-700 whitespace-pre-wrap border-l-4 border-blue-500 pl-4">
-            {(template || defaultTemplate)
-              .replace(/\[PRENOM\]/g, 'Marie')
-              .replace(/\[NOM\]/g, 'Dupont')
-              .replace(/\[POSTE\]/g, jobData.title)
-              .replace(/\[ENTREPRISE\]/g, jobData.company)
-              .replace(/\[TITRE_PERSONA\]/g, 'Directrice RH')
-              .replace(/\[ENTREPRISE_PERSONA\]/g, 'TechCorp')
-            }
+            {generatePreview(template || defaultTemplate)}
           </div>
         </div>
       </CardContent>
