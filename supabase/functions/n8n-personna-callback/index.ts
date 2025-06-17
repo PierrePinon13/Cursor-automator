@@ -40,7 +40,7 @@ serve(async (req) => {
     // Mettre à jour les job_search_results correspondants avec les personas trouvées
     const { data: jobResults, error: fetchError } = await supabase
       .from('job_search_results')
-      .select('id, job_id')
+      .select('id, job_id, personas')
       .eq('search_id', search_id)
       .eq('company_id', company_id);
 
@@ -68,13 +68,41 @@ serve(async (req) => {
 
     console.log(`✅ Found ${jobResults.length} job result(s) to update with personas`);
 
-    // Mettre à jour chaque job_search_result avec les personas
+    // Mettre à jour chaque job_search_result en fusionnant les personas
     let updatedCount = 0;
     for (const jobResult of jobResults) {
+      // Récupérer les personas existantes
+      let existingPersonas = [];
+      if (jobResult.personas) {
+        try {
+          if (typeof jobResult.personas === 'string') {
+            existingPersonas = JSON.parse(jobResult.personas);
+          } else if (Array.isArray(jobResult.personas)) {
+            existingPersonas = jobResult.personas;
+          }
+        } catch (e) {
+          console.warn(`⚠️ Could not parse existing personas for job ${jobResult.id}:`, e);
+          existingPersonas = [];
+        }
+      }
+
+      // Fusionner avec les nouvelles personas en évitant les doublons par linkedin_id
+      const mergedPersonas = [...existingPersonas];
+      const existingLinkedInIds = new Set(existingPersonas.map(p => p.linkedin_id).filter(Boolean));
+      
+      for (const newPersona of results) {
+        if (newPersona.linkedin_id && !existingLinkedInIds.has(newPersona.linkedin_id)) {
+          mergedPersonas.push(newPersona);
+          existingLinkedInIds.add(newPersona.linkedin_id);
+        }
+      }
+
+      console.log(`📊 Job ${jobResult.id}: ${existingPersonas.length} existing + ${results.length} new = ${mergedPersonas.length} total personas`);
+
       const { error: updateError } = await supabase
         .from('job_search_results')
         .update({ 
-          personas: results,
+          personas: mergedPersonas,
           updated_at: new Date().toISOString()
         })
         .eq('id', jobResult.id);
@@ -82,19 +110,52 @@ serve(async (req) => {
       if (updateError) {
         console.error(`❌ Error updating job result ${jobResult.id}:`, updateError);
       } else {
-        console.log(`✅ Updated job result ${jobResult.id} with ${results.length} personas`);
+        console.log(`✅ Updated job result ${jobResult.id} with ${mergedPersonas.length} total personas (added ${mergedPersonas.length - existingPersonas.length} new)`);
         updatedCount++;
       }
     }
 
     // Sauvegarder aussi dans la table job_search_personas pour un suivi global
-    // Utiliser les colonnes au lieu du nom de la contrainte pour l'upsert
+    // Ici aussi, on fusionne avec les données existantes
+    const { data: existingData } = await supabase
+      .from('job_search_personas')
+      .select('personas')
+      .eq('search_id', search_id)
+      .eq('company_id', company_id)
+      .single();
+
+    let allPersonas = results;
+    if (existingData?.personas) {
+      try {
+        let existingGlobalPersonas = [];
+        if (typeof existingData.personas === 'string') {
+          existingGlobalPersonas = JSON.parse(existingData.personas);
+        } else if (Array.isArray(existingData.personas)) {
+          existingGlobalPersonas = existingData.personas;
+        }
+
+        // Fusionner en évitant les doublons
+        const mergedGlobalPersonas = [...existingGlobalPersonas];
+        const existingLinkedInIds = new Set(existingGlobalPersonas.map(p => p.linkedin_id).filter(Boolean));
+        
+        for (const newPersona of results) {
+          if (newPersona.linkedin_id && !existingLinkedInIds.has(newPersona.linkedin_id)) {
+            mergedGlobalPersonas.push(newPersona);
+          }
+        }
+        
+        allPersonas = mergedGlobalPersonas;
+      } catch (e) {
+        console.warn('⚠️ Could not parse existing global personas:', e);
+      }
+    }
+
     const { error: upsertError } = await supabase
       .from('job_search_personas')
       .upsert({
         search_id,
         company_id,
-        personas: results,
+        personas: allPersonas,
         status: 'loaded',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -106,7 +167,7 @@ serve(async (req) => {
       console.error('⚠️ Error upserting to job_search_personas:', upsertError);
       // Non-bloquant, on continue
     } else {
-      console.log(`✅ Upserted personas data for search_id=${search_id} and company_id=${company_id}`);
+      console.log(`✅ Upserted ${allPersonas.length} total personas for search_id=${search_id} and company_id=${company_id}`);
     }
 
     // Déclencher un événement pour informer le frontend de la mise à jour
