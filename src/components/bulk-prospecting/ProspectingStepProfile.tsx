@@ -58,6 +58,10 @@ export const ProspectingStepProfile = ({
     onSelectionChange([]);
   };
 
+  const handleShowOnlySelectedChange = (checked: boolean | "indeterminate") => {
+    setShowOnlySelected(checked === true);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -96,7 +100,7 @@ export const ProspectingStepProfile = ({
             <Checkbox
               id="show-selected"
               checked={showOnlySelected}
-              onCheckedChange={setShowOnlySelected}
+              onCheckedChange={handleShowOnlySelectedChange}
             />
             <label htmlFor="show-selected" className="text-sm">
               Afficher seulement les sélectionnés

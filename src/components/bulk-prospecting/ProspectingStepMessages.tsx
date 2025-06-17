@@ -89,7 +89,6 @@ export const ProspectingStepMessages = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
-              size="sm"
             />
           </div>
         </CardHeader>
