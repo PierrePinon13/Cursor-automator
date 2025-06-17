@@ -24,7 +24,7 @@ import History from "./pages/History";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import BulkProspecting from "./pages/BulkProspecting";
-import { useAuth } from "./hooks/useAuth";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -105,7 +105,8 @@ const router = createBrowserRouter([
   },
 ]);
 
-function App() {
+// Create a separate component for the router logic that uses auth
+function AppWithAuth() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -119,10 +120,16 @@ function App() {
     }
   }, [session, loading, navigate, isFirstLoad]);
 
+  return <RouterProvider router={router} />;
+}
+
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-      <Toaster />
+      <AuthProvider>
+        <AppWithAuth />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
