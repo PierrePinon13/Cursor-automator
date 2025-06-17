@@ -12,12 +12,12 @@ interface MessageTemplateProps {
 
 export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) => {
   const variables = [
-    { name: '{{firstName}}', description: 'Prénom du contact', legacy: '[PRENOM]' },
-    { name: '{{lastName}}', description: 'Nom du contact', legacy: '[NOM]' },
-    { name: '{{jobTitle}}', description: 'Titre du poste recherché', legacy: '[POSTE]' },
-    { name: '{{companyName}}', description: 'Nom de l\'entreprise qui recrute', legacy: '[ENTREPRISE]' },
-    { name: '{{personaTitle}}', description: 'Titre du contact', legacy: '[TITRE_PERSONA]' },
-    { name: '{{personaCompany}}', description: 'Entreprise du contact', legacy: '[ENTREPRISE_PERSONA]' }
+    { name: '{{firstName}}', description: 'Prénom du contact' },
+    { name: '{{lastName}}', description: 'Nom du contact' },
+    { name: '{{jobTitle}}', description: 'Titre du poste recherché' },
+    { name: '{{companyName}}', description: 'Nom de l\'entreprise qui recrute' },
+    { name: '{{personaTitle}}', description: 'Titre du contact' },
+    { name: '{{personaCompany}}', description: 'Entreprise du contact' }
   ];
 
   const insertVariable = (variable: string) => {
@@ -37,6 +37,13 @@ export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) =>
       onChange(template + variable);
     }
   };
+
+  const placeholderText = `Bonjour {{firstName}},
+
+J'ai vu votre annonce pour le poste de {{jobTitle}} chez {{companyName}}. 
+Votre profil correspond parfaitement à ce que nous recherchons...
+
+Variables disponibles: {{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}}, {{personaTitle}}, {{personaCompany}}`;
 
   return (
     <div className="space-y-3">
@@ -65,12 +72,7 @@ export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) =>
 
       <Textarea
         data-message-template="true"
-        placeholder={`Bonjour {{firstName}},
-
-J'ai vu votre annonce pour le poste de {{jobTitle}} chez {{companyName}}. 
-Votre profil correspond parfaitement à ce que nous recherchons...
-
-Variables disponibles: {{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}}, {{personaTitle}}, {{personaCompany}}`}
+        placeholder={placeholderText}
         value={template}
         onChange={(e) => onChange(e.target.value)}
         className="min-h-[120px] resize-none"

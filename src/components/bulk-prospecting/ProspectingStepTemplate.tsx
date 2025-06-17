@@ -68,7 +68,7 @@ Cordialement`;
             Ce template sera utilisé comme base pour tous les messages. Vous pourrez personnaliser 
             chaque message individuellement à l'étape suivante.
             <br /><br />
-            Variables disponibles : {'{{'}{'{'}firstName{'}}'}{'}'}, {'{{'}{'{'}lastName{'}}'}{'}'}, {'{{'}{'{'}jobTitle{'}}'}{'}'}, {'{{'}{'{'}companyName{'}}'}{'}'}, {'{{'}{'{'}personaTitle{'}}'}{'}'}, {'{{'}{'{'}personaCompany{'}'}'}'}
+            Variables disponibles : {'{{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}}, {{personaTitle}}, {{personaCompany}}'}
           </AlertDescription>
         </Alert>
 
