@@ -11,8 +11,11 @@ import { Search, Plus, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const SearchJobs = () => {
+  const navigate = useNavigate();
+
   const {
     savedSearches,
     currentResults,
@@ -224,7 +227,7 @@ const SearchJobs = () => {
                 </Button>
               </div>
               
-              {/* BOUTON DE PROSPECTION VOLUMIQUE - OUVERTURE MANUELLE UNIQUEMENT */}
+              {/* BOUTON DE PROSPECTION VOLUMIQUE - REDIRECTION VERS PAGE DÉDIÉE */}
               {totalContacts > 0 && (
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="text-sm px-3 py-1">
@@ -232,8 +235,36 @@ const SearchJobs = () => {
                   </Badge>
                   <Button 
                     onClick={() => {
-                      console.log('🔘 Ouverture manuelle de la prospection volumique');
-                      setShowContactsOverview(true);
+                      console.log('🔘 Redirection vers la prospection volumique');
+                      
+                      // Préparer tous les contacts avec leurs informations de job
+                      const allContacts = currentResults.flatMap(job => 
+                        job.personas?.map((persona: any) => ({
+                          ...persona,
+                          jobTitle: job.title,
+                          jobCompany: job.company
+                        })) || []
+                      );
+
+                      // Dédupliquer par profileUrl
+                      const uniqueContacts = allContacts.reduce((acc, contact) => {
+                        const existing = acc.find(c => c.profileUrl === contact.profileUrl);
+                        if (!existing) {
+                          acc.push(contact);
+                        }
+                        return acc;
+                      }, [] as any[]);
+
+                      // Construire l'URL avec les paramètres
+                      const params = new URLSearchParams({
+                        searchId: selectedSearch.id,
+                        searchName: encodeURIComponent(selectedSearch.name),
+                        jobTitle: encodeURIComponent('Recherche groupée'),
+                        companyName: encodeURIComponent(selectedSearch.name),
+                        contacts: encodeURIComponent(JSON.stringify(uniqueContacts))
+                      });
+
+                      navigate(`/bulk-prospecting?${params.toString()}`);
                     }}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
                   >
@@ -268,18 +299,7 @@ const SearchJobs = () => {
         icon={<Plus className="h-5 w-5" />}
       />
 
-      {/* Modal d'aperçu des contacts - CONTRÔLÉ MANUELLEMENT */}
-      {showContactsOverview && selectedSearch && currentResults && (
-        <ContactsOverview
-          searchResults={currentResults}
-          searchName={selectedSearch.name}
-          isOpen={showContactsOverview}
-          onClose={() => {
-            console.log('🔘 Fermeture manuelle de la prospection volumique');
-            setShowContactsOverview(false);
-          }}
-        />
-      )}
+      {/* Suppression du modal ContactsOverview car on utilise maintenant la page dédiée */}
     </PageLayout>
   );
 };
