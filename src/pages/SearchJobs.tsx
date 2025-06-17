@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -5,8 +6,9 @@ import PageLayout from '@/components/PageLayout';
 import { SearchJobsForm } from '@/components/search-jobs/SearchJobsForm';
 import { CompactSavedSearches } from '@/components/search-jobs/CompactSavedSearches';
 import { SearchResults } from '@/components/search-jobs/SearchResults';
+import { ContactsOverview } from '@/components/search-jobs/ContactsOverview';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
-import { Search, Plus, RefreshCw } from 'lucide-react';
+import { Search, Plus, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,6 +26,7 @@ const SearchJobs = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
+  const [showContactsOverview, setShowContactsOverview] = useState(false);
 
   // Reset explicite des résultats
   const resetCurrentResults = () => {
@@ -149,10 +152,22 @@ const SearchJobs = () => {
           { label: "Search Jobs" }
         ]}
         actions={
-          <Button onClick={handleNewSearch} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Nouvelle recherche
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedSearch && currentResults?.length > 0 && (
+              <Button 
+                onClick={() => setShowContactsOverview(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Tous les contacts
+              </Button>
+            )}
+            <Button onClick={handleNewSearch} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nouvelle recherche
+            </Button>
+          </div>
         }
       />
 
@@ -237,6 +252,16 @@ const SearchJobs = () => {
         onClick={handleNewSearch}
         icon={<Plus className="h-5 w-5" />}
       />
+
+      {/* Modal d'aperçu des contacts */}
+      {showContactsOverview && selectedSearch && currentResults && (
+        <ContactsOverview
+          searchResults={currentResults}
+          searchName={selectedSearch.name}
+          isOpen={showContactsOverview}
+          onClose={() => setShowContactsOverview(false)}
+        />
+      )}
     </PageLayout>
   );
 };
