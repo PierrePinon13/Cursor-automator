@@ -12,7 +12,7 @@ import { ProspectingStepTemplate } from '@/components/bulk-prospecting/Prospecti
 import { ProspectingStepMessages } from '@/components/bulk-prospecting/ProspectingStepMessages';
 import { ProspectingStepValidation } from '@/components/bulk-prospecting/ProspectingStepValidation';
 import { supabase } from '@/integrations/supabase/client';
-import { JobData, BulkProspectingState, Persona, JobSearchResult } from '@/types/jobSearch';
+import { JobData, BulkProspectingState, Persona } from '@/types/jobSearch';
 
 const BulkProspecting = () => {
   const [searchParams] = useSearchParams();
@@ -86,24 +86,54 @@ const BulkProspecting = () => {
 
       console.log('Raw results from database:', results);
 
-      // Extraire tous les personas avec vérification de type
+      // Extraire tous les personas avec transformation sécurisée
       const allPersonas: Persona[] = [];
       
       if (Array.isArray(results)) {
-        results.forEach((job: JobSearchResult) => {
-          if (job.personas && Array.isArray(job.personas)) {
-            job.personas.forEach((persona: any) => {
+        results.forEach((job) => {
+          // Transformation sécurisée des personas depuis Json vers Persona[]
+          let personas: Persona[] = [];
+          
+          if (job.personas) {
+            try {
+              // Si personas est une string JSON, la parser
+              if (typeof job.personas === 'string') {
+                personas = JSON.parse(job.personas);
+              } 
+              // Si c'est déjà un array, l'utiliser directement
+              else if (Array.isArray(job.personas)) {
+                personas = job.personas as Persona[];
+              }
+              // Si c'est un objet, essayer de l'extraire
+              else if (typeof job.personas === 'object' && job.personas !== null) {
+                // Traiter comme un objet qui pourrait contenir un array
+                const personasObj = job.personas as any;
+                if (Array.isArray(personasObj)) {
+                  personas = personasObj;
+                } else if (personasObj.personas && Array.isArray(personasObj.personas)) {
+                  personas = personasObj.personas;
+                }
+              }
+            } catch (parseError) {
+              console.warn('Erreur parsing personas pour job', job.id, parseError);
+              personas = [];
+            }
+          }
+
+          // Valider et nettoyer chaque persona
+          if (Array.isArray(personas)) {
+            personas.forEach((persona: any) => {
               if (persona && typeof persona === 'object' && persona.name && persona.title) {
                 allPersonas.push({
                   id: persona.id || `${job.id}-${persona.name}`,
-                  name: persona.name,
-                  title: persona.title,
-                  company: persona.company || job.company_name || '',
-                  profile_url: persona.profile_url || '',
-                  location: persona.location,
-                  jobTitle: job.job_title || '',
-                  jobCompany: job.company_name || '',
-                  jobId: job.id
+                  name: String(persona.name),
+                  title: String(persona.title),
+                  company: String(persona.company || job.company_name || ''),
+                  profile_url: String(persona.profile_url || ''),
+                  location: persona.location ? String(persona.location) : undefined,
+                  jobTitle: job.job_title ? String(job.job_title) : undefined,
+                  jobCompany: job.company_name ? String(job.company_name) : undefined,
+                  jobId: String(job.id)
                 });
               }
             });
@@ -114,13 +144,13 @@ const BulkProspecting = () => {
       const mockJobData: JobData = {
         id: searchId,
         title: `${allPersonas.length} contacts`,
-        company: `${results.length} offres d'emploi`,
+        company: `${results?.length || 0} offres d'emploi`,
         personas: allPersonas
       };
       
       setJobData(mockJobData);
       setSearchName(searchName || 'Recherche sauvegardée');
-      setTotalJobs(results.length);
+      setTotalJobs(results?.length || 0);
       setBulkState(prev => ({
         ...prev,
         selectedPersonas: allPersonas,
