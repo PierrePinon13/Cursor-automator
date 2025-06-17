@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro, Briefcase, Filter } from 'lucide-react';
+import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro, Briefcase, Filter, UserPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { JobResultDetail } from './JobResultDetail';
 import { CompanyLogo } from "./CompanyLogo";
+import { useNavigate } from 'react-router-dom';
 
 // Palette de couleurs pour types d'offres (pour harmoniser)
 const jobTypeColors: Record<string, { 
@@ -64,6 +65,7 @@ interface SearchResultsProps {
 }
 
 export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsProps) => {
+  const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
   const [hiddenJobs, setHiddenJobs] = useState<Set<string>>(new Set());
   const [personaFilter, setPersonaFilter] = useState<'all' | 'with-personas' | 'without-personas'>('all');
@@ -122,6 +124,22 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
   }, [results, personaFilter, cityFilter]);
 
   const visibleResults = filteredResults.filter(job => !hiddenJobs.has(job.id));
+
+  const handleBulkProspecting = (job: JobResult) => {
+    if (!job.personas || job.personas.length === 0) return;
+    
+    // Construire les paramètres URL pour passer les données à la page de prospection
+    const params = new URLSearchParams({
+      searchId: 'current', // ou l'ID de la recherche actuelle
+      jobId: job.id,
+      title: job.title,
+      company: job.company,
+      personas: JSON.stringify(job.personas),
+      template: job.messageTemplate || ''
+    });
+    
+    navigate(`/bulk-prospecting?${params.toString()}`);
+  };
 
   if (isLoading) {
     return (
@@ -326,18 +344,36 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
                   {/* Footer harmonisé */}
                   <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0 ${cardSaturation}`}>
                     <div className="flex items-center justify-between text-xs text-gray-700">
-                      <Button
-                        onClick={e => {
-                          e.stopPropagation();
-                          setSelectedJob(job);
-                        }}
-                        className="flex items-center gap-2"
-                        size="sm"
-                        disabled={!hasPersonas}
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        {hasPersonas ? 'Prendre contact' : 'Aucun contact'}
-                      </Button>  
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setSelectedJob(job);
+                          }}
+                          className="flex items-center gap-2"
+                          size="sm"
+                          disabled={!hasPersonas}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          {hasPersonas ? 'Contacter' : 'Aucun contact'}
+                        </Button>
+                        
+                        {hasPersonas && job.personas.length > 1 && (
+                          <Button
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleBulkProspecting(job);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Prospection
+                          </Button>
+                        )}
+                      </div>
+                      
                       {job.jobUrl && (
                         <Button
                           variant="outline"

@@ -15,6 +15,7 @@ import Clients from "./pages/Clients";
 import Tasks from "./pages/Tasks";
 import JobSearch from "./pages/JobSearch";
 import SearchJobs from "./pages/SearchJobs";
+import BulkProspecting from "./pages/BulkProspecting";
 import HrProviders from "./pages/HrProviders";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
@@ -49,6 +50,7 @@ function App() {
                     <Route path="/tasks" element={<Tasks />} />
                     <Route path="/job-search" element={<JobSearch />} />
                     <Route path="/search-jobs" element={<SearchJobs />} />
+                    <Route path="/bulk-prospecting" element={<BulkProspecting />} />
                     <Route path="/hr-providers" element={<HrProviders />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/admin" element={<Admin />} />
