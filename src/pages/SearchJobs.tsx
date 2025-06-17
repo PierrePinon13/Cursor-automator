@@ -224,14 +224,17 @@ const SearchJobs = () => {
                 </Button>
               </div>
               
-              {/* BOUTON DE PROSPECTION VOLUMIQUE BIEN VISIBLE */}
+              {/* BOUTON DE PROSPECTION VOLUMIQUE - OUVERTURE MANUELLE UNIQUEMENT */}
               {totalContacts > 0 && (
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="text-sm px-3 py-1">
                     {totalContacts} contact{totalContacts > 1 ? 's' : ''} trouvé{totalContacts > 1 ? 's' : ''}
                   </Badge>
                   <Button 
-                    onClick={() => setShowContactsOverview(true)}
+                    onClick={() => {
+                      console.log('🔘 Ouverture manuelle de la prospection volumique');
+                      setShowContactsOverview(true);
+                    }}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
                   >
                     <Users className="h-4 w-4" />
@@ -265,13 +268,16 @@ const SearchJobs = () => {
         icon={<Plus className="h-5 w-5" />}
       />
 
-      {/* Modal d'aperçu des contacts */}
+      {/* Modal d'aperçu des contacts - CONTRÔLÉ MANUELLEMENT */}
       {showContactsOverview && selectedSearch && currentResults && (
         <ContactsOverview
           searchResults={currentResults}
           searchName={selectedSearch.name}
           isOpen={showContactsOverview}
-          onClose={() => setShowContactsOverview(false)}
+          onClose={() => {
+            console.log('🔘 Fermeture manuelle de la prospection volumique');
+            setShowContactsOverview(false);
+          }}
         />
       )}
     </PageLayout>

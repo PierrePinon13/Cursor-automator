@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MessageSquare, Users, Eye, EyeOff, Building } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { MessageSquare, Users, Eye, EyeOff, Building, X } from 'lucide-react';
 import { PersonaCard } from './PersonaCard';
 import { MessagePreviewModal } from './MessagePreviewModal';
 import { supabase } from '@/integrations/supabase/client';
@@ -133,22 +134,17 @@ export const ContactsOverview = ({ searchResults, searchName, isOpen, onClose }:
   const visibleCount = visibleContacts.length;
   const recentContactCount = visibleContacts.filter(c => lastContactChecks[c.id]).length;
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed inset-4 z-50 overflow-auto">
-        <Card className="w-full max-w-7xl mx-auto">
-          <CardHeader>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <CardTitle className="text-xl text-gray-900 flex items-center gap-2">
+                <DialogTitle className="text-xl text-gray-900 flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   Tous les contacts - {searchName}
-                </CardTitle>
+                </DialogTitle>
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   <div className="flex items-center gap-1">
                     <Building className="h-4 w-4" />
@@ -167,12 +163,12 @@ export const ContactsOverview = ({ searchResults, searchName, isOpen, onClose }:
               </div>
               
               <Button variant="outline" onClick={onClose}>
-                Fermer
+                <X className="h-4 w-4" />
               </Button>
             </div>
-          </CardHeader>
+          </DialogHeader>
 
-          <CardContent className="space-y-6">
+          <div className="space-y-6 overflow-y-auto">
             {/* Actions de sélection */}
             <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center gap-4">
@@ -265,18 +261,21 @@ export const ContactsOverview = ({ searchResults, searchName, isOpen, onClose }:
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <MessagePreviewModal
-        isOpen={isMessageModalOpen}
-        onClose={() => setIsMessageModalOpen(false)}
-        personas={selectedContactObjects}
-        jobTitle="Recherche groupée"
-        companyName={searchName}
-        initialTemplate=""
-      />
+      {/* Modal de message séparée - N'S'OUVRE QUE QUAND DEMANDÉ */}
+      {isMessageModalOpen && (
+        <MessagePreviewModal
+          isOpen={isMessageModalOpen}
+          onClose={() => setIsMessageModalOpen(false)}
+          personas={selectedContactObjects}
+          jobTitle="Recherche groupée"
+          companyName={searchName}
+          initialTemplate=""
+        />
+      )}
     </>
   );
 };

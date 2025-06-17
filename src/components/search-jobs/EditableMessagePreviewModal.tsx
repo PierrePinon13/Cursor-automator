@@ -1,5 +1,5 @@
 
-import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -63,31 +63,50 @@ export const EditableMessagePreviewModal = ({
   const [activeTab, setActiveTab] = useState('template');
   const { user } = useAuth();
 
-  // Fonction pour remplacer les variables dans le template - CORRIGÉE
+  // Fonction pour remplacer les variables dans le template - VERSION CORRIGÉE
   const replaceVariables = (template: string, persona: Persona) => {
-    const firstName = persona.name.split(' ')[0] || persona.name;
-    const lastName = persona.name.split(' ').slice(1).join(' ') || persona.name;
+    if (!template || !persona) return template;
     
-    return template
-      // Anciennes variables avec accolades
-      .replace(/\{\{\s*firstName\s*\}\}/g, firstName)
-      .replace(/\{\{\s*jobTitle\s*\}\}/g, jobTitle)
-      .replace(/\{\{\s*companyName\s*\}\}/g, companyName)
-      // Nouvelles variables avec crochets
-      .replace(/\[PRENOM\]/g, firstName)
-      .replace(/\[NOM\]/g, lastName)
-      .replace(/\[POSTE\]/g, jobTitle)
-      .replace(/\[ENTREPRISE\]/g, companyName);
+    const nameParts = persona.name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    let result = template;
+    
+    // Remplacer les variables avec crochets (nouvelle syntaxe)
+    result = result.replace(/\[PRENOM\]/g, firstName);
+    result = result.replace(/\[NOM\]/g, lastName);
+    result = result.replace(/\[POSTE\]/g, jobTitle || '');
+    result = result.replace(/\[ENTREPRISE\]/g, companyName || '');
+    
+    // Remplacer les anciennes variables avec accolades (compatibilité)
+    result = result.replace(/\{\{\s*firstName\s*\}\}/g, firstName);
+    result = result.replace(/\{\{\s*lastName\s*\}\}/g, lastName);
+    result = result.replace(/\{\{\s*jobTitle\s*\}\}/g, jobTitle || '');
+    result = result.replace(/\{\{\s*companyName\s*\}\}/g, companyName || '');
+    
+    return result;
   };
 
-  // Initialiser les messages personnalisés à partir du template global
+  // Générer un template par défaut
+  const getDefaultTemplate = () => {
+    return `Bonjour [PRENOM],
+
+J'ai vu que [ENTREPRISE] recrute un [POSTE].
+
+Je connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps.
+
+Bonne journée`;
+  };
+
+  // Initialiser les messages personnalisés
   useEffect(() => {
     if (personas.length > 0) {
+      const templateToUse = globalTemplate || getDefaultTemplate();
+      
       const newMessages = personas.map(persona => {
         const existingMessage = personalizedMessages.find(pm => pm.personaId === persona.id);
-        const baseMessage = globalTemplate 
-          ? replaceVariables(globalTemplate, persona) 
-          : `Bonjour ${persona.name.split(' ')[0]},\n\nJ'ai vu que ${companyName} recrute un ${jobTitle}.\n\nJe connais bien ces recherches, je peux vous présenter des candidats si cela peut vous faire gagner du temps.\n\nBonne journée`;
+        const baseMessage = replaceVariables(templateToUse, persona);
         
         const message = existingMessage?.isEdited ? existingMessage.message : baseMessage;
         const characterCount = message.length;
@@ -100,6 +119,7 @@ export const EditableMessagePreviewModal = ({
           isEdited: existingMessage?.isEdited || false
         };
       });
+      
       setPersonalizedMessages(newMessages);
       setMessageStatuses(personas.map(p => ({ personaId: p.id, status: 'pending' as const })));
     }
@@ -149,6 +169,8 @@ export const EditableMessagePreviewModal = ({
 
   // Appliquer le template global à tous les messages non édités
   const applyGlobalTemplate = () => {
+    const templateToUse = globalTemplate || getDefaultTemplate();
+    
     setPersonalizedMessages(prev => 
       prev.map(msg => {
         if (msg.isEdited) return msg;
@@ -156,9 +178,7 @@ export const EditableMessagePreviewModal = ({
         const persona = personas.find(p => p.id === msg.personaId);
         if (!persona) return msg;
         
-        const newMessage = globalTemplate 
-          ? replaceVariables(globalTemplate, persona)
-          : msg.message;
+        const newMessage = replaceVariables(templateToUse, persona);
         
         return {
           ...msg,
@@ -425,7 +445,7 @@ export const EditableMessagePreviewModal = ({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="Bonjour [PRENOM], j'ai vu que [ENTREPRISE] recrute un [POSTE]..."
+                  placeholder={getDefaultTemplate()}
                   value={globalTemplate}
                   onChange={(e) => setGlobalTemplate(e.target.value)}
                   rows={6}
