@@ -221,7 +221,6 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {visibleResults.map((job) => {
               const colorSet = jobTypeColors[job.type || 'CDI'] || jobTypeColors['CDI'];
-              const fontSizeClass = job.title.length > 35 ? 'text-base' : 'text-xl';
               const hasPersonas = job.personas && job.personas.length > 0;
               
               // Classes pour griser les cartes sans personas
@@ -365,7 +364,7 @@ export const SearchResults = ({ results, isLoading, onHideJob }: SearchResultsPr
         </CardContent>
       </Card>
 
-      {/* Modal de détail sans prop onClose */}
+      {/* Modal de détail */}
       {selectedJob && (
         <JobResultDetail
           job={{

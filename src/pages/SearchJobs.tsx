@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -85,6 +84,14 @@ const SearchJobs = () => {
     await deleteSearch(searchId);
     setSelectedSearch(null);
     resetCurrentResults();
+  };
+
+  // Fonction de rafraîchissement simple sans pop-up
+  const handleRefresh = () => {
+    if (selectedSearch?.id) {
+      resetCurrentResults();
+      loadSearchResults(selectedSearch.id);
+    }
   };
 
   // Synchroniser le reset explicit des résultats avec le state local
@@ -199,10 +206,7 @@ const SearchJobs = () => {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  resetCurrentResults();
-                  loadSearchResults(selectedSearch.id)
-                }}
+                onClick={handleRefresh}
                 className="flex items-center gap-2"
                 title="Rafraîchir les résultats"
               >

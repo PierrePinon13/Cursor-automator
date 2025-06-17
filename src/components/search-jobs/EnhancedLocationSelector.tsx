@@ -24,6 +24,8 @@ export const EnhancedLocationSelector = ({ selectedLocations, onChange }: Enhanc
 
   const predefinedLocations = [
     { label: 'France', geoId: 105015875, isResolved: true },
+    
+    // Grandes villes
     { label: 'Paris, France', geoId: 105148282, isResolved: true },
     { label: 'Lyon, France', geoId: 106593436, isResolved: true },
     { label: 'Marseille, France', geoId: 106967757, isResolved: true },
@@ -35,6 +37,34 @@ export const EnhancedLocationSelector = ({ selectedLocations, onChange }: Enhanc
     { label: 'Bordeaux, France', geoId: 105089103, isResolved: true },
     { label: 'Lille, France', geoId: 105936862, isResolved: true },
     { label: 'Rennes, France', geoId: 105934277, isResolved: true },
+    { label: 'Reims, France', geoId: 105394915, isResolved: true },
+    { label: 'Le Havre, France', geoId: 105934279, isResolved: true },
+    { label: 'Saint-Étienne, France', geoId: 106593437, isResolved: true },
+    { label: 'Toulon, France', geoId: 106314873, isResolved: true },
+    { label: 'Grenoble, France', geoId: 106593438, isResolved: true },
+    { label: 'Dijon, France', geoId: 105394916, isResolved: true },
+    { label: 'Angers, France', geoId: 105934281, isResolved: true },
+    { label: 'Nîmes, France', geoId: 105582113, isResolved: true },
+    { label: 'Villeurbanne, France', geoId: 106593439, isResolved: true },
+    { label: 'Le Mans, France', geoId: 105934282, isResolved: true },
+    { label: 'Aix-en-Provence, France', geoId: 106314874, isResolved: true },
+    { label: 'Clermont-Ferrand, France', geoId: 106662678, isResolved: true },
+    { label: 'Brest, France', geoId: 105934283, isResolved: true },
+    { label: 'Tours, France', geoId: 105394917, isResolved: true },
+    { label: 'Limoges, France', geoId: 106693273, isResolved: true },
+    { label: 'Amiens, France', geoId: 105947216, isResolved: true },
+    { label: 'Annecy, France', geoId: 106662679, isResolved: true },
+    { label: 'Perpignan, France', geoId: 105582114, isResolved: true },
+    { label: 'Boulogne-Billancourt, France', geoId: 105148283, isResolved: true },
+    { label: 'Metz, France', geoId: 106051053, isResolved: true },
+    { label: 'Besançon, France', geoId: 105394918, isResolved: true },
+    { label: 'Orléans, France', geoId: 105394919, isResolved: true },
+    { label: 'Mulhouse, France', geoId: 106051054, isResolved: true },
+    { label: 'Rouen, France', geoId: 105934284, isResolved: true },
+    { label: 'Caen, France', geoId: 105934285, isResolved: true },
+    { label: 'Nancy, France', geoId: 106051055, isResolved: true },
+
+    // Régions
     { label: 'Île-de-France, France', geoId: 104994270, isResolved: true },
     { label: 'Provence-Alpes-Côte d\'Azur, France', geoId: 105583267, isResolved: true },
     { label: 'Auvergne-Rhône-Alpes, France', geoId: 105662677, isResolved: true },
@@ -45,6 +75,9 @@ export const EnhancedLocationSelector = ({ selectedLocations, onChange }: Enhanc
     { label: 'Pays de la Loire, France', geoId: 105934274, isResolved: true },
     { label: 'Bretagne, France', geoId: 105934276, isResolved: true },
     { label: 'Centre-Val de Loire, France', geoId: 105394913, isResolved: true },
+    { label: 'Normandie, France', geoId: 105934278, isResolved: true },
+    { label: 'Bourgogne-Franche-Comté, France', geoId: 105394920, isResolved: true },
+    { label: 'Corse, France', geoId: 106314875, isResolved: true },
   ];
 
   const addLocation = (location: SelectedLocation) => {

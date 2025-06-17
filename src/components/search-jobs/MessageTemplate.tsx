@@ -1,6 +1,9 @@
 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus } from 'lucide-react';
 
 interface MessageTemplateProps {
   template: string;
@@ -8,9 +11,56 @@ interface MessageTemplateProps {
 }
 
 export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) => {
+  const variables = [
+    { name: '[PRENOM]', description: 'Prénom du contact' },
+    { name: '[NOM]', description: 'Nom du contact' },
+    { name: '[POSTE]', description: 'Titre du poste' },
+    { name: '[ENTREPRISE]', description: 'Nom de l\'entreprise' }
+  ];
+
+  const insertVariable = (variable: string) => {
+    const textarea = document.querySelector('textarea[placeholder*="Bonjour"]') as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newText = template.substring(0, start) + variable + template.substring(end);
+      onChange(newText);
+      
+      // Reposition le curseur après la variable insérée
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + variable.length, start + variable.length);
+      }, 0);
+    } else {
+      onChange(template + variable);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <Label className="text-base font-medium">Template de message personnalisé</Label>
+      
+      {/* Boutons de variables */}
+      <div className="space-y-2">
+        <Label className="text-sm text-gray-600">Variables disponibles :</Label>
+        <div className="flex flex-wrap gap-2">
+          {variables.map((variable) => (
+            <Button
+              key={variable.name}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => insertVariable(variable.name)}
+              className="flex items-center gap-1 text-xs h-7"
+              title={variable.description}
+            >
+              <Plus className="h-3 w-3" />
+              {variable.name}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       <Textarea
         placeholder="Bonjour [PRENOM],
 
@@ -22,9 +72,14 @@ Variables disponibles: [PRENOM], [NOM], [POSTE], [ENTREPRISE]"
         onChange={(e) => onChange(e.target.value)}
         className="min-h-[120px] resize-none"
       />
-      <p className="text-sm text-gray-500">
-        Personnalisez votre message avec les variables disponibles. Laissez vide pour utiliser le template par défaut.
-      </p>
+      
+      <div className="flex flex-wrap gap-1 mt-2">
+        {variables.map((variable) => (
+          <Badge key={variable.name} variant="secondary" className="text-xs">
+            {variable.name}
+          </Badge>
+        ))}
+      </div>
     </div>
   );
 };
