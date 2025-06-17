@@ -57,7 +57,7 @@ const BulkProspecting = () => {
   const [isSending, setIsSending] = useState(false);
 
   // Utiliser le hook pour vérifier les derniers contacts
-  const { lastContactChecks } = useLastContactCheck(personas);
+  const { lastContactChecks, refetch: refetchLastContacts } = useLastContactCheck(personas);
 
   // Récupérer les données depuis les paramètres URL
   useEffect(() => {
@@ -401,7 +401,7 @@ Bonne journée`;
         description: `${successCount}/${personas.length} messages envoyés avec succès.`,
       });
       
-      await checkLastContacts();
+      await refetchLastContacts();
     }
   };
 
