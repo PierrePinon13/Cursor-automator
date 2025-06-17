@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MessageSquare, Users, Eye, EyeOff, Building, X } from 'lucide-react';
 import { PersonaCard } from './PersonaCard';
-import { MessagePreviewModal } from './MessagePreviewModal';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Persona {
@@ -113,14 +113,6 @@ export const ContactsOverview = ({ searchResults, searchName, isOpen, onClose }:
 
   const handleDeselectAll = () => {
     setSelectedContacts([]);
-  };
-
-  const openMessageModal = () => {
-    if (selectedContacts.length === 0) {
-      const visibleContacts = uniqueContacts.filter(c => showHidden || !hiddenContacts.includes(c.id));
-      setSelectedContacts(visibleContacts.map(c => c.id));
-    }
-    setIsMessageModalOpen(true);
   };
 
   const visibleContacts = uniqueContacts.filter(c => showHidden || !hiddenContacts.includes(c.id));
@@ -280,17 +272,5 @@ export const ContactsOverview = ({ searchResults, searchName, isOpen, onClose }:
         </div>
       </DialogContent>
     </Dialog>
-
-    {/* Modal de message séparée - N'S'OUVRE QUE QUAND DEMANDÉ */}
-    {isMessageModalOpen && (
-      <MessagePreviewModal
-        isOpen={isMessageModalOpen}
-        onClose={() => setIsMessageModalOpen(false)}
-        personas={selectedContactObjects}
-        jobTitle="Recherche groupée"
-        companyName={searchName}
-        initialTemplate=""
-      />
-    )}
   );
 };
