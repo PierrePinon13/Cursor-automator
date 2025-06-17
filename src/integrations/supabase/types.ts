@@ -1081,6 +1081,7 @@ export type Database = {
           latest_post_date: string | null
           latest_post_url: string | null
           latest_post_urn: string | null
+          lead_source: string
           linkedin_message_sent_at: string | null
           locked_at: string | null
           locked_by_user_id: string | null
@@ -1187,6 +1188,7 @@ export type Database = {
           latest_post_date?: string | null
           latest_post_url?: string | null
           latest_post_urn?: string | null
+          lead_source?: string
           linkedin_message_sent_at?: string | null
           locked_at?: string | null
           locked_by_user_id?: string | null
@@ -1293,6 +1295,7 @@ export type Database = {
           latest_post_date?: string | null
           latest_post_url?: string | null
           latest_post_urn?: string | null
+          lead_source?: string
           linkedin_message_sent_at?: string | null
           locked_at?: string | null
           locked_by_user_id?: string | null

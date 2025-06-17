@@ -18,6 +18,7 @@ interface Persona {
   title: string;
   profileUrl: string;
   company?: string;
+  linkedin_id?: string; // Ajouter le linkedin_id fourni par n8n
 }
 
 interface MessagePreviewModalProps {
@@ -82,11 +83,12 @@ export const MessagePreviewModal = ({
       // Créer ou trouver un lead temporaire pour ce persona
       let leadId = persona.id;
       
-      // Vérifier si un lead existe déjà pour ce profil
+      // Vérifier si un lead existe déjà pour ce profil avec cette source
       const { data: existingLead, error: leadError } = await supabase
         .from('leads')
         .select('id')
         .eq('author_profile_url', persona.profileUrl)
+        .eq('lead_source', 'job_search')
         .maybeSingle();
 
       if (leadError) {
@@ -95,20 +97,28 @@ export const MessagePreviewModal = ({
 
       if (existingLead) {
         leadId = existingLead.id;
-        console.log('✅ Using existing lead:', leadId);
+        console.log('✅ Using existing job search lead:', leadId);
       } else {
-        // Créer un lead temporaire pour ce persona
+        // Créer un lead temporaire pour ce persona avec la source job_search
+        const leadData = {
+          author_name: persona.name,
+          author_profile_url: persona.profileUrl,
+          author_headline: persona.title,
+          company_name: persona.company || companyName,
+          text: `Contact from job search: ${jobTitle} at ${companyName}`,
+          title: `Job search contact - ${jobTitle}`,
+          url: persona.profileUrl,
+          author_profile_id: persona.linkedin_id || persona.id,
+          lead_source: 'job_search',
+          processing_status: 'completed',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_updated_at: new Date().toISOString()
+        };
+
         const { data: newLead, error: createError } = await supabase
           .from('leads')
-          .insert({
-            author_name: persona.name,
-            author_profile_url: persona.profileUrl,
-            author_headline: persona.title,
-            company_name: persona.company || companyName,
-            post_content: `Contact from job search: ${jobTitle} at ${companyName}`,
-            created_at: new Date().toISOString(),
-            processed_at: new Date().toISOString()
-          })
+          .insert(leadData)
           .select('id')
           .single();
 
@@ -118,7 +128,7 @@ export const MessagePreviewModal = ({
         }
 
         leadId = newLead.id;
-        console.log('✅ Created new lead:', leadId);
+        console.log('✅ Created new job search lead:', leadId);
       }
 
       // Appeler la fonction edge linkedin-message
