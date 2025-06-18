@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -12,8 +11,10 @@ import { ProspectingStepProfile } from '@/components/bulk-prospecting/Prospectin
 import { ProspectingStepTemplate } from '@/components/bulk-prospecting/ProspectingStepTemplate';
 import { ProspectingStepMessages } from '@/components/bulk-prospecting/ProspectingStepMessages';
 import { ProspectingStepValidation } from '@/components/bulk-prospecting/ProspectingStepValidation';
+import { TemplateChoiceStep } from '@/components/bulk-prospecting/TemplateChoiceStep';
 import { supabase } from '@/integrations/supabase/client';
 import { JobData, BulkProspectingState, Persona } from '@/types/jobSearch';
+import { useHiddenJobs } from '@/hooks/useHiddenJobs';
 
 const BulkProspecting = () => {
   const [searchParams] = useSearchParams();
@@ -22,6 +23,10 @@ const BulkProspecting = () => {
   const [jobData, setJobData] = useState<JobData | null>(null);
   const [searchName, setSearchName] = useState('');
   const [totalJobs, setTotalJobs] = useState(0);
+  const [savedSearches, setSavedSearches] = useState<any[]>([]);
+  const [templateMode, setTemplateMode] = useState<'unified' | 'individual'>('unified');
+  const [individualTemplates, setIndividualTemplates] = useState<{ [searchId: string]: string }>({});
+  const { isJobHidden } = useHiddenJobs();
   const [bulkState, setBulkState] = useState<BulkProspectingState>({
     selectedPersonas: [],
     messageTemplate: '',
@@ -92,6 +97,11 @@ const BulkProspecting = () => {
       
       if (Array.isArray(results)) {
         results.forEach((job) => {
+          // Vérifier si cette job offer est cachée
+          if (isJobHidden(job.id)) {
+            return; // Ignorer cette job offer
+          }
+
           // Transformation sécurisée des personas depuis Json vers Persona[]
           let personas: Persona[] = [];
           
@@ -173,7 +183,7 @@ const BulkProspecting = () => {
     { 
       number: 2, 
       title: 'Template', 
-      description: 'Personnaliser le message principal',
+      description: 'Configurer les templates de message',
       icon: Clock
     },
     { 
@@ -195,7 +205,15 @@ const BulkProspecting = () => {
       case 1:
         return bulkState.selectedPersonas.length > 0;
       case 2:
-        return bulkState.messageTemplate.trim().length > 0;
+        if (templateMode === 'unified') {
+          return bulkState.messageTemplate.trim().length > 0;
+        } else {
+          // Vérifier que toutes les job searches ont un template
+          return savedSearches.every(search => 
+            (individualTemplates[search.id] && individualTemplates[search.id].trim().length > 0) ||
+            (search.messageTemplate && search.messageTemplate.trim().length > 0)
+          );
+        }
       case 3:
         // Vérifier que tous les personas sélectionnés ont un message personnalisé
         const selectedPersonaIds = bulkState.selectedPersonas.map(p => p.id);
@@ -260,21 +278,57 @@ const BulkProspecting = () => {
           />
         );
       case 2:
-        return (
-          <ProspectingStepTemplate
-            jobData={jobData}
-            template={bulkState.messageTemplate}
-            onTemplateChange={(template) => updateBulkState({ messageTemplate: template })}
-          />
-        );
+        // Déterminer si on est dans un contexte multi-recherches
+        const isMultiSearch = searchParams.get('fromSavedSearch') === 'true' || savedSearches.length > 1;
+        
+        if (isMultiSearch) {
+          return (
+            <TemplateChoiceStep
+              savedSearches={savedSearches}
+              templateMode={templateMode}
+              unifiedTemplate={bulkState.messageTemplate}
+              individualTemplates={individualTemplates}
+              onTemplateModeChange={setTemplateMode}
+              onUnifiedTemplateChange={(template) => updateBulkState({ messageTemplate: template })}
+              onIndividualTemplateChange={(searchId, template) => {
+                setIndividualTemplates(prev => ({
+                  ...prev,
+                  [searchId]: template
+                }));
+              }}
+            />
+          );
+        } else {
+          return (
+            <ProspectingStepTemplate
+              jobData={jobData}
+              template={bulkState.messageTemplate}
+              onTemplateChange={(template) => updateBulkState({ messageTemplate: template })}
+            />
+          );
+        }
       case 3:
+        // Déterminer le template à utiliser pour chaque persona
+        const getTemplateForPersona = (persona: Persona) => {
+          if (templateMode === 'unified') {
+            return bulkState.messageTemplate;
+          } else {
+            // Trouver la search correspondante au persona
+            const searchId = persona.jobId; // Assuming jobId maps to search
+            return individualTemplates[searchId] || 
+                   savedSearches.find(s => s.id === searchId)?.messageTemplate || 
+                   bulkState.messageTemplate;
+          }
+        };
+
         return (
           <ProspectingStepMessages
             jobData={jobData}
             selectedPersonas={bulkState.selectedPersonas}
-            messageTemplate={bulkState.messageTemplate}
+            messageTemplate={templateMode === 'unified' ? bulkState.messageTemplate : ''}
             personalizedMessages={bulkState.personalizedMessages}
             onMessagesChange={(messages) => updateBulkState({ personalizedMessages: messages })}
+            getTemplateForPersona={getTemplateForPersona}
           />
         );
       case 4:

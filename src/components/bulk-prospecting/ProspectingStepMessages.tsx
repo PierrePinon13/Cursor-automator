@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,6 +14,7 @@ interface ProspectingStepMessagesProps {
   messageTemplate: string;
   personalizedMessages: { [personaId: string]: string };
   onMessagesChange: (messages: { [personaId: string]: string }) => void;
+  getTemplateForPersona?: (persona: Persona) => string;
 }
 
 export const ProspectingStepMessages = ({
@@ -22,7 +22,8 @@ export const ProspectingStepMessages = ({
   selectedPersonas,
   messageTemplate,
   personalizedMessages,
-  onMessagesChange
+  onMessagesChange,
+  getTemplateForPersona
 }: ProspectingStepMessagesProps) => {
   // Fonction pour remplacer les variables avec les vraies données
   const replaceVariables = (template: string, persona: Persona) => {
@@ -44,17 +45,23 @@ export const ProspectingStepMessages = ({
 
   // Générer automatiquement les messages personnalisés
   useEffect(() => {
-    if (messageTemplate && Array.isArray(selectedPersonas) && selectedPersonas.length > 0) {
+    if (Array.isArray(selectedPersonas) && selectedPersonas.length > 0) {
       const newMessages: { [personaId: string]: string } = {};
       selectedPersonas.forEach((persona) => {
         if (persona && persona.id) {
+          // Utiliser le template spécifique au persona si disponible
+          const templateToUse = getTemplateForPersona ? 
+            getTemplateForPersona(persona) : 
+            messageTemplate;
+          
           // Utiliser le message existant ou générer un nouveau
-          newMessages[persona.id] = personalizedMessages[persona.id] || replaceVariables(messageTemplate, persona);
+          newMessages[persona.id] = personalizedMessages[persona.id] || 
+            replaceVariables(templateToUse || messageTemplate, persona);
         }
       });
       onMessagesChange(newMessages);
     }
-  }, [messageTemplate, selectedPersonas]);
+  }, [messageTemplate, selectedPersonas, getTemplateForPersona]);
 
   const updateMessage = (personaId: string, message: string) => {
     onMessagesChange({
@@ -164,11 +171,14 @@ export const ProspectingStepMessages = ({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  // Régénérer tous les messages depuis le template
+                  // Régénérer tous les messages depuis le template approprié
                   const newMessages: { [personaId: string]: string } = {};
                   selectedPersonas.forEach((persona) => {
                     if (persona && persona.id) {
-                      newMessages[persona.id] = replaceVariables(messageTemplate, persona);
+                      const templateToUse = getTemplateForPersona ? 
+                        getTemplateForPersona(persona) : 
+                        messageTemplate;
+                      newMessages[persona.id] = replaceVariables(templateToUse || messageTemplate, persona);
                     }
                   });
                   onMessagesChange(newMessages);

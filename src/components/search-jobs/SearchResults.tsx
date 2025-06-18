@@ -9,6 +9,7 @@ import { fr } from 'date-fns/locale';
 import { JobResultDetail } from './JobResultDetail';
 import { CompanyLogo } from "./CompanyLogo";
 import { useNavigate } from 'react-router-dom';
+import { useHiddenJobs } from '@/hooks/useHiddenJobs';
 
 // Palette de couleurs pour types d'offres (pour harmoniser)
 const jobTypeColors: Record<string, { 
@@ -73,12 +74,12 @@ export const SearchResults = ({
 }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
-  const [hiddenJobs, setHiddenJobs] = useState<Set<string>>(new Set());
+  const { hiddenJobs, hideJob, showAllJobs, isJobHidden } = useHiddenJobs();
   const [personaFilter, setPersonaFilter] = useState<'all' | 'with-personas' | 'without-personas'>('all');
   const [cityFilter, setCityFilter] = useState<string>('all');
 
-  const hideJob = (jobId: string) => {
-    setHiddenJobs(prev => new Set([...prev, jobId]));
+  const handleHideJob = (jobId: string) => {
+    hideJob(jobId);
     if (onHideJob) {
       onHideJob(jobId);
     }
@@ -110,9 +111,12 @@ export const SearchResults = ({
     return cities;
   }, [results]);
 
-  // Appliquer les filtres
+  // Appliquer les filtres ET exclure les jobs cachées
   const filteredResults = useMemo(() => {
     let filtered = deduplicateByJobId(results);
+    
+    // Exclure les jobs cachées
+    filtered = filtered.filter(job => !isJobHidden(job.id));
     
     // Filtre par personas
     if (personaFilter === 'with-personas') {
@@ -127,9 +131,9 @@ export const SearchResults = ({
     }
     
     return filtered;
-  }, [results, personaFilter, cityFilter]);
+  }, [results, personaFilter, cityFilter, hiddenJobs]);
 
-  const visibleResults = filteredResults.filter(job => !hiddenJobs.has(job.id));
+  const visibleResults = filteredResults;
 
   const handleBulkProspecting = (job: JobResult) => {
     if (!job.personas || job.personas.length === 0) return;
@@ -186,7 +190,7 @@ export const SearchResults = ({
             <p className="text-lg font-medium mb-2">Tous les résultats sont masqués</p>
             <Button
               variant="outline"
-              onClick={() => setHiddenJobs(new Set())}
+              onClick={showAllJobs}
               className="mt-2"
             >
               Afficher les {hiddenJobs.size} résultat(s) masqué(s)
@@ -238,7 +242,7 @@ export const SearchResults = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setHiddenJobs(new Set())}
+                  onClick={showAllJobs}
                 >
                   Afficher les résultats masqués ({hiddenJobs.size})
                 </Button>
@@ -297,7 +301,7 @@ export const SearchResults = ({
                       size="sm"
                       onClick={e => {
                         e.stopPropagation();
-                        hideJob(job.id);
+                        handleHideJob(job.id);
                       }}
                       className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1 h-6 w-6"
                       aria-label="Masquer l'offre"
