@@ -60,6 +60,11 @@ export const useLeads = () => {
         .select('*')
         .neq('processing_status', 'filtered_hr_provider')
         .neq('processing_status', 'mistargeted')
+        // Exclure explicitement les leads identifiés comme clients
+        .or('is_client_lead.is.null,is_client_lead.eq.false')
+        // Exclure aussi les leads qui ont un matched_client_id ou matched_client_name
+        .is('matched_client_id', null)
+        .is('matched_client_name', null)
         .order('latest_post_date', { ascending: false });
 
       const { data, error } = await query;
@@ -70,7 +75,7 @@ export const useLeads = () => {
       }
 
       if (data) {
-        console.log(`✅ Fetched ${data.length} leads from database`);
+        console.log(`✅ Fetched ${data.length} leads from database (client leads excluded)`);
         setAllLeads(data);
         
         // Extraire les catégories uniques pour les filtres

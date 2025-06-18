@@ -62,6 +62,11 @@ export const useLeadsNew = () => {
         // Exclure les leads filtrés comme prestataires RH et mal ciblés
         .neq('processing_status', 'filtered_hr_provider')
         .neq('processing_status', 'mistargeted')
+        // Exclure explicitement les leads identifiés comme clients
+        .or('is_client_lead.is.null,is_client_lead.eq.false')
+        // Exclure aussi les leads qui ont un matched_client_id ou matched_client_name
+        .is('matched_client_id', null)
+        .is('matched_client_name', null)
         .order('latest_post_date', { ascending: false });
 
       const { data, error } = await query;
@@ -72,7 +77,7 @@ export const useLeadsNew = () => {
       }
 
       if (data) {
-        console.log(`Fetched ${data.length} leads (HR providers and mistargeted filtered out)`);
+        console.log(`Fetched ${data.length} leads (HR providers, mistargeted, and client leads filtered out)`);
         setLeads(data);
         
         // Extract unique categories
