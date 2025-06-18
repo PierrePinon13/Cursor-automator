@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Process Dataset - OPTIMIZED VERSION WITHOUT PROCESSING TASKS')
+    console.log('🔄 Process Dataset - OPTIMIZED VERSION V4 WITH TIMEOUT PROTECTION')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -39,44 +39,87 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 1: Nettoyage rapide si demandé
+    // ✅ PHASE 1: Nettoyage rapide et optimisé si demandé
     let cleanedCount = 0
     if (cleanupExisting) {
-      console.log('🧹 Cleanup of existing data...')
+      console.log('🧹 Starting optimized cleanup...')
       
       try {
-        const { count: deletedLeads } = await supabaseClient
-          .from('leads')
-          .delete({ count: 'exact' })
-          .eq('apify_dataset_id', datasetId)
+        // Nettoyage par petits batches pour éviter les timeouts
+        const CLEANUP_BATCH_SIZE = 1000
+        let totalCleaned = 0
+        
+        console.log('🗑️ Cleaning leads table...')
+        let hasMoreLeads = true
+        while (hasMoreLeads) {
+          const { count: deletedLeads } = await supabaseClient
+            .from('leads')
+            .delete({ count: 'exact' })
+            .eq('apify_dataset_id', datasetId)
+            .limit(CLEANUP_BATCH_SIZE)
+          
+          if (!deletedLeads || deletedLeads === 0) {
+            hasMoreLeads = false
+          } else {
+            totalCleaned += deletedLeads
+            console.log(`🗑️ Deleted ${deletedLeads} leads (total: ${totalCleaned})`)
+          }
+        }
 
-        const { count: deletedPosts } = await supabaseClient
-          .from('linkedin_posts')
-          .delete({ count: 'exact' })
-          .eq('apify_dataset_id', datasetId)
+        console.log('🗑️ Cleaning linkedin_posts table...')
+        let hasMorePosts = true
+        while (hasMorePosts) {
+          const { count: deletedPosts } = await supabaseClient
+            .from('linkedin_posts')
+            .delete({ count: 'exact' })
+            .eq('apify_dataset_id', datasetId)
+            .limit(CLEANUP_BATCH_SIZE)
+          
+          if (!deletedPosts || deletedPosts === 0) {
+            hasMorePosts = false
+          } else {
+            totalCleaned += deletedPosts
+            console.log(`🗑️ Deleted ${deletedPosts} posts (total: ${totalCleaned})`)
+          }
+        }
 
-        const { count: deletedRaw } = await supabaseClient
-          .from('linkedin_posts_raw')
-          .delete({ count: 'exact' })
-          .eq('apify_dataset_id', datasetId)
+        console.log('🗑️ Cleaning linkedin_posts_raw table...')
+        let hasMoreRaw = true
+        while (hasMoreRaw) {
+          const { count: deletedRaw } = await supabaseClient
+            .from('linkedin_posts_raw')
+            .delete({ count: 'exact' })
+            .eq('apify_dataset_id', datasetId)
+            .limit(CLEANUP_BATCH_SIZE)
+          
+          if (!deletedRaw || deletedRaw === 0) {
+            hasMoreRaw = false
+          } else {
+            totalCleaned += deletedRaw
+            console.log(`🗑️ Deleted ${deletedRaw} raw posts (total: ${totalCleaned})`)
+          }
+        }
 
-        cleanedCount = (deletedLeads || 0) + (deletedPosts || 0) + (deletedRaw || 0)
+        cleanedCount = totalCleaned
         console.log(`✅ Cleanup completed: ${cleanedCount} records deleted`)
       } catch (cleanupError) {
         console.error('❌ Error during cleanup:', cleanupError?.message)
       }
     }
 
-    // ✅ PHASE 2: Récupération des données depuis Apify
-    console.log('📥 Fetching dataset items from Apify...')
+    // ✅ PHASE 2: Récupération limitée des données depuis Apify
+    console.log('📥 Fetching dataset items from Apify with safety limits...')
     
     let allItems = []
     let offset = 0
-    const limit = 1000
+    const limit = 500 // Réduit pour éviter les timeouts
     let hasMore = true
+    const MAX_ITEMS = 10000 // Limite de sécurité stricte
 
-    while (hasMore) {
+    while (hasMore && allItems.length < MAX_ITEMS) {
       try {
+        console.log(`📥 Fetching batch at offset ${offset}...`)
+        
         const response = await fetch(
           `https://api.apify.com/v2/datasets/${datasetId}/items?format=json&clean=true&offset=${offset}&limit=${limit}`,
           {
@@ -100,11 +143,6 @@ serve(async (req) => {
         
         console.log(`📊 Fetched ${items.length} items (total: ${allItems.length})`)
         
-        // Limite de sécurité
-        if (allItems.length > 50000) {
-          console.log('⚠️ Reached safety limit of 50,000 items')
-          break
-        }
       } catch (error) {
         console.error('❌ Error fetching items:', error?.message)
         break
@@ -123,67 +161,77 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 3: Filtrage et déduplication interne
-    console.log('🔍 Filtering and internal deduplication...')
+    // ✅ PHASE 3: Filtrage et déduplication interne rapide
+    console.log('🔍 Quick filtering and internal deduplication...')
     
     const seenUrns = new Set()
     const filteredItems = allItems.filter(item => {
-      // Filtrer les reposts
       if (item.isRepost) return false;
-      
-      // Ne garder que les posts de personnes (pas d'entreprises)
       if (item.authorType !== 'Person') return false;
-      
-      // Déduplication interne
       if (seenUrns.has(item.urn)) return false;
       seenUrns.add(item.urn);
-      
       return true;
     })
     
-    console.log(`📊 After filtering: ${filteredItems.length} valid items (${allItems.length - filteredItems.length} filtered out)`)
+    console.log(`📊 After filtering: ${filteredItems.length} valid items`)
 
     if (filteredItems.length === 0) {
       return new Response(JSON.stringify({ 
         success: true,
         message: 'No valid items after filtering',
-        dataset_id: datasetId,
-        total_received: allItems.length,
-        filtered_out: allItems.length
+        dataset_id: datasetId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // ✅ PHASE 4: Vérification des doublons dans la base
-    console.log('🔄 Checking for existing URNs in database...')
+    // ✅ PHASE 4: Vérification des doublons avec pagination pour éviter les timeouts
+    console.log('🔄 Checking for existing URNs with batched queries...')
     
-    const existingUrns = filteredItems.map(item => item.urn);
-    const { data: existingPosts } = await supabaseClient
-      .from('linkedin_posts_raw')
-      .select('urn')
-      .in('urn', existingUrns);
+    const DEDUP_BATCH_SIZE = 100 // Petits batches pour éviter les timeouts
+    const existingUrnSet = new Set()
+    
+    for (let i = 0; i < filteredItems.length; i += DEDUP_BATCH_SIZE) {
+      const batch = filteredItems.slice(i, i + DEDUP_BATCH_SIZE)
+      const batchUrns = batch.map(item => item.urn)
+      
+      try {
+        console.log(`🔍 Checking URNs batch ${Math.floor(i/DEDUP_BATCH_SIZE) + 1}/${Math.ceil(filteredItems.length/DEDUP_BATCH_SIZE)}`)
+        
+        const { data: existingPosts, error } = await supabaseClient
+          .from('linkedin_posts_raw')
+          .select('urn')
+          .in('urn', batchUrns)
+          .limit(DEDUP_BATCH_SIZE)
 
-    const existingUrnSet = new Set(existingPosts?.map(p => p.urn) || []);
-    const newItems = filteredItems.filter(item => !existingUrnSet.has(item.urn));
+        if (error) {
+          console.error('⚠️ Error checking duplicates:', error.message)
+          continue
+        }
 
-    console.log(`📊 After database deduplication: ${newItems.length} new items (${filteredItems.length - newItems.length} already exist)`)
+        if (existingPosts) {
+          existingPosts.forEach(post => existingUrnSet.add(post.urn))
+        }
+      } catch (error) {
+        console.error('❌ Exception checking batch:', error?.message)
+      }
+    }
+
+    const newItems = filteredItems.filter(item => !existingUrnSet.has(item.urn))
+    console.log(`📊 After database deduplication: ${newItems.length} new items`)
 
     if (newItems.length === 0) {
       return new Response(JSON.stringify({ 
         success: true,
         message: 'No new items to process',
-        dataset_id: datasetId,
-        total_received: allItems.length,
-        after_filtering: filteredItems.length,
-        new_items: 0
+        dataset_id: datasetId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // ✅ PHASE 5: Stockage en base (raw posts d'abord)
-    console.log(`💾 Storing ${newItems.length} raw items in database...`)
+    // ✅ PHASE 5: Stockage optimisé avec petits batches
+    console.log(`💾 Storing ${newItems.length} items with small batches...`)
     
     const rawPostsToInsert = newItems.map(item => ({
       apify_dataset_id: datasetId,
@@ -204,12 +252,14 @@ serve(async (req) => {
     }))
 
     let totalRawStored = 0
-    const RAW_BATCH_SIZE = 100
+    const RAW_BATCH_SIZE = 50 // Réduit pour éviter les timeouts
 
     for (let i = 0; i < rawPostsToInsert.length; i += RAW_BATCH_SIZE) {
       const batch = rawPostsToInsert.slice(i, i + RAW_BATCH_SIZE)
       
       try {
+        console.log(`💾 Storing raw batch ${Math.floor(i/RAW_BATCH_SIZE) + 1}/${Math.ceil(rawPostsToInsert.length/RAW_BATCH_SIZE)}`)
+        
         const { error: insertError } = await supabaseClient
           .from('linkedin_posts_raw')
           .upsert(batch, { 
@@ -218,18 +268,18 @@ serve(async (req) => {
           })
 
         if (insertError) {
-          console.error(`❌ Error storing raw batch ${i}-${i + batch.length}:`, insertError.message)
+          console.error(`❌ Error storing raw batch:`, insertError.message)
         } else {
           totalRawStored += batch.length
-          console.log(`✅ Stored raw batch ${i}-${i + batch.length} successfully`)
+          console.log(`✅ Stored ${batch.length} raw items (total: ${totalRawStored})`)
         }
       } catch (error) {
         console.error(`❌ Exception storing raw batch:`, error?.message)
       }
     }
 
-    // ✅ PHASE 6: Stockage des posts traités (directement en pending)
-    console.log(`🚀 Creating processed posts for immediate processing...`)
+    // ✅ PHASE 6: Stockage des posts traités avec petits batches
+    console.log(`🚀 Creating processed posts with small batches...`)
     
     const postsToProcess = newItems.map(item => ({
       apify_dataset_id: datasetId,
@@ -249,12 +299,14 @@ serve(async (req) => {
     }))
 
     let totalProcessedStored = 0
-    const PROCESSED_BATCH_SIZE = 100
+    const PROCESSED_BATCH_SIZE = 50 // Réduit pour éviter les timeouts
 
     for (let i = 0; i < postsToProcess.length; i += PROCESSED_BATCH_SIZE) {
       const batch = postsToProcess.slice(i, i + PROCESSED_BATCH_SIZE)
       
       try {
+        console.log(`🚀 Storing processed batch ${Math.floor(i/PROCESSED_BATCH_SIZE) + 1}/${Math.ceil(postsToProcess.length/PROCESSED_BATCH_SIZE)}`)
+        
         const { error: insertError } = await supabaseClient
           .from('linkedin_posts')
           .upsert(batch, { 
@@ -263,17 +315,17 @@ serve(async (req) => {
           })
 
         if (insertError) {
-          console.error(`❌ Error storing processed batch ${i}-${i + batch.length}:`, insertError.message)
+          console.error(`❌ Error storing processed batch:`, insertError.message)
         } else {
           totalProcessedStored += batch.length
-          console.log(`✅ Stored processed batch ${i}-${i + batch.length} successfully`)
+          console.log(`✅ Stored ${batch.length} processed items (total: ${totalProcessedStored})`)
         }
       } catch (error) {
         console.error(`❌ Exception storing processed batch:`, error?.message)
       }
     }
 
-    // ✅ PHASE 7: Déclenchement immédiat du processing manager
+    // ✅ PHASE 7: Déclenchement du processing manager
     console.log('🚀 Triggering processing queue manager...')
     
     try {
@@ -288,7 +340,7 @@ serve(async (req) => {
       if (queueError) {
         console.error('⚠️ Warning triggering queue manager:', queueError);
       } else {
-        console.log('✅ Queue manager triggered successfully:', queueResult);
+        console.log('✅ Queue manager triggered successfully');
       }
     } catch (error) {
       console.error('❌ Exception triggering queue manager:', error?.message)
@@ -305,7 +357,7 @@ serve(async (req) => {
       after_deduplication: newItems.length,
       raw_items_stored: totalRawStored,
       processed_items_stored: totalProcessedStored,
-      pipeline_version: 'optimized_direct_processing_v3',
+      pipeline_version: 'timeout_protected_v4',
       completed_at: new Date().toISOString()
     }
 
@@ -317,23 +369,23 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 OPTIMIZED DIRECT PROCESSING: Dataset processing completed successfully')
+    console.log('🎉 TIMEOUT-PROTECTED PROCESSING: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'optimized_direct_dataset_processing_v3',
+      action: 'timeout_protected_dataset_processing_v4',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'optimized_direct_processing_v3',
+      pipeline_version: 'timeout_protected_v4',
       message: `Dataset ${datasetId} processed successfully. ${totalProcessedStored} posts ready for processing.`,
       queue_triggered: true,
       improvements: [
-        'Direct processing without problematic task table',
-        'No timeout issues with large datasets',
-        'Immediate queue manager trigger',
-        'Robust error handling for individual batches',
-        'Filtering: no reposts, Person only',
-        'Complete internal and database deduplication'
+        'Reduced batch sizes to prevent SQL timeouts',
+        'Added comprehensive logging for timeout tracking',
+        'Implemented paginated duplicate checking',
+        'Added safety limits on data volume',
+        'Optimized cleanup with batched deletions',
+        'Enhanced error handling for each operation'
       ]
     }), { 
       status: 200,
@@ -341,11 +393,11 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in optimized process-dataset:', error?.message)
+    console.error('❌ Error in timeout-protected process-dataset:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'optimized_direct_processing_v3'
+      pipeline_version: 'timeout_protected_v4'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
