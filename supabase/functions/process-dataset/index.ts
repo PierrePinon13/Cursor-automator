@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Process Dataset - N8N INTEGRATION VERSION')
+    console.log('🔄 Process Dataset - OPTIMIZED VERSION WITHOUT PROCESSING TASKS')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -182,8 +182,8 @@ serve(async (req) => {
       })
     }
 
-    // ✅ PHASE 5: Stockage en base avec status 'pending_openai'
-    console.log(`💾 Storing ${newItems.length} items in database...`)
+    // ✅ PHASE 5: Stockage en base (raw posts d'abord)
+    console.log(`💾 Storing ${newItems.length} raw items in database...`)
     
     const rawPostsToInsert = newItems.map(item => ({
       apify_dataset_id: datasetId,
@@ -203,11 +203,11 @@ serve(async (req) => {
       raw_data: item
     }))
 
-    let totalStored = 0
-    const STORAGE_BATCH_SIZE = 100
+    let totalRawStored = 0
+    const RAW_BATCH_SIZE = 100
 
-    for (let i = 0; i < rawPostsToInsert.length; i += STORAGE_BATCH_SIZE) {
-      const batch = rawPostsToInsert.slice(i, i + STORAGE_BATCH_SIZE)
+    for (let i = 0; i < rawPostsToInsert.length; i += RAW_BATCH_SIZE) {
+      const batch = rawPostsToInsert.slice(i, i + RAW_BATCH_SIZE)
       
       try {
         const { error: insertError } = await supabaseClient
@@ -218,51 +218,83 @@ serve(async (req) => {
           })
 
         if (insertError) {
-          console.error(`❌ Error storing batch ${i}-${i + batch.length}:`, insertError.message)
+          console.error(`❌ Error storing raw batch ${i}-${i + batch.length}:`, insertError.message)
         } else {
-          totalStored += batch.length
-          console.log(`✅ Stored batch ${i}-${i + batch.length} successfully`)
+          totalRawStored += batch.length
+          console.log(`✅ Stored raw batch ${i}-${i + batch.length} successfully`)
         }
       } catch (error) {
-        console.error(`❌ Exception storing batch:`, error?.message)
+        console.error(`❌ Exception storing raw batch:`, error?.message)
       }
     }
 
-    // ✅ PHASE 6: Créer une tâche de traitement séparée pour n8n
-    console.log('🚀 Scheduling n8n batch processing...')
+    // ✅ PHASE 6: Stockage des posts traités (directement en pending)
+    console.log(`🚀 Creating processed posts for immediate processing...`)
     
-    const totalBatches = Math.ceil(newItems.length / 100)
-    
-    // Stocker la tâche de traitement
-    try {
-      const { error: taskError } = await supabaseClient
-        .from('dataset_processing_tasks')
-        .insert({
-          dataset_id: datasetId,
-          total_items: newItems.length,
-          total_batches: totalBatches,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-          batch_data: newItems
-        })
+    const postsToProcess = newItems.map(item => ({
+      apify_dataset_id: datasetId,
+      urn: item.urn,
+      text: item.text || 'Content unavailable',
+      title: item.title || null,
+      url: item.url,
+      posted_at_timestamp: item.postedAtTimestamp || null,
+      posted_at_iso: item.postedAtIso || null,
+      author_type: item.authorType,
+      author_profile_url: item.authorProfileUrl || 'Unknown',
+      author_profile_id: item.authorProfileId || null,
+      author_name: item.authorName || 'Unknown author',
+      author_headline: item.authorHeadline || null,
+      processing_status: 'pending',
+      raw_data: item
+    }))
 
-      if (taskError) {
-        console.error('❌ Error creating processing task:', taskError)
+    let totalProcessedStored = 0
+    const PROCESSED_BATCH_SIZE = 100
+
+    for (let i = 0; i < postsToProcess.length; i += PROCESSED_BATCH_SIZE) {
+      const batch = postsToProcess.slice(i, i + PROCESSED_BATCH_SIZE)
+      
+      try {
+        const { error: insertError } = await supabaseClient
+          .from('linkedin_posts')
+          .upsert(batch, { 
+            onConflict: 'urn',
+            ignoreDuplicates: true 
+          })
+
+        if (insertError) {
+          console.error(`❌ Error storing processed batch ${i}-${i + batch.length}:`, insertError.message)
+        } else {
+          totalProcessedStored += batch.length
+          console.log(`✅ Stored processed batch ${i}-${i + batch.length} successfully`)
+        }
+      } catch (error) {
+        console.error(`❌ Exception storing processed batch:`, error?.message)
+      }
+    }
+
+    // ✅ PHASE 7: Déclenchement immédiat du processing manager
+    console.log('🚀 Triggering processing queue manager...')
+    
+    try {
+      const { data: queueResult, error: queueError } = await supabaseClient.functions.invoke('processing-queue-manager', {
+        body: {
+          action: 'queue_posts',
+          dataset_id: datasetId,
+          timeout_protection: true
+        }
+      });
+
+      if (queueError) {
+        console.error('⚠️ Warning triggering queue manager:', queueError);
       } else {
-        console.log('✅ Processing task created successfully')
-        
-        // Déclencher immédiatement le processeur de batches
-        supabaseClient.functions.invoke('n8n-batch-processor', {
-          body: { dataset_id: datasetId }
-        }).catch(err => {
-          console.error('❌ Error triggering batch processor:', err)
-        })
+        console.log('✅ Queue manager triggered successfully:', queueResult);
       }
     } catch (error) {
-      console.error('❌ Exception creating processing task:', error)
+      console.error('❌ Exception triggering queue manager:', error?.message)
     }
 
-    // ✅ Stockage des statistiques
+    // ✅ Stockage des statistiques finales
     const stats = {
       dataset_id: datasetId,
       started_at: new Date().toISOString(),
@@ -271,9 +303,9 @@ serve(async (req) => {
       total_received: allItems.length,
       after_filtering: filteredItems.length,
       after_deduplication: newItems.length,
-      items_stored: totalStored,
-      batches_scheduled: totalBatches,
-      pipeline_version: 'n8n_integration_v2_optimized',
+      raw_items_stored: totalRawStored,
+      processed_items_stored: totalProcessedStored,
+      pipeline_version: 'optimized_direct_processing_v3',
       completed_at: new Date().toISOString()
     }
 
@@ -285,22 +317,23 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 OPTIMIZED N8N INTEGRATION: Dataset processing completed successfully')
+    console.log('🎉 OPTIMIZED DIRECT PROCESSING: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'n8n_integration_dataset_processing_v2',
+      action: 'optimized_direct_dataset_processing_v3',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'n8n_integration_v2_optimized',
-      message: `Dataset ${datasetId} processed and stored. ${totalStored} items ready for batch processing.`,
-      batch_processing: 'scheduled_separately',
+      pipeline_version: 'optimized_direct_processing_v3',
+      message: `Dataset ${datasetId} processed successfully. ${totalProcessedStored} posts ready for processing.`,
+      queue_triggered: true,
       improvements: [
-        'Fast response with batch processing scheduled separately',
+        'Direct processing without problematic task table',
         'No timeout issues with large datasets',
+        'Immediate queue manager trigger',
         'Robust error handling for individual batches',
         'Filtering: no reposts, Person only',
-        'Internal and database deduplication'
+        'Complete internal and database deduplication'
       ]
     }), { 
       status: 200,
@@ -312,7 +345,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'n8n_integration_v2_optimized'
+      pipeline_version: 'optimized_direct_processing_v3'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
