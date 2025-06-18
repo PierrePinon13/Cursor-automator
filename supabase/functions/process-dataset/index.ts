@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Process Dataset - OPTIMIZED VERSION V4 WITH TIMEOUT PROTECTION')
+    console.log('🔄 Process Dataset - OPTIMIZED VERSION V5 WITH N8N WEBHOOK')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -278,72 +278,71 @@ serve(async (req) => {
       }
     }
 
-    // ✅ PHASE 6: Stockage des posts traités avec petits batches
-    console.log(`🚀 Creating processed posts with small batches...`)
+    // ✅ PHASE 6: Envoi vers le webhook N8N avec délais
+    console.log(`🚀 Sending ${newItems.length} items to N8N webhook in batches...`)
     
-    const postsToProcess = newItems.map(item => ({
-      apify_dataset_id: datasetId,
-      urn: item.urn,
-      text: item.text || 'Content unavailable',
-      title: item.title || null,
-      url: item.url,
-      posted_at_timestamp: item.postedAtTimestamp || null,
-      posted_at_iso: item.postedAtIso || null,
-      author_type: item.authorType,
-      author_profile_url: item.authorProfileUrl || 'Unknown',
-      author_profile_id: item.authorProfileId || null,
-      author_name: item.authorName || 'Unknown author',
-      author_headline: item.authorHeadline || null,
-      processing_status: 'pending',
-      raw_data: item
-    }))
+    const N8N_WEBHOOK_URL = 'https://n8n.getpro.co/webhook/ce694cea-07a6-4b38-a2a9-eb1ffd6fd14c'
+    const N8N_BATCH_SIZE = 100
+    const DELAY_BETWEEN_BATCHES = 10000 // 10 secondes
+    
+    let batchesSent = 0
+    let batchErrors = 0
+    const totalBatches = Math.ceil(newItems.length / N8N_BATCH_SIZE)
 
-    let totalProcessedStored = 0
-    const PROCESSED_BATCH_SIZE = 50 // Réduit pour éviter les timeouts
-
-    for (let i = 0; i < postsToProcess.length; i += PROCESSED_BATCH_SIZE) {
-      const batch = postsToProcess.slice(i, i + PROCESSED_BATCH_SIZE)
+    // Traitement par batch avec délais
+    for (let i = 0; i < newItems.length; i += N8N_BATCH_SIZE) {
+      const batch = newItems.slice(i, i + N8N_BATCH_SIZE)
+      const batchNumber = Math.floor(i / N8N_BATCH_SIZE) + 1
+      const batchId = `${datasetId}_batch_${batchNumber}_${Date.now()}`
       
       try {
-        console.log(`🚀 Storing processed batch ${Math.floor(i/PROCESSED_BATCH_SIZE) + 1}/${Math.ceil(postsToProcess.length/PROCESSED_BATCH_SIZE)}`)
+        console.log(`📤 Sending batch ${batchNumber}/${totalBatches} to N8N (${batch.length} items)`)
         
-        const { error: insertError } = await supabaseClient
-          .from('linkedin_posts')
-          .upsert(batch, { 
-            onConflict: 'urn',
-            ignoreDuplicates: true 
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            batch_id: batchId,
+            dataset_id: datasetId,
+            batch_number: batchNumber,
+            total_batches: totalBatches,
+            posts: batch.map(item => ({
+              urn: item.urn,
+              text: item.text,
+              title: item.title || '',
+              url: item.url,
+              posted_at_iso: item.postedAtIso,
+              posted_at_timestamp: item.postedAtTimestamp,
+              author_type: item.authorType,
+              author_profile_url: item.authorProfileUrl,
+              author_profile_id: item.authorProfileId,
+              author_name: item.authorName,
+              author_headline: item.authorHeadline,
+              raw_data: item
+            }))
           })
+        })
 
-        if (insertError) {
-          console.error(`❌ Error storing processed batch:`, insertError.message)
+        if (response.ok) {
+          batchesSent++
+          console.log(`✅ Batch ${batchId} sent successfully to N8N`)
         } else {
-          totalProcessedStored += batch.length
-          console.log(`✅ Stored ${batch.length} processed items (total: ${totalProcessedStored})`)
+          batchErrors++
+          console.error(`❌ Error sending batch ${batchId} to N8N: ${response.status} ${response.statusText}`)
         }
+
+        // Délai entre les batches (sauf pour le dernier)
+        if (i + N8N_BATCH_SIZE < newItems.length) {
+          console.log(`⏳ Waiting ${DELAY_BETWEEN_BATCHES / 1000}s before next batch...`)
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES))
+        }
+
       } catch (error) {
-        console.error(`❌ Exception storing processed batch:`, error?.message)
+        batchErrors++
+        console.error(`❌ Exception sending batch ${batchId} to N8N:`, error?.message)
       }
-    }
-
-    // ✅ PHASE 7: Déclenchement du processing manager
-    console.log('🚀 Triggering processing queue manager...')
-    
-    try {
-      const { data: queueResult, error: queueError } = await supabaseClient.functions.invoke('processing-queue-manager', {
-        body: {
-          action: 'queue_posts',
-          dataset_id: datasetId,
-          timeout_protection: true
-        }
-      });
-
-      if (queueError) {
-        console.error('⚠️ Warning triggering queue manager:', queueError);
-      } else {
-        console.log('✅ Queue manager triggered successfully');
-      }
-    } catch (error) {
-      console.error('❌ Exception triggering queue manager:', error?.message)
     }
 
     // ✅ Stockage des statistiques finales
@@ -356,8 +355,9 @@ serve(async (req) => {
       after_filtering: filteredItems.length,
       after_deduplication: newItems.length,
       raw_items_stored: totalRawStored,
-      processed_items_stored: totalProcessedStored,
-      pipeline_version: 'timeout_protected_v4',
+      n8n_batches_sent: batchesSent,
+      n8n_batch_errors: batchErrors,
+      pipeline_version: 'n8n_webhook_v5',
       completed_at: new Date().toISOString()
     }
 
@@ -369,17 +369,18 @@ serve(async (req) => {
       console.error('⚠️ Error storing stats:', statsError?.message)
     }
 
-    console.log('🎉 TIMEOUT-PROTECTED PROCESSING: Dataset processing completed successfully')
+    console.log('🎉 N8N WEBHOOK PROCESSING: Dataset processing completed successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
-      action: 'timeout_protected_dataset_processing_v4',
+      action: 'n8n_webhook_dataset_processing_v5',
       dataset_id: datasetId,
       statistics: stats,
-      pipeline_version: 'timeout_protected_v4',
-      message: `Dataset ${datasetId} processed successfully. ${totalProcessedStored} posts ready for processing.`,
-      queue_triggered: true,
+      pipeline_version: 'n8n_webhook_v5',
+      message: `Dataset ${datasetId} processed successfully. ${batchesSent}/${totalBatches} batches sent to N8N webhook.`,
+      n8n_webhook_url: N8N_WEBHOOK_URL,
       improvements: [
+        'Restored N8N webhook integration instead of processing-queue-manager',
         'Reduced batch sizes to prevent SQL timeouts',
         'Added comprehensive logging for timeout tracking',
         'Implemented paginated duplicate checking',
@@ -393,11 +394,11 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error in timeout-protected process-dataset:', error?.message)
+    console.error('❌ Error in N8N webhook process-dataset:', error?.message)
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error?.message,
-      pipeline_version: 'timeout_protected_v4'
+      pipeline_version: 'n8n_webhook_v5'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
