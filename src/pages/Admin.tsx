@@ -1,13 +1,13 @@
 
 import { useState } from 'react';
-import { AdminDashboard } from '@/components/admin/AdminDashboard';
-import { ProcessingFunnel } from '@/components/admin/ProcessingFunnel';
+import AdminDashboard from '@/components/admin/AdminDashboard';
+import ProcessingFunnel from '@/components/admin/ProcessingFunnel';
 import { HrProvidersManagement } from '@/components/admin/HrProvidersManagement';
 import { AutomaticDatasetReprocessing } from '@/components/admin/AutomaticDatasetReprocessing';
 import { DatasetReprocessing } from '@/components/admin/DatasetReprocessing';
 import { DatasetAudit } from '@/components/admin/DatasetAudit';
-import { DeepDataAnalysis } from '@/components/admin/DeepDataAnalysis';
-import { WorkflowEventsMonitoring } from '@/components/admin/WorkflowEventsMonitoring';
+import DeepDataAnalysis from '@/components/admin/DeepDataAnalysis';
+import WorkflowEventsMonitoring from '@/components/admin/WorkflowEventsMonitoring';
 import CompanyEnrichmentAdmin from '@/components/admin/CompanyEnrichmentAdmin';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
