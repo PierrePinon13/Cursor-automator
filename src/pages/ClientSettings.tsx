@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -13,6 +14,7 @@ import { LinkedInIcon } from '@/components/clients/LinkedInIcon';
 import { TierSelector } from '@/components/clients/TierSelector';
 import { CollaboratorsSelect } from '@/components/clients/CollaboratorsSelect';
 import { useClientContacts } from '@/hooks/useClientContacts';
+import EnrichButton from '@/components/clients/EnrichButton';
 
 const ClientSettings = () => {
   const navigate = useNavigate();
@@ -141,6 +143,9 @@ const ClientSettings = () => {
                   Contacts
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Enrichissement
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -160,7 +165,7 @@ const ClientSettings = () => {
               ))}
               {clients.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     Aucun client trouvé. Ajoutez votre premier client ou importez un fichier CSV.
                   </td>
                 </tr>
@@ -211,7 +216,7 @@ const ClientSettings = () => {
   );
 };
 
-// Composant pour chaque ligne du tableau
+// Mise à jour du composant TableRow pour inclure l'enrichissement
 function TableRow({ client, onEdit, onDelete, onTrackingToggle, onTierChange, onAddContact, onEditContact }: {
   client: any;
   onEdit: (client: any) => void;
@@ -257,6 +262,12 @@ function TableRow({ client, onEdit, onDelete, onTrackingToggle, onTierChange, on
           loading={loading}
           onAddContact={() => onAddContact(client.id)}
           onEditContact={(contact) => onEditContact(client.id, contact)}
+        />
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <EnrichButton
+          companyLinkedInId={client.company_linkedin_id}
+          companyName={client.company_name}
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap">

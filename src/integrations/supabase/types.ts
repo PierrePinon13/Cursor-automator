@@ -686,6 +686,42 @@ export type Database = {
         }
         Relationships: []
       }
+      companies_enrichment: {
+        Row: {
+          activities: string | null
+          categorie: string | null
+          created_at: string | null
+          description: string | null
+          employee_count: string | null
+          enriched_at: string | null
+          linkedin_id: string
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          activities?: string | null
+          categorie?: string | null
+          created_at?: string | null
+          description?: string | null
+          employee_count?: string | null
+          enriched_at?: string | null
+          linkedin_id: string
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          activities?: string | null
+          categorie?: string | null
+          created_at?: string | null
+          description?: string | null
+          employee_count?: string | null
+          enriched_at?: string | null
+          linkedin_id?: string
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       contact_user_associations: {
         Row: {
           contact_id: string

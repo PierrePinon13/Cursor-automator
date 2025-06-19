@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { CollaboratorsSelect } from './CollaboratorsSelect';
 import { TierSelector } from './TierSelector';
 import { LinkedInIcon } from './LinkedInIcon';
 import { ContactDialog } from './ContactDialog';
+import EnrichButton from './EnrichButton';
 
 interface Client {
   id: string;
@@ -84,6 +84,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
             <TableHead>Tier</TableHead>
             <TableHead>Suivi</TableHead>
             <TableHead>Contacts</TableHead>
+            <TableHead>Enrichissement</TableHead>
             <TableHead className="w-[120px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -119,6 +120,12 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
                   />
                 </TableCell>
                 <TableCell>
+                  <EnrichButton
+                    companyLinkedInId={client.company_linkedin_id}
+                    companyName={client.company_name}
+                  />
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
@@ -142,7 +149,7 @@ export function ClientsTable({ clients = [], users = [], onEdit }: ClientsTableP
           })}
           {validClients.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                 Aucun client trouvé. Ajoutez votre premier client ou importez un fichier CSV.
               </TableCell>
             </TableRow>
