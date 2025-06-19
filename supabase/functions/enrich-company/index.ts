@@ -91,10 +91,11 @@ serve(async (req) => {
     console.log(`⏱️ Adding ${delay}ms delay for rate limiting`);
     await new Promise(resolve => setTimeout(resolve, delay));
 
-    // Call n8n webhook for enrichment
-    const n8nWebhookUrl = 'https://n8n.getpro.co/webhook-test/f35b36ef-0f91-4587-aa4e-72bf302c565c';
+    // Call n8n webhook for enrichment - CORRECTION DE L'URL
+    const n8nWebhookUrl = 'https://n8n.getpro.co/webhook/f35b36ef-0f91-4587-aa4e-72bf302c565c';
     
     console.log('🔗 Calling n8n webhook for enrichment...');
+    console.log('📋 Payload:', { linkedin_id: companyLinkedInId, account_id: accountId });
     
     const n8nResponse = await fetch(n8nWebhookUrl, {
       method: 'POST',
@@ -113,7 +114,8 @@ serve(async (req) => {
       
       return new Response(JSON.stringify({ 
         error: 'Failed to trigger enrichment workflow',
-        details: errorText
+        details: errorText,
+        status: n8nResponse.status
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -121,7 +123,7 @@ serve(async (req) => {
     }
 
     const n8nResult = await n8nResponse.json();
-    console.log('✅ n8n enrichment triggered successfully');
+    console.log('✅ n8n enrichment triggered successfully:', n8nResult);
 
     // If we get immediate results (synchronous response)
     if (n8nResult && Array.isArray(n8nResult) && n8nResult.length > 0) {
