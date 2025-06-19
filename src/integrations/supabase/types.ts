@@ -643,43 +643,64 @@ export type Database = {
       }
       companies: {
         Row: {
+          activities: string | null
+          categorie: string | null
           company_size: string | null
           created_at: string
           description: string | null
+          employee_count: string | null
+          enrichment_source: string | null
+          enrichment_status: string | null
           follower_count: number | null
           headquarters: string | null
           id: string
           industry: string | null
+          last_enriched_at: string | null
           last_updated_at: string
           linkedin_id: string
+          logo: string | null
           name: string | null
           unipile_data: Json | null
           website: string | null
         }
         Insert: {
+          activities?: string | null
+          categorie?: string | null
           company_size?: string | null
           created_at?: string
           description?: string | null
+          employee_count?: string | null
+          enrichment_source?: string | null
+          enrichment_status?: string | null
           follower_count?: number | null
           headquarters?: string | null
           id?: string
           industry?: string | null
+          last_enriched_at?: string | null
           last_updated_at?: string
           linkedin_id: string
+          logo?: string | null
           name?: string | null
           unipile_data?: Json | null
           website?: string | null
         }
         Update: {
+          activities?: string | null
+          categorie?: string | null
           company_size?: string | null
           created_at?: string
           description?: string | null
+          employee_count?: string | null
+          enrichment_source?: string | null
+          enrichment_status?: string | null
           follower_count?: number | null
           headquarters?: string | null
           id?: string
           industry?: string | null
+          last_enriched_at?: string | null
           last_updated_at?: string
           linkedin_id?: string
+          logo?: string | null
           name?: string | null
           unipile_data?: Json | null
           website?: string | null
@@ -718,6 +739,42 @@ export type Database = {
           enriched_at?: string | null
           linkedin_id?: string
           name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      company_enrichment_queue: {
+        Row: {
+          account_id: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          linkedin_id: string
+          processed_at: string | null
+          source: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          linkedin_id: string
+          processed_at?: string | null
+          source: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          linkedin_id?: string
+          processed_at?: string | null
+          source?: string
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2140,6 +2197,10 @@ export type Database = {
       check_recent_contact: {
         Args: { lead_id: string }
         Returns: Json
+      }
+      cleanup_enrichment_queue: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_expired_locks: {
         Args: Record<PropertyKey, never>

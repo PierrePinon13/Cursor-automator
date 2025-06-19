@@ -7,7 +7,7 @@ export function useCompanyEnrichment() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const enrichCompany = async (companyLinkedInId: string) => {
+  const enrichCompany = async (companyLinkedInId: string, source: string = 'manual') => {
     if (!companyLinkedInId) {
       toast({
         title: "Erreur",
@@ -23,7 +23,7 @@ export function useCompanyEnrichment() {
       console.log('🏢 Starting company enrichment for:', companyLinkedInId);
       
       const { data, error } = await supabase.functions.invoke('enrich-company', {
-        body: { companyLinkedInId }
+        body: { companyLinkedInId, source }
       });
 
       if (error) {
@@ -40,9 +40,9 @@ export function useCompanyEnrichment() {
         if (data.cached) {
           toast({
             title: "Données récupérées",
-            description: "Les données d'enrichissement étaient déjà en cache",
+            description: "Les données d'enrichissement étaient déjà récentes",
           });
-        } else if (data.status === 'pending') {
+        } else if (data.status === 'processing') {
           toast({
             title: "Enrichissement en cours",
             description: "Le processus d'enrichissement a été lancé. Les données seront disponibles sous peu.",
@@ -77,29 +77,67 @@ export function useCompanyEnrichment() {
     }
   };
 
-  const getEnrichmentData = async (companyLinkedInId: string) => {
+  const getCompanyData = async (companyLinkedInId: string) => {
     try {
       const { data, error } = await supabase
-        .from('companies_enrichment')
+        .from('companies')
         .select('*')
         .eq('linkedin_id', companyLinkedInId)
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching enrichment data:', error);
+        console.error('Error fetching company data:', error);
         return null;
       }
 
       return data;
     } catch (error) {
-      console.error('Error in getEnrichmentData:', error);
+      console.error('Error in getCompanyData:', error);
       return null;
+    }
+  };
+
+  const triggerBulkEnrichment = async () => {
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-enrich-companies');
+
+      if (error) {
+        console.error('❌ Error calling auto-enrich-companies function:', error);
+        toast({
+          title: "Erreur d'enrichissement",
+          description: "Impossible de lancer l'enrichissement en masse",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Enrichissement lancé",
+          description: `${data.processed} entreprises en cours de traitement`,
+        });
+        return data;
+      }
+
+    } catch (error) {
+      console.error('💥 Error in triggerBulkEnrichment:', error);
+      toast({
+        title: "Erreur d'enrichissement",
+        description: "Une erreur s'est produite lors de l'enrichissement en masse",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
     enrichCompany,
-    getEnrichmentData,
+    getCompanyData,
+    triggerBulkEnrichment,
     loading
   };
 }

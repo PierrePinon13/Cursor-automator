@@ -35,31 +35,50 @@ serve(async (req) => {
 
       console.log('💾 Saving enrichment data for LinkedIn ID:', enrichmentData.linkedin_id);
 
-      const saveData = {
-        linkedin_id: enrichmentData.linkedin_id,
+      // Update companies table directly
+      const updateData = {
         name: enrichmentData.name || null,
         description: enrichmentData.description || null,
         activities: enrichmentData.activities || null,
         employee_count: enrichmentData.employee_count || null,
         categorie: enrichmentData.categorie || null,
-        enriched_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        industry: enrichmentData.industry || null,
+        logo: enrichmentData.logo || null,
+        last_enriched_at: new Date().toISOString(),
+        enrichment_status: 'enriched',
+        last_updated_at: new Date().toISOString()
       };
 
-      const { error: saveError } = await supabaseClient
-        .from('companies_enrichment')
-        .upsert(saveData);
+      const { error: updateError } = await supabaseClient
+        .from('companies')
+        .update(updateData)
+        .eq('linkedin_id', enrichmentData.linkedin_id);
 
-      if (saveError) {
-        console.error('❌ Error saving enrichment data:', saveError);
-        return new Response(JSON.stringify({ 
-          error: 'Failed to save enrichment data',
-          details: saveError.message
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      if (updateError) {
+        console.error('❌ Error updating company data:', updateError);
+        
+        // Mark as error in queue if exists
+        await supabaseClient
+          .from('company_enrichment_queue')
+          .update({
+            status: 'error',
+            error_message: updateError.message,
+            updated_at: new Date().toISOString()
+          })
+          .eq('linkedin_id', enrichmentData.linkedin_id);
+          
+        continue;
       }
+
+      // Mark as completed in queue
+      await supabaseClient
+        .from('company_enrichment_queue')
+        .update({
+          status: 'completed',
+          processed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('linkedin_id', enrichmentData.linkedin_id);
 
       console.log('✅ Enrichment data saved successfully for:', enrichmentData.linkedin_id);
     }

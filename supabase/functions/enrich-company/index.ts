@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { companyLinkedInId } = await req.json();
+    const { companyLinkedInId, source = 'manual' } = await req.json();
     
     if (!companyLinkedInId) {
       return new Response(JSON.stringify({ error: 'Company LinkedIn ID is required' }), {
@@ -30,33 +30,34 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Check if company already exists in enrichment table
-    const { data: existingEnrichment, error: checkError } = await supabaseClient
-      .from('companies_enrichment')
+    // Check if company already exists and if enrichment is needed
+    const { data: existingCompany, error: checkError } = await supabaseClient
+      .from('companies')
       .select('*')
       .eq('linkedin_id', companyLinkedInId)
       .maybeSingle();
 
     if (checkError) {
-      console.error('Error checking existing enrichment:', checkError);
+      console.error('Error checking existing company:', checkError);
       return new Response(JSON.stringify({ error: 'Database error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // If already enriched recently (less than 30 days), return cached data
-    if (existingEnrichment) {
-      const lastEnriched = new Date(existingEnrichment.enriched_at);
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Check if enrichment is needed (never enriched or older than 6 months)
+    if (existingCompany?.last_enriched_at) {
+      const lastEnriched = new Date(existingCompany.last_enriched_at);
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       
-      if (lastEnriched > thirtyDaysAgo) {
-        console.log('📋 Using cached enrichment data');
+      if (lastEnriched > sixMonthsAgo && source !== 'manual') {
+        console.log('📋 Company recently enriched, skipping');
         return new Response(JSON.stringify({ 
           success: true, 
-          data: existingEnrichment,
-          cached: true 
+          data: existingCompany,
+          cached: true,
+          message: 'Company recently enriched'
         }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -64,7 +65,7 @@ serve(async (req) => {
       }
     }
 
-    // Get available Unipile accounts (rotating accounts to avoid rate limits)
+    // Get available Unipile accounts
     const { data: profiles, error: profilesError } = await supabaseClient
       .from('profiles')
       .select('unipile_account_id')
@@ -86,12 +87,26 @@ serve(async (req) => {
 
     console.log('🔄 Using Unipile account:', accountId);
 
+    // Add to enrichment queue
+    const { error: queueError } = await supabaseClient
+      .from('company_enrichment_queue')
+      .insert({
+        linkedin_id: companyLinkedInId,
+        status: 'processing',
+        source: source,
+        account_id: accountId
+      });
+
+    if (queueError) {
+      console.error('Error adding to queue:', queueError);
+    }
+
     // Add random delay between 1-5 seconds to respect rate limits
     const delay = Math.floor(Math.random() * 4000) + 1000;
     console.log(`⏱️ Adding ${delay}ms delay for rate limiting`);
     await new Promise(resolve => setTimeout(resolve, delay));
 
-    // Call n8n webhook for enrichment - CORRECTION DE L'URL
+    // Call n8n webhook for enrichment
     const n8nWebhookUrl = 'https://n8n.getpro.co/webhook/f35b36ef-0f91-4587-aa4e-72bf302c565c';
     
     console.log('🔗 Calling n8n webhook for enrichment...');
@@ -112,6 +127,16 @@ serve(async (req) => {
       const errorText = await n8nResponse.text();
       console.error('❌ n8n webhook error:', n8nResponse.status, errorText);
       
+      // Mark as error in queue
+      await supabaseClient
+        .from('company_enrichment_queue')
+        .update({
+          status: 'error',
+          error_message: `n8n webhook error: ${n8nResponse.status} - ${errorText}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('linkedin_id', companyLinkedInId);
+      
       return new Response(JSON.stringify({ 
         error: 'Failed to trigger enrichment workflow',
         details: errorText,
@@ -125,55 +150,20 @@ serve(async (req) => {
     const n8nResult = await n8nResponse.json();
     console.log('✅ n8n enrichment triggered successfully:', n8nResult);
 
-    // If we get immediate results (synchronous response)
-    if (n8nResult && Array.isArray(n8nResult) && n8nResult.length > 0) {
-      const enrichmentData = n8nResult[0];
-      
-      // Save to enrichment table
-      const saveData = {
-        linkedin_id: companyLinkedInId,
-        name: enrichmentData.name || null,
-        description: enrichmentData.description || null,
-        activities: enrichmentData.activities || null,
-        employee_count: enrichmentData.employee_count || null,
-        categorie: enrichmentData.categorie || null,
-        enriched_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+    // Update company status
+    await supabaseClient
+      .from('companies')
+      .update({
+        enrichment_status: 'processing',
+        enrichment_source: source,
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('linkedin_id', companyLinkedInId);
 
-      const { data: savedData, error: saveError } = await supabaseClient
-        .from('companies_enrichment')
-        .upsert(saveData)
-        .select()
-        .single();
-
-      if (saveError) {
-        console.error('❌ Error saving enrichment data:', saveError);
-        return new Response(JSON.stringify({ 
-          error: 'Failed to save enrichment data' 
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      console.log('💾 Enrichment data saved successfully');
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        data: savedData,
-        cached: false 
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // If asynchronous response, return success with pending status
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Enrichment workflow started',
-      status: 'pending'
+      status: 'processing'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

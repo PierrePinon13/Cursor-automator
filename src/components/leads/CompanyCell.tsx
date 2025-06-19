@@ -41,6 +41,7 @@ const CompanyCell = ({ lead }: CompanyCellProps) => {
       companyId={companyId}
       companyLinkedInId={companyLinkedInId}
       companyName={companyName}
+      showLogo={true}
     >
       <span className="text-sm font-medium">{companyName}</span>
     </CompanyHoverCard>

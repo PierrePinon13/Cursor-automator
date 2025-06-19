@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Loader2, CheckCircle } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCompanyEnrichment } from '@/hooks/useCompanyEnrichment';
 
 interface EnrichButtonProps {
@@ -11,26 +11,26 @@ interface EnrichButtonProps {
 }
 
 const EnrichButton = ({ companyLinkedInId, companyName }: EnrichButtonProps) => {
-  const { enrichCompany, getEnrichmentData, loading } = useCompanyEnrichment();
-  const [enrichmentData, setEnrichmentData] = useState<any>(null);
+  const { enrichCompany, getCompanyData, loading } = useCompanyEnrichment();
+  const [companyData, setCompanyData] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(false);
 
-  // Check if company is already enriched on mount
+  // Check company data on mount
   useEffect(() => {
     if (companyLinkedInId) {
-      checkEnrichmentStatus();
+      checkCompanyData();
     }
   }, [companyLinkedInId]);
 
-  const checkEnrichmentStatus = async () => {
+  const checkCompanyData = async () => {
     if (!companyLinkedInId) return;
     
     setLoadingData(true);
     try {
-      const data = await getEnrichmentData(companyLinkedInId);
-      setEnrichmentData(data);
+      const data = await getCompanyData(companyLinkedInId);
+      setCompanyData(data);
     } catch (error) {
-      console.error('Error checking enrichment status:', error);
+      console.error('Error checking company data:', error);
     } finally {
       setLoadingData(false);
     }
@@ -41,9 +41,12 @@ const EnrichButton = ({ companyLinkedInId, companyName }: EnrichButtonProps) => 
       return;
     }
 
-    const result = await enrichCompany(companyLinkedInId);
+    const result = await enrichCompany(companyLinkedInId, 'manual');
     if (result) {
-      setEnrichmentData(result);
+      // Refresh company data after enrichment
+      setTimeout(() => {
+        checkCompanyData();
+      }, 1000);
     }
   };
 
@@ -64,14 +67,70 @@ const EnrichButton = ({ companyLinkedInId, companyName }: EnrichButtonProps) => 
     );
   }
 
-  if (enrichmentData) {
-    const enrichedDate = new Date(enrichmentData.enriched_at).toLocaleDateString('fr-FR');
-    return (
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-xs text-green-600 border-green-300">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          Enrichi le {enrichedDate}
-        </Badge>
+  const getStatusDisplay = () => {
+    if (!companyData) {
+      return {
+        badge: <Badge variant="secondary" className="text-xs">Non trouvé</Badge>,
+        showButton: true
+      };
+    }
+
+    const status = companyData.enrichment_status;
+    const lastEnriched = companyData.last_enriched_at;
+
+    switch (status) {
+      case 'enriched':
+        const enrichedDate = new Date(lastEnriched).toLocaleDateString('fr-FR');
+        return {
+          badge: (
+            <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Enrichi le {enrichedDate}
+            </Badge>
+          ),
+          showButton: true
+        };
+      
+      case 'processing':
+        return {
+          badge: (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              En cours...
+            </Badge>
+          ),
+          showButton: false
+        };
+      
+      case 'error':
+        return {
+          badge: (
+            <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+              <AlertCircle className="h-3 w-3 mr-1" />
+              Erreur
+            </Badge>
+          ),
+          showButton: true
+        };
+      
+      default:
+        return {
+          badge: (
+            <Badge variant="secondary" className="text-xs">
+              En attente
+            </Badge>
+          ),
+          showButton: true
+        };
+    }
+  };
+
+  const { badge, showButton } = getStatusDisplay();
+
+  return (
+    <div className="flex items-center gap-2">
+      {badge}
+      {showButton && (
         <Button
           variant="ghost"
           size="sm"
@@ -85,30 +144,8 @@ const EnrichButton = ({ companyLinkedInId, companyName }: EnrichButtonProps) => 
             <Sparkles className="h-3 w-3" />
           )}
         </Button>
-      </div>
-    );
-  }
-
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleEnrich}
-      disabled={loading}
-      className="h-7 px-3 text-xs"
-    >
-      {loading ? (
-        <>
-          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-          Enrichissement...
-        </>
-      ) : (
-        <>
-          <Sparkles className="h-3 w-3 mr-1" />
-          Enrichir
-        </>
       )}
-    </Button>
+    </div>
   );
 };
 
