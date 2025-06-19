@@ -48,6 +48,18 @@ const LeadDetailContent = ({
   const { user } = useAuth();
   const { retrievePhone, loading: phoneLoading } = usePhoneRetrieval();
 
+  // Protection contre les données invalides
+  if (!lead) {
+    console.error('LeadDetailContent: lead is null or undefined');
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-500">Erreur: Données du lead non disponibles</p>
+        </div>
+      </div>
+    );
+  }
+
   const handleRetrievePhone = async () => {
     try {
       const phoneNumber = await retrievePhone(lead.id);
@@ -66,16 +78,20 @@ const LeadDetailContent = ({
     }
   };
 
-  const companyName = lead.company_name || lead.unipile_company;
+  const companyName = lead.company_name || lead.unipile_company || 'Entreprise non renseignée';
   const companyId = lead.company_id;
   const isMessageTooLong = customMessage.length > 300;
   const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
   const charactersRemaining = 300 - customMessage.length;
 
+  // Protection pour les tableaux potentiellement undefined
+  const previousClientCompanies = Array.isArray(lead.previous_client_companies) ? lead.previous_client_companies : [];
+  const selectedPositions = Array.isArray(lead.openai_step3_postes_selectionnes) ? lead.openai_step3_postes_selectionnes : [];
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Alert entreprise cliente - Affichage harmonisé */}
-      {lead.has_previous_client_company && lead.previous_client_companies?.length > 0 && (
+      {lead.has_previous_client_company && previousClientCompanies.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 p-4 mx-6 mb-4 rounded-lg">
           <div className="flex items-start gap-3 text-yellow-800">
             <div className="p-2 bg-yellow-100 rounded-lg">
@@ -84,7 +100,7 @@ const LeadDetailContent = ({
             <div className="flex-1">
               <h3 className="font-semibold text-yellow-900 mb-2">Entreprise cliente précédente détectée</h3>
               <div className="flex flex-wrap gap-2">
-                {lead.previous_client_companies.map((company: string, index: number) => (
+                {previousClientCompanies.map((company: string, index: number) => (
                   <Badge key={index} variant="outline" className="text-yellow-700 border-yellow-300 bg-yellow-100">
                     {company}
                   </Badge>
@@ -111,9 +127,9 @@ const LeadDetailContent = ({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {lead.openai_step3_postes_selectionnes && lead.openai_step3_postes_selectionnes.length > 0 ? (
+                {selectedPositions.length > 0 ? (
                   <div className="space-y-2">
-                    {lead.openai_step3_postes_selectionnes.map((poste: string, index: number) => (
+                    {selectedPositions.map((poste: string, index: number) => (
                       <div key={index} className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium text-center">
                         {poste}
                       </div>
@@ -121,7 +137,7 @@ const LeadDetailContent = ({
                   </div>
                 ) : (
                   <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium text-center">
-                    Poste de recrutement détecté
+                    {lead.openai_step3_categorie || 'Poste de recrutement détecté'}
                   </div>
                 )}
               </CardContent>
@@ -154,7 +170,18 @@ const LeadDetailContent = ({
             <Button 
               variant="outline" 
               className="w-full h-12 justify-center border-blue-200 hover:bg-blue-50" 
-              onClick={() => window.open(lead.latest_post_url || lead.url, '_blank')}
+              onClick={() => {
+                const url = lead.latest_post_url || lead.url;
+                if (url) {
+                  window.open(url, '_blank');
+                } else {
+                  toast({
+                    title: "Erreur",
+                    description: "Aucun lien vers la publication disponible",
+                    variant: "destructive"
+                  });
+                }
+              }}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
               Voir la publication
@@ -180,7 +207,7 @@ const LeadDetailContent = ({
             <div className="flex-1 flex flex-col">
               <div className="flex-1 mb-4">
                 <Textarea 
-                  value={customMessage} 
+                  value={customMessage || ''} 
                   onChange={e => onMessageChange(e.target.value)} 
                   placeholder="Rédigez votre message LinkedIn personnalisé..." 
                   className="w-full h-full resize-none border-gray-200 text-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-50" 
@@ -196,7 +223,7 @@ const LeadDetailContent = ({
 
                 {hasLinkedInMessage && (
                   <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200 text-center">
-                    ✓ Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
+                    ✓ Message envoyé le {lead.linkedin_message_sent_at ? new Date(lead.linkedin_message_sent_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
                   </div>
                 )}
               </div>
@@ -219,7 +246,7 @@ const LeadDetailContent = ({
                 
                 <Button
                   onClick={onSendLinkedInMessage}
-                  disabled={messageSending || isMessageTooLong || !customMessage.trim() || hasLinkedInMessage}
+                  disabled={messageSending || isMessageTooLong || !customMessage?.trim() || hasLinkedInMessage}
                   className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                   size="lg"
                 >
@@ -227,9 +254,9 @@ const LeadDetailContent = ({
                   {messageSending ? 'Envoi en cours...' : hasLinkedInMessage ? 'Message déjà envoyé' : 'Envoyer le message'}
                 </Button>
                 
-                {hasLinkedInMessage && (
+                {hasLinkedInMessage && lead.linkedin_message_sent_at && (
                   <div className="text-xs text-green-600 text-center mt-2">
-                    Message envoyé le {new Date(lead.linkedin_message_sent_at!).toLocaleDateString('fr-FR')}
+                    Message envoyé le {new Date(lead.linkedin_message_sent_at).toLocaleDateString('fr-FR')}
                   </div>
                 )}
               </CardContent>

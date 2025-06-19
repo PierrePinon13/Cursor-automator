@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
@@ -11,7 +12,9 @@ import LeadDetailHeader from './LeadDetailHeader';
 import LeadDetailContent from './LeadDetailContent';
 import LeadLockWarning from './LeadLockWarning';
 import RecentContactWarning from './RecentContactWarning';
+
 type Lead = Tables<'leads'>;
+
 interface LeadDetailDialogProps {
   leads: Lead[];
   selectedLeadIndex: number | null;
@@ -20,6 +23,7 @@ interface LeadDetailDialogProps {
   onNavigateToLead: (index: number) => void;
   onActionCompleted: () => void;
 }
+
 const LeadDetailDialog = ({
   leads,
   selectedLeadIndex,
@@ -46,6 +50,7 @@ const LeadDetailDialog = ({
   }>({
     show: false
   });
+
   const {
     sendMessage,
     loading: messageSending
@@ -72,7 +77,7 @@ const LeadDetailDialog = ({
       const handleLeadLocking = async () => {
         try {
           const lockResult = await lockLead(lead.id);
-          if (lockResult.isLocked) {
+          if (lockResult?.isLocked) {
             setLockWarning({
               show: true,
               lockedByUserName: lockResult.lockedByUserName,
@@ -91,9 +96,12 @@ const LeadDetailDialog = ({
           }
         } catch (error) {
           console.error('Error locking lead:', error);
+          // En cas d'erreur de verrouillage, on permet quand même l'accès
+          setIsLocked(true);
+          setLockWarning({ show: false });
           toast({
-            title: "Erreur",
-            description: "Impossible de verrouiller le lead",
+            title: "Avertissement",
+            description: "Impossible de verrouiller le lead, mais vous pouvez continuer",
             variant: "destructive"
           });
         }
@@ -129,11 +137,13 @@ const LeadDetailDialog = ({
       onNavigateToLead(selectedLeadIndex - 1);
     }
   };
+  
   const handleNext = () => {
     if (selectedLeadIndex !== null && selectedLeadIndex < currentLeads.length - 1) {
       onNavigateToLead(selectedLeadIndex + 1);
     }
   };
+  
   const handleClose = async () => {
     if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isLocked) {
       await unlockLead(currentLeads[selectedLeadIndex].id);
@@ -156,9 +166,11 @@ const LeadDetailDialog = ({
     onSwipeUp: handleClose,
     enabled: isOpen
   });
+
   const handleSendLinkedInMessage = async () => {
     if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return;
     const lead = currentLeads[selectedLeadIndex];
+    
     if (!customMessage.trim()) {
       toast({
         title: "Erreur",
@@ -167,6 +179,7 @@ const LeadDetailDialog = ({
       });
       return;
     }
+    
     if (customMessage.length > 300) {
       toast({
         title: "Erreur",
@@ -177,20 +190,27 @@ const LeadDetailDialog = ({
     }
 
     // Vérifier les contacts récents avant d'envoyer
-    const recentContactCheck = await checkRecentContact(lead.id);
-    if (recentContactCheck.hasRecentContact) {
-      setRecentContactWarning({
-        show: true,
-        contactedBy: recentContactCheck.contactedBy,
-        hoursAgo: recentContactCheck.hoursAgo,
-        lastContactAt: recentContactCheck.lastContactAt
-      });
-      return;
+    try {
+      const recentContactCheck = await checkRecentContact(lead.id);
+      if (recentContactCheck?.hasRecentContact) {
+        setRecentContactWarning({
+          show: true,
+          contactedBy: recentContactCheck.contactedBy,
+          hoursAgo: recentContactCheck.hoursAgo,
+          lastContactAt: recentContactCheck.lastContactAt
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking recent contact:', error);
+      // Continue même en cas d'erreur de vérification
     }
+
     const success = await sendMessage(lead.id, customMessage, {
       author_name: lead.author_name,
       author_profile_url: lead.author_profile_url
     });
+    
     if (success) {
       onActionCompleted();
       toast({
@@ -199,9 +219,11 @@ const LeadDetailDialog = ({
       });
     }
   };
+
   const handleAction = async (actionName: string) => {
     if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return;
     const lead = currentLeads[selectedLeadIndex];
+    
     try {
       switch (actionName) {
         case 'positive_call':
@@ -245,6 +267,7 @@ const LeadDetailDialog = ({
       });
     }
   };
+
   const handlePhoneRetrieved = (phoneNumber: string | null) => {
     // Mise à jour du lead local si nécessaire
     if (selectedLeadIndex !== null) {
@@ -257,31 +280,81 @@ const LeadDetailDialog = ({
       setCurrentLeads(updatedLeads);
     }
   };
+
   const handleContactUpdate = () => {
     onActionCompleted();
   };
 
-  // Maintenant on peut faire le return conditionnel APRÈS tous les hooks
-  if (selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) return null;
+  // Protection contre les états invalides
+  if (!isOpen || selectedLeadIndex === null || !currentLeads[selectedLeadIndex]) {
+    return null;
+  }
+
   const lead = currentLeads[selectedLeadIndex];
   const canGoPrevious = selectedLeadIndex > 0;
   const canGoNext = selectedLeadIndex < currentLeads.length - 1;
-  if (!isOpen) return null;
-  return <TooltipProvider>
+
+  // Gestion des warnings avec fallback sécurisé
+  const showLockWarning = lockWarning.show && !isLocked;
+  const showRecentContactWarning = recentContactWarning.show && !showLockWarning;
+  const showContent = isLocked || (!showLockWarning && !showRecentContactWarning);
+
+  return (
+    <TooltipProvider>
       {/* Overlay noir semi-transparent */}
       <div className="fixed inset-0 z-50 bg-black/40 animate-in fade-in-0 duration-500" onClick={handleClose} />
       
       {/* Interface plein écran avec animation depuis le haut */}
-      <div className={`fixed inset-0 z-50 bg-white flex flex-col transition-transform duration-700 ease-out ${isOpen ? 'translate-y-0' : '-translate-y-full'} animate-in slide-in-from-top duration-700`}>
-        <LeadDetailHeader lead={currentLeads[selectedLeadIndex]} selectedLeadIndex={selectedLeadIndex} totalLeads={currentLeads.length} canGoPrevious={canGoPrevious} canGoNext={canGoNext} onPrevious={handlePrevious} onNext={handleNext} onClose={handleClose} />
+      <div className="fixed inset-0 z-50 bg-white flex flex-col transition-transform duration-700 ease-out translate-y-0 animate-in slide-in-from-top duration-700">
+        <LeadDetailHeader 
+          lead={lead} 
+          selectedLeadIndex={selectedLeadIndex} 
+          totalLeads={currentLeads.length} 
+          canGoPrevious={canGoPrevious} 
+          canGoNext={canGoNext} 
+          onPrevious={handlePrevious} 
+          onNext={handleNext} 
+          onClose={handleClose} 
+        />
         
         <div className="flex-1 overflow-hidden">
+          {/* Affichage conditionnel des warnings */}
+          {showLockWarning && (
+            <LeadLockWarning 
+              lockedByUserName={lockWarning.lockedByUserName} 
+              hoursAgo={lockWarning.hoursAgo}
+              onClose={() => setLockWarning({ show: false })}
+            />
+          )}
           
+          {showRecentContactWarning && (
+            <RecentContactWarning 
+              contactedBy={recentContactWarning.contactedBy} 
+              hoursAgo={recentContactWarning.hoursAgo}
+              lastContactAt={recentContactWarning.lastContactAt}
+              onClose={() => setRecentContactWarning({ show: false })}
+              onContinueAnyway={() => setRecentContactWarning({ show: false })}
+            />
+          )}
           
-          {/* Afficher le contenu seulement si le lead est disponible */}
-          {(isLocked || !lockWarning.show && !recentContactWarning.show) && <LeadDetailContent lead={currentLeads[selectedLeadIndex]} onActionCompleted={onActionCompleted} customMessage={customMessage} onMessageChange={setCustomMessage} onSendLinkedInMessage={handleSendLinkedInMessage} onAction={handleAction} messageSending={messageSending} onPhoneRetrieved={handlePhoneRetrieved} onContactUpdate={handleContactUpdate} />}
+          {/* Afficher le contenu principal */}
+          {showContent && (
+            <LeadDetailContent 
+              lead={lead} 
+              onActionCompleted={onActionCompleted} 
+              customMessage={customMessage} 
+              onMessageChange={setCustomMessage} 
+              onSendLinkedInMessage={handleSendLinkedInMessage} 
+              onAction={handleAction} 
+              messageSending={messageSending} 
+              onPhoneRetrieved={handlePhoneRetrieved} 
+              onContactUpdate={handleContactUpdate} 
+            />
+          )}
         </div>
       </div>
-    </TooltipProvider>;
+    </TooltipProvider>
+  );
 };
+
 export default LeadDetailDialog;
