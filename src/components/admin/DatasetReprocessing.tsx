@@ -13,7 +13,7 @@ interface ReprocessingResult {
   success: boolean;
   action: string;
   dataset_id: string;
-  statistics: {
+  statistics?: {
     total_fetched?: number;
     stored_raw?: number;
     queued_for_processing?: number;
@@ -26,6 +26,15 @@ interface ReprocessingResult {
     metadata_corrected?: boolean;
     delegation_successful?: boolean;
     optimization_applied?: string;
+    total_received?: number;
+    after_filtering?: number;
+    after_deduplication?: number;
+    raw_items_stored?: number;
+    n8n_batches_sent?: number;
+    n8n_batch_errors?: number;
+    pipeline_version?: string;
+    cleaned_existing?: number;
+    webhook_triggered?: boolean;
   };
   diagnostics?: {
     retrieval_rate_percent?: string;
@@ -54,6 +63,8 @@ interface ReprocessingResult {
   message?: string;
   force_openai_restart?: boolean;
   enhancements?: string[];
+  pipeline_version?: string;
+  n8n_webhook_url?: string;
 }
 
 export function DatasetReprocessing() {
@@ -103,19 +114,21 @@ export function DatasetReprocessing() {
       
       if (data.success) {
         const retrievalRate = data.diagnostics?.retrieval_rate_percent ? parseFloat(data.diagnostics.retrieval_rate_percent) : 0;
+        const batchesSent = data.statistics?.n8n_batches_sent || 0;
+        const totalBatches = Math.ceil((data.statistics?.after_deduplication || 0) / 100);
         
         if (data.force_openai_restart) {
           toast.success(`🚀 Dataset retraité avec redémarrage OpenAI forcé! Traitement relancé`);
         } else if (data.diagnostics?.metadata_bypass_used) {
-          toast.success(`✅ Dataset retraité avec bypass metadata! Délégué au gestionnaire de queue`);
+          toast.success(`✅ Dataset retraité avec bypass metadata! ${batchesSent} batches envoyés vers N8N`);
         } else if (data.diagnostics?.metadata_corrected) {
-          toast.warning(`⚠️ Métadonnées Apify corrigées! Dataset retraité: ${data.statistics.queued_for_processing || 0} posts`);
+          toast.warning(`⚠️ Métadonnées Apify corrigées! Dataset retraité: ${batchesSent} batches envoyés`);
         } else if (data.optimization?.strategy === 'immediate_delegation') {
           toast.success(`🚀 Dataset délégué avec succès au gestionnaire spécialisé! Traitement en arrière-plan.`);
         } else if (retrievalRate < 80 && retrievalRate > 0) {
           toast.warning(`⚠️ Dataset retraité avec alertes! Taux de récupération: ${retrievalRate}%`);
         } else {
-          toast.success(`✅ Dataset retraité avec succès! ${data.statistics.queued_for_processing || 0} posts en queue`);
+          toast.success(`✅ Dataset retraité avec succès! ${batchesSent}/${totalBatches} batches envoyés vers N8N`);
         }
       } else {
         toast.error('❌ Le retraitement a échoué');
@@ -135,7 +148,7 @@ export function DatasetReprocessing() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5" />
-            Retraitement robuste de Dataset
+            Retraitement robuste de Dataset avec N8N Webhook
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -300,9 +313,9 @@ export function DatasetReprocessing() {
               )}
               <li>📥 Récupérer les données avec diagnostic de perte</li>
               <li>💾 Utiliser des upserts pour éviter les conflits de duplicatas</li>
-              <li>🎯 Appliquer la classification simplifiée</li>
+              <li>🎯 Appliquer le filtrage et la déduplication</li>
               <li>📊 Fournir un rapport détaillé avec taux de récupération</li>
-              <li>🚀 Déléguer au gestionnaire de queue spécialisé</li>
+              <li>🚀 Envoyer vers le webhook N8N en batches optimisés</li>
             </ul>
           </div>
 
@@ -355,8 +368,8 @@ export function DatasetReprocessing() {
               ) : (
                 <XCircle className="h-5 w-5 text-red-600" />
               )}
-              Résultat du retraitement robuste
-              {result.statistics.resumed_from_batch && (
+              Résultat du retraitement N8N Webhook
+              {result.statistics?.resumed_from_batch && (
                 <Badge variant="outline">Repris du batch {result.statistics.resumed_from_batch}</Badge>
               )}
               {result.diagnostics?.metadata_bypass_used && (
@@ -379,6 +392,11 @@ export function DatasetReprocessing() {
               {result.optimization?.strategy === 'immediate_delegation' && (
                 <Badge variant="secondary" className="bg-purple-100 text-purple-800">
                   Délégation optimisée
+                </Badge>
+              )}
+              {result.pipeline_version && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  {result.pipeline_version}
                 </Badge>
               )}
             </CardTitle>
@@ -425,42 +443,31 @@ export function DatasetReprocessing() {
                 </div>
               </div>
             ) : (
-              // Affichage classique pour les réponses complètes
+              // Affichage pour les réponses N8N webhook
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {result.statistics.total_fetched || 0}
+                    {result.statistics?.total_received || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">Récupérés</div>
-                  <div className="text-xs text-gray-500">
-                    / {result.statistics.apify_item_count || '?'} attendus
-                  </div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {result.statistics.stored_raw || 0}
+                    {result.statistics?.raw_items_stored || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">Stockés brut</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {result.statistics.queued_for_processing || 0}
+                    {result.statistics?.n8n_batches_sent || 0}
                   </div>
-                  <div className="text-sm text-muted-foreground">En queue</div>
+                  <div className="text-sm text-muted-foreground">Batches N8N</div>
                 </div>
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${
-                    result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable'
-                      ? 'text-orange-600'
-                      : result.diagnostics && parseFloat(result.diagnostics.retrieval_rate_percent || '0') >= 80 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {result.diagnostics?.retrieval_rate_percent === 'metadata_unreliable' 
-                      ? 'N/A' 
-                      : `${result.diagnostics?.retrieval_rate_percent || '0'}%`}
+                  <div className="text-2xl font-bold text-orange-600">
+                    {result.statistics?.n8n_batch_errors || 0}
                   </div>
-                  <div className="text-sm text-muted-foreground">Taux récupération</div>
+                  <div className="text-sm text-muted-foreground">Erreurs</div>
                 </div>
               </div>
             )}
@@ -552,16 +559,24 @@ export function DatasetReprocessing() {
               </div>
             )}
 
+            {result.n8n_webhook_url && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="text-sm text-green-800">
+                  <strong>N8N Webhook:</strong> {result.n8n_webhook_url}
+                </div>
+              </div>
+            )}
+
             <div className="text-xs text-muted-foreground">
               Dataset: <code className="bg-gray-100 px-2 py-1 rounded">{result.dataset_id}</code> | 
-              Démarré: {new Date(result.statistics.started_at).toLocaleString()}
-              {result.statistics.completed_at && (
+              Démarré: {result.statistics?.started_at ? new Date(result.statistics.started_at).toLocaleString() : 'N/A'}
+              {result.statistics?.completed_at && (
                 <> | Terminé: {new Date(result.statistics.completed_at).toLocaleString()}</>
               )}
-              {result.statistics.resumed_from_batch && (
+              {result.statistics?.resumed_from_batch && (
                 <> | Repris du batch: {result.statistics.resumed_from_batch}</>
               )}
-              {result.statistics.bypass_metadata_check && (
+              {result.statistics?.bypass_metadata_check && (
                 <> | Mode bypass: activé</>
               )}
               {result.force_openai_restart && (
@@ -569,6 +584,9 @@ export function DatasetReprocessing() {
               )}
               {result.optimization && (
                 <> | Optimisation: {result.optimization.strategy}</>
+              )}
+              {result.pipeline_version && (
+                <> | Pipeline: {result.pipeline_version}</>
               )}
             </div>
           </CardContent>
