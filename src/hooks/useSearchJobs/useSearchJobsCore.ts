@@ -1,3 +1,4 @@
+
 import { useCallback, useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -238,10 +239,45 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     });
   }, [setCurrentResults, setCurrentSearchId, invalidateSaved]);
 
+  // Récupère l'unipile_account_id de l'utilisateur connecté
+  const getUserUnipileAccountId = useCallback(async () => {
+    if (!user?.id) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('unipile_account_id')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('❌ Error fetching user unipile_account_id:', error);
+        return null;
+      }
+
+      return data?.unipile_account_id || null;
+    } catch (error) {
+      console.error('❌ Error in getUserUnipileAccountId:', error);
+      return null;
+    }
+  }, [user?.id]);
+
   // Exécute une recherche instantanée ou sauvegarde
   const executeSearch = useCallback(async (searchConfig: any) => {
     setIsLoading(true);
     try {
+      // Récupérer l'unipile_account_id de l'utilisateur
+      const unipileAccountId = await getUserUnipileAccountId();
+      
+      if (!unipileAccountId) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de récupérer votre compte Unipile. Veuillez contacter l'administrateur.",
+          variant: "destructive"
+        });
+        return { success: false, error: "Unipile account ID manquant" };
+      }
+
       // On force location à n'être que des chaînes de caractères (jamais d'ID !)
       const locations = searchConfig.search_jobs.location;
       const locationLabels = locations.map((loc: any) => {
@@ -266,6 +302,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
 
       let apiPayload: any = {
         name: searchConfig.name,
+        unipile_account_id: unipileAccountId, // Ajout de l'unipile_account_id
         search_jobs: {
           ...searchConfig.search_jobs,
           location: locationLabels,
@@ -328,7 +365,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults]);
+  }, [user?.id, createSearch, loadSearchResults, setCurrentSearchId, setCurrentResults, getUserUnipileAccountId]);
 
   // Relance une recherche sauvegardée (ids, location_id_is_known, date en secondes)
   const reRunSavedSearch = useCallback(async (search: any) => {
@@ -338,6 +375,18 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     }
     setIsLoading(true);
     try {
+      // Récupérer l'unipile_account_id de l'utilisateur
+      const unipileAccountId = await getUserUnipileAccountId();
+      
+      if (!unipileAccountId) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de récupérer votre compte Unipile. Veuillez contacter l'administrateur.",
+          variant: "destructive"
+        });
+        return { success: false, error: "Unipile account ID manquant" };
+      }
+
       const searchId = search.id;
       // location as text only
       const locations = search.jobFilters.location;
@@ -359,6 +408,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
 
       let apiPayload: any = {
         name: search.name,
+        unipile_account_id: unipileAccountId, // Ajout de l'unipile_account_id
         search_jobs: {
           ...search.jobFilters,
           location: locationLabels,
@@ -406,7 +456,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, loadSearchResults, invalidateSaved]);
+  }, [user?.id, loadSearchResults, invalidateSaved, getUserUnipileAccountId]);
 
   return {
     isLoading,

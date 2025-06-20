@@ -28,6 +28,9 @@ enabled = true
 [functions.n8n-enrichment-callback]
 verify_jwt = false
 
+[functions.n8n-jobs-callback]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54325

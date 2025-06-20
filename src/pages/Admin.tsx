@@ -9,6 +9,7 @@ import { DatasetAudit } from '@/components/admin/DatasetAudit';
 import DeepDataAnalysis from '@/components/admin/DeepDataAnalysis';
 import WorkflowEventsMonitoring from '@/components/admin/WorkflowEventsMonitoring';
 import CompanyEnrichmentAdmin from '@/components/admin/CompanyEnrichmentAdmin';
+import { DailyJobsTrigger } from '@/components/admin/DailyJobsTrigger';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -21,10 +22,11 @@ const Admin = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="funnel">Entonnoir</TabsTrigger>
           <TabsTrigger value="companies">Entreprises</TabsTrigger>
+          <TabsTrigger value="jobs">Offres Jobs</TabsTrigger>
           <TabsTrigger value="hr-providers">HR Providers</TabsTrigger>
           <TabsTrigger value="reprocessing">Retraitement</TabsTrigger>
           <TabsTrigger value="auto-reprocessing">Auto-retraitement</TabsTrigger>
@@ -43,6 +45,10 @@ const Admin = () => {
 
         <TabsContent value="companies">
           <CompanyEnrichmentAdmin />
+        </TabsContent>
+
+        <TabsContent value="jobs">
+          <DailyJobsTrigger />
         </TabsContent>
 
         <TabsContent value="hr-providers">
