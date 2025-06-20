@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -35,30 +36,27 @@ export function useClientJobOffers() {
   const [selectedDateFilter, setSelectedDateFilter] = useState('last_48_hours');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('unassigned');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState(['active']);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('active');
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize] = useState(50);
   const [hasMore, setHasMore] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchJobOffers();
     fetchUsers();
-    // autoAssign ne doit pas bloquer le rendu, on fait un fire-and-forget
-    // Il sera déclenché après le 1er fetch, en tache de fond
-    // eslint-disable-next-line
-    // (rien ici)
-  }, [pageIndex, pageSize]);
+  }, [pageIndex]);
 
-  const fetchJobOffers = async () => {
+  const fetchJobOffers = async (resetData = false) => {
     try {
-      setLoading(true);
-      setHasMore(true);
+      if (resetData) {
+        setLoading(true);
+        setPageIndex(0);
+        setHasMore(true);
+      }
 
-      // ⚡️ Optimisation : chargement paginé
-      // (pas de select count(*), head: true)
-      const from = pageIndex * pageSize;
+      const from = (resetData ? 0 : pageIndex) * pageSize;
       const to = from + pageSize - 1;
 
       const { data, error } = await supabase
@@ -72,18 +70,19 @@ export function useClientJobOffers() {
         throw error;
       }
 
-      // Si moins d'offres que pageSize -> plus de pages à charger
       if (data && data.length < pageSize) setHasMore(false);
 
-      // maj state (page 0 = remplacement, page >0 = concaténation)
-      setJobOffers(prev => pageIndex === 0 ? (data || []) : [...prev, ...(data || [])]);
+      if (resetData || pageIndex === 0) {
+        setJobOffers(data || []);
+      } else {
+        setJobOffers(prev => [...prev, ...(data || [])]);
+      }
       
-      // ⚡️ L'auto-assign ne bloque plus le rendu : lancement en arrière-plan désormais
-      if (pageIndex === 0 && data) autoAssignNewOffers(data);
+      if (resetData || pageIndex === 0) autoAssignNewOffers(data || []);
 
     } catch (error) {
       console.error('❌ Error in fetchJobOffers:', error);
-      setJobOffers([]);
+      if (pageIndex === 0) setJobOffers([]);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer les offres d'emploi.",
@@ -112,7 +111,6 @@ export function useClientJobOffers() {
     try {
       console.log('🤖 Starting auto-assignment for new offers...');
       
-      // Récupérer toutes les offres non assignées qui ont un client associé
       const unassignedOffers = offers.filter(offer => 
         !offer.assigned_to_user_id && 
         offer.matched_client_id && 
@@ -127,7 +125,6 @@ export function useClientJobOffers() {
       console.log(`🎯 Found ${unassignedOffers.length} unassigned offers for auto-assignment`);
 
       for (const offer of unassignedOffers) {
-        // Récupérer les collaborateurs du client
         const { data: collaborators, error: collaboratorsError } = await supabase
           .from('client_collaborators')
           .select('user_id')
@@ -139,12 +136,10 @@ export function useClientJobOffers() {
         }
 
         if (collaborators && collaborators.length > 0) {
-          // Sélectionner un collaborateur (round-robin ou aléatoire)
           const randomCollaborator = collaborators[Math.floor(Math.random() * collaborators.length)];
           
           console.log(`🔄 Auto-assigning offer ${offer.id} to user ${randomCollaborator.user_id}`);
           
-          // Assigner l'offre
           const { error: assignError } = await supabase
             .from('client_job_offers')
             .update({
@@ -183,7 +178,6 @@ export function useClientJobOffers() {
     try {
       console.log('🔗 Assigning user to client automatically:', { userId, clientId });
       
-      // Vérifier si l'utilisateur est déjà assigné à ce client
       const { data: existingCollaborator, error: checkError } = await supabase
         .from('client_collaborators')
         .select('id')
@@ -196,7 +190,6 @@ export function useClientJobOffers() {
         return;
       }
 
-      // Si l'utilisateur n'est pas déjà collaborateur, l'ajouter
       if (!existingCollaborator) {
         const { error: insertError } = await supabase
           .from('client_collaborators')
@@ -231,7 +224,6 @@ export function useClientJobOffers() {
       if (userId) {
         updateData.status = 'en_attente';
         
-        // Si l'offre a un client associé, assigner automatiquement l'utilisateur à ce client
         if (jobOffer?.matched_client_id) {
           await assignUserToClient(userId, jobOffer.matched_client_id);
         }
@@ -239,7 +231,6 @@ export function useClientJobOffers() {
         updateData.status = 'non_attribuee';
       }
 
-      // Mise à jour optimiste
       updateJobOfferOptimistically(jobOfferId, updateData);
 
       const { error } = await supabase
@@ -249,8 +240,7 @@ export function useClientJobOffers() {
 
       if (error) {
         console.error('❌ Error in assignJobOffer:', error);
-        // Revert optimistic update on error
-        fetchJobOffers();
+        fetchJobOffers(true);
         throw error;
       }
 
@@ -272,7 +262,6 @@ export function useClientJobOffers() {
     try {
       console.log('🔄 Updating job offer status:', { jobOfferId, newStatus });
       
-      // Mise à jour optimiste
       updateJobOfferOptimistically(jobOfferId, { status: newStatus });
 
       const { error } = await supabase
@@ -285,8 +274,7 @@ export function useClientJobOffers() {
 
       if (error) {
         console.error('❌ Error updating job offer status:', error);
-        // Revert optimistic update on error
-        fetchJobOffers();
+        fetchJobOffers(true);
         throw error;
       }
 
@@ -309,9 +297,10 @@ export function useClientJobOffers() {
     }
   };
 
-  // Pagination handler à exposer
   const loadMore = () => {
-    if (hasMore && !loading) setPageIndex(prev => prev + 1);
+    if (hasMore && !loading) {
+      setPageIndex(prev => prev + 1);
+    }
   };
 
   // Filtrage par date
@@ -364,19 +353,12 @@ export function useClientJobOffers() {
     }
   });
 
-  // Filtrage par statut (maintenant multi-select)
+  // Filtrage par statut
   const filteredByStatus = filteredByAssignment.filter(jobOffer => {
-    if (selectedStatusFilter.includes('all')) return true;
-    
-    if (selectedStatusFilter.includes('active')) {
-      if (jobOffer.status !== 'archivee') return true;
-    }
-    
-    if (selectedStatusFilter.includes('archived')) {
-      if (jobOffer.status === 'archivee') return true;
-    }
-    
-    return selectedStatusFilter.includes(jobOffer.status);
+    if (selectedStatusFilter === 'all') return true;
+    if (selectedStatusFilter === 'active') return jobOffer.status !== 'archivee';
+    if (selectedStatusFilter === 'archived') return jobOffer.status === 'archivee';
+    return jobOffer.status === selectedStatusFilter;
   });
 
   // Clients disponibles pour le filtre
@@ -404,13 +386,12 @@ export function useClientJobOffers() {
     availableClients,
     assignJobOffer,
     updateJobOfferStatus,
-    refreshJobOffers: () => { setPageIndex(0); fetchJobOffers(); },
+    refreshJobOffers: () => fetchJobOffers(true),
     animatingItems,
     pageIndex,
     setPageIndex,
     hasMore,
     loadMore,
-    pageSize,
-    setPageSize
+    pageSize
   };
 }

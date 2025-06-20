@@ -1,8 +1,8 @@
 
+import { useEffect, useRef } from 'react';
 import { useClientJobOffers } from '@/hooks/useClientJobOffers';
 import { VisualJobOffersFilters } from './VisualJobOffersFilters';
 import { GroupedJobOffersTable } from './GroupedJobOffersTable';
-import { Button } from "@/components/ui/button";
 
 export function JobOffersSection() {
   const { 
@@ -25,6 +25,26 @@ export function JobOffersSection() {
     hasMore,
     loadMore
   } = useClientJobOffers();
+
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Intersection Observer pour le scroll infini
+  useEffect(() => {
+    if (!loadMoreRef.current || loading || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadMore]);
 
   if (loading && filteredJobOffers.length === 0) {
     return (
@@ -58,19 +78,23 @@ export function JobOffersSection() {
         animatingItems={animatingItems}
       />
 
-      {/* Ajout bouton 'Charger plus' si pagination */}
-      {hasMore && !loading && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            className="mx-auto my-4"
-          >
-            Charger plus d’offres
-          </Button>
+      {/* Élément pour déclencher le scroll infini */}
+      {hasMore && (
+        <div ref={loadMoreRef} className="flex justify-center py-4">
+          {loading && (
+            <div className="flex items-center gap-2 text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span>Chargement d'autres offres...</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!hasMore && filteredJobOffers.length > 0 && (
+        <div className="text-center py-4 text-gray-500">
+          Toutes les offres ont été chargées
         </div>
       )}
     </div>
   );
 }
-
