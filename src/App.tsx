@@ -15,6 +15,7 @@ import Clients from "./pages/Clients";
 import Tasks from "./pages/Tasks";
 import JobSearch from "./pages/JobSearch";
 import SearchJobs from "./pages/SearchJobs";
+import SearchPosts from "./pages/SearchPosts";
 import BulkProspecting from "./pages/BulkProspecting";
 import HrProviders from "./pages/HrProviders";
 import Dashboard from "./pages/Dashboard";
