@@ -1,20 +1,21 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RefreshCw, Calendar, Users, UserCheck, Tag, X, ChevronDown, Check } from 'lucide-react';
+import { Filter, Building2, Users, Calendar, CheckSquare } from 'lucide-react';
+import { JobOffersRefreshButton } from './JobOffersRefreshButton';
 
 interface VisualJobOffersFiltersProps {
   selectedDateFilter: string;
-  setSelectedDateFilter: (filter: string) => void;
+  setSelectedDateFilter: (value: string) => void;
   selectedClientFilter: string;
-  setSelectedClientFilter: (filter: string) => void;
+  setSelectedClientFilter: (value: string) => void;
   selectedAssignmentFilter: string;
-  setSelectedAssignmentFilter: (filter: string) => void;
+  setSelectedAssignmentFilter: (value: string) => void;
   selectedStatusFilter: string[];
-  setSelectedStatusFilter: (filters: string[]) => void;
-  availableClients: Array<{ id: string; name: string }>;
+  setSelectedStatusFilter: (value: string[]) => void;
+  availableClients: Array<{ id: string; name: string | null }>;
   filteredJobOffers: any[];
   refreshJobOffers: () => void;
 }
@@ -32,251 +33,135 @@ export function VisualJobOffersFilters({
   filteredJobOffers,
   refreshJobOffers
 }: VisualJobOffersFiltersProps) {
-  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
-
-  const dateOptions = [
-    { value: 'all', label: 'Toutes les dates' },
-    { value: 'today', label: 'Aujourd\'hui' },
+  const dateFilterOptions = [
+    { value: 'today', label: "Aujourd'hui" },
     { value: 'yesterday', label: 'Hier' },
-    { value: 'last_48_hours', label: '48h' },
-    { value: 'last_7_days', label: '7 jours' },
-    { value: 'last_30_days', label: '30 jours' },
+    { value: 'last_48_hours', label: 'Dernières 48h' },
+    { value: 'last_7_days', label: '7 derniers jours' },
+    { value: 'last_30_days', label: '30 derniers jours' },
+    { value: 'all', label: 'Toutes les dates' }
   ];
 
-  const assignmentOptions = [
+  const assignmentFilterOptions = [
     { value: 'all', label: 'Toutes' },
     { value: 'assigned', label: 'Assignées' },
-    { value: 'unassigned', label: 'Non assignées' },
+    { value: 'unassigned', label: 'Non assignées' }
   ];
 
-  const statusOptions = [
+  const statusFilterOptions = [
     { value: 'active', label: 'Actives' },
-    { value: 'all', label: 'Tous' },
-    { value: 'non_attribuee', label: 'Non attribuée' },
-    { value: 'en_attente', label: 'En attente' },
-    { value: 'pre_assignee', label: 'Pré-assignée' },
-    { value: 'a_relancer', label: 'À relancer' },
-    { value: 'negatif', label: 'Négatif' },
-    { value: 'positif', label: 'Positif' },
     { value: 'archived', label: 'Archivées' },
+    { value: 'non_attribuee', label: 'Non attribuées' },
+    { value: 'en_attente', label: 'En attente' },
+    { value: 'en_cours', label: 'En cours' },
+    { value: 'terminee', label: 'Terminées' }
   ];
 
-  const getActiveFiltersCount = () => {
-    let count = 0;
-    if (selectedDateFilter !== 'last_48_hours') count++;
-    if (selectedClientFilter !== 'all') count++;
-    if (selectedAssignmentFilter !== 'unassigned') count++;
-    if (selectedStatusFilter.length !== 1 || selectedStatusFilter[0] !== 'active') count++;
-    return count;
-  };
-
-  const resetFilters = () => {
-    setSelectedDateFilter('last_48_hours');
-    setSelectedClientFilter('all');
-    setSelectedAssignmentFilter('unassigned');
-    setSelectedStatusFilter(['active']);
-  };
-
-  const getFilterDisplayValue = (type: string, value: string | string[]) => {
-    switch (type) {
-      case 'date':
-        return dateOptions.find(opt => opt.value === value)?.label || value;
-      case 'assignment':
-        return assignmentOptions.find(opt => opt.value === value)?.label || value;
-      case 'status':
-        const statusArray = Array.isArray(value) ? value : [value];
-        if (statusArray.length === 1) {
-          return statusOptions.find(opt => opt.value === statusArray[0])?.label || statusArray[0];
-        }
-        return `${statusArray.length} sélectionnés`;
-      case 'client':
-        if (value === 'all') return 'Tous les clients';
-        return availableClients.find(client => client.id === value)?.name || value;
-      default:
-        return value;
-    }
-  };
-
-  const isDefaultValue = (type: string, value: string | string[]) => {
-    switch (type) {
-      case 'date':
-        return value === 'last_48_hours';
-      case 'assignment':
-        return value === 'unassigned';
-      case 'status':
-        const statusArray = Array.isArray(value) ? value : [value];
-        return statusArray.length === 1 && statusArray[0] === 'active';
-      case 'client':
-        return value === 'all';
-      default:
-        return false;
-    }
-  };
-
-  const handleStatusToggle = (statusValue: string) => {
-    if (selectedStatusFilter.includes(statusValue)) {
-      const newFilters = selectedStatusFilter.filter(s => s !== statusValue);
-      setSelectedStatusFilter(newFilters.length > 0 ? newFilters : ['active']);
+  const handleStatusFilterToggle = (status: string) => {
+    if (selectedStatusFilter.includes(status)) {
+      setSelectedStatusFilter(selectedStatusFilter.filter(s => s !== status));
     } else {
-      setSelectedStatusFilter([...selectedStatusFilter, statusValue]);
+      setSelectedStatusFilter([...selectedStatusFilter, status]);
     }
-  };
-
-  const FilterButton = ({ 
-    icon: Icon, 
-    label, 
-    value, 
-    color, 
-    options, 
-    onSelect, 
-    type,
-    isMultiSelect = false
-  }: {
-    icon: any;
-    label: string;
-    value: string | string[];
-    color: string;
-    options: any[];
-    onSelect: (value: string) => void;
-    type: string;
-    isMultiSelect?: boolean;
-  }) => {
-    const showLabel = isDefaultValue(type, value);
-    
-    return (
-      <Popover 
-        open={type === 'status' ? statusPopoverOpen : undefined}
-        onOpenChange={type === 'status' ? setStatusPopoverOpen : undefined}
-      >
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={`h-10 px-4 bg-white border-2 border-${color}-200 text-${color}-700 hover:bg-${color}-50 hover:border-${color}-300 transition-all duration-200 shadow-sm`}
-          >
-            <Icon className="h-4 w-4 mr-2" />
-            {showLabel && <span className="font-medium mr-2">{label}</span>}
-            <div className={`px-2 py-1 bg-${color}-100 text-${color}-800 rounded-md text-xs font-semibold`}>
-              {getFilterDisplayValue(type, value)}
-            </div>
-            <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className={`w-80 p-0 ${type === 'client' ? 'h-80' : ''}`} align="start">
-          <div className="p-4">
-            <div className="text-sm font-semibold text-gray-900 mb-3">{label}</div>
-            <div className={`space-y-1 ${type === 'client' ? 'max-h-64 overflow-y-auto' : ''}`}>
-              {options.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    if (isMultiSelect && type === 'status') {
-                      handleStatusToggle(option.value);
-                    } else {
-                      onSelect(option.value);
-                    }
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-3 ${
-                    (isMultiSelect && Array.isArray(value)) 
-                      ? (value.includes(option.value)
-                          ? `bg-${color}-100 text-${color}-900 font-medium`
-                          : 'hover:bg-gray-100 text-gray-700')
-                      : (value === option.value
-                          ? `bg-${color}-100 text-${color}-900 font-medium`
-                          : 'hover:bg-gray-100 text-gray-700')
-                  }`}
-                >
-                  <span className="flex-1">{option.label}</span>
-                  {isMultiSelect && Array.isArray(value) && value.includes(option.value) && (
-                    <Check className="h-4 w-4 text-blue-600" />
-                  )}
-                  {!isMultiSelect && value === option.value && (
-                    <Check className="h-4 w-4 text-blue-600" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
   };
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterButton
-          icon={Calendar}
-          label="Période"
-          value={selectedDateFilter}
-          color="blue"
-          options={dateOptions}
-          onSelect={setSelectedDateFilter}
-          type="date"
-        />
-
-        <FilterButton
-          icon={Users}
-          label="Client"
-          value={selectedClientFilter}
-          color="green"
-          options={[
-            { value: 'all', label: 'Tous les clients' },
-            ...availableClients.map(client => ({ value: client.id, label: client.name }))
-          ]}
-          onSelect={setSelectedClientFilter}
-          type="client"
-        />
-
-        <FilterButton
-          icon={UserCheck}
-          label="Assignation"
-          value={selectedAssignmentFilter}
-          color="orange"
-          options={assignmentOptions}
-          onSelect={setSelectedAssignmentFilter}
-          type="assignment"
-        />
-
-        <FilterButton
-          icon={Tag}
-          label="Statut"
-          value={selectedStatusFilter}
-          color="purple"
-          options={statusOptions}
-          onSelect={() => {}}
-          type="status"
-          isMultiSelect={true}
-        />
-
-        {getActiveFiltersCount() > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetFilters}
-            className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-medium"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Réinitialiser
-          </Button>
-        )}
-
-        <div className="flex items-center gap-3 ml-auto">
-          <Badge 
-            variant="outline" 
-            className="bg-white border-blue-300 text-blue-700 font-bold px-3 py-1 text-sm shadow-sm"
-          >
-            {filteredJobOffers.length} offre{filteredJobOffers.length !== 1 ? 's' : ''}
-          </Badge>
-          <Button
-            onClick={refreshJobOffers}
-            variant="outline"
-            size="sm"
-            className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-200 shadow-sm h-8 w-8 p-0"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+    <Card className="bg-white border border-gray-200">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Filtres des offres d'emploi</h3>
+            <Badge variant="secondary" className="ml-2">
+              {filteredJobOffers.length} offre{filteredJobOffers.length > 1 ? 's' : ''}
+            </Badge>
+          </div>
+          <JobOffersRefreshButton onRefresh={refreshJobOffers} />
         </div>
-      </div>
-    </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Filtre par date */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              <label className="text-sm font-medium text-gray-700">Date de publication</label>
+            </div>
+            <Select value={selectedDateFilter} onValueChange={setSelectedDateFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {dateFilterOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtre par client */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-gray-500" />
+              <label className="text-sm font-medium text-gray-700">Client</label>
+            </div>
+            <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les clients</SelectItem>
+                {availableClients.map(client => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name || 'Client sans nom'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtre par assignation */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-gray-500" />
+              <label className="text-sm font-medium text-gray-700">Assignation</label>
+            </div>
+            <Select value={selectedAssignmentFilter} onValueChange={setSelectedAssignmentFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {assignmentFilterOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtre par statut (multi-select) */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500" />
+              <label className="text-sm font-medium text-gray-700">Statuts</label>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {statusFilterOptions.map(option => (
+                <Badge
+                  key={option.value}
+                  variant={selectedStatusFilter.includes(option.value) ? "default" : "outline"}
+                  className="cursor-pointer text-xs"
+                  onClick={() => handleStatusFilterToggle(option.value)}
+                >
+                  {option.label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

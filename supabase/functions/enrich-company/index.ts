@@ -65,7 +65,7 @@ serve(async (req) => {
       }
     }
 
-    // Get available Unipile accounts
+    // Get available Unipile accounts for rotation
     const { data: profiles, error: profilesError } = await supabaseClient
       .from('profiles')
       .select('unipile_account_id')
@@ -106,7 +106,7 @@ serve(async (req) => {
     console.log(`⏱️ Adding ${delay}ms delay for rate limiting`);
     await new Promise(resolve => setTimeout(resolve, delay));
 
-    // Call n8n webhook for enrichment
+    // Call n8n webhook for enrichment using the new URL
     const n8nWebhookUrl = 'https://n8n.getpro.co/webhook/f35b36ef-0f91-4587-aa4e-72bf302c565c';
     
     console.log('🔗 Calling n8n webhook for enrichment...');
