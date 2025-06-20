@@ -34,6 +34,9 @@ verify_jwt = false
 [functions.daily-client-jobs-trigger]
 verify_jwt = false
 
+[functions.n8n-linkedin-posts-callback]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54325
