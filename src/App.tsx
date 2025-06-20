@@ -50,6 +50,7 @@ function App() {
                     <Route path="/tasks" element={<Tasks />} />
                     <Route path="/job-search" element={<JobSearch />} />
                     <Route path="/search-jobs" element={<SearchJobs />} />
+                    <Route path="/search-posts" element={<SearchPosts />} />
                     <Route path="/bulk-prospecting" element={<BulkProspecting />} />
                     <Route path="/hr-providers" element={<HrProviders />} />
                     <Route path="/dashboard" element={<Dashboard />} />

@@ -39,6 +39,11 @@ const AppSidebar = () => {
       icon: Search,
     },
     {
+      title: "Search Posts",
+      url: "/search-posts",
+      icon: Search,
+    },
+    {
       title: "Clients",
       url: "/clients",
       icon: Building2,
