@@ -1833,6 +1833,69 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_search_configurations: {
+        Row: {
+          active: boolean
+          auto_scraping: boolean
+          created_at: string
+          created_by_user_id: string | null
+          group1_keywords: string[] | null
+          group1_operator: string | null
+          group2_keywords: string[] | null
+          group2_operator: string | null
+          id: string
+          last_executed_at: string | null
+          last_execution_posts_count: number | null
+          last_execution_status: string | null
+          last_unipile_account_used: string | null
+          name: string
+          search_type: string
+          total_executions: number
+          updated_at: string
+          urls: string[] | null
+        }
+        Insert: {
+          active?: boolean
+          auto_scraping?: boolean
+          created_at?: string
+          created_by_user_id?: string | null
+          group1_keywords?: string[] | null
+          group1_operator?: string | null
+          group2_keywords?: string[] | null
+          group2_operator?: string | null
+          id?: string
+          last_executed_at?: string | null
+          last_execution_posts_count?: number | null
+          last_execution_status?: string | null
+          last_unipile_account_used?: string | null
+          name: string
+          search_type: string
+          total_executions?: number
+          updated_at?: string
+          urls?: string[] | null
+        }
+        Update: {
+          active?: boolean
+          auto_scraping?: boolean
+          created_at?: string
+          created_by_user_id?: string | null
+          group1_keywords?: string[] | null
+          group1_operator?: string | null
+          group2_keywords?: string[] | null
+          group2_operator?: string | null
+          id?: string
+          last_executed_at?: string | null
+          last_execution_posts_count?: number | null
+          last_execution_status?: string | null
+          last_unipile_account_used?: string | null
+          name?: string
+          search_type?: string
+          total_executions?: number
+          updated_at?: string
+          urls?: string[] | null
+        }
+        Relationships: []
+      }
       mistargeted_posts: {
         Row: {
           author_name: string | null
@@ -2111,6 +2174,42 @@ export type Database = {
         }
         Relationships: []
       }
+      unipile_accounts: {
+        Row: {
+          account_id: string
+          account_name: string | null
+          created_at: string
+          daily_limit: number
+          daily_usage_count: number
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_name?: string | null
+          created_at?: string
+          daily_limit?: number
+          daily_usage_count?: number
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_name?: string | null
+          created_at?: string
+          daily_limit?: number
+          daily_usage_count?: number
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_stats: {
         Row: {
           created_at: string
@@ -2225,6 +2324,10 @@ export type Database = {
           failed_posts: number
           pending_posts: number
         }[]
+      }
+      get_next_unipile_account: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       increment_linkedin_messages: {
         Args: { user_uuid: string }

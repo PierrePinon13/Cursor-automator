@@ -21,6 +21,13 @@ interface LinkedInPost {
   };
 }
 
+interface CallbackPayload {
+  posts: LinkedInPost[];
+  search_id: string;
+  search_type: 'parameters' | 'url';
+  unipile_account_id?: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -37,7 +44,8 @@ serve(async (req) => {
     )
 
     // Parse the incoming request
-    const posts: LinkedInPost[] = await req.json()
+    const payload: CallbackPayload = await req.json()
+    const { posts, search_id, search_type, unipile_account_id } = payload
     
     if (!Array.isArray(posts) || posts.length === 0) {
       console.error('❌ No posts provided or invalid format')
@@ -47,7 +55,15 @@ serve(async (req) => {
       })
     }
 
-    console.log(`📥 Processing ${posts.length} LinkedIn posts`)
+    if (!search_id) {
+      console.error('❌ No search_id provided')
+      return new Response('search_id is required', { 
+        status: 400,
+        headers: corsHeaders 
+      })
+    }
+
+    console.log(`📥 Processing ${posts.length} LinkedIn posts for search ${search_id}`)
 
     let processedCount = 0;
     let duplicateCount = 0;
@@ -84,7 +100,7 @@ serve(async (req) => {
           author_profile_url: `https://www.linkedin.com/in/${post.author.public_identifier}`,
           is_repost: false,
           processed: false,
-          apify_dataset_id: 'n8n_callback',
+          apify_dataset_id: `search_${search_id}`,
           raw_data: post
         };
 
@@ -110,6 +126,23 @@ serve(async (req) => {
 
     console.log(`📊 Processing complete: ${processedCount} processed, ${duplicateCount} duplicates, ${errorCount} errors`);
 
+    // Update search configuration with execution stats
+    if (search_id) {
+      try {
+        await supabaseClient
+          .from('linkedin_search_configurations')
+          .update({
+            last_execution_posts_count: processedCount,
+            last_execution_status: processedCount > 0 ? 'completed' : 'no_new_posts'
+          })
+          .eq('id', search_id);
+        
+        console.log(`✅ Updated search configuration ${search_id} with stats`);
+      } catch (updateError) {
+        console.error('❌ Error updating search configuration:', updateError);
+      }
+    }
+
     // If we have new posts, trigger the processing pipeline
     if (processedCount > 0) {
       console.log('🚀 Triggering processing pipeline...');
@@ -118,8 +151,11 @@ serve(async (req) => {
         // Call the process-dataset function to start the processing pipeline
         const { error: processError } = await supabaseClient.functions.invoke('process-dataset', {
           body: { 
-            datasetId: 'n8n_callback',
-            source: 'n8n_linkedin_callback'
+            datasetId: `search_${search_id}`,
+            source: 'n8n_linkedin_callback',
+            searchId: search_id,
+            searchType: search_type,
+            unipileAccountId: unipile_account_id
           }
         });
 
@@ -135,12 +171,14 @@ serve(async (req) => {
 
     const response = {
       success: true,
-      message: `Processed ${processedCount} new posts`,
+      message: `Processed ${processedCount} new posts for search ${search_id}`,
       stats: {
         total_received: posts.length,
         processed: processedCount,
         duplicates: duplicateCount,
-        errors: errorCount
+        errors: errorCount,
+        search_id: search_id,
+        search_type: search_type
       }
     };
 

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Trash2, Play, Plus, Link } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KeywordGroup {
   id: string;
@@ -19,7 +20,7 @@ interface KeywordGroup {
 }
 
 interface SearchConfiguration {
-  id: string;
+  id?: string;
   name: string;
   searchType: 'parameters' | 'url';
   group1?: KeywordGroup;
@@ -29,10 +30,18 @@ interface SearchConfiguration {
   active: boolean;
 }
 
+interface SavedSearch extends SearchConfiguration {
+  id: string;
+  created_at: string;
+  last_executed_at?: string;
+  total_executions: number;
+  last_execution_status?: string;
+  last_execution_posts_count?: number;
+}
+
 const SearchPosts = () => {
-  const [searches, setSearches] = useState<SearchConfiguration[]>([]);
+  const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [newSearch, setNewSearch] = useState<SearchConfiguration>({
-    id: '',
     name: '',
     searchType: 'parameters',
     group1: { id: 'group1', keywords: [''], operator: 'OR' },
@@ -43,6 +52,55 @@ const SearchPosts = () => {
   const [bulkUrls, setBulkUrls] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  // Charger les recherches sauvegardées
+  useEffect(() => {
+    loadSavedSearches();
+  }, []);
+
+  const loadSavedSearches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('linkedin_search_configurations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedSearches: SavedSearch[] = data.map(search => ({
+        id: search.id,
+        name: search.name,
+        searchType: search.search_type as 'parameters' | 'url',
+        group1: search.group1_keywords ? {
+          id: 'group1',
+          keywords: search.group1_keywords,
+          operator: search.group1_operator as 'OR' | 'AND'
+        } : undefined,
+        group2: search.group2_keywords ? {
+          id: 'group2',
+          keywords: search.group2_keywords,
+          operator: search.group2_operator as 'OR' | 'AND'
+        } : undefined,
+        urls: search.urls || undefined,
+        autoScraping: search.auto_scraping,
+        active: search.active,
+        created_at: search.created_at,
+        last_executed_at: search.last_executed_at,
+        total_executions: search.total_executions,
+        last_execution_status: search.last_execution_status,
+        last_execution_posts_count: search.last_execution_posts_count
+      }));
+
+      setSearches(formattedSearches);
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des recherches:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les recherches sauvegardées",
+        variant: "destructive"
+      });
+    }
+  };
 
   const addKeyword = (groupId: 'group1' | 'group2') => {
     if (groupId === 'group1' && newSearch.group1 && newSearch.group1.keywords.length < 2) {
@@ -120,7 +178,7 @@ const SearchPosts = () => {
     return text.match(urlRegex) || [];
   };
 
-  const processBulkUrls = () => {
+  const processBulkUrls = async () => {
     const extractedUrls = extractUrlsFromText(bulkUrls);
     
     if (extractedUrls.length === 0) {
@@ -132,27 +190,39 @@ const SearchPosts = () => {
       return;
     }
 
-    extractedUrls.forEach((url, index) => {
-      const searchToSave: SearchConfiguration = {
-        id: Date.now().toString() + index,
+    try {
+      const searchesToInsert = extractedUrls.map((url, index) => ({
         name: `URL Search ${searches.length + index + 1}`,
-        searchType: 'url',
+        search_type: 'url',
         urls: [url],
-        autoScraping: false,
+        auto_scraping: false,
         active: true
-      };
-      
-      setSearches(prev => [...prev, searchToSave]);
-    });
+      }));
 
-    setBulkUrls('');
-    toast({
-      title: "Succès",
-      description: `${extractedUrls.length} recherche(s) URL créée(s)`,
-    });
+      const { error } = await supabase
+        .from('linkedin_search_configurations')
+        .insert(searchesToInsert);
+
+      if (error) throw error;
+
+      setBulkUrls('');
+      await loadSavedSearches();
+      
+      toast({
+        title: "Succès",
+        description: `${extractedUrls.length} recherche(s) URL créée(s)`,
+      });
+    } catch (error: any) {
+      console.error('Erreur lors de l\'insertion des URLs:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer les recherches URL",
+        variant: "destructive"
+      });
+    }
   };
 
-  const saveSearch = () => {
+  const saveSearch = async () => {
     if (!newSearch.name.trim()) {
       toast({
         title: "Erreur",
@@ -162,99 +232,175 @@ const SearchPosts = () => {
       return;
     }
 
-    if (newSearch.searchType === 'parameters') {
-      const filteredGroup1 = newSearch.group1?.keywords.filter(kw => kw.trim()) || [];
-      const filteredGroup2 = newSearch.group2?.keywords.filter(kw => kw.trim()) || [];
-
-      if (filteredGroup1.length === 0 && filteredGroup2.length === 0) {
-        toast({
-          title: "Erreur",
-          description: "Veuillez saisir au moins un mot-clé",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const searchToSave: SearchConfiguration = {
-        ...newSearch,
-        id: Date.now().toString(),
-        group1: { ...newSearch.group1!, keywords: filteredGroup1 },
-        group2: { ...newSearch.group2!, keywords: filteredGroup2 }
+    try {
+      let searchToSave: any = {
+        name: newSearch.name,
+        search_type: newSearch.searchType,
+        auto_scraping: newSearch.autoScraping,
+        active: newSearch.active
       };
 
-      setSearches(prev => [...prev, searchToSave]);
-    } else {
-      const filteredUrls = newSearch.urls?.filter(url => url.trim()) || [];
-      
-      if (filteredUrls.length === 0) {
-        toast({
-          title: "Erreur",
-          description: "Veuillez saisir au moins une URL",
-          variant: "destructive"
-        });
-        return;
+      if (newSearch.searchType === 'parameters') {
+        const filteredGroup1 = newSearch.group1?.keywords.filter(kw => kw.trim()) || [];
+        const filteredGroup2 = newSearch.group2?.keywords.filter(kw => kw.trim()) || [];
+
+        if (filteredGroup1.length === 0 && filteredGroup2.length === 0) {
+          toast({
+            title: "Erreur",
+            description: "Veuillez saisir au moins un mot-clé",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        searchToSave = {
+          ...searchToSave,
+          group1_keywords: filteredGroup1.length > 0 ? filteredGroup1 : null,
+          group1_operator: filteredGroup1.length > 0 ? newSearch.group1?.operator : null,
+          group2_keywords: filteredGroup2.length > 0 ? filteredGroup2 : null,
+          group2_operator: filteredGroup2.length > 0 ? newSearch.group2?.operator : null
+        };
+      } else {
+        const filteredUrls = newSearch.urls?.filter(url => url.trim()) || [];
+        
+        if (filteredUrls.length === 0) {
+          toast({
+            title: "Erreur",
+            description: "Veuillez saisir au moins une URL",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        searchToSave.urls = filteredUrls;
       }
 
-      const searchToSave: SearchConfiguration = {
-        ...newSearch,
-        id: Date.now().toString(),
-        urls: filteredUrls
-      };
+      const { error } = await supabase
+        .from('linkedin_search_configurations')
+        .insert([searchToSave]);
 
-      setSearches(prev => [...prev, searchToSave]);
+      if (error) throw error;
+
+      // Reset form
+      setNewSearch({
+        name: '',
+        searchType: 'parameters',
+        group1: { id: 'group1', keywords: [''], operator: 'OR' },
+        group2: { id: 'group2', keywords: ['', '', '', ''], operator: 'OR' },
+        autoScraping: false,
+        active: true
+      });
+
+      await loadSavedSearches();
+
+      toast({
+        title: "Succès",
+        description: "Recherche sauvegardée avec succès",
+      });
+    } catch (error: any) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder la recherche",
+        variant: "destructive"
+      });
     }
-
-    // Reset form
-    setNewSearch({
-      id: '',
-      name: '',
-      searchType: 'parameters',
-      group1: { id: 'group1', keywords: [''], operator: 'OR' },
-      group2: { id: 'group2', keywords: ['', '', '', ''], operator: 'OR' },
-      autoScraping: false,
-      active: true
-    });
-
-    toast({
-      title: "Succès",
-      description: "Recherche sauvegardée avec succès",
-    });
   };
 
-  const deleteSearch = (id: string) => {
-    setSearches(prev => prev.filter(search => search.id !== id));
-    toast({
-      title: "Succès",
-      description: "Recherche supprimée",
-    });
+  const deleteSearch = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('linkedin_search_configurations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadSavedSearches();
+      toast({
+        title: "Succès",
+        description: "Recherche supprimée",
+      });
+    } catch (error: any) {
+      console.error('Erreur lors de la suppression:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la recherche",
+        variant: "destructive"
+      });
+    }
   };
 
-  const toggleAutoScraping = (id: string) => {
-    setSearches(prev => prev.map(search => 
-      search.id === id 
-        ? { ...search, autoScraping: !search.autoScraping }
-        : search
-    ));
+  const toggleAutoScraping = async (id: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('linkedin_search_configurations')
+        .update({ auto_scraping: !currentValue })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadSavedSearches();
+    } catch (error: any) {
+      console.error('Erreur lors de la mise à jour:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour la recherche",
+        variant: "destructive"
+      });
+    }
   };
 
-  const toggleActive = (id: string) => {
-    setSearches(prev => prev.map(search => 
-      search.id === id 
-        ? { ...search, active: !search.active }
-        : search
-    ));
+  const toggleActive = async (id: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('linkedin_search_configurations')
+        .update({ active: !currentValue })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadSavedSearches();
+    } catch (error: any) {
+      console.error('Erreur lors de la mise à jour:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour la recherche",
+        variant: "destructive"
+      });
+    }
   };
 
-  const triggerSearch = async (search: SearchConfiguration) => {
+  const getNextUnipileAccount = async (): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.rpc('get_next_unipile_account');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération du compte Unipile:', error);
+      return null;
+    }
+  };
+
+  const triggerSearch = async (search: SavedSearch) => {
     setLoading(true);
     
     try {
       console.log('🔍 Triggering search:', search.name);
       
+      // Obtenir le prochain compte Unipile
+      const unipileAccountId = await getNextUnipileAccount();
+      
+      if (!unipileAccountId) {
+        throw new Error('Aucun compte Unipile disponible');
+      }
+
       const payload = {
+        search_id: search.id,
         search_type: search.searchType,
         name: search.name,
         autoScraping: search.autoScraping,
+        unipile_account_id: unipileAccountId,
         ...(search.searchType === 'parameters' 
           ? {
               group1: search.group1,
@@ -281,6 +427,19 @@ const SearchPosts = () => {
       const result = await response.json();
       console.log('✅ Search triggered successfully:', result);
 
+      // Mettre à jour les stats de la recherche
+      await supabase
+        .from('linkedin_search_configurations')
+        .update({
+          last_executed_at: new Date().toISOString(),
+          total_executions: search.total_executions + 1,
+          last_execution_status: 'sent',
+          last_unipile_account_used: unipileAccountId
+        })
+        .eq('id', search.id);
+
+      await loadSavedSearches();
+
       toast({
         title: "Succès",
         description: `Recherche "${search.name}" déclenchée avec succès`,
@@ -288,9 +447,18 @@ const SearchPosts = () => {
 
     } catch (error: any) {
       console.error('❌ Error triggering search:', error);
+      
+      // Mettre à jour le statut d'erreur
+      await supabase
+        .from('linkedin_search_configurations')
+        .update({
+          last_execution_status: 'error'
+        })
+        .eq('id', search.id);
+
       toast({
         title: "Erreur",
-        description: "Impossible de déclencher la recherche",
+        description: error.message || "Impossible de déclencher la recherche",
         variant: "destructive"
       });
     } finally {
@@ -553,22 +721,32 @@ const SearchPosts = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="font-semibold text-lg">{search.name}</h3>
-                        <span className="text-sm text-gray-500">
-                          Type: {search.searchType === 'parameters' ? 'Mots-clés' : 'URLs'}
-                        </span>
+                        <div className="text-sm text-gray-500 space-y-1">
+                          <span>Type: {search.searchType === 'parameters' ? 'Mots-clés' : 'URLs'}</span>
+                          {search.last_executed_at && (
+                            <div>Dernière exécution: {new Date(search.last_executed_at).toLocaleString()}</div>
+                          )}
+                          <div>Exécutions: {search.total_executions}</div>
+                          {search.last_execution_status && (
+                            <div>Statut: {search.last_execution_status}</div>
+                          )}
+                          {search.last_execution_posts_count && (
+                            <div>Posts obtenus: {search.last_execution_posts_count}</div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex items-center space-x-2">
                           <Switch
                             checked={search.active}
-                            onCheckedChange={() => toggleActive(search.id)}
+                            onCheckedChange={() => toggleActive(search.id, search.active)}
                           />
                           <Label className="text-sm">Actif</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Switch
                             checked={search.autoScraping}
-                            onCheckedChange={() => toggleAutoScraping(search.id)}
+                            onCheckedChange={() => toggleAutoScraping(search.id, search.autoScraping)}
                           />
                           <Label className="text-sm">Auto</Label>
                         </div>
@@ -592,14 +770,18 @@ const SearchPosts = () => {
                     
                     {search.searchType === 'parameters' ? (
                       <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="font-medium">Groupe 1 ({search.group1?.operator})</p>
-                          <p className="text-gray-600">{search.group1?.keywords.join(`, ${search.group1?.operator} `)}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Groupe 2 ({search.group2?.operator})</p>
-                          <p className="text-gray-600">{search.group2?.keywords.join(`, ${search.group2?.operator} `)}</p>
-                        </div>
+                        {search.group1 && (
+                          <div>
+                            <p className="font-medium">Groupe 1 ({search.group1.operator})</p>
+                            <p className="text-gray-600">{search.group1.keywords.join(`, ${search.group1.operator} `)}</p>
+                          </div>
+                        )}
+                        {search.group2 && (
+                          <div>
+                            <p className="font-medium">Groupe 2 ({search.group2.operator})</p>
+                            <p className="text-gray-600">{search.group2.keywords.join(`, ${search.group2.operator} `)}</p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-sm">
