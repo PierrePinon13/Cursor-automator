@@ -374,9 +374,25 @@ const SearchPosts = () => {
 
   const getNextUnipileAccount = async (): Promise<string | null> => {
     try {
-      const { data, error } = await supabase.rpc('get_next_unipile_account');
+      // Récupérer tous les comptes Unipile depuis la table profiles
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('unipile_account_id')
+        .not('unipile_account_id', 'is', null);
+
       if (error) throw error;
-      return data;
+
+      if (!profiles || profiles.length === 0) {
+        console.log('❌ Aucun compte Unipile trouvé dans les profils');
+        return null;
+      }
+
+      // Pour l'instant, retourner le premier compte disponible
+      // TODO: Implémenter une logique de rotation plus sophistiquée si nécessaire
+      const account = profiles[0];
+      console.log(`✅ Compte Unipile sélectionné: ${account.unipile_account_id}`);
+      
+      return account.unipile_account_id;
     } catch (error) {
       console.error('Erreur lors de la récupération du compte Unipile:', error);
       return null;
@@ -384,17 +400,10 @@ const SearchPosts = () => {
   };
 
   const reserveUnipileAccount = async (accountId: string, searchId: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase.rpc('reserve_unipile_account', {
-        account_id_param: accountId,
-        search_id_param: searchId
-      });
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Erreur lors de la réservation du compte Unipile:', error);
-      return false;
-    }
+    // Pour l'instant, toujours retourner true car on utilise les comptes des profiles
+    // TODO: Implémenter une logique de réservation si nécessaire
+    console.log(`🔒 Réservation du compte ${accountId} pour la recherche ${searchId}`);
+    return true;
   };
 
   const triggerSearch = async (search: SavedSearch) => {
