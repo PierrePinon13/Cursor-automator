@@ -2179,33 +2179,39 @@ export type Database = {
           account_id: string
           account_name: string | null
           created_at: string
+          current_search_id: string | null
           daily_limit: number
           daily_usage_count: number
           id: string
           is_active: boolean
           last_used_at: string | null
+          search_started_at: string | null
           updated_at: string
         }
         Insert: {
           account_id: string
           account_name?: string | null
           created_at?: string
+          current_search_id?: string | null
           daily_limit?: number
           daily_usage_count?: number
           id?: string
           is_active?: boolean
           last_used_at?: string | null
+          search_started_at?: string | null
           updated_at?: string
         }
         Update: {
           account_id?: string
           account_name?: string | null
           created_at?: string
+          current_search_id?: string | null
           daily_limit?: number
           daily_usage_count?: number
           id?: string
           is_active?: boolean
           last_used_at?: string | null
+          search_started_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2344,6 +2350,14 @@ export type Database = {
       lock_lead: {
         Args: { lead_id: string; user_id: string; user_name: string }
         Returns: Json
+      }
+      release_unipile_account: {
+        Args: { search_id_param: string }
+        Returns: boolean
+      }
+      reserve_unipile_account: {
+        Args: { account_id_param: string; search_id_param: string }
+        Returns: boolean
       }
       unlock_lead: {
         Args: { lead_id: string; user_id: string }

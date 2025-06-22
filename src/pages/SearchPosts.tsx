@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Play, Plus, Link } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Trash2, Play, Plus, Link, ExternalLink, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
@@ -382,6 +383,20 @@ const SearchPosts = () => {
     }
   };
 
+  const reserveUnipileAccount = async (accountId: string, searchId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.rpc('reserve_unipile_account', {
+        account_id_param: accountId,
+        search_id_param: searchId
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Erreur lors de la réservation du compte Unipile:', error);
+      return false;
+    }
+  };
+
   const triggerSearch = async (search: SavedSearch) => {
     setLoading(true);
     
@@ -393,6 +408,13 @@ const SearchPosts = () => {
       
       if (!unipileAccountId) {
         throw new Error('Aucun compte Unipile disponible');
+      }
+
+      // Réserver le compte pour cette recherche
+      const reserved = await reserveUnipileAccount(unipileAccountId, search.id);
+      
+      if (!reserved) {
+        throw new Error('Impossible de réserver le compte Unipile');
       }
 
       const payload = {
@@ -492,41 +514,101 @@ const SearchPosts = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <SidebarTrigger />
-        <h1 className="text-3xl font-bold text-gray-900">Recherche de Posts</h1>
-      </div>
+  const getStatusIcon = (status?: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'processing':
+        return <Clock className="h-4 w-4 text-blue-600" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'sent':
+        return <AlertCircle className="h-4 w-4 text-orange-600" />;
+      default:
+        return null;
+    }
+  };
 
-      <div className="space-y-6">
-        {/* Nouvelle recherche */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Nouvelle recherche</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Terminé</Badge>;
+      case 'processing':
+        return <Badge variant="default" className="bg-blue-100 text-blue-800">En cours</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Erreur</Badge>;
+      case 'sent':
+        return <Badge variant="default" className="bg-orange-100 text-orange-800">Envoyé</Badge>;
+      default:
+        return <Badge variant="secondary">Non exécuté</Badge>;
+    }
+  };
+
+  const truncateUrl = (url: string, maxLength: number = 50) => {
+    if (url.length <= maxLength) return url;
+    return url.substring(0, maxLength) + '...';
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger />
             <div>
-              <Label htmlFor="search-name">Nom de la recherche</Label>
+              <h1 className="text-3xl font-bold text-gray-900">Recherche de Posts LinkedIn</h1>
+              <p className="text-gray-600 mt-1">Configurez et gérez vos recherches automatisées</p>
+            </div>
+          </div>
+          {searches.length > 0 && (
+            <Button 
+              onClick={triggerAllActiveSearches}
+              disabled={loading || searches.filter(s => s.active).length === 0}
+              size="lg"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Lancer toutes les recherches actives ({searches.filter(s => s.active).length})
+            </Button>
+          )}
+        </div>
+
+        {/* Nouvelle recherche */}
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg">
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <Plus className="h-5 w-5" />
+              Nouvelle recherche
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div>
+              <Label htmlFor="search-name" className="text-sm font-medium text-gray-700">Nom de la recherche</Label>
               <Input
                 id="search-name"
                 value={newSearch.name}
                 onChange={(e) => setNewSearch(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Ex: Développeur React Paris"
+                className="mt-1"
               />
             </div>
 
             <Tabs value={newSearch.searchType} onValueChange={(value: 'parameters' | 'url') => setNewSearch(prev => ({ ...prev, searchType: value }))}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="parameters">Recherche par mots-clés</TabsTrigger>
-                <TabsTrigger value="url">Recherche par URLs</TabsTrigger>
+                <TabsTrigger value="parameters" className="flex items-center gap-2">
+                  <span>🔍</span> Recherche par mots-clés
+                </TabsTrigger>
+                <TabsTrigger value="url" className="flex items-center gap-2">
+                  <Link className="h-4 w-4" /> Recherche par URLs
+                </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="parameters" className="space-y-4">
-                {/* Groupe 1 - Max 2 mots-clés */}
-                <div className="border rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Groupe 1 (max 2 mots-clés)</h3>
+              <TabsContent value="parameters" className="space-y-6 mt-6">
+                {/* Groupe 1 */}
+                <div className="border rounded-lg p-4 bg-gray-50/50">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-700">Groupe 1 (max 2 mots-clés)</h3>
                     <Select
                       value={newSearch.group1?.operator}
                       onValueChange={(value: 'OR' | 'AND') => updateOperator('group1', value)}
@@ -542,7 +624,7 @@ const SearchPosts = () => {
                   </div>
                   
                   {newSearch.group1?.keywords.map((keyword, index) => (
-                    <div key={index} className="flex gap-2">
+                    <div key={index} className="flex gap-2 mb-2">
                       <Input
                         value={keyword}
                         onChange={(e) => updateKeyword('group1', index, e.target.value)}
@@ -572,10 +654,10 @@ const SearchPosts = () => {
                   )}
                 </div>
 
-                {/* Groupe 2 - Max 4 mots-clés */}
-                <div className="border rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Groupe 2 (max 4 mots-clés)</h3>
+                {/* Groupe 2 */}
+                <div className="border rounded-lg p-4 bg-gray-50/50">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-700">Groupe 2 (max 4 mots-clés)</h3>
                     <Select
                       value={newSearch.group2?.operator}
                       onValueChange={(value: 'OR' | 'AND') => updateOperator('group2', value)}
@@ -591,7 +673,7 @@ const SearchPosts = () => {
                   </div>
                   
                   {newSearch.group2?.keywords.map((keyword, index) => (
-                    <div key={index} className="flex gap-2">
+                    <div key={index} className="flex gap-2 mb-2">
                       <Input
                         value={keyword}
                         onChange={(e) => updateKeyword('group2', index, e.target.value)}
@@ -622,13 +704,13 @@ const SearchPosts = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="url" className="space-y-4">
+              <TabsContent value="url" className="space-y-6 mt-6">
                 {/* URLs individuelles */}
-                <div className="border rounded-lg p-4 space-y-4">
-                  <h3 className="font-semibold">URLs à scraper</h3>
+                <div className="border rounded-lg p-4 bg-gray-50/50">
+                  <h3 className="font-semibold text-gray-700 mb-4">URLs à scraper</h3>
                   
                   {newSearch.urls?.map((url, index) => (
-                    <div key={index} className="flex gap-2">
+                    <div key={index} className="flex gap-2 mb-2">
                       <Input
                         value={url}
                         onChange={(e) => updateUrl(index, e.target.value)}
@@ -643,7 +725,7 @@ const SearchPosts = () => {
                       </Button>
                     </div>
                   )) || (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mb-2">
                       <Input
                         value=""
                         onChange={(e) => setNewSearch(prev => ({ ...prev, urls: [e.target.value] }))}
@@ -663,13 +745,14 @@ const SearchPosts = () => {
                 </div>
 
                 {/* URLs en bulk */}
-                <div className="border rounded-lg p-4 space-y-4">
-                  <h3 className="font-semibold">Import en masse d'URLs</h3>
+                <div className="border rounded-lg p-4 bg-blue-50/50">
+                  <h3 className="font-semibold text-blue-800 mb-4">Import en masse d'URLs</h3>
                   <Textarea
                     value={bulkUrls}
                     onChange={(e) => setBulkUrls(e.target.value)}
                     placeholder="Collez ici du texte contenant des URLs. Le système détectera automatiquement toutes les URLs et créera une recherche pour chacune."
                     rows={4}
+                    className="mb-4"
                   />
                   <Button
                     variant="outline"
@@ -684,118 +767,153 @@ const SearchPosts = () => {
               </TabsContent>
             </Tabs>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="auto-scraping"
-                checked={newSearch.autoScraping}
-                onCheckedChange={(checked) => setNewSearch(prev => ({ ...prev, autoScraping: checked }))}
-              />
-              <Label htmlFor="auto-scraping">Scraping automatique</Label>
-            </div>
+            <Separator />
 
-            <Button onClick={saveSearch} className="w-full">
-              Sauvegarder la recherche
-            </Button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="auto-scraping"
+                  checked={newSearch.autoScraping}
+                  onCheckedChange={(checked) => setNewSearch(prev => ({ ...prev, autoScraping: checked }))}
+                />
+                <Label htmlFor="auto-scraping" className="text-sm text-gray-700">Scraping automatique</Label>
+              </div>
+
+              <Button onClick={saveSearch} className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800">
+                <Plus className="h-4 w-4 mr-2" />
+                Sauvegarder la recherche
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
         {/* Recherches sauvegardées */}
         {searches.length > 0 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Recherches sauvegardées ({searches.length})</CardTitle>
-                <Button 
-                  onClick={triggerAllActiveSearches}
-                  disabled={loading || searches.filter(s => s.active).length === 0}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Déclencher toutes les recherches actives
-                </Button>
-              </div>
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-lg">
+              <CardTitle className="flex items-center gap-2 text-purple-900">
+                <span>📚</span> Recherches sauvegardées ({searches.length})
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="p-6">
+              <div className="grid gap-4">
                 {searches.map((search) => (
-                  <div key={search.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-semibold text-lg">{search.name}</h3>
-                        <div className="text-sm text-gray-500 space-y-1">
-                          <span>Type: {search.searchType === 'parameters' ? 'Mots-clés' : 'URLs'}</span>
-                          {search.last_executed_at && (
-                            <div>Dernière exécution: {new Date(search.last_executed_at).toLocaleString()}</div>
-                          )}
-                          <div>Exécutions: {search.total_executions}</div>
-                          {search.last_execution_status && (
-                            <div>Statut: {search.last_execution_status}</div>
-                          )}
-                          {search.last_execution_posts_count && (
-                            <div>Posts obtenus: {search.last_execution_posts_count}</div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            checked={search.active}
-                            onCheckedChange={() => toggleActive(search.id, search.active)}
-                          />
-                          <Label className="text-sm">Actif</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            checked={search.autoScraping}
-                            onCheckedChange={() => toggleAutoScraping(search.id, search.autoScraping)}
-                          />
-                          <Label className="text-sm">Auto</Label>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => triggerSearch(search)}
-                          disabled={loading}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteSearch(search.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {search.searchType === 'parameters' ? (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        {search.group1 && (
-                          <div>
-                            <p className="font-medium">Groupe 1 ({search.group1.operator})</p>
-                            <p className="text-gray-600">{search.group1.keywords.join(`, ${search.group1.operator} `)}</p>
+                  <Card key={search.id} className="border border-gray-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-lg text-gray-900 truncate">{search.name}</h3>
+                            {getStatusBadge(search.last_execution_status)}
+                            <Badge variant={search.searchType === 'parameters' ? 'default' : 'secondary'}>
+                              {search.searchType === 'parameters' ? '🔍 Mots-clés' : '🔗 URLs'}
+                            </Badge>
                           </div>
-                        )}
-                        {search.group2 && (
-                          <div>
-                            <p className="font-medium">Groupe 2 ({search.group2.operator})</p>
-                            <p className="text-gray-600">{search.group2.keywords.join(`, ${search.group2.operator} `)}</p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
+                            {search.last_executed_at && (
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Dernière exécution: {new Date(search.last_executed_at).toLocaleString()}
+                              </div>
+                            )}
+                            <div>Exécutions: {search.total_executions}</div>
+                            {search.last_execution_posts_count !== null && (
+                              <div>Posts obtenus: {search.last_execution_posts_count}</div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-sm">
-                        <p className="font-medium">URLs ({search.urls?.length})</p>
-                        <div className="text-gray-600 max-h-20 overflow-y-auto">
-                          {search.urls?.map((url, index) => (
-                            <div key={index} className="truncate">{url}</div>
-                          ))}
+                          
+                          {search.searchType === 'parameters' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              {search.group1 && (
+                                <div className="bg-gray-50 rounded p-2">
+                                  <p className="font-medium text-gray-700">Groupe 1 ({search.group1.operator})</p>
+                                  <p className="text-gray-600">{search.group1.keywords.join(`, ${search.group1.operator} `)}</p>
+                                </div>
+                              )}
+                              {search.group2 && (
+                                <div className="bg-gray-50 rounded p-2">
+                                  <p className="font-medium text-gray-700">Groupe 2 ({search.group2.operator})</p>
+                                  <p className="text-gray-600">{search.group2.keywords.join(`, ${search.group2.operator} `)}</p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-gray-50 rounded p-2">
+                              <p className="font-medium text-gray-700 mb-2">URLs ({search.urls?.length})</p>
+                              <div className="space-y-1 max-h-20 overflow-y-auto">
+                                {search.urls?.map((url, index) => (
+                                  <div key={index} className="flex items-center gap-2 text-gray-600">
+                                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate" title={url}>{truncateUrl(url)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2 ml-4">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={search.active}
+                              onCheckedChange={() => toggleActive(search.id, search.active)}
+                              size="sm"
+                            />
+                            <Label className="text-xs text-gray-600">Actif</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={search.autoScraping}
+                              onCheckedChange={() => toggleAutoScraping(search.id, search.autoScraping)}
+                              size="sm"
+                            />
+                            <Label className="text-xs text-gray-600">Auto</Label>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => triggerSearch(search)}
+                            disabled={loading}
+                            className="bg-green-50 border-green-200 hover:bg-green-100"
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteSearch(search.id)}
+                            className="bg-red-50 border-red-200 hover:bg-red-100"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {searches.length === 0 && (
+          <Card className="shadow-lg border-2 border-dashed border-gray-300 bg-white/60">
+            <CardContent className="text-center py-16">
+              <div className="text-6xl mb-4">🔍</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Aucune recherche sauvegardée
+              </h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Créez votre première recherche LinkedIn pour commencer à collecter des posts automatiquement.
+              </p>
+              <Button 
+                onClick={() => document.getElementById('search-name')?.focus()} 
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Créer ma première recherche
+              </Button>
             </CardContent>
           </Card>
         )}

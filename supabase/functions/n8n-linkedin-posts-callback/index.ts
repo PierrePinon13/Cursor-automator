@@ -47,20 +47,55 @@ serve(async (req) => {
     const payload: CallbackPayload = await req.json()
     const { posts, search_id, search_type, unipile_account_id } = payload
     
-    if (!Array.isArray(posts) || posts.length === 0) {
-      console.error('❌ No posts provided or invalid format')
-      return new Response('No posts provided or invalid format', { 
-        status: 400,
-        headers: corsHeaders 
-      })
-    }
-
     if (!search_id) {
       console.error('❌ No search_id provided')
       return new Response('search_id is required', { 
         status: 400,
         headers: corsHeaders 
       })
+    }
+
+    // Si tableau vide, c'est la fin de la recherche - libérer le compte Unipile
+    if (!Array.isArray(posts) || posts.length === 0) {
+      console.log(`🔓 Search ${search_id} completed - releasing Unipile account`)
+      
+      try {
+        const { error: releaseError } = await supabaseClient.rpc('release_unipile_account', {
+          search_id_param: search_id
+        });
+        
+        if (releaseError) {
+          console.error('❌ Error releasing Unipile account:', releaseError);
+        } else {
+          console.log('✅ Unipile account released successfully');
+        }
+      } catch (error) {
+        console.error('❌ Error in release function:', error);
+      }
+
+      // Mettre à jour le statut de la recherche
+      try {
+        await supabaseClient
+          .from('linkedin_search_configurations')
+          .update({
+            last_execution_status: 'completed',
+            last_execution_posts_count: 0
+          })
+          .eq('id', search_id);
+        
+        console.log(`✅ Updated search configuration ${search_id} - marked as completed`);
+      } catch (updateError) {
+        console.error('❌ Error updating search configuration:', updateError);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Search ${search_id} completed - no posts to process`,
+        search_id: search_id
+      }), { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     console.log(`📥 Processing ${posts.length} LinkedIn posts for search ${search_id}`)
@@ -127,20 +162,18 @@ serve(async (req) => {
     console.log(`📊 Processing complete: ${processedCount} processed, ${duplicateCount} duplicates, ${errorCount} errors`);
 
     // Update search configuration with execution stats
-    if (search_id) {
-      try {
-        await supabaseClient
-          .from('linkedin_search_configurations')
-          .update({
-            last_execution_posts_count: processedCount,
-            last_execution_status: processedCount > 0 ? 'completed' : 'no_new_posts'
-          })
-          .eq('id', search_id);
-        
-        console.log(`✅ Updated search configuration ${search_id} with stats`);
-      } catch (updateError) {
-        console.error('❌ Error updating search configuration:', updateError);
-      }
+    try {
+      await supabaseClient
+        .from('linkedin_search_configurations')
+        .update({
+          last_execution_posts_count: processedCount,
+          last_execution_status: processedCount > 0 ? 'processing' : 'no_new_posts'
+        })
+        .eq('id', search_id);
+      
+      console.log(`✅ Updated search configuration ${search_id} with stats`);
+    } catch (updateError) {
+      console.error('❌ Error updating search configuration:', updateError);
     }
 
     // If we have new posts, trigger the processing pipeline
