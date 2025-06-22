@@ -2353,7 +2353,7 @@ export type Database = {
       }
       release_unipile_account: {
         Args: { search_id_param: string }
-        Returns: boolean
+        Returns: string
       }
       reserve_unipile_account: {
         Args: { account_id_param: string; search_id_param: string }

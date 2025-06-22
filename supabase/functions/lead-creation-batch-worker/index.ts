@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -19,6 +20,33 @@ interface CompanyEnrichmentResult {
   companyId?: string;
   action?: string;
   error?: string;
+}
+
+interface LeadProcessingResult {
+  success: boolean;
+  leadId?: string;
+  action: 'created' | 'updated' | 'linked' | 'error';
+  isClient: boolean;
+  isHrProvider: boolean;
+  hasClientHistory: boolean;
+  approachMessageGenerated: boolean;
+  companyEnriched: boolean;
+  error?: string;
+}
+
+interface BatchSummary {
+  success: boolean;
+  dataset_id: string;
+  batch_size: number;
+  processed: number;
+  leads_created: number;
+  leads_updated: number;
+  client_leads: number;
+  hr_provider_leads: number;
+  failed: number;
+  errors: Array<{ post_id: string; error: string }>;
+  approach_messages_generated: number;
+  companies_enriched: number;
 }
 
 serve(async (req) => {
@@ -78,7 +106,11 @@ serve(async (req) => {
       .update({ processing_status: 'processing_lead_creation' })
       .in('id', posts.map(p => p.id));
 
-    const results = {
+    // Initialiser le résumé
+    const summary: BatchSummary = {
+      success: true,
+      dataset_id,
+      batch_size: posts.length,
       processed: 0,
       leads_created: 0,
       leads_updated: 0,
@@ -90,54 +122,30 @@ serve(async (req) => {
       companies_enriched: 0
     };
 
+    // Traiter chaque post
     for (const post of posts) {
       try {
         console.log(`👤 Processing lead for post: ${post.id}`);
         
-        const leadResult = await processLead(supabaseClient, post, clients, hrProviders);
+        const result = await processLeadForPost(supabaseClient, post, clients, hrProviders);
         
-        if (leadResult.success) {
-          results.processed++;
-          
-          if (leadResult.action === 'created') {
-            results.leads_created++;
-          } else if (leadResult.action === 'updated') {
-            results.leads_updated++;
-          }
-          
-          if (leadResult.isClient) results.client_leads++;
-          if (leadResult.isHrProvider) results.hr_provider_leads++;
-          if (leadResult.approachMessageGenerated) results.approach_messages_generated++;
-          if (leadResult.companyEnriched) results.companies_enriched++;
-          
-          // Marquer le post comme completed
-          await supabaseClient
-            .from('linkedin_posts')
-            .update({
-              processing_status: 'completed',
-              lead_id: leadResult.leadId,
-              last_updated_at: new Date().toISOString()
-            })
-            .eq('id', post.id);
-            
-        } else {
-          results.failed++;
-          results.errors.push({ post_id: post.id, error: leadResult.error });
-          
-          await supabaseClient
-            .from('linkedin_posts')
-            .update({
-              processing_status: 'error_lead_creation',
-              retry_count: (post.retry_count || 0) + 1,
-              last_retry_at: new Date().toISOString()
-            })
-            .eq('id', post.id);
-        }
+        updateSummaryWithResult(summary, result);
+        
+        // Marquer le post selon le résultat
+        const finalStatus = result.success ? 'completed' : 'error_lead_creation';
+        await supabaseClient
+          .from('linkedin_posts')
+          .update({
+            processing_status: finalStatus,
+            lead_id: result.leadId || null,
+            last_updated_at: new Date().toISOString()
+          })
+          .eq('id', post.id);
 
       } catch (error) {
         console.error(`❌ Lead processing failed for post ${post.id}:`, error);
-        results.failed++;
-        results.errors.push({ post_id: post.id, error: error.message });
+        summary.failed++;
+        summary.errors.push({ post_id: post.id, error: error.message });
         
         await supabaseClient
           .from('linkedin_posts')
@@ -150,16 +158,9 @@ serve(async (req) => {
       }
     }
 
-    const finalResult = {
-      success: true,
-      dataset_id,
-      batch_size: posts.length,
-      ...results
-    };
+    console.log('📊 Lead Creation Batch completed:', summary);
 
-    console.log('📊 Lead Creation Batch completed:', finalResult);
-
-    return new Response(JSON.stringify(finalResult), {
+    return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
@@ -175,102 +176,215 @@ serve(async (req) => {
   }
 });
 
-async function processLead(supabaseClient: any, post: any, clients: any[], hrProviders: any[]) {
+async function processLeadForPost(
+  supabaseClient: any, 
+  post: any, 
+  clients: any[], 
+  hrProviders: any[]
+): Promise<LeadProcessingResult> {
+  
+  // Extraire les données Unipile
+  const unipileExtraction = extractUnipileData(post.unipile_response);
+  
+  // Vérifier HR provider match
+  const hrProviderCheck = checkHrProviderMatch(hrProviders, unipileExtraction.currentCompanyLinkedInId);
+  
+  if (hrProviderCheck.isHrProvider) {
+    console.log('🚫 Skipping lead creation - HR provider detected:', hrProviderCheck.hrProviderName);
+    return {
+      success: true,
+      action: 'linked',
+      isClient: false,
+      isHrProvider: true,
+      hasClientHistory: false,
+      approachMessageGenerated: false,
+      companyEnriched: false
+    };
+  }
+  
+  // Vérifier client match
+  const clientMatch = checkClientMatch(clients, unipileExtraction.currentCompanyLinkedInId);
+  
+  // Analyser l'historique professionnel vs clients
+  const clientHistoryAnalysis = analyzeClientWorkHistory(clients, unipileExtraction.workHistory);
+  
+  // Enrichir les données de l'entreprise
+  const companyEnrichment = await enrichCompanyData(supabaseClient, unipileExtraction.currentCompanyLinkedInId);
+  
+  // ✅ Gestion idempotente des leads
+  const leadResult = await createOrUpdateLeadIdempotent(
+    supabaseClient, 
+    post, 
+    unipileExtraction, 
+    clientMatch, 
+    clientHistoryAnalysis, 
+    companyEnrichment
+  );
+  
+  if (!leadResult.success) {
+    return {
+      success: false,
+      action: 'error',
+      isClient: false,
+      isHrProvider: false,
+      hasClientHistory: false,
+      approachMessageGenerated: false,
+      companyEnriched: false,
+      error: leadResult.error
+    };
+  }
+  
+  // Générer le message d'approche si ce n'est pas un client
+  let approachMessageGenerated = false;
+  if (!clientMatch.isClient && (leadResult.action === 'created' || !leadResult.hasApproachMessage)) {
+    const messageResult = await generateApproachMessage(supabaseClient, leadResult.leadId!, post);
+    approachMessageGenerated = messageResult.success;
+  }
+  
+  return {
+    success: true,
+    leadId: leadResult.leadId,
+    action: leadResult.action,
+    isClient: clientMatch.isClient,
+    isHrProvider: false,
+    hasClientHistory: clientHistoryAnalysis.hasPreviousClientCompany,
+    approachMessageGenerated,
+    companyEnriched: companyEnrichment.success
+  };
+}
+
+async function createOrUpdateLeadIdempotent(
+  supabaseClient: any,
+  post: any,
+  unipileExtraction: any,
+  clientMatch: any,
+  clientHistoryAnalysis: any,
+  companyEnrichment: any
+): Promise<{ success: boolean; leadId?: string; action: 'created' | 'updated' | 'linked'; hasApproachMessage?: boolean; error?: string }> {
+  
+  if (!post.author_profile_id) {
+    return { success: false, action: 'error', error: 'Missing author_profile_id' };
+  }
+
   try {
-    // Extraire les données Unipile
-    const unipileExtraction = extractUnipileData(post.unipile_response);
-    
-    // Vérifier si un lead existe déjà
-    const existingLead = await checkExistingLead(supabaseClient, post);
-    
-    // Vérifier HR provider match
-    const hrProviderCheck = checkHrProviderMatch(hrProviders, unipileExtraction.currentCompanyLinkedInId);
-    
-    if (hrProviderCheck.isHrProvider) {
-      console.log('🚫 Skipping lead creation - HR provider detected:', hrProviderCheck.hrProviderName);
-      return {
-        success: true,
-        action: 'filtered_hr_provider',
-        isHrProvider: true,
-        hrProviderName: hrProviderCheck.hrProviderName
-      };
+    // ✅ Vérifier si un lead existe déjà pour cet auteur
+    const { data: existingLead, error: checkError } = await supabaseClient
+      .from('leads')
+      .select('id, latest_post_date, posted_at_timestamp, approach_message')
+      .eq('author_profile_id', post.author_profile_id)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw new Error(`Error checking existing lead: ${checkError.message}`);
     }
-    
-    // Vérifier client match
-    const clientMatch = checkClientMatch(clients, unipileExtraction.currentCompanyLinkedInId);
-    
-    // Analyser l'historique professionnel vs clients
-    const clientHistoryAnalysis = analyzeClientWorkHistory(clients, unipileExtraction.workHistory);
-    
-    // Enrichir les données de l'entreprise actuelle
-    const companyEnrichment = await enrichCompanyData(supabaseClient, unipileExtraction.currentCompanyLinkedInId);
-    
-    // Construire les données du lead
+
     const leadData = buildLeadData(post, unipileExtraction, clientMatch, clientHistoryAnalysis, companyEnrichment);
-    
-    let leadId;
-    let action;
-    
+
     if (existingLead) {
-      // Vérifier si ce post est plus récent
+      // Lead existe - vérifier si ce post est plus récent
       const postTimestamp = post.posted_at_timestamp || (post.posted_at_iso ? new Date(post.posted_at_iso).getTime() : null);
       const existingTimestamp = existingLead.posted_at_timestamp || 0;
       
       if (postTimestamp && postTimestamp > existingTimestamp) {
         console.log('📅 New post is more recent, updating lead data');
         
-        await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from('leads')
           .update(leadData)
           .eq('id', existingLead.id);
           
-        leadId = existingLead.id;
-        action = 'updated';
+        if (updateError) {
+          throw new Error(`Error updating existing lead: ${updateError.message}`);
+        }
+        
+        return { 
+          success: true, 
+          leadId: existingLead.id, 
+          action: 'updated',
+          hasApproachMessage: !!existingLead.approach_message
+        };
       } else {
         console.log('📅 Existing post is more recent, keeping existing data');
-        leadId = existingLead.id;
-        action = 'linked';
+        return { 
+          success: true, 
+          leadId: existingLead.id, 
+          action: 'linked',
+          hasApproachMessage: !!existingLead.approach_message
+        };
       }
     } else {
       // Créer un nouveau lead
-      const { data: newLead, error: insertError } = await supabaseClient
-        .from('leads')
-        .insert(leadData)
-        .select('id')
-        .single();
+      try {
+        const { data: newLead, error: insertError } = await supabaseClient
+          .from('leads')
+          .insert(leadData)
+          .select('id')
+          .single();
+          
+        if (insertError) {
+          // ✅ Gestion du doublon gracieuse
+          if (insertError.code === '23505' && insertError.message.includes('leads_author_profile_id_key')) {
+            console.log('🔄 Duplicate key detected, attempting to retrieve existing lead');
+            
+            const { data: duplicateLead, error: duplicateError } = await supabaseClient
+              .from('leads')
+              .select('id, approach_message')
+              .eq('author_profile_id', post.author_profile_id)
+              .single();
+              
+            if (duplicateError) {
+              throw new Error(`Error retrieving duplicate lead: ${duplicateError.message}`);
+            }
+            
+            return { 
+              success: true, 
+              leadId: duplicateLead.id, 
+              action: 'linked',
+              hasApproachMessage: !!duplicateLead.approach_message
+            };
+          }
+          throw insertError;
+        }
         
-      if (insertError) {
-        throw new Error(`Error creating lead: ${insertError.message}`);
+        return { 
+          success: true, 
+          leadId: newLead.id, 
+          action: 'created',
+          hasApproachMessage: false
+        };
+      } catch (insertError) {
+        throw new Error(`Error creating new lead: ${insertError.message}`);
       }
-      
-      leadId = newLead.id;
-      action = 'created';
     }
-    
-    // Générer le message d'approche si ce n'est pas un client
-    let approachMessageGenerated = false;
-    if (!clientMatch.isClient && (action === 'created' || !existingLead?.approach_message)) {
-      const messageResult = await generateApproachMessage(supabaseClient, leadId, post);
-      approachMessageGenerated = messageResult.success;
-    }
-    
-    return {
-      success: true,
-      leadId,
-      action,
-      isClient: clientMatch.isClient,
-      isHrProvider: false,
-      hasClientHistory: clientHistoryAnalysis.hasPreviousClientCompany,
-      approachMessageGenerated,
-      companyEnriched: companyEnrichment.success
-    };
-    
   } catch (error) {
-    console.error('Error processing lead:', error);
-    return {
-      success: false,
-      error: error.message
+    return { 
+      success: false, 
+      action: 'error', 
+      error: error.message 
     };
+  }
+}
+
+function updateSummaryWithResult(summary: BatchSummary, result: LeadProcessingResult) {
+  summary.processed++;
+  
+  if (result.success) {
+    if (result.action === 'created') {
+      summary.leads_created++;
+    } else if (result.action === 'updated') {
+      summary.leads_updated++;
+    }
+    
+    if (result.isClient) summary.client_leads++;
+    if (result.isHrProvider) summary.hr_provider_leads++;
+    if (result.approachMessageGenerated) summary.approach_messages_generated++;
+    if (result.companyEnriched) summary.companies_enriched++;
+  } else {
+    summary.failed++;
+    summary.errors.push({ 
+      post_id: result.leadId || 'unknown', 
+      error: result.error || 'Unknown error' 
+    });
   }
 }
 
@@ -294,7 +408,7 @@ async function enrichCompanyData(supabaseClient: any, companyLinkedInId: string 
       return { success: false, error: checkError.message };
     }
 
-    // Si l'entreprise existe et est complète (a une description et une taille), on garde
+    // Si l'entreprise existe et est complète, on garde
     if (existingCompany && existingCompany.description && existingCompany.company_size) {
       console.log(`✅ Company ${companyLinkedInId} already enriched`);
       return { 
@@ -389,23 +503,6 @@ function extractUnipileData(unipileResponse: any) {
   }
 
   return { workHistory, currentCompany, currentPosition, currentCompanyLinkedInId, phone };
-}
-
-async function checkExistingLead(supabaseClient: any, post: any) {
-  if (!post.author_profile_id) return null;
-
-  const { data: existingLead, error } = await supabaseClient
-    .from('leads')
-    .select('id, latest_post_date, posted_at_timestamp, approach_message')
-    .eq('author_profile_id', post.author_profile_id)
-    .single();
-
-  if (error && error.code !== 'PGRST116') {
-    console.error('Error checking existing lead:', error);
-    return null;
-  }
-
-  return existingLead;
 }
 
 function checkHrProviderMatch(hrProviders: any[], companyLinkedInId: string | null) {
