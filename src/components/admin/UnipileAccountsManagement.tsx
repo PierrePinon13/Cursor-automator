@@ -292,7 +292,7 @@ const UnipileAccountsManagement = () => {
                             {isAccountBlocked(account) && (
                               <Badge variant="destructive" className="flex items-center gap-1">
                                 <AlertCircle className="h-3 w-3" />
-                                Bloqué >1h
+                                Bloqué {'>'}1h
                               </Badge>
                             )}
                           </div>
