@@ -858,7 +858,6 @@ const SearchPosts = () => {
                             <Switch
                               checked={search.active}
                               onCheckedChange={() => toggleActive(search.id, search.active)}
-                              size="sm"
                             />
                             <Label className="text-xs text-gray-600">Actif</Label>
                           </div>
@@ -866,7 +865,6 @@ const SearchPosts = () => {
                             <Switch
                               checked={search.autoScraping}
                               onCheckedChange={() => toggleAutoScraping(search.id, search.autoScraping)}
-                              size="sm"
                             />
                             <Label className="text-xs text-gray-600">Auto</Label>
                           </div>
