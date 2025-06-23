@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -370,6 +369,61 @@ export function useClientJobOffers() {
     ).entries()
   ).map(([id, name]) => ({ id, name }));
 
+  const archiveAllOffersForCompany = async (companyName: string) => {
+    try {
+      console.log('🗄️ Archiving all offers for company:', companyName);
+      
+      // Trouver toutes les offres actives de cette entreprise
+      const offersToArchive = filteredJobOffers.filter(offer => 
+        offer.company_name === companyName && offer.status !== 'archivee'
+      );
+
+      if (offersToArchive.length === 0) {
+        toast({
+          title: "Information",
+          description: "Aucune offre active à archiver pour cette entreprise.",
+        });
+        return;
+      }
+
+      // Mise à jour optimiste
+      offersToArchive.forEach(offer => {
+        updateJobOfferOptimistically(offer.id, { status: 'archivee' });
+      });
+
+      // Mise à jour en base
+      const { error } = await supabase
+        .from('client_job_offers')
+        .update({
+          status: 'archivee',
+          updated_at: new Date().toISOString()
+        })
+        .eq('company_name', companyName)
+        .neq('status', 'archivee');
+
+      if (error) {
+        console.error('❌ Error archiving offers for company:', error);
+        // Recharger les données en cas d'erreur
+        fetchJobOffers(true);
+        throw error;
+      }
+
+      console.log(`✅ Successfully archived ${offersToArchive.length} offers for ${companyName}`);
+
+      toast({
+        title: "Succès",
+        description: `${offersToArchive.length} offres archivées pour "${companyName}".`,
+      });
+    } catch (error: any) {
+      console.error('Error archiving offers for company:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'archiver les offres de cette entreprise.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     jobOffers,
     filteredJobOffers: filteredByStatus,
@@ -386,6 +440,7 @@ export function useClientJobOffers() {
     availableClients,
     assignJobOffer,
     updateJobOfferStatus,
+    archiveAllOffersForCompany,
     refreshJobOffers: () => fetchJobOffers(true),
     animatingItems,
     pageIndex,

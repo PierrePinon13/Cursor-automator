@@ -1,8 +1,10 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useClientJobOffers } from '@/hooks/useClientJobOffers';
 import { VisualJobOffersFilters } from './VisualJobOffersFilters';
 import { GroupedJobOffersTable } from './GroupedJobOffersTable';
+import { CompanyGroupedJobOffers } from './CompanyGroupedJobOffers';
+import { JobOffersViewToggle } from './JobOffersViewToggle';
 
 export function JobOffersSection() {
   const { 
@@ -21,11 +23,13 @@ export function JobOffersSection() {
     availableClients,
     assignJobOffer,
     updateJobOfferStatus,
+    archiveAllOffersForCompany,
     animatingItems,
     hasMore,
     loadMore
   } = useClientJobOffers();
 
+  const [viewMode, setViewMode] = useState<'list' | 'grouped'>('grouped');
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Intersection Observer pour le scroll infini
@@ -56,30 +60,48 @@ export function JobOffersSection() {
 
   return (
     <div className="w-full space-y-6">
-      <VisualJobOffersFilters 
-        selectedDateFilter={selectedDateFilter}
-        setSelectedDateFilter={setSelectedDateFilter}
-        selectedClientFilter={selectedClientFilter}
-        setSelectedClientFilter={setSelectedClientFilter}
-        selectedAssignmentFilter={selectedAssignmentFilter}
-        setSelectedAssignmentFilter={setSelectedAssignmentFilter}
-        selectedStatusFilter={selectedStatusFilter}
-        setSelectedStatusFilter={setSelectedStatusFilter}
-        availableClients={availableClients}
-        filteredJobOffers={filteredJobOffers}
-        refreshJobOffers={refreshJobOffers}
-      />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <VisualJobOffersFilters 
+          selectedDateFilter={selectedDateFilter}
+          setSelectedDateFilter={setSelectedDateFilter}
+          selectedClientFilter={selectedClientFilter}
+          setSelectedClientFilter={setSelectedClientFilter}
+          selectedAssignmentFilter={selectedAssignmentFilter}
+          setSelectedAssignmentFilter={setSelectedAssignmentFilter}
+          selectedStatusFilter={selectedStatusFilter}
+          setSelectedStatusFilter={setSelectedStatusFilter}
+          availableClients={availableClients}
+          filteredJobOffers={filteredJobOffers}
+          refreshJobOffers={refreshJobOffers}
+        />
 
-      <GroupedJobOffersTable 
-        jobOffers={filteredJobOffers}
-        users={users}
-        onAssignJobOffer={assignJobOffer}
-        onUpdateStatus={updateJobOfferStatus}
-        animatingItems={animatingItems}
-      />
+        <JobOffersViewToggle 
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
+      </div>
 
-      {/* Élément pour déclencher le scroll infini */}
-      {hasMore && (
+      {viewMode === 'grouped' ? (
+        <CompanyGroupedJobOffers 
+          jobOffers={filteredJobOffers}
+          users={users}
+          onAssignJobOffer={assignJobOffer}
+          onUpdateStatus={updateJobOfferStatus}
+          onArchiveAllForCompany={archiveAllOffersForCompany}
+          animatingItems={animatingItems}
+        />
+      ) : (
+        <GroupedJobOffersTable 
+          jobOffers={filteredJobOffers}
+          users={users}
+          onAssignJobOffer={assignJobOffer}
+          onUpdateStatus={updateJobOfferStatus}
+          animatingItems={animatingItems}
+        />
+      )}
+
+      {/* Élément pour déclencher le scroll infini - seulement en mode liste */}
+      {viewMode === 'list' && hasMore && (
         <div ref={loadMoreRef} className="flex justify-center py-4">
           {loading && (
             <div className="flex items-center gap-2 text-gray-500">
@@ -90,7 +112,7 @@ export function JobOffersSection() {
         </div>
       )}
 
-      {!hasMore && filteredJobOffers.length > 0 && (
+      {viewMode === 'list' && !hasMore && filteredJobOffers.length > 0 && (
         <div className="text-center py-4 text-gray-500">
           Toutes les offres ont été chargées
         </div>

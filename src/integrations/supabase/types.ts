@@ -1164,12 +1164,15 @@ export type Database = {
           contacted_by_user_id: string | null
           contacted_by_user_name: string | null
           created_at: string
+          first_name: string | null
           follow_up_date: string | null
           has_booked_appointment: boolean | null
           has_previous_client_company: boolean | null
+          hasUnipileNames: boolean | null
           id: string
           is_client_lead: boolean | null
           last_contact_at: string | null
+          last_name: string | null
           last_updated_at: string | null
           latest_post_date: string | null
           latest_post_url: string | null
@@ -1271,12 +1274,15 @@ export type Database = {
           contacted_by_user_id?: string | null
           contacted_by_user_name?: string | null
           created_at?: string
+          first_name?: string | null
           follow_up_date?: string | null
           has_booked_appointment?: boolean | null
           has_previous_client_company?: boolean | null
+          hasUnipileNames?: boolean | null
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
+          last_name?: string | null
           last_updated_at?: string | null
           latest_post_date?: string | null
           latest_post_url?: string | null
@@ -1378,12 +1384,15 @@ export type Database = {
           contacted_by_user_id?: string | null
           contacted_by_user_name?: string | null
           created_at?: string
+          first_name?: string | null
           follow_up_date?: string | null
           has_booked_appointment?: boolean | null
           has_previous_client_company?: boolean | null
+          hasUnipileNames?: boolean | null
           id?: string
           is_client_lead?: boolean | null
           last_contact_at?: string | null
+          last_name?: string | null
           last_updated_at?: string | null
           latest_post_date?: string | null
           latest_post_url?: string | null
