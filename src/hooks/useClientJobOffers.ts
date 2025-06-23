@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
@@ -374,7 +375,7 @@ export function useClientJobOffers() {
       console.log('🗄️ Archiving all offers for company:', companyName);
       
       // Trouver toutes les offres actives de cette entreprise
-      const offersToArchive = filteredJobOffers.filter(offer => 
+      const offersToArchive = filteredByStatus.filter(offer => 
         offer.company_name === companyName && offer.status !== 'archivee'
       );
 
