@@ -58,23 +58,6 @@ export const useLeadsNew = () => {
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
 
-  // Initialiser avec l'exclusion des cabinets de recrutement par défaut
-  useEffect(() => {
-    if (availableCompanyCategories.length > 0 && selectedCompanyCategories.length === 0) {
-      const recruitmentCategories = availableCompanyCategories.filter(cat => 
-        cat.toLowerCase().includes('recrutement') || 
-        cat.toLowerCase().includes('recruitment') ||
-        cat.toLowerCase().includes('rh') ||
-        cat.toLowerCase().includes('hr') ||
-        cat.toLowerCase().includes('cabinet')
-      );
-      if (recruitmentCategories.length > 0) {
-        console.log('Auto-excluding recruitment categories:', recruitmentCategories);
-        setSelectedCompanyCategories(recruitmentCategories);
-      }
-    }
-  }, [availableCompanyCategories, selectedCompanyCategories.length]);
-
   const fetchLeads = async () => {
     try {
       setLoading(true);
@@ -111,7 +94,6 @@ export const useLeadsNew = () => {
         }));
 
         console.log(`Fetched ${leadsWithCompanyInfo.length} leads (HR providers, mistargeted, and client leads filtered out)`);
-        console.log('Sample lead company categories:', leadsWithCompanyInfo.slice(0, 5).map(l => ({ name: l.author_name, company: l.unipile_company, category: l.company_categorie })));
         setLeads(leadsWithCompanyInfo);
         
         // Extract unique categories
@@ -143,19 +125,14 @@ export const useLeadsNew = () => {
       return false;
     }
 
-    // Company category exclusion filter - FIXED LOGIC with detailed logging
+    // Company category exclusion filter
     if (selectedCompanyCategories.length > 0) {
       const leadCompanyCategory = lead.company_categorie || '';
       const shouldExclude = selectedCompanyCategories.includes(leadCompanyCategory);
       
       if (shouldExclude) {
-        console.log(`🚫 EXCLUDING lead: ${lead.author_name} from ${lead.unipile_company} - Category: "${leadCompanyCategory}" is in exclusion list:`, selectedCompanyCategories);
+        console.log(`🚫 EXCLUDING lead: ${lead.author_name} from ${lead.unipile_company} - Category: "${leadCompanyCategory}"`);
         return false;
-      }
-      
-      // Log leads that are NOT excluded for debugging
-      if (leadCompanyCategory && lead.author_name === 'Benjamin Mantal') {
-        console.log(`✅ NOT EXCLUDING Benjamin Mantal - Company: ${lead.unipile_company}, Category: "${leadCompanyCategory}", Exclusion list:`, selectedCompanyCategories);
       }
     }
 
@@ -274,17 +251,8 @@ export const useLeadsNew = () => {
   // Log filtered results for debugging
   useEffect(() => {
     console.log(`📊 Filtered leads: ${filteredLeads.length} out of ${leads.length} total leads`);
-    console.log('Current exclusion categories:', selectedCompanyCategories);
-    
-    // Check specifically for Benjamin Mantal
-    const benjaminLead = leads.find(l => l.author_name === 'Benjamin Mantal');
-    if (benjaminLead) {
-      console.log('🔍 Benjamin Mantal details:', {
-        name: benjaminLead.author_name,
-        company: benjaminLead.unipile_company,
-        category: benjaminLead.company_categorie,
-        isInFilteredResults: filteredLeads.some(l => l.author_name === 'Benjamin Mantal')
-      });
+    if (selectedCompanyCategories.length > 0) {
+      console.log('Current exclusion categories:', selectedCompanyCategories);
     }
   }, [filteredLeads, leads, selectedCompanyCategories]);
 

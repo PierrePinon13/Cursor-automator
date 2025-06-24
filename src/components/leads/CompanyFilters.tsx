@@ -1,10 +1,10 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import MultiSelectFilter from './MultiSelectFilter';
-import { Building2, Users, X, RotateCcw } from 'lucide-react';
+import { Users } from 'lucide-react';
 
 interface CompanyFiltersProps {
   selectedCompanyCategories: string[];
@@ -31,19 +31,6 @@ export default function CompanyFilters({
     setMaxEmployees('');
   };
 
-  const clearAllSectorFilters = () => {
-    setSelectedCompanyCategories([]);
-  };
-
-  const resetToDefaultSectorFilters = () => {
-    const recruitmentCategories = availableCompanyCategories.filter(cat => 
-      cat.toLowerCase().includes('recrutement') || 
-      cat.toLowerCase().includes('recruitment') ||
-      cat.toLowerCase().includes('cabinet')
-    );
-    setSelectedCompanyCategories(recruitmentCategories);
-  };
-
   // Transform categories for MultiSelectFilter format
   const categoryOptions = availableCompanyCategories.map(category => ({
     value: category,
@@ -54,44 +41,13 @@ export default function CompanyFilters({
     <div className="flex items-center gap-3">
       {/* Company Categories Exclusion Filter */}
       {availableCompanyCategories.length > 0 && (
-        <div className="flex items-center gap-2">
-          <MultiSelectFilter
-            title="Exclure secteurs"
-            options={categoryOptions}
-            selectedValues={selectedCompanyCategories}
-            onSelectionChange={setSelectedCompanyCategories}
-            singleSelect={false}
-          />
-          {selectedCompanyCategories.length > 0 && (
-            <div className="flex items-center gap-1">
-              <X className="h-3 w-3 text-red-500" />
-              <span className="text-xs text-red-600 font-medium">
-                {selectedCompanyCategories.length} exclus
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllSectorFilters}
-                className="h-5 px-1 text-xs text-gray-500 hover:text-gray-700 ml-1"
-                title="Enlever tous les filtres d'exclusion"
-              >
-                ×
-              </Button>
-            </div>
-          )}
-          {selectedCompanyCategories.length === 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetToDefaultSectorFilters}
-              className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
-              title="Remettre l'exclusion par défaut (cabinets de recrutement)"
-            >
-              <RotateCcw className="h-3 w-3 mr-1" />
-              Défaut
-            </Button>
-          )}
-        </div>
+        <MultiSelectFilter
+          title="Exclure secteurs"
+          options={categoryOptions}
+          selectedValues={selectedCompanyCategories}
+          onSelectionChange={setSelectedCompanyCategories}
+          singleSelect={false}
+        />
       )}
 
       {/* Employee Count Range - styled like other filters */}

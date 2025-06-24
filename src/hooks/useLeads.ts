@@ -57,21 +57,6 @@ export const useLeads = () => {
   const [availableCompanyCategories, setAvailableCompanyCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
 
-  // Auto-select recruitment categories by default
-  useEffect(() => {
-    if (availableCompanyCategories.length > 0 && selectedCompanyCategories.length === 0) {
-      const recruitmentCategories = availableCompanyCategories.filter(cat => 
-        cat.toLowerCase().includes('recrutement') || 
-        cat.toLowerCase().includes('recruitment') ||
-        cat.toLowerCase().includes('cabinet')
-      );
-      if (recruitmentCategories.length > 0) {
-        console.log('Auto-selecting recruitment categories for exclusion:', recruitmentCategories);
-        setSelectedCompanyCategories(recruitmentCategories);
-      }
-    }
-  }, [availableCompanyCategories, selectedCompanyCategories.length]);
-
   // Fonction pour récupérer les leads depuis la base de données avec join sur companies
   const fetchLeads = async () => {
     try {
