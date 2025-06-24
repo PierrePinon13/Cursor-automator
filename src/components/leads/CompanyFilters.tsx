@@ -26,21 +26,6 @@ export default function CompanyFilters({
   availableCompanyCategories
 }: CompanyFiltersProps) {
   
-  // Initialiser avec l'exclusion des cabinets de recrutement par défaut
-  useEffect(() => {
-    if (availableCompanyCategories.length > 0 && selectedCompanyCategories.length === 0) {
-      const recruitmentCategories = availableCompanyCategories.filter(cat => 
-        cat.toLowerCase().includes('recrutement') || 
-        cat.toLowerCase().includes('recruitment') ||
-        cat.toLowerCase().includes('rh') ||
-        cat.toLowerCase().includes('hr')
-      );
-      if (recruitmentCategories.length > 0) {
-        setSelectedCompanyCategories(recruitmentCategories);
-      }
-    }
-  }, [availableCompanyCategories, selectedCompanyCategories.length, setSelectedCompanyCategories]);
-
   const clearEmployeeFilters = () => {
     setMinEmployees('');
     setMaxEmployees('');
@@ -54,8 +39,7 @@ export default function CompanyFilters({
     const recruitmentCategories = availableCompanyCategories.filter(cat => 
       cat.toLowerCase().includes('recrutement') || 
       cat.toLowerCase().includes('recruitment') ||
-      cat.toLowerCase().includes('rh') ||
-      cat.toLowerCase().includes('hr')
+      cat.toLowerCase().includes('cabinet')
     );
     setSelectedCompanyCategories(recruitmentCategories);
   };

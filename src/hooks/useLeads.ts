@@ -57,18 +57,16 @@ export const useLeads = () => {
   const [availableCompanyCategories, setAvailableCompanyCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
 
-  // Initialiser avec l'exclusion des cabinets de recrutement par défaut
+  // Auto-select recruitment categories by default
   useEffect(() => {
     if (availableCompanyCategories.length > 0 && selectedCompanyCategories.length === 0) {
       const recruitmentCategories = availableCompanyCategories.filter(cat => 
         cat.toLowerCase().includes('recrutement') || 
         cat.toLowerCase().includes('recruitment') ||
-        cat.toLowerCase().includes('rh') ||
-        cat.toLowerCase().includes('hr') ||
         cat.toLowerCase().includes('cabinet')
       );
       if (recruitmentCategories.length > 0) {
-        console.log('Auto-excluding recruitment categories:', recruitmentCategories);
+        console.log('Auto-selecting recruitment categories for exclusion:', recruitmentCategories);
         setSelectedCompanyCategories(recruitmentCategories);
       }
     }
@@ -241,7 +239,7 @@ export const useLeads = () => {
     console.log('🎯 Starting filter application...');
     console.log('📊 Total leads to filter:', allLeads.length);
     console.log('🏷️ Selected categories:', selectedCategories);
-    console.log('🏢 Excluded company categories:', selectedCompanyCategories);
+    console.log('🏢 Company categories to EXCLUDE:', selectedCompanyCategories);
     console.log('👥 Employee range:', minEmployees, '-', maxEmployees);
     console.log('📅 Date filter:', selectedDateFilter);
     console.log('📞 Contact filter:', selectedContactFilter);
@@ -259,17 +257,18 @@ export const useLeads = () => {
       console.log(`🏷️ After lead category filter: ${beforeCategory} -> ${result.length} leads`);
     }
 
-    // Filtre d'exclusion par catégorie d'entreprise - FIXED LOGIC
+    // Filtre d'exclusion par catégorie d'entreprise
     if (selectedCompanyCategories.length > 0) {
       const beforeCompanyCategory = result.length;
       result = result.filter(lead => {
         const companyCategory = lead.company_categorie || '';
-        // Exclure les leads dont la catégorie d'entreprise est dans la liste d'exclusion
         const shouldExclude = selectedCompanyCategories.includes(companyCategory);
+        
         if (shouldExclude) {
-          console.log(`🏢 Excluding lead ${lead.author_name} from company category: ${companyCategory}`);
+          console.log(`🚫 EXCLUDING lead: ${lead.author_name} from ${lead.company_name} - Category: "${companyCategory}"`);
+          return false;
         }
-        return !shouldExclude;
+        return true;
       });
       console.log(`🏢 After company category exclusion filter: ${beforeCompanyCategory} -> ${result.length} leads`);
     }
