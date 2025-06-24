@@ -23,7 +23,14 @@ const LeadsNew = () => {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
+    selectedCompanyCategories,
+    setSelectedCompanyCategories,
+    minEmployees,
+    setMinEmployees,
+    maxEmployees,
+    setMaxEmployees,
     availableCategories,
+    availableCompanyCategories,
     refreshLeads
   } = useLeadsNew();
   
@@ -195,7 +202,14 @@ const LeadsNew = () => {
           setSelectedDateFilter={setSelectedDateFilter}
           selectedContactFilter={selectedContactFilter}
           setSelectedContactFilter={setSelectedContactFilter}
+          selectedCompanyCategories={selectedCompanyCategories}
+          setSelectedCompanyCategories={setSelectedCompanyCategories}
+          minEmployees={minEmployees}
+          setMinEmployees={setMinEmployees}
+          maxEmployees={maxEmployees}
+          setMaxEmployees={setMaxEmployees}
           availableCategories={availableCategories}
+          availableCompanyCategories={availableCompanyCategories}
           showContactFilter={true}
           showAssignmentColumn={false}
           viewMode={viewMode}

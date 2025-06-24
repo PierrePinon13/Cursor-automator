@@ -1,3 +1,4 @@
+
 import MultiSelectFilter from './MultiSelectFilter';
 import CompanyFilters from './CompanyFilters';
 import { Badge } from '@/components/ui/badge';
@@ -47,24 +48,6 @@ const contactFilterOptions = [
   { value: 'exclude_all_contacted', label: 'Exclure tous contactés' },
   { value: 'only_my_contacts', label: 'Mes contacts uniquement' },
 ];
-
-const getColumnOptions = (showAssignmentColumn = false) => {
-  const baseColumns = [
-    { value: 'posted_date', label: 'Date de publication' },
-    { value: 'job_title', label: 'Profil recherché' },
-    { value: 'author_name', label: 'Lead' },
-    { value: 'company', label: 'Entreprise' },
-    { value: 'last_contact', label: 'Dernier contact' },
-    { value: 'category', label: 'Catégorie' },
-    { value: 'location', label: 'Localisation' },
-  ];
-
-  if (showAssignmentColumn) {
-    baseColumns.push({ value: 'assignment', label: 'Assignation' });
-  }
-
-  return baseColumns;
-};
 
 // Catégories visibles pour tous les utilisateurs (sans "Autre")
 const allCategories = [
@@ -139,7 +122,6 @@ export default function LeadsFilters({
   isAdmin = false
 }: LeadsFiltersProps) {
   const { isAdmin: userIsAdmin } = useUserRole();
-  const columnOptions = getColumnOptions(showAssignmentColumn);
 
   // Use the passed isAdmin prop or fall back to the hook
   const effectiveIsAdmin = isAdmin || userIsAdmin;
@@ -160,14 +142,6 @@ export default function LeadsFilters({
       {/* Top row with filters and view toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <MultiSelectFilter
-            title="Colonnes"
-            options={columnOptions}
-            selectedValues={visibleColumns}
-            onSelectionChange={setVisibleColumns}
-            singleSelect={false}
-          />
-
           <MultiSelectFilter
             title="Période"
             options={dateFilterOptions}
@@ -244,17 +218,15 @@ export default function LeadsFilters({
       </div>
 
       {/* Company Filters */}
-      {(availableCompanyCategories.length > 0 || setSelectedCompanyCategories) && (
-        <CompanyFilters
-          selectedCompanyCategories={selectedCompanyCategories}
-          setSelectedCompanyCategories={setSelectedCompanyCategories || (() => {})}
-          minEmployees={minEmployees}
-          setMinEmployees={setMinEmployees || (() => {})}
-          maxEmployees={maxEmployees}
-          setMaxEmployees={setMaxEmployees || (() => {})}
-          availableCompanyCategories={availableCompanyCategories}
-        />
-      )}
+      <CompanyFilters
+        selectedCompanyCategories={selectedCompanyCategories}
+        setSelectedCompanyCategories={setSelectedCompanyCategories || (() => {})}
+        minEmployees={minEmployees}
+        setMinEmployees={setMinEmployees || (() => {})}
+        maxEmployees={maxEmployees}
+        setMaxEmployees={setMaxEmployees || (() => {})}
+        availableCompanyCategories={availableCompanyCategories}
+      />
     </div>
   );
 }

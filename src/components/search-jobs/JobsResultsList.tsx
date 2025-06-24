@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePersonnaSearch } from "@/hooks/usePersonnaSearch";
-import { Users } from "lucide-react";
+import { Users, X } from "lucide-react";
 
 export function JobsResultsList({ jobs, searchId, personnaFilters }: {
   jobs: any[];
@@ -12,6 +12,8 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
   personnaFilters: any;
 }) {
   const [filter, setFilter] = useState<"all" | "with-personas">("all");
+  const [deletedJobIds, setDeletedJobIds] = useState<Set<string>>(new Set());
+  
   // Hook to handle personna search for each job
   const status = usePersonnaSearch({
     searchId,
@@ -23,14 +25,27 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
     })),
   });
 
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(job => !deletedJobIds.has(job.job_id));
+  }, [jobs, deletedJobIds]);
+
   const listToShow = useMemo(() => {
     if (filter === "with-personas") {
-      return jobs.filter(
+      return filteredJobs.filter(
         (job) => status[job.job_id]?.personas && status[job.job_id]?.personas.length > 0
       );
     }
-    return jobs;
-  }, [filter, jobs, status]);
+    return filteredJobs;
+  }, [filter, filteredJobs, status]);
+
+  const handleDeleteJob = (jobId: string) => {
+    setDeletedJobIds(prev => new Set([...prev, jobId]));
+    
+    // Store deleted job IDs in localStorage for bulk prospecting exclusion
+    const existingDeleted = JSON.parse(localStorage.getItem('deletedJobIds') || '[]');
+    const updatedDeleted = [...existingDeleted, jobId];
+    localStorage.setItem('deletedJobIds', JSON.stringify(updatedDeleted));
+  };
 
   return (
     <div>
@@ -63,7 +78,7 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
           return (
             <Card
               key={job.job_id}
-              className={`transition-all border-2
+              className={`transition-all border-2 relative
                 ${!isLoading && personas.length > 0
                   ? "border-green-400"
                   : isLoading || !personas.length
@@ -71,7 +86,16 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
                   : ""}
               `}
             >
-              <CardHeader>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-100"
+                onClick={() => handleDeleteJob(job.job_id)}
+              >
+                <X className="h-4 w-4 text-gray-500 hover:text-red-600" />
+              </Button>
+              
+              <CardHeader className="pr-10">
                 <CardTitle className="flex items-center gap-2">
                   {job.job_title}
                   {isLoading && (
@@ -99,7 +123,15 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {personas.map((persona: any, i: number) => (
                     <Badge key={i} variant="secondary" className="text-xs">
-                      <a href={persona.profile_url} target="_blank" rel="noopener noreferrer">{persona.full_name}</a>
+                      <a 
+                        href={persona.profile_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {persona.full_name}
+                      </a>
                     </Badge>
                   ))}
                 </div>
