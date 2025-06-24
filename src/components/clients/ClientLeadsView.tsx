@@ -81,6 +81,8 @@ export function ClientLeadsView() {
         selectedContactFilter={selectedContactFilter}
         setSelectedContactFilter={setSelectedContactFilter}
         availableCategories={availableCategories}
+        visibleColumns={visibleColumns}
+        setVisibleColumns={setVisibleColumns}
         showContactFilter={true}
         showAssignmentColumn={false}
         viewMode={viewMode}
