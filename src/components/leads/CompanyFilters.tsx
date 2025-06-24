@@ -1,10 +1,10 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import MultiSelectFilter from './MultiSelectFilter';
-import { Building2, Users } from 'lucide-react';
+import { Building2, Users, X } from 'lucide-react';
 
 interface CompanyFiltersProps {
   selectedCompanyCategories: string[];
@@ -25,6 +25,22 @@ export default function CompanyFilters({
   setMaxEmployees,
   availableCompanyCategories
 }: CompanyFiltersProps) {
+  
+  // Initialiser avec l'exclusion des cabinets de recrutement par défaut
+  useEffect(() => {
+    if (availableCompanyCategories.length > 0 && selectedCompanyCategories.length === 0) {
+      const recruitmentCategories = availableCompanyCategories.filter(cat => 
+        cat.toLowerCase().includes('recrutement') || 
+        cat.toLowerCase().includes('recruitment') ||
+        cat.toLowerCase().includes('rh') ||
+        cat.toLowerCase().includes('hr')
+      );
+      if (recruitmentCategories.length > 0) {
+        setSelectedCompanyCategories(recruitmentCategories);
+      }
+    }
+  }, [availableCompanyCategories, selectedCompanyCategories.length, setSelectedCompanyCategories]);
+
   const clearEmployeeFilters = () => {
     setMinEmployees('');
     setMaxEmployees('');
@@ -38,15 +54,25 @@ export default function CompanyFilters({
 
   return (
     <div className="flex items-center gap-3">
-      {/* Company Categories with MultiSelectFilter */}
+      {/* Company Categories Exclusion Filter */}
       {availableCompanyCategories.length > 0 && (
-        <MultiSelectFilter
-          title="Secteur"
-          options={categoryOptions}
-          selectedValues={selectedCompanyCategories}
-          onSelectionChange={setSelectedCompanyCategories}
-          singleSelect={false}
-        />
+        <div className="flex items-center gap-2">
+          <MultiSelectFilter
+            title="Exclure secteurs"
+            options={categoryOptions}
+            selectedValues={selectedCompanyCategories}
+            onSelectionChange={setSelectedCompanyCategories}
+            singleSelect={false}
+          />
+          {selectedCompanyCategories.length > 0 && (
+            <div className="flex items-center gap-1">
+              <X className="h-3 w-3 text-red-500" />
+              <span className="text-xs text-red-600 font-medium">
+                {selectedCompanyCategories.length} exclus
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Employee Count Range - styled like other filters */}

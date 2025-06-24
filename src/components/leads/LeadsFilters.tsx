@@ -10,6 +10,8 @@ import { useUserRole } from '@/hooks/useUserRole';
 interface LeadsFiltersProps {
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
+  visibleColumns?: string[];
+  setVisibleColumns?: (columns: string[]) => void;
   selectedDateFilter: string;
   setSelectedDateFilter: (filter: string) => void;
   selectedContactFilter?: string;
@@ -97,6 +99,8 @@ const categoryColors = {
 export default function LeadsFilters({ 
   selectedCategories, 
   setSelectedCategories,
+  visibleColumns = [],
+  setVisibleColumns,
   selectedDateFilter,
   setSelectedDateFilter,
   selectedContactFilter,

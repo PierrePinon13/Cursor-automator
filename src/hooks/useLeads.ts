@@ -36,6 +36,8 @@ export interface Lead {
   client_history_alert?: string;
   matched_hr_provider_id?: string;
   matched_hr_provider_name?: string;
+  contacted_by_user_id?: string;
+  phone_contact_by_user_id?: string;
   // Nouveaux champs pour les infos de l'entreprise
   company_categorie?: string;
   company_employee_count?: string;
@@ -222,7 +224,7 @@ export const useLeads = () => {
     console.log('🎯 Starting filter application...');
     console.log('📊 Total leads to filter:', allLeads.length);
     console.log('🏷️ Selected categories:', selectedCategories);
-    console.log('🏢 Selected company categories:', selectedCompanyCategories);
+    console.log('🏢 Excluded company categories:', selectedCompanyCategories);
     console.log('👥 Employee range:', minEmployees, '-', maxEmployees);
     console.log('📅 Date filter:', selectedDateFilter);
     console.log('📞 Contact filter:', selectedContactFilter);
@@ -240,14 +242,15 @@ export const useLeads = () => {
       console.log(`🏷️ After lead category filter: ${beforeCategory} -> ${result.length} leads`);
     }
 
-    // Filtre par catégorie d'entreprise
+    // Filtre d'exclusion par catégorie d'entreprise
     if (selectedCompanyCategories.length > 0) {
       const beforeCompanyCategory = result.length;
       result = result.filter(lead => {
         const companyCategory = lead.company_categorie || '';
-        return selectedCompanyCategories.includes(companyCategory);
+        // Exclure les leads dont la catégorie d'entreprise est dans la liste d'exclusion
+        return !selectedCompanyCategories.includes(companyCategory);
       });
-      console.log(`🏢 After company category filter: ${beforeCompanyCategory} -> ${result.length} leads`);
+      console.log(`🏢 After company category exclusion filter: ${beforeCompanyCategory} -> ${result.length} leads`);
     }
 
     // Filtre par nombre d'employés

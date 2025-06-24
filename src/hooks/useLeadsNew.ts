@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
@@ -123,8 +124,8 @@ export const useLeadsNew = () => {
       return false;
     }
 
-    // Company category filter
-    if (selectedCompanyCategories.length > 0 && !selectedCompanyCategories.includes(lead.company_categorie || '')) {
+    // Company category exclusion filter
+    if (selectedCompanyCategories.length > 0 && selectedCompanyCategories.includes(lead.company_categorie || '')) {
       return false;
     }
 
