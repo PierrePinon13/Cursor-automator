@@ -22,8 +22,6 @@ interface LeadsFiltersProps {
   setMaxEmployees?: (value: string) => void;
   availableCategories: string[];
   availableCompanyCategories?: string[];
-  visibleColumns: string[];
-  setVisibleColumns: (columns: string[]) => void;
   showContactFilter?: boolean;
   showAssignmentColumn?: boolean;
   viewMode: 'table' | 'card';
@@ -111,8 +109,6 @@ export default function LeadsFilters({
   setMaxEmployees,
   availableCategories,
   availableCompanyCategories = [],
-  visibleColumns,
-  setVisibleColumns,
   showContactFilter = true,
   showAssignmentColumn = false,
   viewMode,
@@ -139,9 +135,9 @@ export default function LeadsFilters({
 
   return (
     <div className="space-y-3">
-      {/* Top row with filters and view toggle */}
+      {/* Top row with all filters and view toggle */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <MultiSelectFilter
             title="Période"
             options={dateFilterOptions}
@@ -159,6 +155,17 @@ export default function LeadsFilters({
               singleSelect={true}
             />
           )}
+
+          {/* Company Filters - now inline with other filters */}
+          <CompanyFilters
+            selectedCompanyCategories={selectedCompanyCategories}
+            setSelectedCompanyCategories={setSelectedCompanyCategories || (() => {})}
+            minEmployees={minEmployees}
+            setMinEmployees={setMinEmployees || (() => {})}
+            maxEmployees={maxEmployees}
+            setMaxEmployees={setMaxEmployees || (() => {})}
+            availableCompanyCategories={availableCompanyCategories}
+          />
 
           {/* Barre de recherche */}
           {setSearchQuery && (
@@ -216,17 +223,6 @@ export default function LeadsFilters({
           );
         })}
       </div>
-
-      {/* Company Filters */}
-      <CompanyFilters
-        selectedCompanyCategories={selectedCompanyCategories}
-        setSelectedCompanyCategories={setSelectedCompanyCategories || (() => {})}
-        minEmployees={minEmployees}
-        setMinEmployees={setMinEmployees || (() => {})}
-        maxEmployees={maxEmployees}
-        setMaxEmployees={setMaxEmployees || (() => {})}
-        availableCompanyCategories={availableCompanyCategories}
-      />
     </div>
   );
 }
