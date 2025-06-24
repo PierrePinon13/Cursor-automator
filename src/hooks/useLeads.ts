@@ -36,6 +36,9 @@ export interface Lead {
   client_history_alert?: string;
   matched_hr_provider_id?: string;
   matched_hr_provider_name?: string;
+  // Nouveaux champs pour les infos de l'entreprise
+  company_categorie?: string;
+  company_employee_count?: string;
 }
 
 export const useLeads = () => {
@@ -45,24 +48,32 @@ export const useLeads = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('7days');
   const [selectedContactFilter, setSelectedContactFilter] = useState<string>('exclude_2weeks');
+  const [selectedCompanyCategories, setSelectedCompanyCategories] = useState<string[]>([]);
+  const [minEmployees, setMinEmployees] = useState<string>('');
+  const [maxEmployees, setMaxEmployees] = useState<string>('');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableCompanyCategories, setAvailableCompanyCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
 
-  // Fonction pour récupérer les leads depuis la base de données
+  // Fonction pour récupérer les leads depuis la base de données avec join sur companies
   const fetchLeads = async () => {
     try {
       setLoading(true);
       
-      console.log('🔍 Fetching all leads from database...');
+      console.log('🔍 Fetching all leads from database with company info...');
       
       let query = supabase
         .from('leads')
-        .select('*')
+        .select(`
+          *,
+          companies!leads_company_id_fkey (
+            categorie,
+            employee_count
+          )
+        `)
         .neq('processing_status', 'filtered_hr_provider')
         .neq('processing_status', 'mistargeted')
-        // Exclure explicitement les leads identifiés comme clients
         .or('is_client_lead.is.null,is_client_lead.eq.false')
-        // Exclure aussi les leads qui ont un matched_client_id ou matched_client_name
         .is('matched_client_id', null)
         .is('matched_client_name', null)
         .order('latest_post_date', { ascending: false });
@@ -75,8 +86,15 @@ export const useLeads = () => {
       }
 
       if (data) {
-        console.log(`✅ Fetched ${data.length} leads from database (client leads excluded)`);
-        setAllLeads(data);
+        // Transformer les données pour inclure les infos de l'entreprise
+        const leadsWithCompanyInfo = data.map(lead => ({
+          ...lead,
+          company_categorie: lead.companies?.categorie || null,
+          company_employee_count: lead.companies?.employee_count || null
+        }));
+
+        console.log(`✅ Fetched ${leadsWithCompanyInfo.length} leads from database (client leads excluded)`);
+        setAllLeads(leadsWithCompanyInfo);
         
         // Extraire les catégories uniques pour les filtres
         const categories = [...new Set(data
@@ -84,7 +102,16 @@ export const useLeads = () => {
           .filter(Boolean)
         )];
         setAvailableCategories(categories);
+
+        // Extraire les catégories d'entreprise uniques
+        const companyCategories = [...new Set(data
+          .map(lead => lead.companies?.categorie)
+          .filter(Boolean)
+        )];
+        setAvailableCompanyCategories(companyCategories);
+        
         console.log('📋 Available categories:', categories);
+        console.log('🏢 Available company categories:', companyCategories);
       }
     } catch (error) {
       console.error('❌ Error in fetchLeads:', error);
@@ -195,20 +222,59 @@ export const useLeads = () => {
     console.log('🎯 Starting filter application...');
     console.log('📊 Total leads to filter:', allLeads.length);
     console.log('🏷️ Selected categories:', selectedCategories);
+    console.log('🏢 Selected company categories:', selectedCompanyCategories);
+    console.log('👥 Employee range:', minEmployees, '-', maxEmployees);
     console.log('📅 Date filter:', selectedDateFilter);
     console.log('📞 Contact filter:', selectedContactFilter);
 
     let result = [...allLeads];
     const initialCount = result.length;
 
-    // Filtre par catégorie
+    // Filtre par catégorie de lead
     if (selectedCategories.length > 0) {
       const beforeCategory = result.length;
       result = result.filter(lead => {
         const category = lead.openai_step3_categorie || '';
         return selectedCategories.includes(category);
       });
-      console.log(`🏷️ After category filter: ${beforeCategory} -> ${result.length} leads`);
+      console.log(`🏷️ After lead category filter: ${beforeCategory} -> ${result.length} leads`);
+    }
+
+    // Filtre par catégorie d'entreprise
+    if (selectedCompanyCategories.length > 0) {
+      const beforeCompanyCategory = result.length;
+      result = result.filter(lead => {
+        const companyCategory = lead.company_categorie || '';
+        return selectedCompanyCategories.includes(companyCategory);
+      });
+      console.log(`🏢 After company category filter: ${beforeCompanyCategory} -> ${result.length} leads`);
+    }
+
+    // Filtre par nombre d'employés
+    if (minEmployees || maxEmployees) {
+      const beforeEmployees = result.length;
+      result = result.filter(lead => {
+        const employeeCount = lead.company_employee_count;
+        if (!employeeCount) return false;
+        
+        // Extraire le nombre de la chaîne (ex: "50-100" -> prendre 75 comme moyenne)
+        const extractNumber = (str: string): number => {
+          const match = str.match(/(\d+)(?:-(\d+))?/);
+          if (!match) return 0;
+          if (match[2]) {
+            // Range format like "50-100"
+            return (parseInt(match[1]) + parseInt(match[2])) / 2;
+          }
+          return parseInt(match[1]);
+        };
+
+        const employeeNumber = extractNumber(employeeCount);
+        const min = minEmployees ? parseInt(minEmployees) : 0;
+        const max = maxEmployees ? parseInt(maxEmployees) : Infinity;
+        
+        return employeeNumber >= min && employeeNumber <= max;
+      });
+      console.log(`👥 After employee count filter (${minEmployees}-${maxEmployees}): ${beforeEmployees} -> ${result.length} leads`);
     }
 
     // Filtre par date
@@ -242,18 +308,7 @@ export const useLeads = () => {
       console.log('🔄 Applying filters due to data or filter change');
       applyAllFilters();
     }
-  }, [allLeads, selectedCategories, selectedDateFilter, selectedContactFilter]);
-
-  // Débogage : log des changements de filtres
-  useEffect(() => {
-    console.log('🎛️ Filter state changed:', {
-      categories: selectedCategories,
-      date: selectedDateFilter,
-      contact: selectedContactFilter,
-      totalLeads: allLeads.length,
-      filteredCount: filteredLeads.length
-    });
-  }, [selectedCategories, selectedDateFilter, selectedContactFilter, allLeads.length, filteredLeads.length]);
+  }, [allLeads, selectedCategories, selectedCompanyCategories, minEmployees, maxEmployees, selectedDateFilter, selectedContactFilter]);
 
   return {
     leads: allLeads,
@@ -265,7 +320,14 @@ export const useLeads = () => {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
+    selectedCompanyCategories,
+    setSelectedCompanyCategories,
+    minEmployees,
+    setMinEmployees,
+    maxEmployees,
+    setMaxEmployees,
     availableCategories,
+    availableCompanyCategories,
     refreshLeads
   };
 };

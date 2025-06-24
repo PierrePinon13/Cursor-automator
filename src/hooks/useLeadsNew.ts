@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
@@ -39,6 +38,8 @@ export interface LeadNew {
   matched_hr_provider_name?: string;
   contacted_by_user_id?: string;
   phone_contact_by_user_id?: string;
+  company_categorie?: string;
+  company_employee_count?: string;
 }
 
 export const useLeadsNew = () => {
@@ -47,7 +48,11 @@ export const useLeadsNew = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
   const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
+  const [selectedCompanyCategories, setSelectedCompanyCategories] = useState<string[]>([]);
+  const [minEmployees, setMinEmployees] = useState<string>('');
+  const [maxEmployees, setMaxEmployees] = useState<string>('');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableCompanyCategories, setAvailableCompanyCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
@@ -58,13 +63,16 @@ export const useLeadsNew = () => {
       
       let query = supabase
         .from('leads')
-        .select('*')
-        // Exclure les leads filtrés comme prestataires RH et mal ciblés
+        .select(`
+          *,
+          companies!leads_company_id_fkey (
+            categorie,
+            employee_count
+          )
+        `)
         .neq('processing_status', 'filtered_hr_provider')
         .neq('processing_status', 'mistargeted')
-        // Exclure explicitement les leads identifiés comme clients
         .or('is_client_lead.is.null,is_client_lead.eq.false')
-        // Exclure aussi les leads qui ont un matched_client_id ou matched_client_name
         .is('matched_client_id', null)
         .is('matched_client_name', null)
         .order('latest_post_date', { ascending: false });
@@ -77,8 +85,15 @@ export const useLeadsNew = () => {
       }
 
       if (data) {
-        console.log(`Fetched ${data.length} leads (HR providers, mistargeted, and client leads filtered out)`);
-        setLeads(data);
+        // Transformer les données pour inclure les infos de l'entreprise
+        const leadsWithCompanyInfo = data.map(lead => ({
+          ...lead,
+          company_categorie: lead.companies?.categorie || null,
+          company_employee_count: lead.companies?.employee_count || null
+        }));
+
+        console.log(`Fetched ${leadsWithCompanyInfo.length} leads (HR providers, mistargeted, and client leads filtered out)`);
+        setLeads(leadsWithCompanyInfo);
         
         // Extract unique categories
         const categories = [...new Set(data
@@ -86,6 +101,13 @@ export const useLeadsNew = () => {
           .filter(Boolean)
         )];
         setAvailableCategories(categories);
+
+        // Extract unique company categories
+        const companyCategories = [...new Set(data
+          .map(lead => lead.companies?.categorie)
+          .filter(Boolean)
+        )];
+        setAvailableCompanyCategories(companyCategories);
       }
     } catch (error) {
       console.error('Error in fetchLeads:', error);
@@ -99,6 +121,32 @@ export const useLeadsNew = () => {
     // Category filter
     if (selectedCategories.length > 0 && !selectedCategories.includes(lead.openai_step3_categorie || '')) {
       return false;
+    }
+
+    // Company category filter
+    if (selectedCompanyCategories.length > 0 && !selectedCompanyCategories.includes(lead.company_categorie || '')) {
+      return false;
+    }
+
+    // Employee count filter
+    if (minEmployees || maxEmployees) {
+      const employeeCount = lead.company_employee_count;
+      if (!employeeCount) return false;
+      
+      const extractNumber = (str: string): number => {
+        const match = str.match(/(\d+)(?:-(\d+))?/);
+        if (!match) return 0;
+        if (match[2]) {
+          return (parseInt(match[1]) + parseInt(match[2])) / 2;
+        }
+        return parseInt(match[1]);
+      };
+
+      const employeeNumber = extractNumber(employeeCount);
+      const min = minEmployees ? parseInt(minEmployees) : 0;
+      const max = maxEmployees ? parseInt(maxEmployees) : Infinity;
+      
+      if (employeeNumber < min || employeeNumber > max) return false;
     }
 
     // Date filter
@@ -202,7 +250,14 @@ export const useLeadsNew = () => {
     setSelectedDateFilter,
     selectedContactFilter,
     setSelectedContactFilter,
+    selectedCompanyCategories,
+    setSelectedCompanyCategories,
+    minEmployees,
+    setMinEmployees,
+    maxEmployees,
+    setMaxEmployees,
     availableCategories,
+    availableCompanyCategories,
     searchQuery,
     setSearchQuery,
     refreshLeads

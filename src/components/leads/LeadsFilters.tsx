@@ -1,4 +1,5 @@
 import MultiSelectFilter from './MultiSelectFilter';
+import CompanyFilters from './CompanyFilters';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,14 @@ interface LeadsFiltersProps {
   setSelectedDateFilter: (filter: string) => void;
   selectedContactFilter?: string;
   setSelectedContactFilter?: (filter: string) => void;
+  selectedCompanyCategories?: string[];
+  setSelectedCompanyCategories?: (categories: string[]) => void;
+  minEmployees?: string;
+  setMinEmployees?: (value: string) => void;
+  maxEmployees?: string;
+  setMaxEmployees?: (value: string) => void;
   availableCategories: string[];
+  availableCompanyCategories?: string[];
   visibleColumns: string[];
   setVisibleColumns: (columns: string[]) => void;
   showContactFilter?: boolean;
@@ -112,7 +120,14 @@ export default function LeadsFilters({
   setSelectedDateFilter,
   selectedContactFilter,
   setSelectedContactFilter,
+  selectedCompanyCategories = [],
+  setSelectedCompanyCategories,
+  minEmployees = '',
+  setMinEmployees,
+  maxEmployees = '',
+  setMaxEmployees,
   availableCategories,
+  availableCompanyCategories = [],
   visibleColumns,
   setVisibleColumns,
   showContactFilter = true,
@@ -208,7 +223,7 @@ export default function LeadsFilters({
         </div>
       </div>
       
-      {/* Categories badges row - Plus compact */}
+      {/* Lead Categories badges row */}
       <div className="flex flex-wrap gap-1.5">
         {categoriesToShow.map((category) => {
           const isSelected = selectedCategories.includes(category);
@@ -227,6 +242,19 @@ export default function LeadsFilters({
           );
         })}
       </div>
+
+      {/* Company Filters */}
+      {(availableCompanyCategories.length > 0 || setSelectedCompanyCategories) && (
+        <CompanyFilters
+          selectedCompanyCategories={selectedCompanyCategories}
+          setSelectedCompanyCategories={setSelectedCompanyCategories || (() => {})}
+          minEmployees={minEmployees}
+          setMinEmployees={setMinEmployees || (() => {})}
+          maxEmployees={maxEmployees}
+          setMaxEmployees={setMaxEmployees || (() => {})}
+          availableCompanyCategories={availableCompanyCategories}
+        />
+      )}
     </div>
   );
 }
