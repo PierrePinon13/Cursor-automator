@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import MultiSelectFilter from './MultiSelectFilter';
-import { Building2, Users, X } from 'lucide-react';
+import { Building2, Users, X, RotateCcw } from 'lucide-react';
 
 interface CompanyFiltersProps {
   selectedCompanyCategories: string[];
@@ -46,6 +46,20 @@ export default function CompanyFilters({
     setMaxEmployees('');
   };
 
+  const clearAllSectorFilters = () => {
+    setSelectedCompanyCategories([]);
+  };
+
+  const resetToDefaultSectorFilters = () => {
+    const recruitmentCategories = availableCompanyCategories.filter(cat => 
+      cat.toLowerCase().includes('recrutement') || 
+      cat.toLowerCase().includes('recruitment') ||
+      cat.toLowerCase().includes('rh') ||
+      cat.toLowerCase().includes('hr')
+    );
+    setSelectedCompanyCategories(recruitmentCategories);
+  };
+
   // Transform categories for MultiSelectFilter format
   const categoryOptions = availableCompanyCategories.map(category => ({
     value: category,
@@ -70,7 +84,28 @@ export default function CompanyFilters({
               <span className="text-xs text-red-600 font-medium">
                 {selectedCompanyCategories.length} exclus
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllSectorFilters}
+                className="h-5 px-1 text-xs text-gray-500 hover:text-gray-700 ml-1"
+                title="Enlever tous les filtres d'exclusion"
+              >
+                ×
+              </Button>
             </div>
+          )}
+          {selectedCompanyCategories.length === 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetToDefaultSectorFilters}
+              className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+              title="Remettre l'exclusion par défaut (cabinets de recrutement)"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Défaut
+            </Button>
           )}
         </div>
       )}

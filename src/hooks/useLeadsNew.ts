@@ -111,6 +111,7 @@ export const useLeadsNew = () => {
         }));
 
         console.log(`Fetched ${leadsWithCompanyInfo.length} leads (HR providers, mistargeted, and client leads filtered out)`);
+        console.log('Sample lead company categories:', leadsWithCompanyInfo.slice(0, 5).map(l => ({ name: l.author_name, company: l.unipile_company, category: l.company_categorie })));
         setLeads(leadsWithCompanyInfo);
         
         // Extract unique categories
@@ -125,6 +126,7 @@ export const useLeadsNew = () => {
           .map(lead => lead.companies?.categorie)
           .filter(Boolean)
         )];
+        console.log('Available company categories:', companyCategories);
         setAvailableCompanyCategories(companyCategories);
       }
     } catch (error) {
@@ -141,10 +143,20 @@ export const useLeadsNew = () => {
       return false;
     }
 
-    // Company category exclusion filter - FIXED LOGIC
-    if (selectedCompanyCategories.length > 0 && selectedCompanyCategories.includes(lead.company_categorie || '')) {
-      console.log(`Excluding lead ${lead.author_name} from company category: ${lead.company_categorie}`);
-      return false;
+    // Company category exclusion filter - FIXED LOGIC with detailed logging
+    if (selectedCompanyCategories.length > 0) {
+      const leadCompanyCategory = lead.company_categorie || '';
+      const shouldExclude = selectedCompanyCategories.includes(leadCompanyCategory);
+      
+      if (shouldExclude) {
+        console.log(`🚫 EXCLUDING lead: ${lead.author_name} from ${lead.unipile_company} - Category: "${leadCompanyCategory}" is in exclusion list:`, selectedCompanyCategories);
+        return false;
+      }
+      
+      // Log leads that are NOT excluded for debugging
+      if (leadCompanyCategory && lead.author_name === 'Benjamin Mantal') {
+        console.log(`✅ NOT EXCLUDING Benjamin Mantal - Company: ${lead.unipile_company}, Category: "${leadCompanyCategory}", Exclusion list:`, selectedCompanyCategories);
+      }
     }
 
     // Employee count filter
@@ -258,6 +270,23 @@ export const useLeadsNew = () => {
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  // Log filtered results for debugging
+  useEffect(() => {
+    console.log(`📊 Filtered leads: ${filteredLeads.length} out of ${leads.length} total leads`);
+    console.log('Current exclusion categories:', selectedCompanyCategories);
+    
+    // Check specifically for Benjamin Mantal
+    const benjaminLead = leads.find(l => l.author_name === 'Benjamin Mantal');
+    if (benjaminLead) {
+      console.log('🔍 Benjamin Mantal details:', {
+        name: benjaminLead.author_name,
+        company: benjaminLead.unipile_company,
+        category: benjaminLead.company_categorie,
+        isInFilteredResults: filteredLeads.some(l => l.author_name === 'Benjamin Mantal')
+      });
+    }
+  }, [filteredLeads, leads, selectedCompanyCategories]);
 
   return {
     leads,
