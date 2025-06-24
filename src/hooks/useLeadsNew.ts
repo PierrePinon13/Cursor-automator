@@ -58,6 +58,23 @@ export const useLeadsNew = () => {
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
 
+  // Initialiser avec l'exclusion des cabinets de recrutement par défaut
+  useEffect(() => {
+    if (availableCompanyCategories.length > 0 && selectedCompanyCategories.length === 0) {
+      const recruitmentCategories = availableCompanyCategories.filter(cat => 
+        cat.toLowerCase().includes('recrutement') || 
+        cat.toLowerCase().includes('recruitment') ||
+        cat.toLowerCase().includes('rh') ||
+        cat.toLowerCase().includes('hr') ||
+        cat.toLowerCase().includes('cabinet')
+      );
+      if (recruitmentCategories.length > 0) {
+        console.log('Auto-excluding recruitment categories:', recruitmentCategories);
+        setSelectedCompanyCategories(recruitmentCategories);
+      }
+    }
+  }, [availableCompanyCategories, selectedCompanyCategories.length]);
+
   const fetchLeads = async () => {
     try {
       setLoading(true);
@@ -124,8 +141,9 @@ export const useLeadsNew = () => {
       return false;
     }
 
-    // Company category exclusion filter
+    // Company category exclusion filter - FIXED LOGIC
     if (selectedCompanyCategories.length > 0 && selectedCompanyCategories.includes(lead.company_categorie || '')) {
+      console.log(`Excluding lead ${lead.author_name} from company category: ${lead.company_categorie}`);
       return false;
     }
 
