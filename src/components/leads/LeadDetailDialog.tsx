@@ -5,12 +5,10 @@ import { useLinkedInMessage } from '@/hooks/useLinkedInMessage';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { useToast } from '@/hooks/use-toast';
-import { useLeadLocking } from '@/hooks/useLeadLocking';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import LeadDetailHeader from './LeadDetailHeader';
 import LeadDetailContent from './LeadDetailContent';
-import LeadLockWarning from './LeadLockWarning';
 import RecentContactWarning from './RecentContactWarning';
 
 type Lead = Tables<'leads'>;
@@ -34,14 +32,6 @@ const LeadDetailDialog = ({
 }: LeadDetailDialogProps) => {
   const [currentLeads, setCurrentLeads] = useState(leads);
   const [customMessage, setCustomMessage] = useState('');
-  const [isLocked, setIsLocked] = useState(false);
-  const [lockWarning, setLockWarning] = useState<{
-    show: boolean;
-    lockedByUserName?: string;
-    hoursAgo?: number;
-  }>({
-    show: false
-  });
   const [recentContactWarning, setRecentContactWarning] = useState<{
     show: boolean;
     contactedBy?: string;
@@ -56,12 +46,6 @@ const LeadDetailDialog = ({
     loading: messageSending
   } = useLinkedInMessage();
   const {
-    lockLead,
-    unlockLead,
-    checkRecentContact,
-    setupLockMaintenance
-  } = useLeadLocking();
-  const {
     toast
   } = useToast();
 
@@ -69,55 +53,6 @@ const LeadDetailDialog = ({
   React.useEffect(() => {
     setCurrentLeads(leads);
   }, [leads]);
-
-  // Gérer le verrouillage lors de l'ouverture d'un lead
-  useEffect(() => {
-    if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isOpen) {
-      const lead = currentLeads[selectedLeadIndex];
-      const handleLeadLocking = async () => {
-        try {
-          const lockResult = await lockLead(lead.id);
-          if (lockResult?.isLocked) {
-            setLockWarning({
-              show: true,
-              lockedByUserName: lockResult.lockedByUserName,
-              hoursAgo: lockResult.hoursAgo
-            });
-            setIsLocked(false);
-          } else {
-            setIsLocked(true);
-            setLockWarning({
-              show: false
-            });
-
-            // Configurer la maintenance du verrou avec heartbeat
-            const cleanup = setupLockMaintenance(lead.id);
-            return cleanup;
-          }
-        } catch (error) {
-          console.error('Error locking lead:', error);
-          // En cas d'erreur de verrouillage, on permet quand même l'accès
-          setIsLocked(true);
-          setLockWarning({ show: false });
-          toast({
-            title: "Avertissement",
-            description: "Impossible de verrouiller le lead, mais vous pouvez continuer",
-            variant: "destructive"
-          });
-        }
-      };
-      handleLeadLocking();
-    }
-  }, [selectedLeadIndex, currentLeads, isOpen, lockLead, setupLockMaintenance, toast]);
-
-  // Déverrouiller lors de la fermeture
-  useEffect(() => {
-    return () => {
-      if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isLocked) {
-        unlockLead(currentLeads[selectedLeadIndex].id);
-      }
-    };
-  }, [selectedLeadIndex, currentLeads, isLocked, unlockLead]);
 
   // Initialiser le message personnalisé quand le lead change
   React.useEffect(() => {
@@ -144,10 +79,7 @@ const LeadDetailDialog = ({
     }
   };
   
-  const handleClose = async () => {
-    if (selectedLeadIndex !== null && currentLeads[selectedLeadIndex] && isLocked) {
-      await unlockLead(currentLeads[selectedLeadIndex].id);
-    }
+  const handleClose = () => {
     onClose();
   };
 
@@ -187,23 +119,6 @@ const LeadDetailDialog = ({
         variant: "destructive"
       });
       return;
-    }
-
-    // Vérifier les contacts récents avant d'envoyer
-    try {
-      const recentContactCheck = await checkRecentContact(lead.id);
-      if (recentContactCheck?.hasRecentContact) {
-        setRecentContactWarning({
-          show: true,
-          contactedBy: recentContactCheck.contactedBy,
-          hoursAgo: recentContactCheck.hoursAgo,
-          lastContactAt: recentContactCheck.lastContactAt
-        });
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking recent contact:', error);
-      // Continue même en cas d'erreur de vérification
     }
 
     const success = await sendMessage(lead.id, customMessage, {
@@ -294,10 +209,8 @@ const LeadDetailDialog = ({
   const canGoPrevious = selectedLeadIndex > 0;
   const canGoNext = selectedLeadIndex < currentLeads.length - 1;
 
-  // Gestion des warnings avec fallback sécurisé
-  const showLockWarning = lockWarning.show && !isLocked;
-  const showRecentContactWarning = recentContactWarning.show && !showLockWarning;
-  const showContent = isLocked || (!showLockWarning && !showRecentContactWarning);
+  const showRecentContactWarning = recentContactWarning.show;
+  const showContent = !showRecentContactWarning;
 
   return (
     <TooltipProvider>
@@ -319,14 +232,6 @@ const LeadDetailDialog = ({
         
         <div className="flex-1 overflow-hidden">
           {/* Affichage conditionnel des warnings */}
-          {showLockWarning && (
-            <LeadLockWarning 
-              lockedByUserName={lockWarning.lockedByUserName} 
-              hoursAgo={lockWarning.hoursAgo}
-              onClose={() => setLockWarning({ show: false })}
-            />
-          )}
-          
           {showRecentContactWarning && (
             <RecentContactWarning 
               contactedBy={recentContactWarning.contactedBy} 

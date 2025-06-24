@@ -26,9 +26,6 @@ export interface LeadNew {
   processing_status?: string;
   is_client_lead?: boolean;
   matched_client_name?: string;
-  locked_by_user_id?: string;
-  locked_by_user_name?: string;
-  locked_at?: string;
   title?: string;
   text?: string;
   url?: string;
@@ -41,6 +38,8 @@ export interface LeadNew {
   phone_contact_by_user_id?: string;
   company_categorie?: string;
   company_employee_count?: string;
+  company_1_linkedin_id?: string;
+  unipile_company_linkedin_id?: string;
 }
 
 export const useLeadsNew = () => {
@@ -62,6 +61,7 @@ export const useLeadsNew = () => {
     try {
       setLoading(true);
       
+      // First, get leads with their direct company association
       let query = supabase
         .from('leads')
         .select(`
@@ -78,39 +78,80 @@ export const useLeadsNew = () => {
         .is('matched_client_name', null)
         .order('latest_post_date', { ascending: false });
 
-      const { data, error } = await query;
+      const { data: leadsWithDirectCompany, error } = await query;
 
       if (error) {
         console.error('Error fetching leads:', error);
         return;
       }
 
-      if (data) {
-        // Transformer les données pour inclure les infos de l'entreprise
-        const leadsWithCompanyInfo = data.map(lead => ({
-          ...lead,
-          company_categorie: lead.companies?.categorie || null,
-          company_employee_count: lead.companies?.employee_count || null
-        }));
-
-        console.log(`Fetched ${leadsWithCompanyInfo.length} leads (HR providers, mistargeted, and client leads filtered out)`);
-        setLeads(leadsWithCompanyInfo);
-        
-        // Extract unique categories
-        const categories = [...new Set(data
-          .map(lead => lead.openai_step3_categorie)
-          .filter(Boolean)
-        )];
-        setAvailableCategories(categories);
-
-        // Extract unique company categories
-        const companyCategories = [...new Set(data
-          .map(lead => lead.companies?.categorie)
-          .filter(Boolean)
-        )];
-        console.log('Available company categories:', companyCategories);
-        setAvailableCompanyCategories(companyCategories);
+      if (!leadsWithDirectCompany) {
+        setLeads([]);
+        return;
       }
+
+      // For leads without direct company_id, try to find company via linkedin_id
+      const leadsNeedingCompanyInfo = leadsWithDirectCompany.filter(lead => 
+        !lead.companies && (lead.company_1_linkedin_id || lead.unipile_company_linkedin_id)
+      );
+
+      let companiesByLinkedInId = {};
+      if (leadsNeedingCompanyInfo.length > 0) {
+        const linkedInIds = leadsNeedingCompanyInfo
+          .map(lead => lead.company_1_linkedin_id || lead.unipile_company_linkedin_id)
+          .filter(Boolean);
+
+        if (linkedInIds.length > 0) {
+          const { data: companiesData } = await supabase
+            .from('companies')
+            .select('linkedin_id, categorie, employee_count')
+            .in('linkedin_id', linkedInIds);
+
+          if (companiesData) {
+            companiesByLinkedInId = companiesData.reduce((acc, company) => {
+              acc[company.linkedin_id] = company;
+              return acc;
+            }, {});
+          }
+        }
+      }
+
+      // Combine leads with their company information
+      const leadsWithCompanyInfo = leadsWithDirectCompany.map(lead => {
+        let companyInfo = lead.companies;
+        
+        // If no direct company association, try to find via linkedin_id
+        if (!companyInfo) {
+          const linkedInId = lead.company_1_linkedin_id || lead.unipile_company_linkedin_id;
+          if (linkedInId && companiesByLinkedInId[linkedInId]) {
+            companyInfo = companiesByLinkedInId[linkedInId];
+          }
+        }
+
+        return {
+          ...lead,
+          company_categorie: companyInfo?.categorie || null,
+          company_employee_count: companyInfo?.employee_count || null
+        };
+      });
+
+      console.log(`Fetched ${leadsWithCompanyInfo.length} leads (HR providers, mistargeted, and client leads filtered out)`);
+      setLeads(leadsWithCompanyInfo);
+      
+      // Extract unique categories
+      const categories = [...new Set(leadsWithCompanyInfo
+        .map(lead => lead.openai_step3_categorie)
+        .filter(Boolean)
+      )];
+      setAvailableCategories(categories);
+
+      // Extract unique company categories
+      const companyCategories = [...new Set(leadsWithCompanyInfo
+        .map(lead => lead.company_categorie)
+        .filter(Boolean)
+      )];
+      console.log('Available company categories:', companyCategories);
+      setAvailableCompanyCategories(companyCategories);
     } catch (error) {
       console.error('Error in fetchLeads:', error);
     } finally {
