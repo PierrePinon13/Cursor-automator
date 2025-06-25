@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -181,6 +182,7 @@ export const ProspectingStepProfile = ({
     const selectedOffer = persona._jobOffers.find((offer: any) => offer.jobId === selectedOfferId);
     if (!selectedOffer) return;
 
+    // Créer le persona spécifique avec les détails de l'offre sélectionnée
     const specificPersona = {
       ...persona,
       jobId: selectedOffer.jobId,
@@ -190,41 +192,70 @@ export const ProspectingStepProfile = ({
       _selectedForOffer: selectedOffer.jobId
     };
 
-    // Mettre à jour en base de données
-    await updatePersonaStatus(persona.id, selectedOfferId, 'duplicate_validated', selectedOfferId);
+    try {
+      // Mettre à jour en base de données pour marquer comme validé
+      await updatePersonaStatus(persona.id, selectedOfferId, 'duplicate_validated', selectedOfferId);
 
-    // Ajouter à la sélection
-    onSelectionChange([...selectedPersonas, specificPersona]);
-    
-    // Nettoyer la sélection
-    setDuplicateSelections(prev => {
-      const newSelections = { ...prev };
-      delete newSelections[personaKey];
-      return newSelections;
-    });
+      // Ajouter à la sélection des personas
+      const updatedSelection = [...selectedPersonas, specificPersona];
+      onSelectionChange(updatedSelection);
+      
+      // Nettoyer la sélection temporaire
+      setDuplicateSelections(prev => {
+        const newSelections = { ...prev };
+        delete newSelections[personaKey];
+        return newSelections;
+      });
+
+      console.log('Doublon validé avec succès:', {
+        personaId: persona.id,
+        selectedOfferId,
+        personaName: persona.name
+      });
+
+    } catch (error) {
+      console.error('Erreur lors de la validation du doublon:', error);
+    }
   };
 
   const handleDuplicateSkip = async (persona: any) => {
     const personaKey = persona._personaKey;
     
-    // Marquer comme validé en base de données (ignoré)
-    await updatePersonaStatus(persona.id, '', 'duplicate_validated');
-    
-    // Nettoyer la sélection
-    setDuplicateSelections(prev => {
-      const newSelections = { ...prev };
-      delete newSelections[personaKey];
-      return newSelections;
-    });
+    try {
+      // Marquer comme validé en base de données (ignoré)
+      await updatePersonaStatus(persona.id, '', 'duplicate_validated');
+      
+      // Nettoyer la sélection
+      setDuplicateSelections(prev => {
+        const newSelections = { ...prev };
+        delete newSelections[personaKey];
+        return newSelections;
+      });
+
+      console.log('Doublon ignoré:', {
+        personaId: persona.id,
+        personaName: persona.name
+      });
+
+    } catch (error) {
+      console.error('Erreur lors de l\'ignorement du doublon:', error);
+    }
   };
 
   const handleRemovePersona = async (personaId: string) => {
-    // Mettre à jour en base de données
-    await updatePersonaStatus(personaId, '', 'removed');
-    
-    // Supprimer de la sélection s'il y était
-    const updatedSelection = selectedPersonas.filter(selected => selected && selected.id !== personaId);
-    onSelectionChange(updatedSelection);
+    try {
+      // Mettre à jour en base de données
+      await updatePersonaStatus(personaId, '', 'removed');
+      
+      // Supprimer de la sélection s'il y était
+      const updatedSelection = selectedPersonas.filter(selected => selected && selected.id !== personaId);
+      onSelectionChange(updatedSelection);
+
+      console.log('Persona supprimé:', personaId);
+
+    } catch (error) {
+      console.error('Erreur lors de la suppression du persona:', error);
+    }
   };
 
   const selectAll = () => {
