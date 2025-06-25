@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,10 +44,11 @@ export const ProspectingStepProfile = ({
 
     const personaMap = new Map<string, any[]>();
     
-    // Grouper par identité (nom + titre ou ID LinkedIn) en excluant les personas supprimés
+    // Grouper par identité (nom + titre ou ID LinkedIn) en excluant les personas supprimés ET validés
     jobData.personas.forEach(persona => {
       if (!persona || typeof persona !== 'object') return;
       if (isPersonaRemoved(persona.id)) return; // Ignorer les personas supprimés
+      if (isDuplicateValidated(persona.id)) return; // Ignorer les personas déjà validés (correction principale)
       
       const key = persona.id || persona.linkedinId || `${persona.name || 'unknown'}-${persona.title || 'unknown'}`;
       if (!personaMap.has(key)) {
@@ -62,11 +62,6 @@ export const ProspectingStepProfile = ({
     let removedCount = 0;
     
     personaMap.forEach((personas, key) => {
-      // Ignorer si ce doublon a déjà été validé
-      if (isDuplicateValidated(personas[0]?.id)) {
-        return;
-      }
-
       if (personas.length === 1) {
         // Persona unique
         const persona = personas[0];
