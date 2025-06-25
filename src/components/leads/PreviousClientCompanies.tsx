@@ -24,36 +24,28 @@ const PreviousClientCompanies = ({ lead }: PreviousClientCompaniesProps) => {
 
   useEffect(() => {
     const checkClientHistory = async () => {
-      if (!lead) return;
+      if (!lead) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        // Récupérer tous les LinkedIn IDs des entreprises du lead
-        const companyLinkedInIds = [
-          lead.company_1_linkedin_id,
-          lead.company_2_linkedin_id,
-          lead.company_3_linkedin_id,
-          lead.company_4_linkedin_id,
-          lead.company_5_linkedin_id
-        ].filter(Boolean);
+        console.log('🔍 Checking client history for lead:', lead.author_name);
 
-        if (companyLinkedInIds.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        // Vérifier quelles entreprises sont des clients
-        const { data: clients, error } = await supabase
+        // Récupérer tous les clients pour comparer
+        const { data: allClients, error: clientsError } = await supabase
           .from('clients')
-          .select('company_name, company_linkedin_id')
-          .in('company_linkedin_id', companyLinkedInIds);
+          .select('company_name, company_linkedin_id');
 
-        if (error) {
-          console.error('Error checking client companies:', error);
+        if (clientsError) {
+          console.error('Error fetching clients:', clientsError);
           setLoading(false);
           return;
         }
 
-        // Construire la liste des entreprises clientes
+        console.log('📋 All clients:', allClients);
+
+        // Construire la liste des entreprises clientes détectées
         const foundClientCompanies: ClientCompany[] = [];
 
         for (let i = 1; i <= 5; i++) {
@@ -64,11 +56,21 @@ const PreviousClientCompanies = ({ lead }: PreviousClientCompaniesProps) => {
           const endDate = lead[`company_${i}_end_date`];
           const isCurrent = lead[`company_${i}_is_current`];
 
+          console.log(`🏢 Company ${i}:`, {
+            name: companyName,
+            linkedinId: companyLinkedInId,
+            position
+          });
+
           if (companyName && companyLinkedInId) {
-            // Vérifier si cette entreprise est un client
-            const clientMatch = clients?.find(client => 
-              client.company_linkedin_id === companyLinkedInId
-            );
+            // Vérifier si cette entreprise est un client en comparant les LinkedIn IDs
+            const clientMatch = allClients?.find(client => {
+              const match = client.company_linkedin_id === companyLinkedInId;
+              if (match) {
+                console.log(`✅ Match found! ${companyName} (${companyLinkedInId}) matches client ${client.company_name}`);
+              }
+              return match;
+            });
 
             if (clientMatch) {
               foundClientCompanies.push({
@@ -84,6 +86,7 @@ const PreviousClientCompanies = ({ lead }: PreviousClientCompaniesProps) => {
           }
         }
 
+        console.log('🎯 Found client companies:', foundClientCompanies);
         setClientCompanies(foundClientCompanies);
       } catch (error) {
         console.error('Error in client history check:', error);
