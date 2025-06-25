@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { User, Search, Filter, Users } from 'lucide-react';
+import { User, Search, Filter, Users, AlertTriangle } from 'lucide-react';
+import { DuplicatePersonaDialog } from './DuplicatePersonaDialog';
 
 interface JobData {
   id: string;
@@ -27,19 +28,48 @@ export const ProspectingStepProfile = ({
 }: ProspectingStepProfileProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [currentDuplicatePersona, setCurrentDuplicatePersona] = useState<any>(null);
+  const [currentDuplicateOffers, setCurrentDuplicateOffers] = useState<any[]>([]);
 
-  // Déduplication des personas par ID LinkedIn
-  const uniquePersonas = useMemo(() => {
-    const seen = new Set<string>();
-    return jobData.personas.filter(persona => {
-      // Utiliser l'ID LinkedIn comme clé de déduplication
+  // Déduplication des personas par ID LinkedIn et détection des doublons
+  const { uniquePersonas, duplicateGroups } = useMemo(() => {
+    const personaMap = new Map<string, any[]>();
+    const unique: any[] = [];
+    
+    // Grouper les personas par ID LinkedIn
+    jobData.personas.forEach(persona => {
       const key = persona.id || persona.linkedinId || `${persona.name}-${persona.title}`;
-      if (seen.has(key)) {
-        return false;
+      if (!personaMap.has(key)) {
+        personaMap.set(key, []);
       }
-      seen.add(key);
-      return true;
+      personaMap.get(key)!.push(persona);
     });
+
+    // Séparer les uniques des doublons
+    const duplicates = new Map<string, any[]>();
+    
+    personaMap.forEach((personas, key) => {
+      if (personas.length === 1) {
+        unique.push(personas[0]);
+      } else {
+        // Pour les doublons, prendre le premier comme représentant
+        const representative = personas[0];
+        representative._duplicateOffers = personas.map(p => ({
+          jobId: p.jobId,
+          jobTitle: p.jobTitle,
+          jobCompany: p.jobCompany,
+          jobLocation: p.location
+        }));
+        unique.push(representative);
+        duplicates.set(key, personas);
+      }
+    });
+
+    return {
+      uniquePersonas: unique,
+      duplicateGroups: duplicates
+    };
   }, [jobData.personas]);
 
   const filteredPersonas = uniquePersonas.filter(persona => {
@@ -55,6 +85,15 @@ export const ProspectingStepProfile = ({
   });
 
   const togglePersona = (persona: any) => {
+    // Si ce persona a des doublons, ouvrir le dialog
+    if (persona._duplicateOffers && persona._duplicateOffers.length > 1) {
+      setCurrentDuplicatePersona(persona);
+      setCurrentDuplicateOffers(persona._duplicateOffers);
+      setDuplicateDialogOpen(true);
+      return;
+    }
+
+    // Sinon, comportement normal
     const isSelected = selectedPersonas.some(selected => selected.id === persona.id);
     
     if (isSelected) {
@@ -62,6 +101,30 @@ export const ProspectingStepProfile = ({
     } else {
       onSelectionChange([...selectedPersonas, persona]);
     }
+  };
+
+  const handleSelectOffer = (jobId: string) => {
+    if (!currentDuplicatePersona) return;
+
+    // Trouver l'offre correspondante et créer un persona spécifique
+    const selectedOffer = currentDuplicateOffers.find(offer => offer.jobId === jobId);
+    if (!selectedOffer) return;
+
+    const specificPersona = {
+      ...currentDuplicatePersona,
+      jobId: selectedOffer.jobId,
+      jobTitle: selectedOffer.jobTitle,
+      jobCompany: selectedOffer.jobCompany,
+      location: selectedOffer.jobLocation,
+      _selectedForOffer: selectedOffer.jobId
+    };
+
+    // Ajouter à la sélection
+    onSelectionChange([...selectedPersonas, specificPersona]);
+  };
+
+  const handleSkipPersona = () => {
+    // Ne rien faire, juste fermer le dialog
   };
 
   const selectAll = () => {
@@ -147,6 +210,7 @@ export const ProspectingStepProfile = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {filteredPersonas.map((persona) => {
               const isSelected = selectedPersonas.some(selected => selected.id === persona.id);
+              const hasDuplicates = persona._duplicateOffers && persona._duplicateOffers.length > 1;
               
               return (
                 <div
@@ -169,10 +233,18 @@ export const ProspectingStepProfile = ({
                         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                           <User className="h-4 w-4 text-gray-500" />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <h4 className="font-medium text-sm text-gray-900 truncate">
                             {persona.name}
                           </h4>
+                          {hasDuplicates && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <AlertTriangle className="h-3 w-3 text-orange-500" />
+                              <span className="text-xs text-orange-600">
+                                {persona._duplicateOffers.length} offres
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <p className="text-xs text-gray-600 mb-1 line-clamp-2">
@@ -204,6 +276,16 @@ export const ProspectingStepProfile = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog pour gérer les doublons */}
+      <DuplicatePersonaDialog
+        open={duplicateDialogOpen}
+        onClose={() => setDuplicateDialogOpen(false)}
+        persona={currentDuplicatePersona}
+        duplicateOffers={currentDuplicateOffers}
+        onSelectOffer={handleSelectOffer}
+        onSkipPersona={handleSkipPersona}
+      />
     </div>
   );
 };

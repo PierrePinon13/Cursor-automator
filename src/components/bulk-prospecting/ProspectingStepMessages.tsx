@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -46,25 +45,32 @@ export const ProspectingStepMessages = ({
       .replace(/\{\{personaCompany\}\}/g, persona.company || 'Entreprise');
   };
 
-  // Générer automatiquement les messages personnalisés
+  // Générer automatiquement les messages personnalisés SEULEMENT pour les nouveaux personas
   useEffect(() => {
     if (Array.isArray(selectedPersonas) && selectedPersonas.length > 0) {
-      const newMessages: { [personaId: string]: string } = {};
+      const newMessages: { [personaId: string]: string } = { ...personalizedMessages };
+      let hasNewMessages = false;
+      
       selectedPersonas.forEach((persona) => {
         if (persona && persona.id) {
-          // Utiliser le template spécifique au persona si disponible
-          const templateToUse = getTemplateForPersona ? 
-            getTemplateForPersona(persona) : 
-            messageTemplate;
-          
-          // Utiliser le message existant ou générer un nouveau
-          newMessages[persona.id] = personalizedMessages[persona.id] || 
-            replaceVariables(templateToUse || messageTemplate, persona);
+          // Générer le message SEULEMENT si il n'existe pas déjà
+          if (!newMessages[persona.id]) {
+            const templateToUse = getTemplateForPersona ? 
+              getTemplateForPersona(persona) : 
+              messageTemplate;
+            
+            newMessages[persona.id] = replaceVariables(templateToUse || messageTemplate, persona);
+            hasNewMessages = true;
+          }
         }
       });
-      onMessagesChange(newMessages);
+      
+      // Ne mettre à jour que si on a de nouveaux messages
+      if (hasNewMessages) {
+        onMessagesChange(newMessages);
+      }
     }
-  }, [messageTemplate, selectedPersonas, getTemplateForPersona]);
+  }, [selectedPersonas]); // Supprimer messageTemplate et getTemplateForPersona des dépendances
 
   const updateMessage = (personaId: string, message: string) => {
     onMessagesChange({
