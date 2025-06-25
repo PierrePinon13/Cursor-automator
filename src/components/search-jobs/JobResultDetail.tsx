@@ -1,271 +1,212 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Users, MapPin, Calendar, Building, ExternalLink, X } from 'lucide-react';
-import { MessagePreviewModal } from './MessagePreviewModal';
-import { PersonaCard } from './PersonaCard';
-import { JobResult } from '@/hooks/useSearchJobs/useCurrentJobResults';
-import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, X, Linkedin } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 interface JobResultDetailProps {
-  job: JobResult;
+  job: {
+    id: string;
+    title: string;
+    company: string;
+    location: string;
+    postedDate: Date;
+    description: string;
+    jobUrl?: string;
+    salary?: string;
+    messageTemplate?: string;
+    personas: Array<{
+      id: string;
+      name: string;
+      title: string;
+      profileUrl: string;
+      company?: string;
+    }>;
+    type?: string;
+  };
+  onClose: () => void;
 }
 
-export const JobResultDetail = ({ job }: JobResultDetailProps) => {
-  const [isOpen, setIsOpen] = useState(true);
-  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
-  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
-  const [hiddenPersonas, setHiddenPersonas] = useState<string[]>([]);
-  const [lastContactChecks, setLastContactChecks] = useState<Record<string, any>>({});
+export const JobResultDetail = ({ job, onClose }: JobResultDetailProps) => {
+  const navigate = useNavigate();
 
-  // Vérifier les derniers contacts pour tous les personas
-  const checkLastContacts = async () => {
-    const checks: Record<string, any> = {};
+  const handleBulkProspecting = () => {
+    if (!job.personas || job.personas.length === 0) return;
     
-    for (const persona of job.personas) {
-      try {
-        const { data: existingLead } = await supabase
-          .from('leads')
-          .select('id, last_contact_at, contacted_by_user_name')
-          .eq('author_profile_url', persona.profileUrl)
-          .eq('lead_source', 'job_search')
-          .maybeSingle();
-
-        if (existingLead?.last_contact_at) {
-          const lastContactDate = new Date(existingLead.last_contact_at);
-          const now = new Date();
-          const hoursAgo = (now.getTime() - lastContactDate.getTime()) / (1000 * 60 * 60);
-          const daysAgo = hoursAgo / 24;
-
-          if (daysAgo <= 7) {
-            checks[persona.id] = {
-              lastContactAt: existingLead.last_contact_at,
-              contactedBy: existingLead.contacted_by_user_name || 'Utilisateur inconnu',
-              hoursAgo: Math.round(hoursAgo * 10) / 10,
-              daysAgo: Math.round(daysAgo * 10) / 10
-            };
-          }
-        }
-      } catch (error) {
-        console.error('Error checking last contact for:', persona.name, error);
-      }
-    }
-    
-    setLastContactChecks(checks);
-  };
-
-  useEffect(() => {
-    if (job.personas.length > 0) {
-      checkLastContacts();
-    }
-  }, [job.personas]);
-
-  const handleTogglePersona = (personaId: string) => {
-    setSelectedPersonas(prev => 
-      prev.includes(personaId) 
-        ? prev.filter(id => id !== personaId)
-        : [...prev, personaId]
-    );
-  };
-
-  const handleHidePersona = (personaId: string) => {
-    setHiddenPersonas(prev => [...prev, personaId]);
-    setSelectedPersonas(prev => prev.filter(id => id !== personaId));
-  };
-
-  const handleSelectAll = () => {
-    const visiblePersonas = job.personas.filter(p => !hiddenPersonas.includes(p.id));
-    setSelectedPersonas(visiblePersonas.map(p => p.id));
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedPersonas([]);
-  };
-
-  const openMessageModal = () => {
-    if (selectedPersonas.length === 0) {
-      const visiblePersonas = job.personas.filter(p => !hiddenPersonas.includes(p.id));
-      setSelectedPersonas(visiblePersonas.map(p => p.id));
-    }
-    setIsMessageModalOpen(true);
-  };
-
-  const selectedPersonaObjects = job.personas.filter(p => 
-    selectedPersonas.includes(p.id) && !hiddenPersonas.includes(p.id)
-  );
-
-  const visiblePersonas = job.personas.filter(p => !hiddenPersonas.includes(p.id));
-  const visiblePersonasCount = visiblePersonas.length;
-  const selectedCount = selectedPersonas.filter(id => !hiddenPersonas.includes(id)).length;
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
+    const params = new URLSearchParams({
+      searchId: 'single-job',
+      searchName: `${job.title} - ${job.company}`,
+      totalJobs: '1',
+      totalPersonas: job.personas.length.toString(),
+      personas: JSON.stringify(job.personas.map(persona => ({
+        ...persona,
+        jobTitle: job.title,
+        jobCompany: job.company,
+        jobId: job.id
+      }))),
+      template: job.messageTemplate || ''
     });
+    
+    navigate(`/bulk-prospecting?${params.toString()}`);
+    onClose();
   };
 
-  if (!isOpen) {
-    return null;
-  }
+  const handleLinkedInClick = (profileUrl: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(profileUrl, '_blank', 'noopener,noreferrer');
+  };
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />
-      <div className="fixed inset-4 z-50 overflow-auto">
-        <Card className="w-full max-w-6xl mx-auto">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <CardTitle className="text-xl text-gray-900">{job.title}</CardTitle>
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Building className="h-4 w-4" />
-                    <span>{job.company}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    <span>{job.location}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>{formatDate(job.postedDate)}</span>
-                  </div>
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <DialogTitle className="text-xl font-bold text-gray-900 mb-2">
+                {job.title}
+              </DialogTitle>
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <Building className="h-4 w-4" />
+                  {job.company}
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {visiblePersonasCount} contact{visiblePersonasCount > 1 ? 's' : ''}
-                  {hiddenPersonas.length > 0 && (
-                    <span className="text-gray-500">
-                      ({hiddenPersonas.length} masqué{hiddenPersonas.length > 1 ? 's' : ''})
-                    </span>
-                  )}
-                </Badge>
-                
-                {job.jobUrl && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
-                
-                <Button variant="outline" size="sm" onClick={() => setIsOpen(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {job.location}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {formatDistanceToNow(job.postedDate, { addSuffix: true, locale: fr })}
+                </div>
               </div>
             </div>
-          </CardHeader>
+            <div className="flex items-center gap-2 ml-4">
+              {job.type && (
+                <Badge variant="secondary" className="px-3 py-1">
+                  {job.type}
+                </Badge>
+              )}
+              <DialogClose asChild>
+                <Button variant="ghost" size="sm" className="p-2">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          </div>
+        </DialogHeader>
 
-          <CardContent className="space-y-6">
-            {/* Description du poste */}
-            {job.description && (
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Description</h4>
-                <p className="text-sm text-gray-700 line-clamp-3">{job.description}</p>
-              </div>
-            )}
-
-            {/* Section des contacts */}
-            {visiblePersonasCount > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium text-gray-900">
-                    Contacts ({visiblePersonasCount})
-                  </h4>
-                  
-                  <div className="flex items-center gap-2">
-                    {selectedCount > 0 && (
-                      <span className="text-sm text-gray-600">
-                        {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}
-                      </span>
-                    )}
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={selectedCount === visiblePersonasCount ? handleDeselectAll : handleSelectAll}
-                    >
-                      {selectedCount === visiblePersonasCount ? 'Tout désélectionner' : 'Tout sélectionner'}
-                    </Button>
-                    
-                    <Button
-                      onClick={openMessageModal}
-                      disabled={visiblePersonasCount === 0}
-                      className="flex items-center gap-2"
-                      size="sm"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Contacter {selectedCount > 0 ? `(${selectedCount})` : 'tous'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {visiblePersonas.map((persona) => (
-                    <PersonaCard
-                      key={persona.id}
-                      persona={persona}
-                      isSelected={selectedPersonas.includes(persona.id)}
-                      onToggleSelect={handleTogglePersona}
-                      onHide={handleHidePersona}
-                      lastContactInfo={lastContactChecks[persona.id]}
-                    />
-                  ))}
-                </div>
-
-                {hiddenPersonas.length > 0 && (
-                  <div className="mt-3 text-sm text-gray-500 text-center">
-                    {hiddenPersonas.length} contact{hiddenPersonas.length > 1 ? 's' : ''} masqué{hiddenPersonas.length > 1 ? 's' : ''}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setHiddenPersonas([]);
-                        checkLastContacts();
-                      }}
-                      className="ml-2 h-6 text-xs"
-                    >
-                      Tout afficher
-                    </Button>
+        <ScrollArea className="flex-1 p-6">
+          <div className="space-y-6">
+            {/* Description de l'offre */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Description de l'offre</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {job.description}
+                </p>
+                {job.salary && (
+                  <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                    <div className="font-medium text-green-800">Salaire</div>
+                    <div className="text-green-700">{job.salary}</div>
                   </div>
                 )}
-              </div>
-            )}
+              </CardContent>
+            </Card>
 
-            {visiblePersonasCount === 0 && hiddenPersonas.length > 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <p>Tous les contacts ont été masqués</p>
+            {/* Liste des contacts avec profils LinkedIn cliquables */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5" />
+                  Contacts trouvés ({job.personas.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {job.personas.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    Aucun contact trouvé pour cette offre
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {job.personas.map((persona) => (
+                      <div
+                        key={persona.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 mb-1">
+                              {persona.name}
+                            </div>
+                            <div className="text-sm text-gray-600 mb-2">
+                              {persona.title}
+                            </div>
+                            {persona.company && (
+                              <div className="text-xs text-gray-500 mb-3">
+                                {persona.company}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleLinkedInClick(persona.profileUrl, e)}
+                            className="flex items-center gap-1 ml-2 hover:bg-blue-50 hover:border-blue-200"
+                          >
+                            <Linkedin className="h-4 w-4 text-blue-600" />
+                            <span className="text-blue-600">Profil</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </ScrollArea>
+
+        {/* Actions en bas */}
+        <div className="border-t p-6 bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-3">
+              {job.jobUrl && (
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setHiddenPersonas([]);
-                    checkLastContacts();
-                  }}
-                  className="mt-2"
+                  onClick={() => window.open(job.jobUrl, '_blank')}
+                  className="flex items-center gap-2"
                 >
-                  Tout afficher
+                  <ExternalLink className="h-4 w-4" />
+                  Voir l'offre
                 </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <MessagePreviewModal
-        isOpen={isMessageModalOpen}
-        onClose={() => setIsMessageModalOpen(false)}
-        personas={selectedPersonaObjects}
-        jobTitle={job.title}
-        companyName={job.company}
-        initialTemplate={job.messageTemplate || ''}
-      />
-    </>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose}>
+                Fermer
+              </Button>
+              {job.personas.length > 0 && (
+                <Button
+                  onClick={handleBulkProspecting}
+                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Prospecter ({job.personas.length} contacts)
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -156,6 +156,35 @@ export const SearchResults = ({
     navigate(`/bulk-prospecting?${params.toString()}`);
   };
 
+  // Fonction pour la prospection volumique globale - EXCLUT les offres masquées
+  const handleGlobalBulkProspecting = () => {
+    // Utiliser filteredResults au lieu de results pour exclure les offres masquées
+    const jobsWithPersonas = filteredResults.filter(job => job.personas && job.personas.length > 0);
+    
+    if (jobsWithPersonas.length === 0) return;
+    
+    // Collecter tous les personas de toutes les offres NON masquées
+    const allPersonas = jobsWithPersonas.flatMap(job => 
+      job.personas.map(persona => ({
+        ...persona,
+        jobTitle: job.title,
+        jobCompany: job.company,
+        jobId: job.id
+      }))
+    );
+    
+    const params = new URLSearchParams({
+      searchId: 'bulk-search',
+      searchName: `Prospection volumique`,
+      totalJobs: jobsWithPersonas.length.toString(),
+      totalPersonas: allPersonas.length.toString(),
+      personas: JSON.stringify(allPersonas),
+      template: ''
+    });
+    
+    navigate(`/bulk-prospecting?${params.toString()}`);
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -207,6 +236,17 @@ export const SearchResults = ({
         <CardHeader>
           <CardTitle className="flex items-center justify-between flex-wrap gap-4">
             <span>Résultats de recherche ({visibleResults.length})</span>
+            
+            {/* Bouton de prospection volumique globale */}
+            {visibleResults.some(job => job.personas && job.personas.length > 0) && (
+              <Button
+                onClick={handleGlobalBulkProspecting}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Prospection volumique ({visibleResults.filter(job => job.personas && job.personas.length > 0).length} offres)
+              </Button>
+            )}
             
             {/* Filtres */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -422,6 +462,7 @@ export const SearchResults = ({
             ...selectedJob,
             messageTemplate: selectedJob.messageTemplate
           }}
+          onClose={() => setSelectedJob(null)}
         />
       )}
     </>
