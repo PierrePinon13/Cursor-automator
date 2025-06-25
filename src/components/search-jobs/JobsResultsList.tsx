@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePersonnaSearch } from "@/hooks/usePersonnaSearch";
 import { Users, X } from "lucide-react";
+import { usePersonaSelections } from "@/hooks/usePersonaSelections";
 
 export function JobsResultsList({ jobs, searchId, personnaFilters }: {
   jobs: any[];
@@ -13,6 +14,7 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
 }) {
   const [filter, setFilter] = useState<"all" | "with-personas">("all");
   const [deletedJobIds, setDeletedJobIds] = useState<Set<string>>(new Set());
+  const [removedPersonas, setRemovedPersonas] = useState<Set<string>>(new Set());
   
   // Hook to handle personna search for each job
   const status = usePersonnaSearch({
@@ -25,6 +27,9 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
     })),
   });
 
+  // Hook pour gérer les sélections de personas
+  const { updatePersonaStatus } = usePersonaSelections(searchId);
+
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => !deletedJobIds.has(job.job_id));
   }, [jobs, deletedJobIds]);
@@ -32,11 +37,18 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
   const listToShow = useMemo(() => {
     if (filter === "with-personas") {
       return filteredJobs.filter(
-        (job) => status[job.job_id]?.personas && status[job.job_id]?.personas.length > 0
+        (job) => {
+          const personas = status[job.job_id]?.personas || [];
+          // Filtrer les personas qui n'ont pas été supprimés
+          const activePersonas = personas.filter((persona: any) => 
+            !removedPersonas.has(persona.id || persona.full_name)
+          );
+          return activePersonas.length > 0;
+        }
       );
     }
     return filteredJobs;
-  }, [filter, filteredJobs, status]);
+  }, [filter, filteredJobs, status, removedPersonas]);
 
   const handleDeleteJob = (jobId: string) => {
     setDeletedJobIds(prev => new Set([...prev, jobId]));
@@ -45,6 +57,27 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
     const existingDeleted = JSON.parse(localStorage.getItem('deletedJobIds') || '[]');
     const updatedDeleted = [...existingDeleted, jobId];
     localStorage.setItem('deletedJobIds', JSON.stringify(updatedDeleted));
+  };
+
+  const handleRemovePersona = async (personaId: string, jobId: string) => {
+    try {
+      // Marquer le persona comme supprimé localement
+      setRemovedPersonas(prev => new Set([...prev, personaId]));
+      
+      // Mettre à jour en base de données via le hook usePersonaSelections
+      await updatePersonaStatus(personaId, jobId, 'removed');
+      
+      console.log('Persona supprimé de la job offer:', { personaId, jobId });
+      
+    } catch (error) {
+      console.error('Erreur lors de la suppression du persona:', error);
+      // Annuler la suppression locale en cas d'erreur
+      setRemovedPersonas(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(personaId);
+        return newSet;
+      });
+    }
   };
 
   return (
@@ -72,7 +105,10 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
           </div>
         )}
         {listToShow.map((job) => {
-          const personas = status[job.job_id]?.personas ?? [];
+          const allPersonas = status[job.job_id]?.personas ?? [];
+          const personas = allPersonas.filter((persona: any) => 
+            !removedPersonas.has(persona.id || persona.full_name)
+          );
           const isLoading = status[job.job_id]?.isLoading ?? true;
 
           return (
@@ -122,17 +158,31 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
                 <p className="mt-2 text-sm">{job.job_description}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {personas.map((persona: any, i: number) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      <a 
-                        href={persona.profile_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                        onClick={(e) => e.stopPropagation()}
+                    <div key={i} className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs">
+                        <a 
+                          href={persona.profile_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {persona.full_name}
+                        </a>
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-red-100 ml-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemovePersona(persona.id || persona.full_name, job.job_id);
+                        }}
+                        title="Supprimer ce contact"
                       >
-                        {persona.full_name}
-                      </a>
-                    </Badge>
+                        <X className="h-3 w-3 text-red-500" />
+                      </Button>
+                    </div>
                   ))}
                 </div>
               </CardContent>

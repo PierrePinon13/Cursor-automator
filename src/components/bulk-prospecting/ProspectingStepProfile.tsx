@@ -30,6 +30,7 @@ export const ProspectingStepProfile = ({
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
   const [processingDuplicates, setProcessingDuplicates] = useState<{ [personaKey: string]: boolean }>({});
+  const [validatedDuplicates, setValidatedDuplicates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   
   const searchId = `bulk-${Date.now()}`;
@@ -78,21 +79,23 @@ export const ProspectingStepProfile = ({
           unique.push(persona);
         }
       } else {
-        // Persona avec plusieurs offres
-        removedCount += personas.length - 1;
-        const representative = personas[0];
-        if (representative && typeof representative === 'object') {
-          representative._jobOffers = personas
-            .filter(p => p && typeof p === 'object')
-            .map(p => ({
-              jobId: p.jobId || jobData.id,
-              jobTitle: p.jobTitle || jobData.title,
-              jobCompany: p.jobCompany || jobData.company,
-              jobLocation: p.location
-            }));
-          representative._isMultipleOffers = true;
-          representative._personaKey = key;
-          duplicates.push(representative);
+        // Persona avec plusieurs offres - vérifier s'il n'a pas déjà été traité
+        if (!validatedDuplicates.has(key)) {
+          removedCount += personas.length - 1;
+          const representative = personas[0];
+          if (representative && typeof representative === 'object') {
+            representative._jobOffers = personas
+              .filter(p => p && typeof p === 'object')
+              .map(p => ({
+                jobId: p.jobId || jobData.id,
+                jobTitle: p.jobTitle || jobData.title,
+                jobCompany: p.jobCompany || jobData.company,
+                jobLocation: p.location
+              }));
+            representative._isMultipleOffers = true;
+            representative._personaKey = key;
+            duplicates.push(representative);
+          }
         }
       }
     });
@@ -102,7 +105,7 @@ export const ProspectingStepProfile = ({
       duplicatePersonas: duplicates,
       duplicatesRemoved: removedCount
     };
-  }, [jobData, isPersonaRemoved, isDuplicateValidated]);
+  }, [jobData, isPersonaRemoved, isDuplicateValidated, validatedDuplicates]);
 
   const filteredUniquePersonas = uniquePersonas.filter(persona => {
     if (!persona || typeof persona !== 'object') return false;
@@ -209,6 +212,9 @@ export const ProspectingStepProfile = ({
       const updatedSelection = [...selectedPersonas.filter(p => p.id !== persona.id), specificPersona];
       onSelectionChange(updatedSelection);
       
+      // Marquer ce doublon comme validé pour le faire disparaître de l'interface
+      setValidatedDuplicates(prev => new Set([...prev, personaKey]));
+      
       // Nettoyer les sélections temporaires
       setDuplicateSelections(prev => {
         const newSelections = { ...prev };
@@ -247,6 +253,9 @@ export const ProspectingStepProfile = ({
     try {
       // Marquer comme validé en base de données (ignoré)
       await updatePersonaStatus(persona.id, '', 'duplicate_validated');
+      
+      // Marquer ce doublon comme validé pour le faire disparaître de l'interface
+      setValidatedDuplicates(prev => new Set([...prev, personaKey]));
       
       // Nettoyer la sélection
       setDuplicateSelections(prev => {
