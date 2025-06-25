@@ -30,6 +30,7 @@ export const ProspectingStepProfile = ({
   const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
   const [processedDuplicates, setProcessedDuplicates] = useState<Set<string>>(new Set());
   const [removedPersonas, setRemovedPersonas] = useState<Set<string>>(new Set());
+  const [validatedDuplicates, setValidatedDuplicates] = useState<Set<string>>(new Set());
 
   // Grouper les personas par identité unique et séparer ceux avec plusieurs offres
   const { uniquePersonas, duplicatePersonas, duplicatesRemoved } = useMemo(() => {
@@ -60,8 +61,8 @@ export const ProspectingStepProfile = ({
     let removedCount = 0;
     
     personaMap.forEach((personas, key) => {
-      // Ignorer si ce doublon a déjà été traité
-      if (processedDuplicates.has(key)) {
+      // Ignorer si ce doublon a déjà été traité et validé
+      if (processedDuplicates.has(key) && validatedDuplicates.has(key)) {
         return;
       }
 
@@ -78,21 +79,24 @@ export const ProspectingStepProfile = ({
           unique.push(persona);
         }
       } else {
-        // Persona avec plusieurs offres - créer un persona consolidé
-        removedCount += personas.length - 1;
-        const representative = personas[0];
-        if (representative && typeof representative === 'object') {
-          representative._jobOffers = personas
-            .filter(p => p && typeof p === 'object')
-            .map(p => ({
-              jobId: p.jobId || jobData.id,
-              jobTitle: p.jobTitle || jobData.title,
-              jobCompany: p.jobCompany || jobData.company,
-              jobLocation: p.location
-            }));
-          representative._isMultipleOffers = true;
-          representative._personaKey = key;
-          duplicates.push(representative);
+        // Persona avec plusieurs offres
+        if (!validatedDuplicates.has(key)) {
+          // Afficher seulement les doublons non validés
+          removedCount += personas.length - 1;
+          const representative = personas[0];
+          if (representative && typeof representative === 'object') {
+            representative._jobOffers = personas
+              .filter(p => p && typeof p === 'object')
+              .map(p => ({
+                jobId: p.jobId || jobData.id,
+                jobTitle: p.jobTitle || jobData.title,
+                jobCompany: p.jobCompany || jobData.company,
+                jobLocation: p.location
+              }));
+            representative._isMultipleOffers = true;
+            representative._personaKey = key;
+            duplicates.push(representative);
+          }
         }
       }
     });
@@ -102,7 +106,7 @@ export const ProspectingStepProfile = ({
       duplicatePersonas: duplicates,
       duplicatesRemoved: removedCount
     };
-  }, [jobData, processedDuplicates, removedPersonas]);
+  }, [jobData, processedDuplicates, removedPersonas, validatedDuplicates]);
 
   const filteredUniquePersonas = uniquePersonas.filter(persona => {
     if (!persona || typeof persona !== 'object') return false;
@@ -139,9 +143,11 @@ export const ProspectingStepProfile = ({
     const isSelected = selectedPersonas.some(selected => selected && selected.id === persona.id);
     
     if (isSelected) {
-      onSelectionChange(selectedPersonas.filter(selected => selected && selected.id !== persona.id));
+      // Supprimer de la sélection
+      const updatedSelection = selectedPersonas.filter(selected => selected && selected.id !== persona.id);
+      onSelectionChange(updatedSelection);
     } else {
-      // Pour persona avec une seule offre, utiliser cette offre
+      // Ajouter à la sélection
       const jobOffer = persona._jobOffers && persona._jobOffers[0] ? persona._jobOffers[0] : {
         jobId: jobData.id,
         jobTitle: jobData.title,
@@ -188,8 +194,9 @@ export const ProspectingStepProfile = ({
     // Ajouter à la sélection
     onSelectionChange([...selectedPersonas, specificPersona]);
     
-    // Marquer ce doublon comme traité
+    // Marquer ce doublon comme traité ET validé
     setProcessedDuplicates(prev => new Set([...prev, personaKey]));
+    setValidatedDuplicates(prev => new Set([...prev, personaKey]));
     
     // Nettoyer la sélection
     setDuplicateSelections(prev => {
@@ -202,8 +209,9 @@ export const ProspectingStepProfile = ({
   const handleDuplicateSkip = (persona: any) => {
     const personaKey = persona._personaKey;
     
-    // Marquer ce doublon comme traité (ignoré)
+    // Marquer ce doublon comme traité (ignoré) ET validé
     setProcessedDuplicates(prev => new Set([...prev, personaKey]));
+    setValidatedDuplicates(prev => new Set([...prev, personaKey]));
     
     // Nettoyer la sélection
     setDuplicateSelections(prev => {
@@ -218,7 +226,8 @@ export const ProspectingStepProfile = ({
     setRemovedPersonas(prev => new Set([...prev, personaId]));
     
     // Supprimer de la sélection s'il y était
-    onSelectionChange(selectedPersonas.filter(selected => selected && selected.id !== personaId));
+    const updatedSelection = selectedPersonas.filter(selected => selected && selected.id !== personaId);
+    onSelectionChange(updatedSelection);
   };
 
   const selectAll = () => {
@@ -361,7 +370,7 @@ export const ProspectingStepProfile = ({
                   <div className="space-y-2 mb-3">
                     <p className="text-sm font-medium text-gray-700">Offres disponibles :</p>
                     {persona._jobOffers && persona._jobOffers.map((offer: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 border rounded">
+                      <div key={`${offer.jobId}-${idx}`} className="flex items-center gap-2 p-2 border rounded">
                         <Checkbox
                           checked={selectedOfferId === offer.jobId}
                           onCheckedChange={(checked) => {

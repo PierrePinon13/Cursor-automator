@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, Linkedin, Trash2 } from 'lucide-react';
+import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, Linkedin, Trash2, CheckCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -37,8 +37,15 @@ interface JobResultDetailProps {
 export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDetailProps) => {
   const navigate = useNavigate();
   const [localPersonas, setLocalPersonas] = React.useState(job.personas);
+  const [removedPersonas, setRemovedPersonas] = React.useState<string[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   const handleBulkProspecting = () => {
+    // Appliquer les suppressions avant de naviguer
+    if (hasUnsavedChanges) {
+      handleConfirmDeletions();
+    }
+    
     if (!localPersonas || localPersonas.length === 0) return;
     
     const params = new URLSearchParams({
@@ -72,10 +79,29 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
     const updatedPersonas = localPersonas.filter(p => p.id !== personaId);
     setLocalPersonas(updatedPersonas);
     
-    // Appeler le callback parent si fourni pour persister la suppression
-    if (onPersonaRemoved) {
-      onPersonaRemoved(job.id, personaId);
-    }
+    // Ajouter à la liste des suppressions
+    setRemovedPersonas(prev => [...prev, personaId]);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleConfirmDeletions = () => {
+    // Appliquer toutes les suppressions en une fois
+    removedPersonas.forEach(personaId => {
+      if (onPersonaRemoved) {
+        onPersonaRemoved(job.id, personaId);
+      }
+    });
+    
+    // Réinitialiser l'état
+    setRemovedPersonas([]);
+    setHasUnsavedChanges(false);
+  };
+
+  const handleCancelDeletions = () => {
+    // Restaurer l'état original
+    setLocalPersonas(job.personas);
+    setRemovedPersonas([]);
+    setHasUnsavedChanges(false);
   };
 
   return (
@@ -131,6 +157,27 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
                 )}
               </CardContent>
             </Card>
+
+            {/* Avertissement des suppressions non sauvegardées */}
+            {hasUnsavedChanges && (
+              <Card className="bg-yellow-50 border-yellow-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-yellow-600">
+                      <MessageSquare className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-yellow-800">
+                        {removedPersonas.length} contact(s) supprimé(s)
+                      </p>
+                      <p className="text-sm text-yellow-700">
+                        Les suppressions ne seront appliquées qu'après confirmation.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Liste des contacts avec profils LinkedIn cliquables */}
             <Card>
@@ -218,6 +265,27 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
               <Button variant="outline" onClick={onClose}>
                 Fermer
               </Button>
+              
+              {/* Boutons de gestion des suppressions */}
+              {hasUnsavedChanges && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelDeletions}
+                    className="text-gray-600"
+                  >
+                    Annuler suppressions
+                  </Button>
+                  <Button
+                    onClick={handleConfirmDeletions}
+                    className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Confirmer suppressions ({removedPersonas.length})
+                  </Button>
+                </>
+              )}
+              
               {localPersonas.length > 0 && (
                 <Button
                   onClick={handleBulkProspecting}

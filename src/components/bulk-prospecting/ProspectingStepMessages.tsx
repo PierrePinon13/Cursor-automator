@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -65,12 +66,21 @@ export const ProspectingStepMessages = ({
         }
       });
       
-      // Ne mettre à jour que si on a de nouveaux messages
+      // Supprimer les messages des personas qui ne sont plus sélectionnés
+      const currentPersonaIds = selectedPersonas.map(p => p.id);
+      Object.keys(personalizedMessages).forEach(personaId => {
+        if (!currentPersonaIds.includes(personaId)) {
+          delete newMessages[personaId];
+          hasNewMessages = true;
+        }
+      });
+      
+      // Ne mettre à jour que si on a des changements
       if (hasNewMessages) {
         onMessagesChange(newMessages);
       }
     }
-  }, [selectedPersonas]); // Supprimer messageTemplate et getTemplateForPersona des dépendances
+  }, [selectedPersonas.map(p => p.id).join(',')]); // Dépendance plus précise
 
   const updateMessage = (personaId: string, message: string) => {
     onMessagesChange({
@@ -125,7 +135,7 @@ export const ProspectingStepMessages = ({
       {/* Scroll infini avec tous les messages */}
       <div className="space-y-6" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '4px' }}>
         {selectedPersonas.map((persona, index) => (
-          <Card key={persona.id} className="border-l-4 border-l-blue-500">
+          <Card key={`${persona.id}-${index}`} className="border-l-4 border-l-blue-500">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
