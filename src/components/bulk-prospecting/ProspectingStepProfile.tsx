@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { User, Search, Filter, Users, AlertTriangle, Building, Briefcase } from 'lucide-react';
-import { DuplicatePersonaDialog } from './DuplicatePersonaDialog';
+import { User, Search, Filter, Users, AlertTriangle, Building, Briefcase, CheckCircle, X } from 'lucide-react';
 
 interface JobData {
   id: string;
@@ -28,9 +27,7 @@ export const ProspectingStepProfile = ({
 }: ProspectingStepProfileProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
-  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
-  const [currentDuplicatePersona, setCurrentDuplicatePersona] = useState<any>(null);
-  const [currentDuplicateOffers, setCurrentDuplicateOffers] = useState<any[]>([]);
+  const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
 
   // Grouper les personas par identité unique et séparer ceux avec plusieurs offres
   const { uniquePersonas, duplicatePersonas, duplicatesRemoved } = useMemo(() => {
@@ -86,22 +83,20 @@ export const ProspectingStepProfile = ({
               jobLocation: p.location
             }));
           representative._isMultipleOffers = true;
+          representative._personaKey = key;
           duplicates.push(representative);
         }
       }
     });
 
-    // Trier pour mettre les doublons en haut
-    const sortedPersonas = [...duplicates, ...unique];
-
     return {
-      uniquePersonas: sortedPersonas,
+      uniquePersonas: unique,
       duplicatePersonas: duplicates,
       duplicatesRemoved: removedCount
     };
   }, [jobData]);
 
-  const filteredPersonas = uniquePersonas.filter(persona => {
+  const filteredUniquePersonas = uniquePersonas.filter(persona => {
     if (!persona || typeof persona !== 'object') return false;
     
     const matchesSearch = !searchTerm || 
@@ -119,18 +114,20 @@ export const ProspectingStepProfile = ({
     return matchesSearch && matchesFilter;
   });
 
+  const filteredDuplicatePersonas = duplicatePersonas.filter(persona => {
+    if (!persona || typeof persona !== 'object') return false;
+    
+    const matchesSearch = !searchTerm || 
+      (persona.name && persona.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (persona.title && persona.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (persona.company && persona.company.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    return matchesSearch;
+  });
+
   const togglePersona = (persona: any) => {
     if (!persona || typeof persona !== 'object') return;
     
-    // Si ce persona a plusieurs offres, ouvrir le dialog de sélection
-    if (persona._isMultipleOffers && persona._jobOffers && persona._jobOffers.length > 1) {
-      setCurrentDuplicatePersona(persona);
-      setCurrentDuplicateOffers(persona._jobOffers);
-      setDuplicateDialogOpen(true);
-      return;
-    }
-
-    // Comportement normal pour persona unique
     const isSelected = selectedPersonas.some(selected => selected && selected.id === persona.id);
     
     if (isSelected) {
@@ -155,14 +152,24 @@ export const ProspectingStepProfile = ({
     }
   };
 
-  const handleSelectOffer = (jobId: string) => {
-    if (!currentDuplicatePersona) return;
+  const handleDuplicateOfferSelection = (personaKey: string, jobOfferId: string) => {
+    setDuplicateSelections(prev => ({
+      ...prev,
+      [personaKey]: jobOfferId
+    }));
+  };
 
-    const selectedOffer = currentDuplicateOffers.find(offer => offer && offer.jobId === jobId);
+  const handleDuplicateValidation = (persona: any) => {
+    const personaKey = persona._personaKey;
+    const selectedOfferId = duplicateSelections[personaKey];
+    
+    if (!selectedOfferId) return;
+    
+    const selectedOffer = persona._jobOffers.find((offer: any) => offer.jobId === selectedOfferId);
     if (!selectedOffer) return;
 
     const specificPersona = {
-      ...currentDuplicatePersona,
+      ...persona,
       jobId: selectedOffer.jobId,
       jobTitle: selectedOffer.jobTitle,
       jobCompany: selectedOffer.jobCompany,
@@ -171,15 +178,27 @@ export const ProspectingStepProfile = ({
     };
 
     onSelectionChange([...selectedPersonas, specificPersona]);
+    
+    // Nettoyer la sélection
+    setDuplicateSelections(prev => {
+      const newSelections = { ...prev };
+      delete newSelections[personaKey];
+      return newSelections;
+    });
   };
 
-  const handleSkipPersona = () => {
-    // Ne rien faire, juste fermer le dialog
+  const handleDuplicateSkip = (persona: any) => {
+    const personaKey = persona._personaKey;
+    // Nettoyer la sélection
+    setDuplicateSelections(prev => {
+      const newSelections = { ...prev };
+      delete newSelections[personaKey];
+      return newSelections;
+    });
   };
 
   const selectAll = () => {
-    const allPersonasWithJobs = filteredPersonas
-      .filter(persona => persona && (!persona._isMultipleOffers || (persona._jobOffers && persona._jobOffers.length === 1)))
+    const allPersonasWithJobs = filteredUniquePersonas
       .map(persona => {
         const jobOffer = persona._jobOffers && persona._jobOffers[0] ? persona._jobOffers[0] : {
           jobId: jobData.id,
@@ -217,7 +236,7 @@ export const ProspectingStepProfile = ({
             Sélection des profils à prospecter
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            {filteredPersonas.length} profil(s) trouvé(s)
+            {uniquePersonas.length} profil(s) unique(s) trouvé(s)
             {duplicatesRemoved > 0 && (
               <span className="text-green-600 ml-2">
                 ({duplicatesRemoved} doublon(s) automatiquement regroupé(s))
@@ -275,15 +294,113 @@ export const ProspectingStepProfile = ({
         </CardContent>
       </Card>
 
-      {/* Zone principale avec plus d'espace pour les cartes */}
+      {/* Section des doublons */}
+      {filteredDuplicatePersonas.length > 0 && (
+        <Card className="border-orange-300 bg-orange-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <AlertTriangle className="h-5 w-5" />
+              Profils avec plusieurs offres ({filteredDuplicatePersonas.length})
+            </CardTitle>
+            <p className="text-sm text-orange-700">
+              Ces profils apparaissent sur plusieurs offres. Choisissez pour quelle offre vous souhaitez les prospecter.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {filteredDuplicatePersonas.map((persona) => {
+              const personaKey = persona._personaKey;
+              const selectedOfferId = duplicateSelections[personaKey];
+              
+              return (
+                <div key={persona.id} className="bg-white p-4 rounded-lg border">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <User className="h-5 w-5 text-gray-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">
+                        {persona.name || 'Nom non disponible'}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {persona.title || 'Titre non disponible'}
+                      </p>
+                      {persona.company && (
+                        <p className="text-xs text-gray-500">
+                          Chez: {persona.company}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Offres disponibles */}
+                  <div className="space-y-2 mb-3">
+                    <p className="text-sm font-medium text-gray-700">Offres disponibles :</p>
+                    {persona._jobOffers && persona._jobOffers.map((offer: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 border rounded">
+                        <Checkbox
+                          checked={selectedOfferId === offer.jobId}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              handleDuplicateOfferSelection(personaKey, offer.jobId);
+                            } else {
+                              setDuplicateSelections(prev => {
+                                const newSelections = { ...prev };
+                                delete newSelections[personaKey];
+                                return newSelections;
+                              });
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1 text-sm font-medium">
+                            <Building className="h-4 w-4 text-gray-500" />
+                            {offer.jobCompany || 'Entreprise non disponible'}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <Briefcase className="h-3 w-3" />
+                            {offer.jobTitle || 'Titre non disponible'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleDuplicateValidation(persona)}
+                      disabled={!selectedOfferId}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Valider
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDuplicateSkip(persona)}
+                      className="text-gray-600"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Ignorer
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Zone principale avec les profils uniques */}
       <Card className="flex-1">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {filteredPersonas.map((persona) => {
+            {filteredUniquePersonas.map((persona) => {
               if (!persona || typeof persona !== 'object') return null;
               
               const isSelected = selectedPersonas.some(selected => selected && selected.id === persona.id);
-              const hasMultipleOffers = persona._isMultipleOffers && persona._jobOffers && persona._jobOffers.length > 1;
               
               return (
                 <div
@@ -291,8 +408,6 @@ export const ProspectingStepProfile = ({
                   className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
                     isSelected 
                       ? 'border-blue-500 bg-blue-50' 
-                      : hasMultipleOffers
-                      ? 'border-orange-300 bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => togglePersona(persona)}
@@ -302,7 +417,6 @@ export const ProspectingStepProfile = ({
                       checked={isSelected}
                       onChange={() => {}} // Handled by parent click
                       className="mt-1"
-                      disabled={hasMultipleOffers}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
@@ -313,14 +427,6 @@ export const ProspectingStepProfile = ({
                           <h4 className="font-medium text-sm text-gray-900 truncate">
                             {persona.name || 'Nom non disponible'}
                           </h4>
-                          {hasMultipleOffers && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <AlertTriangle className="h-3 w-3 text-orange-500" />
-                              <span className="text-xs text-orange-600">
-                                {persona._jobOffers ? persona._jobOffers.length : 0} offres
-                              </span>
-                            </div>
-                          )}
                         </div>
                       </div>
                       <p className="text-xs text-gray-600 mb-2 line-clamp-2">
@@ -332,38 +438,19 @@ export const ProspectingStepProfile = ({
                         </p>
                       )}
                       
-                      {/* Affichage des offres d'emploi */}
-                      <div className="space-y-1">
-                        {hasMultipleOffers ? (
-                          <div className="text-xs text-orange-700 bg-orange-100 p-2 rounded">
-                            <div className="font-medium mb-1">Plusieurs offres disponibles:</div>
-                            {persona._jobOffers && persona._jobOffers.slice(0, 2).map((offer: any, idx: number) => (
-                              <div key={idx} className="flex items-center gap-1">
-                                <Briefcase className="h-3 w-3" />
-                                <span className="truncate">{offer.jobTitle || 'Titre non disponible'} - {offer.jobCompany || 'Entreprise non disponible'}</span>
-                              </div>
-                            ))}
-                            {persona._jobOffers && persona._jobOffers.length > 2 && (
-                              <div className="text-xs">
-                                ... et {persona._jobOffers.length - 2} autre(s)
-                              </div>
-                            )}
+                      {/* Affichage de l'offre d'emploi */}
+                      {persona._jobOffers && persona._jobOffers[0] && (
+                        <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Building className="h-3 w-3" />
+                            <span className="font-medium">{persona._jobOffers[0].jobCompany || 'Entreprise non disponible'}</span>
                           </div>
-                        ) : (
-                          persona._jobOffers && persona._jobOffers[0] && (
-                            <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
-                              <div className="flex items-center gap-1 mb-1">
-                                <Building className="h-3 w-3" />
-                                <span className="font-medium">{persona._jobOffers[0].jobCompany || 'Entreprise non disponible'}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Briefcase className="h-3 w-3" />
-                                <span className="truncate">{persona._jobOffers[0].jobTitle || 'Titre non disponible'}</span>
-                              </div>
-                            </div>
-                          )
-                        )}
-                      </div>
+                          <div className="flex items-center gap-1">
+                            <Briefcase className="h-3 w-3" />
+                            <span className="truncate">{persona._jobOffers[0].jobTitle || 'Titre non disponible'}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -371,7 +458,7 @@ export const ProspectingStepProfile = ({
             })}
           </div>
 
-          {filteredPersonas.length === 0 && (
+          {filteredUniquePersonas.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>Aucun profil ne correspond aux critères de recherche</p>
@@ -379,20 +466,6 @@ export const ProspectingStepProfile = ({
           )}
         </CardContent>
       </Card>
-
-      {/* Dialog pour gérer les doublons */}
-      <DuplicatePersonaDialog
-        open={duplicateDialogOpen}
-        onClose={() => {
-          setDuplicateDialogOpen(false);
-          setCurrentDuplicatePersona(null);
-          setCurrentDuplicateOffers([]);
-        }}
-        persona={currentDuplicatePersona}
-        duplicateOffers={currentDuplicateOffers}
-        onSelectOffer={handleSelectOffer}
-        onSkipPersona={handleSkipPersona}
-      />
     </div>
   );
 };

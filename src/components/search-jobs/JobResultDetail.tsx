@@ -36,16 +36,17 @@ interface JobResultDetailProps {
 
 export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDetailProps) => {
   const navigate = useNavigate();
+  const [localPersonas, setLocalPersonas] = React.useState(job.personas);
 
   const handleBulkProspecting = () => {
-    if (!job.personas || job.personas.length === 0) return;
+    if (!localPersonas || localPersonas.length === 0) return;
     
     const params = new URLSearchParams({
       searchId: 'single-job',
       searchName: `${job.title} - ${job.company}`,
       totalJobs: '1',
-      totalPersonas: job.personas.length.toString(),
-      personas: JSON.stringify(job.personas.map(persona => ({
+      totalPersonas: localPersonas.length.toString(),
+      personas: JSON.stringify(localPersonas.map(persona => ({
         ...persona,
         jobTitle: job.title,
         jobCompany: job.company,
@@ -66,7 +67,11 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
   const handleRemovePersona = (personaId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log('Removing persona:', personaId, 'from job:', job.id);
+    
+    // Supprimer le persona de l'affichage local
+    setLocalPersonas(prev => prev.filter(p => p.id !== personaId));
+    
+    // Appeler le callback parent si fourni
     if (onPersonaRemoved) {
       onPersonaRemoved(job.id, personaId);
     }
@@ -131,17 +136,17 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Users className="h-5 w-5" />
-                  Contacts trouvés ({job.personas.length})
+                  Contacts trouvés ({localPersonas.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {job.personas.length === 0 ? (
+                {localPersonas.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     Aucun contact trouvé pour cette offre
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {job.personas.map((persona) => (
+                    {localPersonas.map((persona) => (
                       <div
                         key={persona.id}
                         className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -212,13 +217,13 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
               <Button variant="outline" onClick={onClose}>
                 Fermer
               </Button>
-              {job.personas.length > 0 && (
+              {localPersonas.length > 0 && (
                 <Button
                   onClick={handleBulkProspecting}
                   className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
                 >
                   <Users className="h-4 w-4" />
-                  Prospecter ({job.personas.length} contacts)
+                  Prospecter ({localPersonas.length} contacts)
                 </Button>
               )}
             </div>
