@@ -1179,9 +1179,6 @@ export type Database = {
           latest_post_urn: string | null
           lead_source: string
           linkedin_message_sent_at: string | null
-          locked_at: string | null
-          locked_by_user_id: string | null
-          locked_by_user_name: string | null
           matched_client_id: string | null
           matched_client_name: string | null
           matched_hr_provider_id: string | null
@@ -1289,9 +1286,6 @@ export type Database = {
           latest_post_urn?: string | null
           lead_source?: string
           linkedin_message_sent_at?: string | null
-          locked_at?: string | null
-          locked_by_user_id?: string | null
-          locked_by_user_name?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
           matched_hr_provider_id?: string | null
@@ -1399,9 +1393,6 @@ export type Database = {
           latest_post_urn?: string | null
           lead_source?: string
           linkedin_message_sent_at?: string | null
-          locked_at?: string | null
-          locked_by_user_id?: string | null
-          locked_by_user_name?: string | null
           matched_client_id?: string | null
           matched_client_name?: string | null
           matched_hr_provider_id?: string | null
@@ -2308,21 +2299,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_recent_contact: {
-        Args: { lead_id: string }
-        Returns: Json
-      }
       cleanup_enrichment_queue: {
         Args: Record<PropertyKey, never>
         Returns: undefined
-      }
-      cleanup_expired_locks: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_old_locks: {
-        Args: Record<PropertyKey, never>
-        Returns: number
       }
       collect_processing_metrics: {
         Args: Record<PropertyKey, never>
@@ -2356,10 +2335,6 @@ export type Database = {
         Args: { user_uuid: string }
         Returns: undefined
       }
-      lock_lead: {
-        Args: { lead_id: string; user_id: string; user_name: string }
-        Returns: Json
-      }
       release_unipile_account: {
         Args: { search_id_param: string }
         Returns: string
@@ -2367,10 +2342,6 @@ export type Database = {
       reserve_unipile_account: {
         Args: { account_id_param: string; search_id_param: string }
         Returns: boolean
-      }
-      unlock_lead: {
-        Args: { lead_id: string; user_id: string }
-        Returns: Json
       }
     }
     Enums: {
