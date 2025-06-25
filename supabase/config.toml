@@ -1,43 +1,91 @@
 
-# The default Supabase project configuration file.
-
 project_id = "csilkrfizphtbmevlkme"
 
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "graphql_public"]
+schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
-[auth]
+[graphql]
 enabled = true
-port = 54324
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
-jwt_expiry = 3600
-enable_signup = true
+port = 54329
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
 
 [db]
-shadow_port = 54322
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
 port = 54323
+api_url = "http://127.0.0.1:54321"
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+enabled = true
+port = 54327
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+port = 54328
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://127.0.0.1:3000"]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+security_update_password_required_for_sensitive_data = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
 
 [edge_functions]
 enabled = true
+port = 54329
+
+[functions.filter-and-queue-posts]
+verify_jwt = false
+
+[functions.n8n-batch-processor]
+verify_jwt = false
 
 [functions.n8n-enrichment-callback]
+verify_jwt = false
+
+[functions.n8n-job-search-callback]
 verify_jwt = false
 
 [functions.n8n-jobs-callback]
 verify_jwt = false
 
-[functions.daily-client-jobs-trigger]
-verify_jwt = false
-
 [functions.n8n-linkedin-posts-callback]
 verify_jwt = false
 
-[storage]
-enabled = true
-port = 54325
-file_size_limit = "50MiB"
+[functions.n8n-openai-callback]
+verify_jwt = false
+
+[functions.n8n-personna-callback]
+verify_jwt = false
+
+[functions.n8n-bulk-messaging-callback]
+verify_jwt = false
+
+[functions.process-linkedin-post]
+verify_jwt = false
+
+[functions.unipile-contact-scraper]
+verify_jwt = false
+
+[functions.lead-creation-batch-worker]
+verify_jwt = false
