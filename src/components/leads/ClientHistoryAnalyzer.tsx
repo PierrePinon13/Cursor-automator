@@ -20,7 +20,7 @@ const ClientHistoryAnalyzer = ({ lead }: ClientHistoryAnalyzerProps) => {
       const endDate = lead[`company_${i}_end_date`];
       const isCurrent = lead[`company_${i}_is_current`];
       
-      if (companyName) {
+      if (companyName && companyLinkedInId) {
         // Vérifier si cette entreprise est dans previous_client_companies
         const isClientCompany = lead.previous_client_companies?.some((clientCompany: any) => {
           if (typeof clientCompany === 'string') {
@@ -30,27 +30,15 @@ const ClientHistoryAnalyzer = ({ lead }: ClientHistoryAnalyzerProps) => {
                  clientCompany.company_name?.toLowerCase() === companyName.toLowerCase();
         });
         
-        if (isClientCompany) {
-          matches.push({
-            companyName,
-            position,
-            startDate,
-            endDate,
-            isCurrent,
-            companyLinkedInId,
-            isClientMatch: true
-          });
-        } else {
-          matches.push({
-            companyName,
-            position,
-            startDate,
-            endDate,
-            isCurrent,
-            companyLinkedInId,
-            isClientMatch: false
-          });
-        }
+        matches.push({
+          companyName,
+          position: position || 'Poste non spécifié',
+          startDate,
+          endDate,
+          isCurrent,
+          companyLinkedInId,
+          isClientMatch: isClientCompany || false
+        });
       }
     }
     
@@ -63,6 +51,38 @@ const ClientHistoryAnalyzer = ({ lead }: ClientHistoryAnalyzerProps) => {
   if (companyMatches.length === 0) {
     return null;
   }
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    
+    try {
+      // Essayer de parser différents formats de date
+      let date: Date;
+      
+      if (dateString.includes('/')) {
+        // Format MM/DD/YYYY ou M/D/YYYY
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          date = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+        } else {
+          return dateString;
+        }
+      } else {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      
+      return date.toLocaleDateString('fr-FR', {
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -124,7 +144,9 @@ const ClientHistoryAnalyzer = ({ lead }: ClientHistoryAnalyzerProps) => {
                     )}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {match.startDate} - {match.endDate || 'Présent'}
+                    {formatDate(match.startDate) || 'Date inconnue'} - {
+                      match.isCurrent ? 'Présent' : (formatDate(match.endDate) || 'Date inconnue')
+                    }
                   </div>
                 </div>
               </div>
@@ -132,7 +154,7 @@ const ClientHistoryAnalyzer = ({ lead }: ClientHistoryAnalyzerProps) => {
           </div>
         </div>
 
-        {lead.has_previous_client_company && (
+        {lead.has_previous_client_company && clientMatches.length > 0 && (
           <div className="p-3 bg-green-50 border border-green-200 rounded">
             <div className="flex items-center gap-2 text-green-800">
               <Crown className="h-4 w-4" />

@@ -17,6 +17,7 @@ import FeedbackDialog from './FeedbackDialog';
 import RecruitmentAgencyButton from './RecruitmentAgencyButton';
 import ReminderDialog from './ReminderDialog';
 import MistargetedPostButton from './MistargetedPostButton';
+import PreviousClientCompanies from './PreviousClientCompanies';
 
 interface LeadDetailContentProps {
   lead: any;
@@ -85,31 +86,12 @@ const LeadDetailContent = ({
   const charactersRemaining = 300 - customMessage.length;
 
   // Protection pour les tableaux potentiellement undefined
-  const previousClientCompanies = Array.isArray(lead.previous_client_companies) ? lead.previous_client_companies : [];
   const selectedPositions = Array.isArray(lead.openai_step3_postes_selectionnes) ? lead.openai_step3_postes_selectionnes : [];
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Alert entreprise cliente - Affichage harmonisé */}
-      {lead.has_previous_client_company && previousClientCompanies.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 p-4 mx-6 mb-4 rounded-lg">
-          <div className="flex items-start gap-3 text-yellow-800">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Crown className="h-5 w-5 text-yellow-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-yellow-900 mb-2">Entreprise cliente précédente détectée</h3>
-              <div className="flex flex-wrap gap-2">
-                {previousClientCompanies.map((company: string, index: number) => (
-                  <Badge key={index} variant="outline" className="text-yellow-700 border-yellow-300 bg-yellow-100">
-                    {company}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Alert entreprise cliente - Nouveau composant */}
+      <PreviousClientCompanies lead={lead} />
 
       {/* Layout 3 colonnes harmonisé */}
       <div className="flex-1 flex overflow-hidden">
