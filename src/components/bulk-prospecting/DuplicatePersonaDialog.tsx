@@ -10,7 +10,7 @@ import { Persona } from '@/types/jobSearch';
 interface DuplicatePersonaDialogProps {
   open: boolean;
   onClose: () => void;
-  persona: Persona;
+  persona: Persona | null;
   duplicateOffers: Array<{
     jobId: string;
     jobTitle: string;
@@ -43,6 +43,11 @@ export const DuplicatePersonaDialog = ({
     onClose();
   };
 
+  // Vérification de sécurité pour éviter l'erreur null
+  if (!persona) {
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -62,8 +67,8 @@ export const DuplicatePersonaDialog = ({
                   <User className="h-6 w-6 text-gray-500" />
                 </div>
                 <div>
-                  <h3 className="font-medium">{persona.name}</h3>
-                  <p className="text-sm text-gray-600">{persona.title}</p>
+                  <h3 className="font-medium">{persona.name || 'Nom non disponible'}</h3>
+                  <p className="text-sm text-gray-600">{persona.title || 'Titre non disponible'}</p>
                   {persona.company && (
                     <p className="text-xs text-gray-500">{persona.company}</p>
                   )}
@@ -75,7 +80,7 @@ export const DuplicatePersonaDialog = ({
           {/* Explication */}
           <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
             <p className="font-medium text-blue-900 mb-1">
-              Ce contact apparaît sur {duplicateOffers.length} offres différentes
+              Ce contact apparaît sur {duplicateOffers?.length || 0} offres différentes
             </p>
             <p>
               Choisissez pour quelle offre vous souhaitez le prospecter, ou ignorez ce contact.
@@ -83,46 +88,48 @@ export const DuplicatePersonaDialog = ({
           </div>
 
           {/* Liste des offres */}
-          <div className="space-y-3">
-            <h4 className="font-medium">Sélectionnez une offre :</h4>
-            {duplicateOffers.map((offer) => (
-              <Card
-                key={offer.jobId}
-                className={`cursor-pointer transition-all ${
-                  selectedOfferId === offer.jobId
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedOfferId(offer.jobId)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="radio"
-                      checked={selectedOfferId === offer.jobId}
-                      onChange={() => setSelectedOfferId(offer.jobId)}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <h5 className="font-medium flex items-center gap-2">
-                        <Building className="h-4 w-4 text-gray-500" />
-                        {offer.jobTitle}
-                      </h5>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {offer.jobCompany}
-                      </p>
-                      {offer.jobLocation && (
-                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                          <MapPin className="h-3 w-3" />
-                          {offer.jobLocation}
+          {duplicateOffers && duplicateOffers.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="font-medium">Sélectionnez une offre :</h4>
+              {duplicateOffers.map((offer) => (
+                <Card
+                  key={offer.jobId}
+                  className={`cursor-pointer transition-all ${
+                    selectedOfferId === offer.jobId
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedOfferId(offer.jobId)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        checked={selectedOfferId === offer.jobId}
+                        onChange={() => setSelectedOfferId(offer.jobId)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <h5 className="font-medium flex items-center gap-2">
+                          <Building className="h-4 w-4 text-gray-500" />
+                          {offer.jobTitle || 'Titre non disponible'}
+                        </h5>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {offer.jobCompany || 'Entreprise non disponible'}
                         </p>
-                      )}
+                        {offer.jobLocation && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                            <MapPin className="h-3 w-3" />
+                            {offer.jobLocation}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-between pt-4">

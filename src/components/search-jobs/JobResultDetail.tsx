@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, X, Linkedin, Trash2 } from 'lucide-react';
+import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, Linkedin, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -102,9 +102,6 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
                   {job.type}
                 </Badge>
               )}
-              <Button variant="ghost" size="sm" className="p-2" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </DialogHeader>
