@@ -140,7 +140,11 @@ export const usePersonaSelections = (searchId: string) => {
     const fullSelection: PersonaSelection = {
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
-      ...newSelection
+      updated_at: new Date().toISOString(),
+      ...newSelection,
+      // Assurer que les champs obligatoires sont définis
+      job_id: newSelection.job_id || null,
+      selected_job_id: newSelection.selected_job_id || null
     };
     
     setSelections(prev => {

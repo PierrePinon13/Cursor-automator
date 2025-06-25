@@ -69,7 +69,7 @@ export const ProspectingStepValidation = ({
       // Générer un ID unique pour cette demande d'envoi en masse
       const bulkRequestId = `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Préparer les données pour l'API N8N
+      // Préparer les données pour l'API N8N avec les LinkedIn IDs
       const messagesToSend = bulkState.selectedPersonas.map(persona => ({
         id: generateUniqueId(), // ID unique pour chaque message
         personaId: persona.id,
@@ -77,6 +77,8 @@ export const ProspectingStepValidation = ({
         personaTitle: persona.title,
         personaCompany: persona.company,
         personaProfileUrl: persona.profileUrl || persona.profile_url,
+        // Ajouter le LinkedIn ID du persona
+        personaLinkedInId: persona.linkedin_id || persona.id,
         jobTitle: persona.jobTitle,
         jobCompany: persona.jobCompany,
         jobId: persona.jobId,
@@ -84,10 +86,11 @@ export const ProspectingStepValidation = ({
         bulkRequestId: bulkRequestId // ID de la demande d'envoi en masse
       }));
 
-      console.log('Envoi vers N8N:', { 
+      console.log('Envoi vers N8N avec LinkedIn IDs:', { 
         bulkRequestId, 
         messages: messagesToSend, 
-        unipileAccountId 
+        unipileAccountId,
+        linkedInIds: messagesToSend.map(msg => msg.personaLinkedInId)
       });
 
       // URL de l'API N8N pour l'envoi de messages
@@ -230,6 +233,9 @@ export const ProspectingStepValidation = ({
                 <div className="flex-1">
                   <p className="text-sm font-medium">{persona.name}</p>
                   <p className="text-xs text-gray-600">{persona.title}</p>
+                  {persona.linkedin_id && (
+                    <p className="text-xs text-blue-600">LinkedIn ID: {persona.linkedin_id}</p>
+                  )}
                 </div>
                 <Badge variant={bulkState.personalizedMessages[persona.id] ? "secondary" : "outline"} className="text-xs">
                   {bulkState.personalizedMessages[persona.id] ? "Prêt" : "En attente"}
