@@ -1,17 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
-interface PersonaSelection {
-  id?: string;
-  persona_id: string;
-  search_id: string;
-  job_id?: string;
-  status: 'selected' | 'removed' | 'duplicate_validated';
-  selected_job_id?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+type PersonaSelection = Database['public']['Tables']['persona_selections']['Row'];
+type PersonaSelectionInsert = Database['public']['Tables']['persona_selections']['Insert'];
 
 export const usePersonaSelections = (searchId: string) => {
   const [selections, setSelections] = useState<PersonaSelection[]>([]);
@@ -23,9 +16,9 @@ export const usePersonaSelections = (searchId: string) => {
       if (!searchId) return;
       
       try {
-        // Utilisation directe de la table maintenant qu'elle existe
+        // Utilisation directe de la table avec les bons types
         const { data, error } = await supabase
-          .from('persona_selections' as any)
+          .from('persona_selections')
           .select('*')
           .eq('search_id', searchId);
 
@@ -35,7 +28,19 @@ export const usePersonaSelections = (searchId: string) => {
           const saved = localStorage.getItem(`persona_selections_${searchId}`);
           if (saved) {
             try {
-              setSelections(JSON.parse(saved));
+              const parsedData = JSON.parse(saved);
+              // Mapper les données localStorage vers le format Supabase
+              const mappedData: PersonaSelection[] = parsedData.map((item: any) => ({
+                id: item.id || crypto.randomUUID(),
+                persona_id: item.persona_id || item.personaId,
+                search_id: item.search_id || item.searchId,
+                job_id: item.job_id || item.jobId,
+                status: item.status,
+                selected_job_id: item.selected_job_id || item.selectedJobId,
+                created_at: item.created_at || new Date().toISOString(),
+                updated_at: item.updated_at || new Date().toISOString()
+              }));
+              setSelections(mappedData);
             } catch (e) {
               console.error('Erreur parsing localStorage:', e);
             }
@@ -49,7 +54,18 @@ export const usePersonaSelections = (searchId: string) => {
         const saved = localStorage.getItem(`persona_selections_${searchId}`);
         if (saved) {
           try {
-            setSelections(JSON.parse(saved));
+            const parsedData = JSON.parse(saved);
+            const mappedData: PersonaSelection[] = parsedData.map((item: any) => ({
+              id: item.id || crypto.randomUUID(),
+              persona_id: item.persona_id || item.personaId,
+              search_id: item.search_id || item.searchId,
+              job_id: item.job_id || item.jobId,
+              status: item.status,
+              selected_job_id: item.selected_job_id || item.selectedJobId,
+              created_at: item.created_at || new Date().toISOString(),
+              updated_at: item.updated_at || new Date().toISOString()
+            }));
+            setSelections(mappedData);
           } catch (e) {
             console.error('Erreur parsing localStorage:', e);
           }
@@ -75,7 +91,7 @@ export const usePersonaSelections = (searchId: string) => {
     status: 'selected' | 'removed' | 'duplicate_validated',
     selectedJobId?: string
   ) => {
-    const newSelection: PersonaSelection = {
+    const newSelection: PersonaSelectionInsert = {
       persona_id: personaId,
       search_id: searchId,
       job_id: jobId,
@@ -87,7 +103,7 @@ export const usePersonaSelections = (searchId: string) => {
     try {
       // Tentative d'insertion/mise à jour en base
       const { data, error } = await supabase
-        .from('persona_selections' as any)
+        .from('persona_selections')
         .upsert(newSelection, {
           onConflict: 'persona_id,search_id'
         })
@@ -120,10 +136,16 @@ export const usePersonaSelections = (searchId: string) => {
     }
   };
 
-  const updateLocalSelections = (newSelection: PersonaSelection) => {
+  const updateLocalSelections = (newSelection: PersonaSelectionInsert) => {
+    const fullSelection: PersonaSelection = {
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+      ...newSelection
+    };
+    
     setSelections(prev => {
       const filtered = prev.filter(s => !(s.persona_id === newSelection.persona_id && s.search_id === searchId));
-      return [...filtered, newSelection];
+      return [...filtered, fullSelection];
     });
   };
 
