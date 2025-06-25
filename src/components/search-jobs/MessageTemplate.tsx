@@ -2,7 +2,6 @@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 
 interface MessageTemplateProps {
@@ -43,16 +42,15 @@ export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) =>
 J'ai vu votre annonce pour le poste de {{jobTitle}} chez {{companyName}}. 
 Votre profil correspond parfaitement à ce que nous recherchons...
 
-Variables disponibles: {{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}}, {{personaTitle}}, {{personaCompany}}`;
+Cordialement`;
 
   return (
-    <div className="space-y-3">
-      <Label className="text-base font-medium">Template de message personnalisé</Label>
-      
-      {/* Boutons de variables */}
-      <div className="space-y-2">
-        <Label className="text-sm text-gray-600">Variables disponibles :</Label>
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-4">
+      <div>
+        <Label className="text-base font-medium mb-3 block">Template de message</Label>
+        
+        {/* Boutons de variables compacts */}
+        <div className="flex flex-wrap gap-2 mb-4">
           {variables.map((variable) => (
             <Button
               key={variable.name}
@@ -60,7 +58,7 @@ Variables disponibles: {{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}
               variant="outline"
               size="sm"
               onClick={() => insertVariable(variable.name)}
-              className="flex items-center gap-1 text-xs h-7"
+              className="flex items-center gap-1 text-xs h-8 px-3"
               title={variable.description}
             >
               <Plus className="h-3 w-3" />
@@ -68,22 +66,14 @@ Variables disponibles: {{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}
             </Button>
           ))}
         </div>
-      </div>
 
-      <Textarea
-        data-message-template="true"
-        placeholder={placeholderText}
-        value={template}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-[120px] resize-none"
-      />
-      
-      <div className="flex flex-wrap gap-1 mt-2">
-        {variables.map((variable) => (
-          <Badge key={variable.name} variant="secondary" className="text-xs">
-            {variable.name}
-          </Badge>
-        ))}
+        <Textarea
+          data-message-template="true"
+          placeholder={placeholderText}
+          value={template}
+          onChange={(e) => onChange(e.target.value)}
+          className="min-h-[200px] resize-y"
+        />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,7 +28,21 @@ export const ProspectingStepProfile = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
 
-  const filteredPersonas = jobData.personas.filter(persona => {
+  // Déduplication des personas par ID LinkedIn
+  const uniquePersonas = useMemo(() => {
+    const seen = new Set<string>();
+    return jobData.personas.filter(persona => {
+      // Utiliser l'ID LinkedIn comme clé de déduplication
+      const key = persona.id || persona.linkedinId || `${persona.name}-${persona.title}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }, [jobData.personas]);
+
+  const filteredPersonas = uniquePersonas.filter(persona => {
     const matchesSearch = !searchTerm || 
       persona.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       persona.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,6 +76,8 @@ export const ProspectingStepProfile = ({
     setShowOnlySelected(checked === true);
   };
 
+  const duplicatesRemoved = jobData.personas.length - uniquePersonas.length;
+
   return (
     <div className="space-y-4">
       {/* En-tête compacte */}
@@ -72,7 +88,12 @@ export const ProspectingStepProfile = ({
             Sélection des profils à prospecter
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            {filteredPersonas.length} profil(s) trouvé(s) pour cette offre
+            {filteredPersonas.length} profil(s) unique(s) trouvé(s)
+            {duplicatesRemoved > 0 && (
+              <span className="text-green-600 ml-2">
+                ({duplicatesRemoved} doublon(s) automatiquement supprimé(s))
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -113,7 +134,7 @@ export const ProspectingStepProfile = ({
                 {selectedPersonas.length} sélectionné(s)
               </Badge>
               <Badge variant="outline">
-                {jobData.personas.length} total
+                {uniquePersonas.length} unique(s)
               </Badge>
             </div>
           </div>
@@ -160,6 +181,12 @@ export const ProspectingStepProfile = ({
                       {persona.company && (
                         <p className="text-xs text-gray-500">
                           {persona.company}
+                        </p>
+                      )}
+                      {/* Afficher l'entreprise du job si différente */}
+                      {persona.jobCompany && persona.jobCompany !== persona.company && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          Job: {persona.jobCompany}
                         </p>
                       )}
                     </div>

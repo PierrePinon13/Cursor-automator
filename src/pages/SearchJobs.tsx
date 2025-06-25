@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useSearchJobs } from '@/hooks/useSearchJobs';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
@@ -30,9 +31,18 @@ const SearchJobs = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
   const [savedSearchesExpanded, setSavedSearchesExpanded] = useState(true);
+  const [localResults, setLocalResults] = useState<any[]>([]);
+
+  // Synchroniser les résultats locaux avec les résultats de la recherche
+  useEffect(() => {
+    if (currentResults) {
+      setLocalResults(currentResults);
+    }
+  }, [currentResults]);
 
   // Reset explicite des résultats
   const resetCurrentResults = () => {
+    setLocalResults([]);
     if (typeof window !== "undefined") {
       const evt = new CustomEvent('job-results-reset');
       window.dispatchEvent(evt);
@@ -100,6 +110,17 @@ const SearchJobs = () => {
     }
   };
 
+  // Gérer la suppression de personas dans les résultats locaux
+  const handlePersonaRemoved = (jobId: string, personaId: string) => {
+    setLocalResults(prevResults => 
+      prevResults.map(job => 
+        job.id === jobId 
+          ? { ...job, personas: job.personas.filter((p: any) => p.id !== personaId) }
+          : job
+      )
+    );
+  };
+
   // Synchroniser le reset explicit des résultats avec le state local
   useEffect(() => {
     function listener() {
@@ -145,10 +166,10 @@ const SearchJobs = () => {
   }, [savedSearches, selectedSearch]);
 
   const handleBulkProspectingForSearch = () => {
-    if (!selectedSearch || !currentResults || currentResults.length === 0) return;
+    if (!selectedSearch || !localResults || localResults.length === 0) return;
     
     // Filtrer les résultats pour exclure les offres masquées
-    const visibleResults = currentResults.filter(job => !isJobHidden(job.id));
+    const visibleResults = localResults.filter(job => !isJobHidden(job.id));
     
     // Collecter tous les personas de tous les résultats visibles
     const allPersonas = visibleResults
@@ -199,14 +220,14 @@ const SearchJobs = () => {
         ]}
         actions={
           <div className="flex gap-2">
-            {selectedSearch && currentResults && currentResults.length > 0 && (
+            {selectedSearch && localResults && localResults.length > 0 && (
               <Button 
                 onClick={handleBulkProspectingForSearch}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                disabled={!currentResults.filter(job => !isJobHidden(job.id)).some(job => job.personas && job.personas.length > 0)}
+                disabled={!localResults.filter(job => !isJobHidden(job.id)).some(job => job.personas && job.personas.length > 0)}
               >
                 <Users className="h-4 w-4" />
-                Prospection volumique ({currentResults.filter(job => !isJobHidden(job.id) && job.personas && job.personas.length > 0).length} offres)
+                Prospection volumique ({localResults.filter(job => !isJobHidden(job.id) && job.personas && job.personas.length > 0).length} offres)
               </Button>
             )}
             <Button onClick={handleNewSearch} className="flex items-center gap-2">
@@ -295,10 +316,11 @@ const SearchJobs = () => {
               </Button>
             </div>
             <SearchResults
-              results={currentResults}
-              isLoading={isLoading || (!currentResults?.length && !!selectedSearch?.id)}
+              results={localResults}
+              isLoading={isLoading || (!localResults?.length && !!selectedSearch?.id)}
               key={selectedSearch.id}
               showBulkProspectingButton={false}
+              onPersonaRemoved={handlePersonaRemoved}
             />
           </div>
         )}

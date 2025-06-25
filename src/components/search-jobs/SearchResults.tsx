@@ -64,13 +64,15 @@ interface SearchResultsProps {
   isLoading: boolean;
   onHideJob?: (jobId: string) => void;
   showBulkProspectingButton?: boolean;
+  onPersonaRemoved?: (jobId: string, personaId: string) => void;
 }
 
 export const SearchResults = ({ 
   results, 
   isLoading, 
   onHideJob,
-  showBulkProspectingButton = true 
+  showBulkProspectingButton = true,
+  onPersonaRemoved
 }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
@@ -82,6 +84,16 @@ export const SearchResults = ({
     hideJob(jobId);
     if (onHideJob) {
       onHideJob(jobId);
+    }
+  };
+
+  const handlePersonaRemoved = (jobId: string, personaId: string) => {
+    if (onPersonaRemoved) {
+      onPersonaRemoved(jobId, personaId);
+    }
+    // Fermer la modale si plus de personas
+    if (selectedJob && selectedJob.id === jobId && selectedJob.personas.length === 1) {
+      setSelectedJob(null);
     }
   };
 
@@ -463,6 +475,7 @@ export const SearchResults = ({
             messageTemplate: selectedJob.messageTemplate
           }}
           onClose={() => setSelectedJob(null)}
+          onPersonaRemoved={handlePersonaRemoved}
         />
       )}
     </>

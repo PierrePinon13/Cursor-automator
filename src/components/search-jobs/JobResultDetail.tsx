@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, X, Linkedin } from 'lucide-react';
+import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, X, Linkedin, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -31,9 +31,10 @@ interface JobResultDetailProps {
     type?: string;
   };
   onClose: () => void;
+  onPersonaRemoved?: (jobId: string, personaId: string) => void;
 }
 
-export const JobResultDetail = ({ job, onClose }: JobResultDetailProps) => {
+export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDetailProps) => {
   const navigate = useNavigate();
 
   const handleBulkProspecting = () => {
@@ -60,6 +61,13 @@ export const JobResultDetail = ({ job, onClose }: JobResultDetailProps) => {
   const handleLinkedInClick = (profileUrl: string, e: React.MouseEvent) => {
     e.stopPropagation();
     window.open(profileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleRemovePersona = (personaId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPersonaRemoved) {
+      onPersonaRemoved(job.id, personaId);
+    }
   };
 
   return (
@@ -155,15 +163,25 @@ export const JobResultDetail = ({ job, onClose }: JobResultDetailProps) => {
                               </div>
                             )}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => handleLinkedInClick(persona.profileUrl, e)}
-                            className="flex items-center gap-1 ml-2 hover:bg-blue-50 hover:border-blue-200"
-                          >
-                            <Linkedin className="h-4 w-4 text-blue-600" />
-                            <span className="text-blue-600">Profil</span>
-                          </Button>
+                          <div className="flex items-center gap-2 ml-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleLinkedInClick(persona.profileUrl, e)}
+                              className="flex items-center gap-1 hover:bg-blue-50 hover:border-blue-200"
+                            >
+                              <Linkedin className="h-4 w-4 text-blue-600" />
+                              <span className="text-blue-600">Profil</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleRemovePersona(persona.id, e)}
+                              className="flex items-center gap-1 hover:bg-red-50 hover:border-red-200 text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
