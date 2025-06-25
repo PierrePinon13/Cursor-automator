@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { User, Search, Filter, Users, AlertTriangle, Building, Briefcase, CheckCircle, X } from 'lucide-react';
 import { usePersonaSelections } from '@/hooks/usePersonaSelections';
+import { useToast } from '@/hooks/use-toast';
 
 interface JobData {
   id: string;
@@ -28,6 +29,8 @@ export const ProspectingStepProfile = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
+  const [processingDuplicates, setProcessingDuplicates] = useState<{ [personaKey: string]: boolean }>({});
+  const { toast } = useToast();
   
   const searchId = `bulk-${Date.now()}`;
   const { updatePersonaStatus, isPersonaRemoved, isDuplicateValidated, getSelectedJobId } = usePersonaSelections(searchId);
@@ -48,7 +51,7 @@ export const ProspectingStepProfile = ({
     jobData.personas.forEach(persona => {
       if (!persona || typeof persona !== 'object') return;
       if (isPersonaRemoved(persona.id)) return; // Ignorer les personas supprimés
-      if (isDuplicateValidated(persona.id)) return; // Ignorer les personas déjà validés (correction principale)
+      if (isDuplicateValidated(persona.id)) return; // Ignorer les personas déjà validés
       
       const key = persona.id || persona.linkedinId || `${persona.name || 'unknown'}-${persona.title || 'unknown'}`;
       if (!personaMap.has(key)) {
@@ -172,34 +175,50 @@ export const ProspectingStepProfile = ({
     const personaKey = persona._personaKey;
     const selectedOfferId = duplicateSelections[personaKey];
     
-    if (!selectedOfferId) return;
+    if (!selectedOfferId) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner une offre avant de valider.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    const selectedOffer = persona._jobOffers.find((offer: any) => offer.jobId === selectedOfferId);
-    if (!selectedOffer) return;
-
-    // Créer le persona spécifique avec les détails de l'offre sélectionnée
-    const specificPersona = {
-      ...persona,
-      jobId: selectedOffer.jobId,
-      jobTitle: selectedOffer.jobTitle,
-      jobCompany: selectedOffer.jobCompany,
-      location: selectedOffer.jobLocation,
-      _selectedForOffer: selectedOffer.jobId
-    };
-
+    setProcessingDuplicates(prev => ({ ...prev, [personaKey]: true }));
+    
     try {
+      const selectedOffer = persona._jobOffers.find((offer: any) => offer.jobId === selectedOfferId);
+      if (!selectedOffer) {
+        throw new Error("Offre sélectionnée introuvable");
+      }
+
+      // Créer le persona spécifique avec les détails de l'offre sélectionnée
+      const specificPersona = {
+        ...persona,
+        jobId: selectedOffer.jobId,
+        jobTitle: selectedOffer.jobTitle,
+        jobCompany: selectedOffer.jobCompany,
+        location: selectedOffer.jobLocation,
+        _selectedForOffer: selectedOffer.jobId
+      };
+
       // Mettre à jour en base de données pour marquer comme validé
       await updatePersonaStatus(persona.id, selectedOfferId, 'duplicate_validated', selectedOfferId);
 
       // Ajouter à la sélection des personas
-      const updatedSelection = [...selectedPersonas, specificPersona];
+      const updatedSelection = [...selectedPersonas.filter(p => p.id !== persona.id), specificPersona];
       onSelectionChange(updatedSelection);
       
-      // Nettoyer la sélection temporaire
+      // Nettoyer les sélections temporaires
       setDuplicateSelections(prev => {
         const newSelections = { ...prev };
         delete newSelections[personaKey];
         return newSelections;
+      });
+
+      toast({
+        title: "Doublon traité",
+        description: `${persona.name} a été ajouté avec l'offre sélectionnée.`,
       });
 
       console.log('Doublon validé avec succès:', {
@@ -210,11 +229,20 @@ export const ProspectingStepProfile = ({
 
     } catch (error) {
       console.error('Erreur lors de la validation du doublon:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors du traitement du doublon.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingDuplicates(prev => ({ ...prev, [personaKey]: false }));
     }
   };
 
   const handleDuplicateSkip = async (persona: any) => {
     const personaKey = persona._personaKey;
+    
+    setProcessingDuplicates(prev => ({ ...prev, [personaKey]: true }));
     
     try {
       // Marquer comme validé en base de données (ignoré)
@@ -227,6 +255,11 @@ export const ProspectingStepProfile = ({
         return newSelections;
       });
 
+      toast({
+        title: "Doublon ignoré",
+        description: `${persona.name} a été ignoré et ne sera pas inclus dans la prospection.`,
+      });
+
       console.log('Doublon ignoré:', {
         personaId: persona.id,
         personaName: persona.name
@@ -234,6 +267,13 @@ export const ProspectingStepProfile = ({
 
     } catch (error) {
       console.error('Erreur lors de l\'ignorement du doublon:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'ignorement du doublon.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingDuplicates(prev => ({ ...prev, [personaKey]: false }));
     }
   };
 
@@ -312,7 +352,7 @@ export const ProspectingStepProfile = ({
             )}
             {filteredDuplicatePersonas.length > 0 && (
               <span className="text-orange-600 ml-2">
-                • {filteredDuplicatePersonas.length} profil(s) avec plusieurs offres
+                • {filteredDuplicatePersonas.length} profil(s) avec plusieurs offres à traiter
               </span>
             )}
           </p>
@@ -378,6 +418,7 @@ export const ProspectingStepProfile = ({
             {filteredDuplicatePersonas.map((persona) => {
               const personaKey = persona._personaKey;
               const selectedOfferId = duplicateSelections[personaKey];
+              const isProcessing = processingDuplicates[personaKey];
               
               return (
                 <div key={persona.id} className="bg-white p-4 rounded-lg border">
@@ -418,6 +459,7 @@ export const ProspectingStepProfile = ({
                               });
                             }
                           }}
+                          disabled={isProcessing}
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-1 text-sm font-medium">
@@ -438,16 +480,26 @@ export const ProspectingStepProfile = ({
                     <Button
                       size="sm"
                       onClick={() => handleDuplicateValidation(persona)}
-                      disabled={!selectedOfferId}
+                      disabled={!selectedOfferId || isProcessing}
                       className="bg-green-600 hover:bg-green-700"
                     >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Valider
+                      {isProcessing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                          Traitement...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Valider
+                        </>
+                      )}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleDuplicateSkip(persona)}
+                      disabled={isProcessing}
                       className="text-gray-600"
                     >
                       <X className="h-4 w-4 mr-1" />
