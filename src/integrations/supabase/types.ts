@@ -1964,6 +1964,39 @@ export type Database = {
         }
         Relationships: []
       }
+      persona_selections: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string | null
+          persona_id: string
+          search_id: string
+          selected_job_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          persona_id: string
+          search_id: string
+          selected_job_id?: string | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          persona_id?: string
+          search_id?: string
+          selected_job_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       processing_metrics_hourly: {
         Row: {
           avg_processing_time_minutes: number | null

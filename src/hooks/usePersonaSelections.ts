@@ -23,14 +23,15 @@ export const usePersonaSelections = (searchId: string) => {
       if (!searchId) return;
       
       try {
-        // Utilisation d'une requête SQL brute pour éviter les problèmes de types
-        const { data, error } = await supabase.rpc('select_persona_selections', {
-          search_id_param: searchId
-        });
+        // Utilisation directe de la table maintenant qu'elle existe
+        const { data, error } = await supabase
+          .from('persona_selections' as any)
+          .select('*')
+          .eq('search_id', searchId);
 
         if (error) {
           console.error('Erreur lors du chargement des sélections:', error);
-          // Fallback vers localStorage si la table n'existe pas encore
+          // Fallback vers localStorage si erreur
           const saved = localStorage.getItem(`persona_selections_${searchId}`);
           if (saved) {
             try {
@@ -85,13 +86,13 @@ export const usePersonaSelections = (searchId: string) => {
 
     try {
       // Tentative d'insertion/mise à jour en base
-      const { data, error } = await supabase.rpc('upsert_persona_selection', {
-        persona_id_param: personaId,
-        search_id_param: searchId,
-        job_id_param: jobId,
-        status_param: status,
-        selected_job_id_param: selectedJobId
-      });
+      const { data, error } = await supabase
+        .from('persona_selections' as any)
+        .upsert(newSelection, {
+          onConflict: 'persona_id,search_id'
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Erreur lors de la mise à jour en base:', error);
