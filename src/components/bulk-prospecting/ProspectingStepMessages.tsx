@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -5,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, User } from 'lucide-react';
+import { MessageSquare, User, X } from 'lucide-react';
 import { JobData, Persona } from '@/types/jobSearch';
 
 interface ProspectingStepMessagesProps {
@@ -14,6 +15,7 @@ interface ProspectingStepMessagesProps {
   messageTemplate: string;
   personalizedMessages: { [personaId: string]: string };
   onMessagesChange: (messages: { [personaId: string]: string }) => void;
+  onPersonaRemoved: (personaId: string) => void;
   getTemplateForPersona?: (persona: Persona) => string;
 }
 
@@ -23,6 +25,7 @@ export const ProspectingStepMessages = ({
   messageTemplate,
   personalizedMessages,
   onMessagesChange,
+  onPersonaRemoved,
   getTemplateForPersona
 }: ProspectingStepMessagesProps) => {
   // Fonction pour remplacer les variables avec les vraies données
@@ -68,6 +71,16 @@ export const ProspectingStepMessages = ({
       ...personalizedMessages,
       [personaId]: message
     });
+  };
+
+  const handleRemovePersona = (personaId: string) => {
+    // Supprimer le message personnalisé
+    const updatedMessages = { ...personalizedMessages };
+    delete updatedMessages[personaId];
+    onMessagesChange(updatedMessages);
+    
+    // Supprimer le persona de la sélection
+    onPersonaRemoved(personaId);
   };
 
   if (!Array.isArray(selectedPersonas) || selectedPersonas.length === 0) {
@@ -124,9 +137,20 @@ export const ProspectingStepMessages = ({
                     {persona.company && ` chez ${persona.company}`}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  #{index + 1}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    #{index + 1}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleRemovePersona(persona.id)}
+                    className="flex items-center gap-1 hover:bg-red-50 hover:border-red-200 text-red-600 h-8 w-8 p-0"
+                    title="Supprimer ce contact"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="pt-0">

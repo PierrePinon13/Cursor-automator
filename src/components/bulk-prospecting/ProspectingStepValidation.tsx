@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, AlertTriangle, User, MessageSquare, Send } from 'lucide-react';
+import { CheckCircle, AlertTriangle, User, Send } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface JobData {
   id: string;
@@ -32,18 +33,81 @@ export const ProspectingStepValidation = ({
   onSend
 }: ProspectingStepValidationProps) => {
   const [isSending, setIsSending] = useState(false);
+  const { toast } = useToast();
 
   const messagesReady = Object.keys(bulkState.personalizedMessages).length === bulkState.selectedPersonas.length;
   const allMessagesHaveContent = Object.values(bulkState.personalizedMessages).every(msg => msg.trim().length > 0);
 
+  const generateUniqueId = () => {
+    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
   const handleSend = async () => {
+    if (!messagesReady || !allMessagesHaveContent) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez compléter tous les messages avant d'envoyer.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSending(true);
+    
     try {
-      // Ici, vous ajouteriez la logique d'envoi réelle
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulation
-      onSend();
+      // Générer un ID unique pour cette demande d'envoi en masse
+      const bulkRequestId = `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Préparer les données pour l'API N8N
+      const messagesToSend = bulkState.selectedPersonas.map(persona => ({
+        id: generateUniqueId(), // ID unique pour chaque message
+        personaId: persona.id,
+        personaName: persona.name,
+        personaTitle: persona.title,
+        personaCompany: persona.company,
+        personaProfileUrl: persona.profileUrl || persona.profile_url,
+        jobTitle: persona.jobTitle,
+        jobCompany: persona.jobCompany,
+        jobId: persona.jobId,
+        message: bulkState.personalizedMessages[persona.id],
+        bulkRequestId: bulkRequestId // ID de la demande d'envoi en masse
+      }));
+
+      console.log('Envoi vers N8N:', { bulkRequestId, messages: messagesToSend });
+
+      // URL de l'API N8N pour l'envoi de messages
+      const n8nUrl = 'https://n8n-lovable.app.n8n.cloud/webhook/bulk-linkedin-messages';
+      
+      const response = await fetch(n8nUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bulkRequestId: bulkRequestId,
+          messages: messagesToSend,
+          timestamp: new Date().toISOString(),
+          totalMessages: messagesToSend.length
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Messages envoyés",
+          description: `${messagesToSend.length} messages ont été envoyés avec succès vers le système de traitement.`,
+        });
+        onSend();
+      } else {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
     } catch (error) {
-      console.error('Erreur lors de l\'envoi:', error);
+      console.error('Erreur lors de l\'envoi vers N8N:', error);
+      toast({
+        title: "Erreur d'envoi",
+        description: "Une erreur est survenue lors de l'envoi des messages. Veuillez réessayer.",
+        variant: "destructive",
+      });
     } finally {
       setIsSending(false);
     }

@@ -173,6 +173,27 @@ const BulkProspecting = () => {
     }
   };
 
+  const updateBulkState = (updates: Partial<BulkProspectingState>) => {
+    setBulkState(prev => ({ ...prev, ...updates }));
+  };
+
+  const handlePersonaRemovedFromMessages = (personaId: string) => {
+    // Supprimer le persona de la liste des personas sélectionnés
+    const updatedPersonas = bulkState.selectedPersonas.filter(p => p.id !== personaId);
+    setBulkState(prev => ({
+      ...prev,
+      selectedPersonas: updatedPersonas,
+      // Supprimer aussi le message personnalisé correspondant
+      personalizedMessages: Object.fromEntries(
+        Object.entries(prev.personalizedMessages).filter(([id]) => id !== personaId)
+      )
+    }));
+  };
+
+  const getProgressPercentage = () => {
+    return (currentStep / steps.length) * 100;
+  };
+
   const steps = [
     { 
       number: 1, 
@@ -246,27 +267,6 @@ const BulkProspecting = () => {
     }
   };
 
-  const updateBulkState = (updates: Partial<BulkProspectingState>) => {
-    setBulkState(prev => ({ ...prev, ...updates }));
-  };
-
-  const getProgressPercentage = () => {
-    return (currentStep / steps.length) * 100;
-  };
-
-  if (!jobData) {
-    return (
-      <PageLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Chargement des données...</p>
-          </div>
-        </div>
-      </PageLayout>
-    );
-  }
-
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
@@ -328,6 +328,7 @@ const BulkProspecting = () => {
             messageTemplate={templateMode === 'unified' ? bulkState.messageTemplate : ''}
             personalizedMessages={bulkState.personalizedMessages}
             onMessagesChange={(messages) => updateBulkState({ personalizedMessages: messages })}
+            onPersonaRemoved={handlePersonaRemovedFromMessages}
             getTemplateForPersona={getTemplateForPersona}
           />
         );
@@ -346,6 +347,19 @@ const BulkProspecting = () => {
         return null;
     }
   };
+
+  if (!jobData) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p>Chargement des données...</p>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
