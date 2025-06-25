@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Crown, Building, Calendar } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PreviousClientCompaniesProps {
   lead: any;
@@ -14,56 +15,93 @@ interface ClientCompany {
   endDate?: string;
   isCurrent: boolean;
   linkedinId?: string;
+  clientName?: string;
 }
 
 const PreviousClientCompanies = ({ lead }: PreviousClientCompaniesProps) => {
-  // Extraire les entreprises clientes à partir des colonnes structurées
-  const getClientCompanies = (): ClientCompany[] => {
-    const clientCompanies: ClientCompany[] = [];
-    
-    for (let i = 1; i <= 5; i++) {
-      const companyName = lead[`company_${i}_name`];
-      const companyLinkedInId = lead[`company_${i}_linkedin_id`];
-      const position = lead[`company_${i}_position`];
-      const startDate = lead[`company_${i}_start_date`];
-      const endDate = lead[`company_${i}_end_date`];
-      const isCurrent = lead[`company_${i}_is_current`];
-      
-      if (companyName && companyLinkedInId) {
-        // Vérifier si cette entreprise est dans previous_client_companies
-        const isClientCompany = lead.previous_client_companies?.some((clientCompany: any) => {
-          if (typeof clientCompany === 'string') {
-            return clientCompany.toLowerCase() === companyName.toLowerCase();
-          }
-          return clientCompany.client_name?.toLowerCase() === companyName.toLowerCase() ||
-                 clientCompany.company_name?.toLowerCase() === companyName.toLowerCase();
-        });
-        
-        if (isClientCompany) {
-          clientCompanies.push({
-            companyName,
-            position: position || 'Poste non spécifié',
-            startDate,
-            endDate,
-            isCurrent: isCurrent || false,
-            linkedinId: companyLinkedInId
-          });
+  const [clientCompanies, setClientCompanies] = useState<ClientCompany[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkClientHistory = async () => {
+      if (!lead) return;
+
+      try {
+        // Récupérer tous les LinkedIn IDs des entreprises du lead
+        const companyLinkedInIds = [
+          lead.company_1_linkedin_id,
+          lead.company_2_linkedin_id,
+          lead.company_3_linkedin_id,
+          lead.company_4_linkedin_id,
+          lead.company_5_linkedin_id
+        ].filter(Boolean);
+
+        if (companyLinkedInIds.length === 0) {
+          setLoading(false);
+          return;
         }
+
+        // Vérifier quelles entreprises sont des clients
+        const { data: clients, error } = await supabase
+          .from('clients')
+          .select('company_name, company_linkedin_id')
+          .in('company_linkedin_id', companyLinkedInIds);
+
+        if (error) {
+          console.error('Error checking client companies:', error);
+          setLoading(false);
+          return;
+        }
+
+        // Construire la liste des entreprises clientes
+        const foundClientCompanies: ClientCompany[] = [];
+
+        for (let i = 1; i <= 5; i++) {
+          const companyName = lead[`company_${i}_name`];
+          const companyLinkedInId = lead[`company_${i}_linkedin_id`];
+          const position = lead[`company_${i}_position`];
+          const startDate = lead[`company_${i}_start_date`];
+          const endDate = lead[`company_${i}_end_date`];
+          const isCurrent = lead[`company_${i}_is_current`];
+
+          if (companyName && companyLinkedInId) {
+            // Vérifier si cette entreprise est un client
+            const clientMatch = clients?.find(client => 
+              client.company_linkedin_id === companyLinkedInId
+            );
+
+            if (clientMatch) {
+              foundClientCompanies.push({
+                companyName,
+                position: position || 'Poste non spécifié',
+                startDate,
+                endDate,
+                isCurrent: isCurrent || false,
+                linkedinId: companyLinkedInId,
+                clientName: clientMatch.company_name
+              });
+            }
+          }
+        }
+
+        setClientCompanies(foundClientCompanies);
+      } catch (error) {
+        console.error('Error in client history check:', error);
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    return clientCompanies;
-  };
+    };
+
+    checkClientHistory();
+  }, [lead]);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return null;
     
     try {
-      // Essayer de parser différents formats de date
       let date: Date;
       
       if (dateString.includes('/')) {
-        // Format MM/DD/YYYY ou M/D/YYYY
         const parts = dateString.split('/');
         if (parts.length === 3) {
           date = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
@@ -87,7 +125,9 @@ const PreviousClientCompanies = ({ lead }: PreviousClientCompaniesProps) => {
     }
   };
 
-  const clientCompanies = getClientCompanies();
+  if (loading) {
+    return null;
+  }
 
   if (clientCompanies.length === 0) {
     return null;
