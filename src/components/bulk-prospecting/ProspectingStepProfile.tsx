@@ -28,6 +28,8 @@ export const ProspectingStepProfile = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
+  const [processedDuplicates, setProcessedDuplicates] = useState<Set<string>>(new Set());
+  const [removedPersonas, setRemovedPersonas] = useState<Set<string>>(new Set());
 
   // Grouper les personas par identité unique et séparer ceux avec plusieurs offres
   const { uniquePersonas, duplicatePersonas, duplicatesRemoved } = useMemo(() => {
@@ -41,9 +43,10 @@ export const ProspectingStepProfile = ({
 
     const personaMap = new Map<string, any[]>();
     
-    // Grouper par identité (nom + titre ou ID LinkedIn)
+    // Grouper par identité (nom + titre ou ID LinkedIn) en excluant les personas supprimés
     jobData.personas.forEach(persona => {
       if (!persona || typeof persona !== 'object') return;
+      if (removedPersonas.has(persona.id)) return; // Ignorer les personas supprimés
       
       const key = persona.id || persona.linkedinId || `${persona.name || 'unknown'}-${persona.title || 'unknown'}`;
       if (!personaMap.has(key)) {
@@ -57,6 +60,11 @@ export const ProspectingStepProfile = ({
     let removedCount = 0;
     
     personaMap.forEach((personas, key) => {
+      // Ignorer si ce doublon a déjà été traité
+      if (processedDuplicates.has(key)) {
+        return;
+      }
+
       if (personas.length === 1) {
         // Persona unique
         const persona = personas[0];
@@ -94,7 +102,7 @@ export const ProspectingStepProfile = ({
       duplicatePersonas: duplicates,
       duplicatesRemoved: removedCount
     };
-  }, [jobData]);
+  }, [jobData, processedDuplicates, removedPersonas]);
 
   const filteredUniquePersonas = uniquePersonas.filter(persona => {
     if (!persona || typeof persona !== 'object') return false;
@@ -177,7 +185,11 @@ export const ProspectingStepProfile = ({
       _selectedForOffer: selectedOffer.jobId
     };
 
+    // Ajouter à la sélection
     onSelectionChange([...selectedPersonas, specificPersona]);
+    
+    // Marquer ce doublon comme traité
+    setProcessedDuplicates(prev => new Set([...prev, personaKey]));
     
     // Nettoyer la sélection
     setDuplicateSelections(prev => {
@@ -189,6 +201,10 @@ export const ProspectingStepProfile = ({
 
   const handleDuplicateSkip = (persona: any) => {
     const personaKey = persona._personaKey;
+    
+    // Marquer ce doublon comme traité (ignoré)
+    setProcessedDuplicates(prev => new Set([...prev, personaKey]));
+    
     // Nettoyer la sélection
     setDuplicateSelections(prev => {
       const newSelections = { ...prev };
@@ -197,8 +213,17 @@ export const ProspectingStepProfile = ({
     });
   };
 
+  const handleRemovePersona = (personaId: string) => {
+    // Ajouter à la liste des personas supprimés (persistant)
+    setRemovedPersonas(prev => new Set([...prev, personaId]));
+    
+    // Supprimer de la sélection s'il y était
+    onSelectionChange(selectedPersonas.filter(selected => selected && selected.id !== personaId));
+  };
+
   const selectAll = () => {
     const allPersonasWithJobs = filteredUniquePersonas
+      .filter(persona => !removedPersonas.has(persona.id)) // Exclure les personas supprimés
       .map(persona => {
         const jobOffer = persona._jobOffers && persona._jobOffers[0] ? persona._jobOffers[0] : {
           jobId: jobData.id,
@@ -242,9 +267,9 @@ export const ProspectingStepProfile = ({
                 ({duplicatesRemoved} doublon(s) automatiquement regroupé(s))
               </span>
             )}
-            {duplicatePersonas.length > 0 && (
+            {filteredDuplicatePersonas.length > 0 && (
               <span className="text-orange-600 ml-2">
-                • {duplicatePersonas.length} profil(s) avec plusieurs offres
+                • {filteredDuplicatePersonas.length} profil(s) avec plusieurs offres
               </span>
             )}
           </p>
@@ -399,20 +424,35 @@ export const ProspectingStepProfile = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {filteredUniquePersonas.map((persona) => {
               if (!persona || typeof persona !== 'object') return null;
+              if (removedPersonas.has(persona.id)) return null; // Ne pas afficher les personas supprimés
               
               const isSelected = selectedPersonas.some(selected => selected && selected.id === persona.id);
               
               return (
                 <div
                   key={persona.id || `persona-${Math.random()}`}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 relative ${
                     isSelected 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => togglePersona(persona)}
                 >
-                  <div className="flex items-start gap-3">
+                  {/* Bouton supprimer */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemovePersona(persona.id);
+                    }}
+                    className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-50 hover:border-red-200 text-red-600"
+                    title="Supprimer ce contact"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+
+                  <div className="flex items-start gap-3 pr-8">
                     <Checkbox
                       checked={isSelected}
                       onChange={() => {}} // Handled by parent click

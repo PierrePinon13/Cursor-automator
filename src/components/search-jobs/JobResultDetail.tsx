@@ -69,9 +69,10 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
     e.preventDefault();
     
     // Supprimer le persona de l'affichage local
-    setLocalPersonas(prev => prev.filter(p => p.id !== personaId));
+    const updatedPersonas = localPersonas.filter(p => p.id !== personaId);
+    setLocalPersonas(updatedPersonas);
     
-    // Appeler le callback parent si fourni
+    // Appeler le callback parent si fourni pour persister la suppression
     if (onPersonaRemoved) {
       onPersonaRemoved(job.id, personaId);
     }
