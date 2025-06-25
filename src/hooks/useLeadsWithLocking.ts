@@ -37,29 +37,16 @@ export const useLeadsWithLocking = () => {
     }
   }, [user]);
 
-  // Nettoyer les anciens verrous périodiquement
-  const cleanupOldLocks = useCallback(async () => {
-    try {
-      await supabase.rpc('cleanup_old_locks');
-    } catch (error) {
-      console.error('Error cleaning up old locks:', error);
-    }
-  }, []);
-
   useEffect(() => {
     fetchUnlockedLeads();
 
     // Rafraîchir la liste toutes les 10 secondes
     const refreshInterval = setInterval(fetchUnlockedLeads, 10000);
 
-    // Nettoyer les anciens verrous toutes les 5 minutes
-    const cleanupInterval = setInterval(cleanupOldLocks, 5 * 60 * 1000);
-
     return () => {
       clearInterval(refreshInterval);
-      clearInterval(cleanupInterval);
     };
-  }, [fetchUnlockedLeads, cleanupOldLocks]);
+  }, [fetchUnlockedLeads]);
 
   return {
     leads,
