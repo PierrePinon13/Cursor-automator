@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,6 +65,8 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
 
   const handleRemovePersona = (personaId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
+    console.log('Removing persona:', personaId, 'from job:', job.id);
     if (onPersonaRemoved) {
       onPersonaRemoved(job.id, personaId);
     }
@@ -100,11 +102,9 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
                   {job.type}
                 </Badge>
               )}
-              <DialogClose asChild>
-                <Button variant="ghost" size="sm" className="p-2">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogClose>
+              <Button variant="ghost" size="sm" className="p-2" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </DialogHeader>
@@ -158,10 +158,13 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
                               {persona.title}
                             </div>
                             {persona.company && (
-                              <div className="text-xs text-gray-500 mb-3">
+                              <div className="text-xs text-gray-500 mb-2">
                                 {persona.company}
                               </div>
                             )}
+                            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                              Offre: {job.title} - {job.company}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 ml-2">
                             <Button
