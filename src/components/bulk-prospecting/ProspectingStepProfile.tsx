@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { User, Search, Filter, Users, AlertTriangle, Building, Briefcase, CheckCircle, X } from 'lucide-react';
+import { usePersonaSelections } from '@/hooks/usePersonaSelections';
 
 interface JobData {
   id: string;
@@ -28,9 +28,9 @@ export const ProspectingStepProfile = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
-  const [processedDuplicates, setProcessedDuplicates] = useState<Set<string>>(new Set());
-  const [removedPersonas, setRemovedPersonas] = useState<Set<string>>(new Set());
-  const [validatedDuplicates, setValidatedDuplicates] = useState<Set<string>>(new Set());
+  
+  const searchId = `bulk-${Date.now()}`;
+  const { updatePersonaStatus, isPersonaRemoved, isDuplicateValidated, getSelectedJobId } = usePersonaSelections(searchId);
 
   // Grouper les personas par identité unique et séparer ceux avec plusieurs offres
   const { uniquePersonas, duplicatePersonas, duplicatesRemoved } = useMemo(() => {
@@ -47,7 +47,7 @@ export const ProspectingStepProfile = ({
     // Grouper par identité (nom + titre ou ID LinkedIn) en excluant les personas supprimés
     jobData.personas.forEach(persona => {
       if (!persona || typeof persona !== 'object') return;
-      if (removedPersonas.has(persona.id)) return; // Ignorer les personas supprimés
+      if (isPersonaRemoved(persona.id)) return; // Ignorer les personas supprimés
       
       const key = persona.id || persona.linkedinId || `${persona.name || 'unknown'}-${persona.title || 'unknown'}`;
       if (!personaMap.has(key)) {
@@ -61,8 +61,8 @@ export const ProspectingStepProfile = ({
     let removedCount = 0;
     
     personaMap.forEach((personas, key) => {
-      // Ignorer si ce doublon a déjà été traité et validé
-      if (processedDuplicates.has(key) && validatedDuplicates.has(key)) {
+      // Ignorer si ce doublon a déjà été validé
+      if (isDuplicateValidated(personas[0]?.id)) {
         return;
       }
 
@@ -80,23 +80,20 @@ export const ProspectingStepProfile = ({
         }
       } else {
         // Persona avec plusieurs offres
-        if (!validatedDuplicates.has(key)) {
-          // Afficher seulement les doublons non validés
-          removedCount += personas.length - 1;
-          const representative = personas[0];
-          if (representative && typeof representative === 'object') {
-            representative._jobOffers = personas
-              .filter(p => p && typeof p === 'object')
-              .map(p => ({
-                jobId: p.jobId || jobData.id,
-                jobTitle: p.jobTitle || jobData.title,
-                jobCompany: p.jobCompany || jobData.company,
-                jobLocation: p.location
-              }));
-            representative._isMultipleOffers = true;
-            representative._personaKey = key;
-            duplicates.push(representative);
-          }
+        removedCount += personas.length - 1;
+        const representative = personas[0];
+        if (representative && typeof representative === 'object') {
+          representative._jobOffers = personas
+            .filter(p => p && typeof p === 'object')
+            .map(p => ({
+              jobId: p.jobId || jobData.id,
+              jobTitle: p.jobTitle || jobData.title,
+              jobCompany: p.jobCompany || jobData.company,
+              jobLocation: p.location
+            }));
+          representative._isMultipleOffers = true;
+          representative._personaKey = key;
+          duplicates.push(representative);
         }
       }
     });
@@ -106,7 +103,7 @@ export const ProspectingStepProfile = ({
       duplicatePersonas: duplicates,
       duplicatesRemoved: removedCount
     };
-  }, [jobData, processedDuplicates, removedPersonas, validatedDuplicates]);
+  }, [jobData, isPersonaRemoved, isDuplicateValidated]);
 
   const filteredUniquePersonas = uniquePersonas.filter(persona => {
     if (!persona || typeof persona !== 'object') return false;
@@ -146,6 +143,7 @@ export const ProspectingStepProfile = ({
       // Supprimer de la sélection
       const updatedSelection = selectedPersonas.filter(selected => selected && selected.id !== persona.id);
       onSelectionChange(updatedSelection);
+      updatePersonaStatus(persona.id, persona.jobId || jobData.id, 'removed');
     } else {
       // Ajouter à la sélection
       const jobOffer = persona._jobOffers && persona._jobOffers[0] ? persona._jobOffers[0] : {
@@ -163,6 +161,7 @@ export const ProspectingStepProfile = ({
         location: jobOffer.jobLocation
       };
       onSelectionChange([...selectedPersonas, personaWithJob]);
+      updatePersonaStatus(persona.id, persona.jobId || jobData.id, 'selected');
     }
   };
 
@@ -173,7 +172,7 @@ export const ProspectingStepProfile = ({
     }));
   };
 
-  const handleDuplicateValidation = (persona: any) => {
+  const handleDuplicateValidation = async (persona: any) => {
     const personaKey = persona._personaKey;
     const selectedOfferId = duplicateSelections[personaKey];
     
@@ -191,13 +190,12 @@ export const ProspectingStepProfile = ({
       _selectedForOffer: selectedOffer.jobId
     };
 
+    // Mettre à jour en base de données
+    await updatePersonaStatus(persona.id, selectedOfferId, 'duplicate_validated', selectedOfferId);
+
     // Ajouter à la sélection
     onSelectionChange([...selectedPersonas, specificPersona]);
     
-    // Marquer ce doublon comme traité ET validé
-    setProcessedDuplicates(prev => new Set([...prev, personaKey]));
-    setValidatedDuplicates(prev => new Set([...prev, personaKey]));
-    
     // Nettoyer la sélection
     setDuplicateSelections(prev => {
       const newSelections = { ...prev };
@@ -206,12 +204,11 @@ export const ProspectingStepProfile = ({
     });
   };
 
-  const handleDuplicateSkip = (persona: any) => {
+  const handleDuplicateSkip = async (persona: any) => {
     const personaKey = persona._personaKey;
     
-    // Marquer ce doublon comme traité (ignoré) ET validé
-    setProcessedDuplicates(prev => new Set([...prev, personaKey]));
-    setValidatedDuplicates(prev => new Set([...prev, personaKey]));
+    // Marquer comme validé en base de données (ignoré)
+    await updatePersonaStatus(persona.id, '', 'duplicate_validated');
     
     // Nettoyer la sélection
     setDuplicateSelections(prev => {
@@ -221,9 +218,9 @@ export const ProspectingStepProfile = ({
     });
   };
 
-  const handleRemovePersona = (personaId: string) => {
-    // Ajouter à la liste des personas supprimés (persistant)
-    setRemovedPersonas(prev => new Set([...prev, personaId]));
+  const handleRemovePersona = async (personaId: string) => {
+    // Mettre à jour en base de données
+    await updatePersonaStatus(personaId, '', 'removed');
     
     // Supprimer de la sélection s'il y était
     const updatedSelection = selectedPersonas.filter(selected => selected && selected.id !== personaId);
@@ -232,7 +229,7 @@ export const ProspectingStepProfile = ({
 
   const selectAll = () => {
     const allPersonasWithJobs = filteredUniquePersonas
-      .filter(persona => !removedPersonas.has(persona.id)) // Exclure les personas supprimés
+      .filter(persona => !isPersonaRemoved(persona.id)) // Exclure les personas supprimés
       .map(persona => {
         const jobOffer = persona._jobOffers && persona._jobOffers[0] ? persona._jobOffers[0] : {
           jobId: jobData.id,
@@ -249,10 +246,21 @@ export const ProspectingStepProfile = ({
           location: jobOffer.jobLocation
         };
       });
+    
+    // Mettre à jour en base de données
+    allPersonasWithJobs.forEach(persona => {
+      updatePersonaStatus(persona.id, persona.jobId, 'selected');
+    });
+    
     onSelectionChange(allPersonasWithJobs);
   };
 
   const deselectAll = () => {
+    // Mettre à jour en base de données
+    selectedPersonas.forEach(persona => {
+      updatePersonaStatus(persona.id, persona.jobId || jobData.id, 'removed');
+    });
+    
     onSelectionChange([]);
   };
 
@@ -433,7 +441,7 @@ export const ProspectingStepProfile = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {filteredUniquePersonas.map((persona) => {
               if (!persona || typeof persona !== 'object') return null;
-              if (removedPersonas.has(persona.id)) return null; // Ne pas afficher les personas supprimés
+              if (isPersonaRemoved(persona.id)) return null; // Ne pas afficher les personas supprimés
               
               const isSelected = selectedPersonas.some(selected => selected && selected.id === persona.id);
               

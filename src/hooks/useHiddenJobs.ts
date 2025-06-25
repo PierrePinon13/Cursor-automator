@@ -1,5 +1,15 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface PersonaSelection {
+  personaId: string;
+  searchId: string;
+  jobId: string;
+  status: 'selected' | 'removed' | 'duplicate_validated';
+  selectedJobId?: string; // Pour les doublons validés
+  createdAt: string;
+}
 
 export const useHiddenJobs = () => {
   const [hiddenJobs, setHiddenJobs] = useState<Set<string>>(new Set());

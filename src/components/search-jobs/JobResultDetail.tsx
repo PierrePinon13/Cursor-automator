@@ -9,6 +9,7 @@ import { Users, Building, MapPin, Calendar, ExternalLink, MessageSquare, Linkedi
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { usePersonaSelections } from '@/hooks/usePersonaSelections';
 
 interface JobResultDetailProps {
   job: {
@@ -36,24 +37,20 @@ interface JobResultDetailProps {
 
 export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDetailProps) => {
   const navigate = useNavigate();
-  const [localPersonas, setLocalPersonas] = React.useState(job.personas);
-  const [removedPersonas, setRemovedPersonas] = React.useState<string[]>([]);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const { updatePersonaStatus, isPersonaRemoved } = usePersonaSelections(`job-${job.id}`);
 
-  const handleBulkProspecting = () => {
-    // Appliquer les suppressions avant de naviguer
-    if (hasUnsavedChanges) {
-      handleConfirmDeletions();
-    }
-    
-    if (!localPersonas || localPersonas.length === 0) return;
+  // Filtrer les personas supprimés
+  const visiblePersonas = job.personas.filter(persona => !isPersonaRemoved(persona.id, job.id));
+
+  const handleBulkProspecting = () => {    
+    if (!visiblePersonas || visiblePersonas.length === 0) return;
     
     const params = new URLSearchParams({
       searchId: 'single-job',
       searchName: `${job.title} - ${job.company}`,
       totalJobs: '1',
-      totalPersonas: localPersonas.length.toString(),
-      personas: JSON.stringify(localPersonas.map(persona => ({
+      totalPersonas: visiblePersonas.length.toString(),
+      personas: JSON.stringify(visiblePersonas.map(persona => ({
         ...persona,
         jobTitle: job.title,
         jobCompany: job.company,
@@ -71,37 +68,16 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
     window.open(profileUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const handleRemovePersona = (personaId: string, e: React.MouseEvent) => {
+  const handleRemovePersona = async (personaId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     
-    // Supprimer le persona de l'affichage local
-    const updatedPersonas = localPersonas.filter(p => p.id !== personaId);
-    setLocalPersonas(updatedPersonas);
+    // Mettre à jour en base de données
+    const success = await updatePersonaStatus(personaId, job.id, 'removed');
     
-    // Ajouter à la liste des suppressions
-    setRemovedPersonas(prev => [...prev, personaId]);
-    setHasUnsavedChanges(true);
-  };
-
-  const handleConfirmDeletions = () => {
-    // Appliquer toutes les suppressions en une fois
-    removedPersonas.forEach(personaId => {
-      if (onPersonaRemoved) {
-        onPersonaRemoved(job.id, personaId);
-      }
-    });
-    
-    // Réinitialiser l'état
-    setRemovedPersonas([]);
-    setHasUnsavedChanges(false);
-  };
-
-  const handleCancelDeletions = () => {
-    // Restaurer l'état original
-    setLocalPersonas(job.personas);
-    setRemovedPersonas([]);
-    setHasUnsavedChanges(false);
+    if (success && onPersonaRemoved) {
+      onPersonaRemoved(job.id, personaId);
+    }
   };
 
   return (
@@ -158,43 +134,22 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
               </CardContent>
             </Card>
 
-            {/* Avertissement des suppressions non sauvegardées */}
-            {hasUnsavedChanges && (
-              <Card className="bg-yellow-50 border-yellow-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-yellow-600">
-                      <MessageSquare className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-yellow-800">
-                        {removedPersonas.length} contact(s) supprimé(s)
-                      </p>
-                      <p className="text-sm text-yellow-700">
-                        Les suppressions ne seront appliquées qu'après confirmation.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Liste des contacts avec profils LinkedIn cliquables */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Users className="h-5 w-5" />
-                  Contacts trouvés ({localPersonas.length})
+                  Contacts trouvés ({visiblePersonas.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {localPersonas.length === 0 ? (
+                {visiblePersonas.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     Aucun contact trouvé pour cette offre
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {localPersonas.map((persona) => (
+                    {visiblePersonas.map((persona) => (
                       <div
                         key={persona.id}
                         className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -266,33 +221,13 @@ export const JobResultDetail = ({ job, onClose, onPersonaRemoved }: JobResultDet
                 Fermer
               </Button>
               
-              {/* Boutons de gestion des suppressions */}
-              {hasUnsavedChanges && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelDeletions}
-                    className="text-gray-600"
-                  >
-                    Annuler suppressions
-                  </Button>
-                  <Button
-                    onClick={handleConfirmDeletions}
-                    className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-2"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    Confirmer suppressions ({removedPersonas.length})
-                  </Button>
-                </>
-              )}
-              
-              {localPersonas.length > 0 && (
+              {visiblePersonas.length > 0 && (
                 <Button
                   onClick={handleBulkProspecting}
                   className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
                 >
                   <Users className="h-4 w-4" />
-                  Prospecter ({localPersonas.length} contacts)
+                  Prospecter ({visiblePersonas.length} contacts)
                 </Button>
               )}
             </div>
