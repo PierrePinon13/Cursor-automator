@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle, AlertTriangle, User, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 interface JobData {
   id: string;
@@ -34,6 +35,7 @@ export const ProspectingStepValidation = ({
 }: ProspectingStepValidationProps) => {
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
+  const { unipileAccountId } = useLinkedInConnection();
 
   const messagesReady = Object.keys(bulkState.personalizedMessages).length === bulkState.selectedPersonas.length;
   const allMessagesHaveContent = Object.values(bulkState.personalizedMessages).every(msg => msg.trim().length > 0);
@@ -47,6 +49,15 @@ export const ProspectingStepValidation = ({
       toast({
         title: "Erreur",
         description: "Veuillez compléter tous les messages avant d'envoyer.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!unipileAccountId) {
+      toast({
+        title: "Erreur",
+        description: "Votre compte LinkedIn n'est pas connecté. Veuillez vous connecter avant d'envoyer des messages.",
         variant: "destructive",
       });
       return;
@@ -73,10 +84,14 @@ export const ProspectingStepValidation = ({
         bulkRequestId: bulkRequestId // ID de la demande d'envoi en masse
       }));
 
-      console.log('Envoi vers N8N:', { bulkRequestId, messages: messagesToSend });
+      console.log('Envoi vers N8N:', { 
+        bulkRequestId, 
+        messages: messagesToSend, 
+        unipileAccountId 
+      });
 
       // URL de l'API N8N pour l'envoi de messages
-      const n8nUrl = 'https://n8n-lovable.app.n8n.cloud/webhook/bulk-linkedin-messages';
+      const n8nUrl = 'https://n8n.getpro.co/webhook/819ed607-c468-4a53-a98c-817b8f3fc75d';
       
       const response = await fetch(n8nUrl, {
         method: 'POST',
@@ -85,6 +100,7 @@ export const ProspectingStepValidation = ({
         },
         body: JSON.stringify({
           bulkRequestId: bulkRequestId,
+          unipileAccountId: unipileAccountId,
           messages: messagesToSend,
           timestamp: new Date().toISOString(),
           totalMessages: messagesToSend.length
@@ -144,6 +160,17 @@ export const ProspectingStepValidation = ({
           <h3 className="font-medium">Vérifications</h3>
           
           <div className="flex items-center gap-3">
+            {unipileAccountId ? (
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            )}
+            <span className={unipileAccountId ? 'text-green-600' : 'text-red-600'}>
+              Compte LinkedIn connecté: {unipileAccountId ? 'Oui' : 'Non'}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-3">
             {messagesReady ? (
               <CheckCircle className="h-5 w-5 text-green-600" />
             ) : (
@@ -166,7 +193,14 @@ export const ProspectingStepValidation = ({
           </div>
         </div>
 
-        {!messagesReady || !allMessagesHaveContent ? (
+        {!unipileAccountId ? (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-red-700">
+              Veuillez connecter votre compte LinkedIn avant de pouvoir envoyer des messages.
+            </AlertDescription>
+          </Alert>
+        ) : !messagesReady || !allMessagesHaveContent ? (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
@@ -211,7 +245,7 @@ export const ProspectingStepValidation = ({
         <div className="flex justify-center">
           <Button
             onClick={handleSend}
-            disabled={!messagesReady || !allMessagesHaveContent || isSending}
+            disabled={!messagesReady || !allMessagesHaveContent || !unipileAccountId || isSending}
             className="bg-green-600 hover:bg-green-700 px-8"
             size="lg"
           >
