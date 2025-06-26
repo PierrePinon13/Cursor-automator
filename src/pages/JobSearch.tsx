@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Search, MapPin, Building, Calendar, Filter, Briefcase, Star, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 import { JobCard } from '@/components/jobs/JobCard';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const JobSearch = () => {
   console.log('JobSearch component rendering');
@@ -90,9 +92,6 @@ const JobSearch = () => {
     job.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Ajout hook responsive
-  // (utilise le hook déjà existant dans src/hooks/use-mobile.tsx)
-  const { useIsMobile } = require('@/hooks/use-mobile');
   const isMobile = useIsMobile();
 
   return (

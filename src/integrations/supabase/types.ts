@@ -1781,6 +1781,8 @@ export type Database = {
           created_at: string
           id: string
           is_repost: boolean | null
+          n8n_sent: boolean | null
+          n8n_sent_at: string | null
           posted_at_iso: string | null
           posted_at_timestamp: number | null
           processed: boolean | null
@@ -1801,6 +1803,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_repost?: boolean | null
+          n8n_sent?: boolean | null
+          n8n_sent_at?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           processed?: boolean | null
@@ -1821,6 +1825,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_repost?: boolean | null
+          n8n_sent?: boolean | null
+          n8n_sent_at?: string | null
           posted_at_iso?: string | null
           posted_at_timestamp?: number | null
           processed?: boolean | null
