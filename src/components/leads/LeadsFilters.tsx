@@ -139,42 +139,45 @@ export default function LeadsFilters({
   return (
     <div className="space-y-3">
       {/* 2. Ligne de filtres : 4 filtres largeur limitée + catégories métiers à la suite */}
-      <div className="flex items-center gap-x-4 gap-y-0 flex-nowrap w-full mt-1 mb-0 overflow-x-auto min-w-0">
-        <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
+      <div className="flex items-center gap-x-3 gap-y-0 flex-nowrap w-full mt-1 mb-0 overflow-x-auto min-w-0">
+        <div className="flex items-center gap-1 h-8 px-2 bg-gray-50 border-0 rounded-none shadow-none min-w-[110px] max-w-[130px] w-auto hover:bg-gray-50 transition-colors">
           <MultiSelectFilter
             title="Période"
             options={dateFilterOptions}
             selectedValues={[selectedDateFilter]}
             onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
             singleSelect={true}
+            hideChevron={false}
+            highlightActive={selectedDateFilter !== '7days'}
           />
         </div>
         {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
-          <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
+          <div className="flex items-center gap-1 h-8 px-2 bg-gray-50 border-0 rounded-none shadow-none min-w-[140px] max-w-[180px] w-auto hover:bg-gray-50 transition-colors">
             <MultiSelectFilter
               title="Statut de contact"
               options={contactFilterOptions}
               selectedValues={[selectedContactFilter]}
               onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
               singleSelect={true}
+              highlightActive={selectedContactFilter !== 'exclude_2weeks'}
             />
           </div>
         )}
         {/* Exclure secteurs */}
         {availableCompanyCategories.length > 0 && (
-          <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
+          <div className="flex items-center gap-1 h-8 px-2 bg-gray-50 border-0 rounded-none shadow-none min-w-[140px] max-w-[180px] w-auto hover:bg-gray-50 transition-colors">
             <MultiSelectFilter
               title="Exclure secteurs"
               options={availableCompanyCategories.map(category => ({ value: category, label: category }))}
               selectedValues={selectedCompanyCategories}
               onSelectionChange={setSelectedCompanyCategories}
               singleSelect={false}
+              highlightActive={selectedCompanyCategories.length > 0}
             />
           </div>
         )}
         {/* Employés */}
-        <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
-          <Table className="h-4 w-4 text-gray-600" />
+        <div className="flex items-center gap-1 h-8 px-2 bg-gray-50 border-0 rounded-none shadow-none min-w-[140px] max-w-[180px] w-auto hover:bg-gray-50 transition-colors">
           <span className="font-medium text-gray-700 text-xs">Employés:</span>
           <div className="flex items-center gap-1">
             <Input
@@ -182,8 +185,9 @@ export default function LeadsFilters({
               placeholder="Min"
               value={minEmployees}
               onChange={(e) => setMinEmployees(e.target.value)}
-              className="h-6 w-12 text-xs bg-gray-100 border-0 focus:ring-0 appearance-none"
-              style={{ MozAppearance: 'textfield' }}
+              className="h-6 w-[70px] text-xs bg-gray-100 border-0 focus:ring-0 appearance-none text-center"
+              style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
+              onWheel={e => e.currentTarget.blur()}
               min="0"
             />
             <span className="text-xs text-gray-400">-</span>
@@ -192,8 +196,9 @@ export default function LeadsFilters({
               placeholder="Max"
               value={maxEmployees}
               onChange={(e) => setMaxEmployees(e.target.value)}
-              className="h-6 w-12 text-xs bg-gray-100 border-0 focus:ring-0 appearance-none"
-              style={{ MozAppearance: 'textfield' }}
+              className="h-6 w-[70px] text-xs bg-gray-100 border-0 focus:ring-0 appearance-none text-center"
+              style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
+              onWheel={e => e.currentTarget.blur()}
               min="0"
             />
             {(minEmployees || maxEmployees) && (
@@ -208,8 +213,10 @@ export default function LeadsFilters({
             )}
           </div>
         </div>
+        {/* Espace explicite entre Employés et catégories métiers */}
+        <div className="w-6" />
         {/* Catégories métiers à la suite */}
-        <div className="flex flex-nowrap gap-1 flex-shrink-0 ml-2">
+        <div className="flex flex-nowrap gap-1 flex-shrink-0 items-center">
           {categoriesToShow.map((category) => {
             const isSelected = selectedCategories.includes(category);
             const colors = categoryColors[category as keyof typeof categoryColors];
@@ -218,7 +225,7 @@ export default function LeadsFilters({
               <Badge
                 key={category}
                 variant="outline"
-                className={`text-[10px] px-1.5 h-5 cursor-pointer transition-colors border ${colorClass}`}
+                className={`text-xs px-2 h-5 font-normal cursor-pointer transition-colors border ${colorClass}`}
                 onClick={() => toggleCategory(category)}
               >
                 {category}
@@ -227,6 +234,8 @@ export default function LeadsFilters({
           })}
         </div>
       </div>
+      {/* Ligne très fine sous tous les filtres */}
+      <div className="w-full border-b border-gray-100" />
     </div>
   );
 }
