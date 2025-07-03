@@ -13,6 +13,9 @@ import UserActionsDropdown from '@/components/UserActionsDropdown';
 import { useSidebar } from '@/components/ui/sidebar';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 import type { Lead } from '@/hooks/useLeads';
+import { Search, Table, Grid3X3 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const Leads = () => {
   const { 
@@ -184,17 +187,42 @@ const Leads = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header intégré avec les boutons et filtres */}
       <div className="px-6 pt-6 pb-4 bg-gray-50">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 w-full">
           <div className="flex items-center gap-3">
             <CustomSidebarTrigger />
-            <SavedViewsButton
-              selectedCategories={selectedCategories}
-              visibleColumns={visibleColumns}
-              selectedDateFilter={selectedDateFilter}
-              selectedContactFilter={selectedContactFilter}
-              viewMode={viewMode}
-              onApplyView={handleApplyView}
-            />
+          </div>
+          <div className="flex-1 flex items-center justify-center gap-3">
+            {/* Barre de recherche centrée */}
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-8 w-full text-sm"
+              />
+            </div>
+            {/* Toggle à droite de la recherche */}
+            <div className="flex gap-1 ml-4 flex-shrink-0">
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className="h-7 px-3 text-sm"
+              >
+                <Table className="h-4 w-4 mr-1" />
+                Tableau
+              </Button>
+              <Button
+                variant={viewMode === 'card' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('card')}
+                className="h-7 px-3 text-sm"
+              >
+                <Grid3X3 className="h-4 w-4 mr-1" />
+                Cartes
+              </Button>
+            </div>
           </div>
           <UserActionsDropdown />
         </div>

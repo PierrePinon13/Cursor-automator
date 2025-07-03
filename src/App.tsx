@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,7 +12,6 @@ import Leads from "./pages/Leads";
 import LeadsNew from "./pages/LeadsNew";
 import Clients from "./pages/Clients";
 import Tasks from "./pages/Tasks";
-import JobSearch from "./pages/JobSearch";
 import SearchJobs from "./pages/SearchJobs";
 import SearchPosts from "./pages/SearchPosts";
 import BulkProspecting from "./pages/BulkProspecting";
@@ -49,7 +47,6 @@ function App() {
                     <Route path="/leads-new" element={<LeadsNew />} />
                     <Route path="/clients" element={<Clients />} />
                     <Route path="/tasks" element={<Tasks />} />
-                    <Route path="/job-search" element={<JobSearch />} />
                     <Route path="/search-jobs" element={<SearchJobs />} />
                     <Route path="/search-posts" element={<SearchPosts />} />
                     <Route path="/bulk-prospecting" element={<BulkProspecting />} />

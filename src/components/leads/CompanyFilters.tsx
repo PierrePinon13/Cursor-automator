@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -51,7 +50,7 @@ export default function CompanyFilters({
       )}
 
       {/* Employee Count Range - styled like other filters */}
-      <div className="flex items-center gap-2 h-8 px-3 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 ease-in-out">
+      <div className="flex items-center gap-2 h-8 px-2 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none">
         <Users className="h-4 w-4 text-gray-600" />
         <span className="font-medium text-gray-700 text-sm">Employés:</span>
         <div className="flex items-center gap-1">
@@ -60,7 +59,8 @@ export default function CompanyFilters({
             placeholder="Min"
             value={minEmployees}
             onChange={(e) => setMinEmployees(e.target.value)}
-            className="h-6 w-16 text-xs border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="h-6 w-20 text-xs bg-gray-100 border-0 focus:ring-0 appearance-none"
+            style={{ MozAppearance: 'textfield' }}
             min="0"
           />
           <span className="text-xs text-gray-400">-</span>
@@ -69,7 +69,8 @@ export default function CompanyFilters({
             placeholder="Max"
             value={maxEmployees}
             onChange={(e) => setMaxEmployees(e.target.value)}
-            className="h-6 w-16 text-xs border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="h-6 w-20 text-xs bg-gray-100 border-0 focus:ring-0 appearance-none"
+            style={{ MozAppearance: 'textfield' }}
             min="0"
           />
           {(minEmployees || maxEmployees) && (

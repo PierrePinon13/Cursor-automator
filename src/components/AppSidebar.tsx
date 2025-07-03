@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -27,11 +26,6 @@ const AppSidebar = () => {
       title: "Leads",
       url: "/leads",
       icon: Briefcase,
-    },
-    {
-      title: "Job Offers",
-      url: "/job-search",
-      icon: Search,
     },
     {
       title: "Search Jobs",

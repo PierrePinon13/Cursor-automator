@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Check, ChevronDown, Settings2 } from 'lucide-react';
 import {
@@ -58,20 +57,20 @@ const MultiSelectFilter = ({
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="h-8 bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all duration-200 ease-in-out"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 bg-gray-50 border-0 border-b border-gray-200 rounded-none px-4 text-gray-700 font-medium flex items-center gap-2 shadow-none hover:bg-gray-100"
         >
-          <Settings2 className="h-4 w-4 mr-2 text-gray-600" />
-          <span className="font-medium text-gray-700">{title}</span>
-          <Badge 
-            variant="secondary" 
-            className="ml-2 h-5 px-2 bg-blue-100 text-blue-700 border-0 font-semibold text-xs rounded-full"
+          <Settings2 className="h-4 w-4 mr-2 text-gray-500" />
+          <span>{title}</span>
+          <Badge
+            variant="secondary"
+            className="ml-2 h-5 px-2 bg-gray-200 text-gray-700 border-0 font-semibold text-xs rounded-full"
           >
             {singleSelect ? (selectedCount > 0 ? '1' : '0') : selectedCount}
           </Badge>
-          <ChevronDown className="ml-2 h-4 w-4 text-gray-500" />
+          <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64 bg-white shadow-lg z-50 border border-gray-200" align="end" side="bottom">

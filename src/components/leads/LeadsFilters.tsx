@@ -1,4 +1,3 @@
-
 import MultiSelectFilter from './MultiSelectFilter';
 import CompanyFilters from './CompanyFilters';
 import { Badge } from '@/components/ui/badge';
@@ -139,9 +138,9 @@ export default function LeadsFilters({
 
   return (
     <div className="space-y-3">
-      {/* Top row with all filters and view toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-wrap">
+      {/* 2. Ligne de filtres : 4 filtres largeur limitée + catégories métiers à la suite */}
+      <div className="flex items-center gap-x-4 gap-y-0 flex-nowrap w-full mt-1 mb-0 overflow-x-auto min-w-0">
+        <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
           <MultiSelectFilter
             title="Période"
             options={dateFilterOptions}
@@ -149,8 +148,9 @@ export default function LeadsFilters({
             onSelectionChange={(values) => setSelectedDateFilter(values[0] || '7days')}
             singleSelect={true}
           />
-
-          {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
+        </div>
+        {showContactFilter && selectedContactFilter && setSelectedContactFilter && (
+          <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
             <MultiSelectFilter
               title="Statut de contact"
               options={contactFilterOptions}
@@ -158,74 +158,74 @@ export default function LeadsFilters({
               onSelectionChange={(values) => setSelectedContactFilter(values[0] || 'exclude_2weeks')}
               singleSelect={true}
             />
-          )}
-
-          {/* Company Filters - now inline with other filters */}
-          <CompanyFilters
-            selectedCompanyCategories={selectedCompanyCategories}
-            setSelectedCompanyCategories={setSelectedCompanyCategories || (() => {})}
-            minEmployees={minEmployees}
-            setMinEmployees={setMinEmployees || (() => {})}
-            maxEmployees={maxEmployees}
-            setMaxEmployees={setMaxEmployees || (() => {})}
-            availableCompanyCategories={availableCompanyCategories}
-          />
-
-          {/* Barre de recherche */}
-          {setSearchQuery && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-8 w-64 text-sm"
-              />
-            </div>
-          )}
+          </div>
+        )}
+        {/* Exclure secteurs */}
+        {availableCompanyCategories.length > 0 && (
+          <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
+            <MultiSelectFilter
+              title="Exclure secteurs"
+              options={availableCompanyCategories.map(category => ({ value: category, label: category }))}
+              selectedValues={selectedCompanyCategories}
+              onSelectionChange={setSelectedCompanyCategories}
+              singleSelect={false}
+            />
+          </div>
+        )}
+        {/* Employés */}
+        <div className="flex items-center gap-1 h-8 px-1 bg-gray-50 border-0 border-b border-gray-200 rounded-none shadow-none min-w-[120px] max-w-[180px]">
+          <Table className="h-4 w-4 text-gray-600" />
+          <span className="font-medium text-gray-700 text-xs">Employés:</span>
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              placeholder="Min"
+              value={minEmployees}
+              onChange={(e) => setMinEmployees(e.target.value)}
+              className="h-6 w-12 text-xs bg-gray-100 border-0 focus:ring-0 appearance-none"
+              style={{ MozAppearance: 'textfield' }}
+              min="0"
+            />
+            <span className="text-xs text-gray-400">-</span>
+            <Input
+              type="number"
+              placeholder="Max"
+              value={maxEmployees}
+              onChange={(e) => setMaxEmployees(e.target.value)}
+              className="h-6 w-12 text-xs bg-gray-100 border-0 focus:ring-0 appearance-none"
+              style={{ MozAppearance: 'textfield' }}
+              min="0"
+            />
+            {(minEmployees || maxEmployees) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setMinEmployees(''); setMaxEmployees(''); }}
+                className="h-6 px-1 text-xs text-gray-500 hover:text-gray-700 ml-1"
+              >
+                ×
+              </Button>
+            )}
+          </div>
         </div>
-
-        {/* Table/Card View Toggle - Sans encadré et plus compact */}
-        <div className="flex gap-1">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-            className="h-7 px-3 text-sm"
-          >
-            <Table className="h-4 w-4 mr-1" />
-            Tableau
-          </Button>
-          <Button
-            variant={viewMode === 'card' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('card')}
-            className="h-7 px-3 text-sm"
-          >
-            <Grid3X3 className="h-4 w-4 mr-1" />
-            Cartes
-          </Button>
+        {/* Catégories métiers à la suite */}
+        <div className="flex flex-nowrap gap-1 flex-shrink-0 ml-2">
+          {categoriesToShow.map((category) => {
+            const isSelected = selectedCategories.includes(category);
+            const colors = categoryColors[category as keyof typeof categoryColors];
+            const colorClass = isSelected ? colors.active : colors.inactive;
+            return (
+              <Badge
+                key={category}
+                variant="outline"
+                className={`text-[10px] px-1.5 h-5 cursor-pointer transition-colors border ${colorClass}`}
+                onClick={() => toggleCategory(category)}
+              >
+                {category}
+              </Badge>
+            );
+          })}
         </div>
-      </div>
-      
-      {/* Lead Categories badges row */}
-      <div className="flex flex-wrap gap-1.5">
-        {categoriesToShow.map((category) => {
-          const isSelected = selectedCategories.includes(category);
-          const colors = categoryColors[category as keyof typeof categoryColors];
-          const colorClass = isSelected ? colors.active : colors.inactive;
-          
-          return (
-            <Badge
-              key={category}
-              variant="outline"
-              className={`text-xs px-2 py-0.5 h-6 cursor-pointer transition-colors border ${colorClass}`}
-              onClick={() => toggleCategory(category)}
-            >
-              {category}
-            </Badge>
-          );
-        })}
       </div>
     </div>
   );
