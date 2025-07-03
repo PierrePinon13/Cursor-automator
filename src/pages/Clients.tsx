@@ -1,4 +1,3 @@
-
 import { useClients } from '@/hooks/useClients';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 import { JobOffersSection } from '@/components/clients/JobOffersSection';
 import { ClientLeadsView } from '@/components/clients/ClientLeadsView';
 import { useTabState } from '@/utils/urlState';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Clients = () => {
   const { clients, loading } = useClients();
@@ -26,11 +26,12 @@ const Clients = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen flex flex-col">
-      {/* Nouveau header harmonisé */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header intégré, harmonisé comme sur Leads */}
+      <div className="px-6 pt-6 pb-4 bg-gray-50">
+        <div className="flex items-center justify-between mb-6 w-full">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger />
             <div className="p-2 bg-indigo-100 rounded-lg">
               <Users className="h-6 w-6 text-indigo-700" />
             </div>
@@ -47,28 +48,14 @@ const Clients = () => {
             Gestion clients
           </Button>
         </div>
-        <div className="mt-6 flex">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-auto">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="job-offers">Offres d'emploi</TabsTrigger>
-              <TabsTrigger value="linkedin-posts">Publications LinkedIn</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </header>
-
-      {/* Contenu bord à bord, sobre */}
-      <main className="flex-1 px-0 sm:px-6 py-8">
+        {/* Ici tu pourras ajouter des filtres ou une barre de recherche comme sur Leads si besoin */}
+      </div>
+      {/* Contenu principal, suppression du Tabs pour un layout plus direct comme Leads */}
+      <main className="bg-white px-0 sm:px-6 py-8">
         <div className="max-w-7xl mx-auto w-full">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsContent value="job-offers" className="space-y-6 mt-0">
-              <JobOffersSection />
-            </TabsContent>
-
-            <TabsContent value="linkedin-posts" className="space-y-6 mt-0">
-              <ClientLeadsView />
-            </TabsContent>
-          </Tabs>
+          {/* Affichage direct des jobs/offres, à adapter selon la logique métier */}
+          <JobOffersSection />
+          {/* Tu peux ajouter ici d'autres sections ou composants pour harmoniser avec Leads */}
         </div>
       </main>
     </div>
