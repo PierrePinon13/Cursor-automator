@@ -164,7 +164,7 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           <LocationSelector
             selectedLocations={filters.location}
             onChange={(locations) => onChange({ ...filters, location: locations })}
-            showRadius={false}
+            showRadius={true}
           />
         </div>
         <hr className="my-3 border-blue-100" />
