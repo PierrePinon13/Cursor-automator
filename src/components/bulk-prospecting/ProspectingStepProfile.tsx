@@ -602,7 +602,7 @@ export const ProspectingStepProfile = ({
                   <div className="absolute bottom-4 left-0 w-full flex justify-center gap-6 z-10">
                     <button
                       className="rounded-full border border-gray-300 bg-white h-10 w-10 flex items-center justify-center text-gray-400 text-xl shadow hover:bg-gray-100 transition"
-                      onClick={() => onSelectionChange(selectedPersonas.filter(sel => sel.id !== p.id))}
+                      onClick={() => togglePersona(p)}
                       title="Rejeter ce lead"
                       type="button"
                     >
@@ -610,7 +610,7 @@ export const ProspectingStepProfile = ({
                     </button>
                     <button
                       className="rounded-full border border-blue-500 bg-white h-10 w-10 flex items-center justify-center text-blue-500 text-xl shadow hover:bg-blue-50 transition"
-                      onClick={() => onSelectionChange([...selectedPersonas, p])}
+                      onClick={() => togglePersona(p)}
                       title="Accepter ce lead"
                       type="button"
                     >
