@@ -16,6 +16,7 @@ interface DuplicatePersonaDialogProps {
     jobTitle: string;
     jobCompany: string;
     jobLocation?: string;
+    jobUrl?: string; // Added jobUrl to the type
   }>;
   onSelectOffer: (jobId: string) => void;
   onSkipPersona: () => void;
@@ -112,7 +113,19 @@ export const DuplicatePersonaDialog = ({
                       <div className="flex-1">
                         <h5 className="font-medium flex items-center gap-2">
                           <Building className="h-4 w-4 text-gray-500" />
-                          {offer.jobTitle || 'Titre non disponible'}
+                          {offer.jobUrl ? (
+                            <a
+                              href={offer.jobUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline text-blue-700 hover:text-blue-900 cursor-pointer"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {offer.jobTitle || 'Titre non disponible'}
+                            </a>
+                          ) : (
+                            offer.jobTitle || 'Titre non disponible'
+                          )}
                         </h5>
                         <p className="text-sm text-gray-600 mt-1">
                           {offer.jobCompany || 'Entreprise non disponible'}

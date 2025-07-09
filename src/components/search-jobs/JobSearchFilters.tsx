@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { X, Plus, ChevronDown } from 'lucide-react';
+import { X, Plus, ChevronDown, MapPin, Calendar, Search } from 'lucide-react';
 import { LocationSelector } from './LocationSelector';
+import { Card } from '@/components/ui/card';
 
 interface SelectedLocation {
   label: string;
@@ -102,127 +102,83 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
   const selectedCategories = Array.isArray(filters.category) ? filters.category : (filters.category ? [filters.category] : []);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <Card className="p-6 shadow-md border-blue-100 bg-gradient-to-br from-blue-50/60 to-white/80">
+      <div className="space-y-4">
         {/* Mots-clés du poste */}
-        <div className="space-y-3">
-          <Label className="text-base font-medium">Mots-clés du poste *</Label>
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Ex: React, Product Manager, Python..."
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-                onKeyDown={handleKeywordInputKeyDown}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                onClick={addKeyword}
-                disabled={!keywordInput.trim()}
-                size="sm"
-                className="px-3"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {keywordsList.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {keywordsList.map((keyword, index) => (
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Search className="h-4 w-4 text-blue-400" />
+            <Label className="text-base font-semibold">Mots-clés du poste *</Label>
+          </div>
+          <div className="flex gap-2 items-center">
+            <Input
+              placeholder="Ex: React, Product Manager, Python..."
+              value={keywordInput}
+              onChange={(e) => setKeywordInput(e.target.value)}
+              onKeyDown={handleKeywordInputKeyDown}
+              className="flex-1 h-9 border-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            />
+            <Button
+              type="button"
+              onClick={addKeyword}
+              disabled={!keywordInput.trim()}
+              size="sm"
+              className="px-3"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {keywordsList.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {keywordsList.map((keyword, index) => (
+                <>
                   <Badge
                     key={index}
                     variant="secondary"
-                    className="flex items-center gap-1 px-3 py-1"
+                    className="flex items-center gap-1 px-3 py-1 text-base bg-blue-50 border-blue-200 text-blue-800 font-mono shadow-sm transition-all duration-150 hover:bg-blue-100 cursor-pointer"
                   >
-                    {keyword}
+                    &quot;{keyword}&quot;
                     <X
-                      className="h-3 w-3 cursor-pointer hover:text-red-500"
+                      className="h-3 w-3 cursor-pointer hover:text-red-500 ml-1"
                       onClick={() => removeKeyword(keyword)}
                     />
                   </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-          <p className="text-sm text-gray-500">
-            Appuyez sur Entrée ou cliquez sur + pour ajouter un mot-clé
-          </p>
-        </div>
-
-        {/* Catégorie Multi-Select */}
-        <div className="space-y-3">
-          <Label className="text-base font-medium">Catégories</Label>
-          <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-between"
-              >
-                {selectedCategories.length > 0 
-                  ? `${selectedCategories.length} catégorie(s) sélectionnée(s)`
-                  : "Sélectionner des catégories"
-                }
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start">
-              <div className="p-4 space-y-2">
-                {categories.map(category => (
-                  <div key={category} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={category}
-                      checked={selectedCategories.includes(category)}
-                      onCheckedChange={() => handleCategoryChange(category)}
-                    />
-                    <label
-                      htmlFor={category}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {category}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-          {selectedCategories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedCategories.map((category) => (
-                <Badge
-                  key={category}
-                  variant="secondary"
-                  className="flex items-center gap-1 px-3 py-1"
-                >
-                  {category}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-500"
-                    onClick={() => handleCategoryChange(category)}
-                  />
-                </Badge>
+                  {index < keywordsList.length - 1 && (
+                    <span className="mx-1 text-blue-500 font-bold">OR</span>
+                  )}
+                </>
               ))}
             </div>
           )}
+          <p className="text-xs text-gray-500 mt-1">
+            Appuyez sur Entrée ou cliquez sur + pour ajouter un mot-clé
+          </p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <hr className="my-3 border-blue-100" />
         {/* Localisation */}
-        <div className="space-y-3">
-          <Label className="text-base font-medium">Localisation des emplois</Label>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <MapPin className="h-4 w-4 text-green-400" />
+            <Label className="text-base font-semibold">Localisation des emplois</Label>
+          </div>
           <LocationSelector
             selectedLocations={filters.location}
             onChange={(locations) => onChange({ ...filters, location: locations })}
+            showRadius={false}
           />
         </div>
-
+        <hr className="my-3 border-blue-100" />
         {/* Date de publication */}
-        <div className="space-y-3">
-          <Label className="text-base font-medium">Date de publication</Label>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Calendar className="h-4 w-4 text-purple-400" />
+            <Label className="text-base font-semibold">Date de publication</Label>
+          </div>
           <Select 
             value={filters.date_posted || 'all'} 
             onValueChange={handleDateChange}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 border-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -235,6 +191,6 @@ export const JobSearchFilters = ({ filters, onChange }: JobSearchFiltersProps) =
           </Select>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

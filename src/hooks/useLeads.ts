@@ -38,6 +38,7 @@ export interface Lead {
   company_employee_count?: string;
   company_1_linkedin_id?: string;
   unipile_company_linkedin_id?: string;
+  company_logo_url?: string;
 }
 
 export const useLeads = () => {
@@ -68,7 +69,8 @@ export const useLeads = () => {
           *,
           companies!leads_company_id_fkey (
             categorie,
-            employee_count
+            employee_count,
+            logo
           )
         `)
         .neq('processing_status', 'filtered_hr_provider')
@@ -131,7 +133,8 @@ export const useLeads = () => {
         return {
           ...lead,
           company_categorie: companyInfo?.categorie || null,
-          company_employee_count: companyInfo?.employee_count || null
+          company_employee_count: companyInfo?.employee_count || null,
+          company_logo_url: companyInfo?.logo || null
         };
       });
 

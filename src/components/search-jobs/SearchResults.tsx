@@ -65,6 +65,7 @@ interface SearchResultsProps {
   onHideJob?: (jobId: string) => void;
   showBulkProspectingButton?: boolean;
   onPersonaRemoved?: (jobId: string, personaId: string) => void;
+  messageTemplate?: string; // <-- ajout
 }
 
 export const SearchResults = ({ 
@@ -72,7 +73,8 @@ export const SearchResults = ({
   isLoading, 
   onHideJob,
   showBulkProspectingButton = true,
-  onPersonaRemoved
+  onPersonaRemoved,
+  messageTemplate = '' // <-- ajout
 }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
@@ -191,7 +193,7 @@ export const SearchResults = ({
       totalJobs: jobsWithPersonas.length.toString(),
       totalPersonas: allPersonas.length.toString(),
       personas: JSON.stringify(allPersonas),
-      template: ''
+      template: messageTemplate // <-- utiliser le template de la recherche
     });
     
     navigate(`/bulk-prospecting?${params.toString()}`);

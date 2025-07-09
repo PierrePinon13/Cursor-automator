@@ -8,6 +8,8 @@ import { PersonaFilters } from './PersonaFilters';
 import { MessageTemplate } from './MessageTemplate';
 import { toast } from '@/hooks/use-toast';
 
+// Harmonise le type SelectedLocation pour éviter les erreurs de compatibilité
+// (si déjà importé ailleurs, adapte ici)
 interface SelectedLocation {
   label: string;
   geoId: number | null;
@@ -35,7 +37,15 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     location: [] as SelectedLocation[]
   });
 
-  const [messageTemplate, setMessageTemplate] = useState('');
+  const DEFAULT_TEMPLATE = `Bonjour {{firstName}},
+
+J'ai vu que vous recherchiez un {{jobTitle}}.
+
+J'ai des candidats que je peux vous présenter si vous êtes toujours en recherche.
+
+Souhaitez-vous en discuter ?`;
+
+  const [messageTemplate, setMessageTemplate] = useState(DEFAULT_TEMPLATE);
 
   // Charger les données initiales si fournies
   useEffect(() => {
@@ -107,9 +117,22 @@ export const SearchJobsForm = ({ onSubmit, onCancel, initialData }: SearchJobsFo
     setIsLoading(true);
     
     try {
+      // Préparer la localisation pour n8n :
+      // Si la localisation a un radius, on le garde, sinon juste le label
+      const preparedLocations = jobFilters.location.map(loc => {
+        const l = loc as any;
+        if (l && typeof l === 'object' && 'label' in l) {
+          return l.radius !== undefined ? { label: l.label, radius: l.radius } : { label: l.label };
+        }
+        return { label: String(l) };
+      });
+
       const config = {
         name: generateSearchName(),
-        search_jobs: jobFilters,
+        search_jobs: {
+          ...jobFilters,
+          location: preparedLocations
+        },
         personna_filters: {
           ...personaFilters,
           role: { keywords: personaFilters.role }

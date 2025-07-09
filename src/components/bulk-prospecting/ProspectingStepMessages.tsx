@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +17,7 @@ interface ProspectingStepMessagesProps {
   onMessagesChange: (messages: { [personaId: string]: string }) => void;
   onPersonaRemoved: (personaId: string) => void;
   getTemplateForPersona?: (persona: Persona) => string;
+  variableReplacements?: any;
 }
 
 export const ProspectingStepMessages = ({
@@ -26,7 +27,8 @@ export const ProspectingStepMessages = ({
   personalizedMessages,
   onMessagesChange,
   onPersonaRemoved,
-  getTemplateForPersona
+  getTemplateForPersona,
+  variableReplacements = {}
 }: ProspectingStepMessagesProps) => {
   // Fonction pour remplacer les variables avec les vraies données
   const replaceVariables = (template: string, persona: Persona) => {
@@ -34,16 +36,40 @@ export const ProspectingStepMessages = ({
       return 'Template invalide';
     }
 
-    const firstName = persona.name?.split(' ')[0] || persona.name || 'Contact';
-    const lastName = persona.name?.split(' ').slice(1).join(' ') || '';
-    
+    let firstName = persona.name?.split(' ')[0] || persona.name || 'Contact';
+    let lastName = persona.name?.split(' ').slice(1).join(' ') || '';
+    let jobTitle = persona.jobTitle || jobData?.title || 'Poste';
+    let companyName = persona.jobCompany || jobData?.company || 'Entreprise';
+    let personaTitle = persona.title || 'Contact';
+    let personaCompany = persona.company || 'Entreprise';
+
+    // Appliquer les remplacements personnalisés si présents
+    if (variableReplacements.jobTitle && variableReplacements.jobTitle[jobTitle]) {
+      jobTitle = variableReplacements.jobTitle[jobTitle];
+    }
+    if (variableReplacements.companyName && variableReplacements.companyName[companyName]) {
+      companyName = variableReplacements.companyName[companyName];
+    }
+    if (variableReplacements.firstName && variableReplacements.firstName[firstName]) {
+      firstName = variableReplacements.firstName[firstName];
+    }
+    if (variableReplacements.lastName && variableReplacements.lastName[lastName]) {
+      lastName = variableReplacements.lastName[lastName];
+    }
+    if (variableReplacements.personaTitle && variableReplacements.personaTitle[personaTitle]) {
+      personaTitle = variableReplacements.personaTitle[personaTitle];
+    }
+    if (variableReplacements.personaCompany && variableReplacements.personaCompany[personaCompany]) {
+      personaCompany = variableReplacements.personaCompany[personaCompany];
+    }
+
     return template
       .replace(/\{\{firstName\}\}/g, firstName)
       .replace(/\{\{lastName\}\}/g, lastName)
-      .replace(/\{\{jobTitle\}\}/g, persona.jobTitle || jobData?.title || 'Poste')
-      .replace(/\{\{companyName\}\}/g, persona.jobCompany || jobData?.company || 'Entreprise')
-      .replace(/\{\{personaTitle\}\}/g, persona.title || 'Contact')
-      .replace(/\{\{personaCompany\}\}/g, persona.company || 'Entreprise');
+      .replace(/\{\{jobTitle\}\}/g, jobTitle)
+      .replace(/\{\{companyName\}\}/g, companyName)
+      .replace(/\{\{personaTitle\}\}/g, personaTitle)
+      .replace(/\{\{personaCompany\}\}/g, personaCompany);
   };
 
   // Générer automatiquement les messages personnalisés SEULEMENT pour les nouveaux personas
@@ -134,69 +160,125 @@ export const ProspectingStepMessages = ({
 
       {/* Scroll infini avec tous les messages */}
       <div className="space-y-6" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '4px' }}>
-        {selectedPersonas.map((persona, index) => (
-          <Card key={`${persona.id}-${index}`} className="border-l-4 border-l-blue-500">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={persona.profile_url} />
-                  <AvatarFallback>
-                    <User className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">
-                    {persona.name || 'Nom non disponible'}
-                  </h4>
-                  <p className="text-xs text-gray-500">
-                    {persona.title || 'Titre non disponible'} 
-                    {persona.company && ` chez ${persona.company}`}
-                  </p>
+        {selectedPersonas.map((persona, index) => {
+          const templateToUse = getTemplateForPersona ? getTemplateForPersona(persona) : messageTemplate;
+          const initialMessage = replaceVariables(templateToUse || messageTemplate, persona);
+          const currentMessage = personalizedMessages[persona.id] || '';
+          const isModified = currentMessage.trim() && currentMessage.trim() !== initialMessage.trim();
+          return (
+            <Card key={`${persona.id}-${index}`} className={`relative border-l-4 border-l-blue-500 group transition-shadow pb-20 ${isModified ? 'ring-2 ring-yellow-300' : ''}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={persona.profile_url} />
+                    <AvatarFallback>
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm">
+                      {persona.name || 'Nom non disponible'}
+                    </h4>
+                    {/* Titre du poste recherché juste sous le nom */}
+                    <p className="text-xs text-green-700 font-semibold mb-1">
+                      {persona.jobTitle || jobData?.title || 'Titre non disponible'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {persona.title || 'Titre non disponible'}
+                      {persona.company && ` chez ${persona.company}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      #{index + 1}
+                    </Badge>
+                    {isModified && (
+                      <Badge variant="secondary" className="text-xs bg-yellow-200 text-yellow-900 border-yellow-300">Modifié</Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    #{index + 1}
-                  </Badge>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Label htmlFor={`message-${persona.id}`} className="text-sm font-medium">
+                  Message personnalisé :
+                </Label>
+                <div className="relative group">
+                  <textarea
+                    id={`message-${persona.id}`}
+                    value={currentMessage}
+                    onChange={(e) => updateMessage(persona.id, e.target.value)}
+                    className={`w-full mt-2 pr-12 rounded-lg border border-gray-200 bg-white p-4 text-base font-sans leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 shadow-sm transition-all duration-150 ${isModified ? 'bg-yellow-50' : ''}`}
+                    placeholder="Le message sera généré automatiquement à partir du template..."
+                    rows={1}
+                    style={{ minHeight: '56px', maxHeight: 'none', overflow: 'hidden', resize: 'none' }}
+                    ref={el => {
+                      if (el) {
+                        el.style.height = 'auto';
+                        el.style.height = el.scrollHeight + 'px';
+                      }
+                    }}
+                    onInput={e => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = target.scrollHeight + 'px';
+                    }}
+                  />
                   <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRemovePersona(persona.id)}
-                    className="flex items-center gap-1 hover:bg-red-50 hover:border-red-200 text-red-600 h-8 w-8 p-0"
-                    title="Supprimer ce contact"
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-2 text-gray-400 hover:text-blue-700"
+                    title="Copier le message"
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentMessage);
+                    }}
                   >
-                    <X className="h-4 w-4" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 8.25V6.75A2.25 2.25 0 0014.25 4.5h-6A2.25 2.25 0 006 6.75v10.5A2.25 2.25 0 008.25 19.5h6a2.25 2.25 0 002.25-2.25v-1.5M9.75 15.75h6a2.25 2.25 0 002.25-2.25v-6A2.25 2.25 0 0015.75 5.25h-6A2.25 2.25 0 007.5 7.5v6a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Label htmlFor={`message-${persona.id}`} className="text-sm font-medium">
-                Message personnalisé :
-              </Label>
-              <Textarea
-                id={`message-${persona.id}`}
-                value={personalizedMessages[persona.id] || ''}
-                onChange={(e) => updateMessage(persona.id, e.target.value)}
-                className="resize-none h-32 mt-2"
-                placeholder="Le message sera généré automatiquement à partir du template..."
-              />
-              <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-                <span>
-                  {personalizedMessages[persona.id]?.length || 0} caractères
-                </span>
-                {personalizedMessages[persona.id]?.trim() ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Prêt
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">
-                    À compléter
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+                  <span>
+                    {currentMessage.length || 0} caractères
+                  </span>
+                  {currentMessage.trim() ? (
+                    <Badge variant="secondary" className="text-xs">
+                      Prêt
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      À compléter
+                    </Badge>
+                  )}
+                </div>
+                {/* Boutons croix/tick tout en bas de la carte */}
+                <div className="absolute bottom-4 left-0 w-full flex justify-center gap-6 z-10">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full border-2 border-gray-300 bg-white shadow-md h-14 w-14 flex items-center justify-center"
+                    onClick={() => handleRemovePersona(persona.id)}
+                    title="Supprimer ce contact"
+                  >
+                    <X className="h-7 w-7 text-gray-400" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full border-2 border-blue-500 bg-white shadow-md h-14 w-14 flex items-center justify-center"
+                    onClick={() => {/* Action de validation à définir ici */}}
+                    title="Valider ce contact"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-7 w-7 text-blue-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Résumé en bas */}

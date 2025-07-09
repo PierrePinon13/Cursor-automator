@@ -23,6 +23,11 @@ const AppSidebar = () => {
   // Identité visuelle harmonisée + libellés mis à jour
   const menuItems = [
     {
+      title: "Sélection de leads",
+      url: "/lead-selection",
+      icon: Users,
+    },
+    {
       title: "Leads",
       url: "/leads",
       icon: Briefcase,

@@ -1,5 +1,5 @@
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,11 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
+  const pollingActiveRef = useRef(true);
+
+  useEffect(() => {
+    pollingActiveRef.current = true; // (ré)active le polling à chaque changement de recherche
+  }, [setCurrentSearchId]);
 
   // Crée une recherche
   const createSearch = useCallback(async (searchConfig: any) => {
@@ -63,8 +68,11 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
       console.log('🔄 No searchId provided, clearing results');
       setCurrentResults([]);
       setCurrentSearchId(null);
+      setIsLoading(false); // <-- Ajout ici pour éviter le spinner bloqué
       return;
     }
+
+    setIsLoading(true); // <-- Ajout ici pour indiquer le chargement
 
     console.log('🔄 Loading search results for:', searchId);
 
@@ -77,6 +85,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
 
     if (searchError) {
       console.error('❌ Error loading search data:', searchError);
+      setIsLoading(false); // <-- Ajout ici
     }
 
     const messageTemplate = searchData?.message_template || '';
@@ -90,12 +99,32 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     
     if (error) {
       console.error('❌ Error loading search results:', error);
+      setIsLoading(false); // <-- Ajout ici
       return;
     }
     
     if (!data || data.length === 0) {
       console.log('📊 No job results found for search:', searchId);
+      // Vérifier le champ results_count dans saved_job_searches
+      const { data: searchMeta, error: metaError } = await supabase
+        .from('saved_job_searches')
+        .select('results_count')
+        .eq('id', searchId)
+        .single();
+      if (metaError) {
+        console.error('❌ Error loading search meta:', metaError);
+        setCurrentResults([]);
+        setIsLoading(false);
+        return;
+      }
+      if (searchMeta && searchMeta.results_count === 0) {
+        setCurrentResults([]);
+        setIsLoading(false);
+        return;
+      }
+      // Cas pathologique : pas de résultats mais results_count non nul (incohérence)
       setCurrentResults([]);
+      setIsLoading(false);
       return;
     }
     
@@ -189,11 +218,31 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
     console.log('🎯 Setting current results with', formatted.length, 'jobs');
     setCurrentResults(formatted);
     setCurrentSearchId(searchId);
+    setIsLoading(false); // <-- Ajout ici après le succès
     
     setTimeout(() => {
       console.log('🔍 Verification: Results should now be set in state');
     }, 100);
   }, [setCurrentResults, setCurrentSearchId]);
+
+  // Fonction utilitaire pour patcher intelligemment les résultats (ajout/mise à jour sans tout remplacer)
+  function patchResults(prevResults: JobResult[], newResults: JobResult[]) {
+    const prevMap = new Map(prevResults.map(job => [job.id, job]));
+    const nextMap = new Map(newResults.map(job => [job.id, job]));
+    // Ajout ou update des jobs nouveaux ou modifiés
+    const merged = newResults.map(job => {
+      const prev = prevMap.get(job.id);
+      if (!prev) return job; // Nouveau job
+      // Si personas ou autres champs ont changé, remplacer, sinon garder l'ancien objet (pour éviter un re-render)
+      if (JSON.stringify(prev.personas) !== JSON.stringify(job.personas)) {
+        return job;
+      }
+      return prev;
+    });
+    // (Optionnel) Gérer les suppressions si des jobs ont disparu côté backend :
+    // Ici, on ne garde que les jobs présents dans newResults (comportement le plus sûr)
+    return merged;
+  }
 
   // Écouter les événements de rechargement avec debouncing
   useEffect(() => {
@@ -208,10 +257,88 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         clearTimeout(reloadTimeout);
       }
       
-      reloadTimeout = setTimeout(() => {
-        if (searchId) {
+      reloadTimeout = setTimeout(async () => {
+        if (searchId && pollingActiveRef.current) {
           console.log('🔄 Executing delayed reload for:', searchId);
-          loadSearchResults(searchId);
+          // Charger les nouveaux résultats
+          const { data, error } = await supabase
+            .from('job_search_results')
+            .select('*')
+            .eq('search_id', searchId)
+            .order('created_at', { ascending: false });
+          if (error) {
+            console.error('❌ Error loading search results (polling):', error);
+            return;
+          }
+          if (!data || data.length === 0) {
+            // Vérifier le champ results_count dans saved_job_searches
+            const { data: searchMeta, error: metaError } = await supabase
+              .from('saved_job_searches')
+              .select('results_count')
+              .eq('id', searchId)
+              .single();
+            if (metaError) {
+              console.error('❌ Error loading search meta (polling):', metaError);
+              setCurrentResults([]);
+              setIsLoading(false);
+              return;
+            }
+            if (searchMeta && searchMeta.results_count === 0) {
+              setCurrentResults([]);
+              setIsLoading(false);
+              pollingActiveRef.current = false; // Désactive le polling pour ce searchId
+              return;
+            }
+            setCurrentResults([]);
+            setIsLoading(false);
+            return;
+          }
+          // Formatter les nouveaux résultats comme dans loadSearchResults
+          const formatted = data.map(result => {
+            let personas = [];
+            try {
+              if (result.personas) {
+                if (typeof result.personas === 'string') {
+                  try {
+                    const parsed = JSON.parse(result.personas);
+                    if (Array.isArray(parsed)) {
+                      personas = parsed;
+                    }
+                  } catch {}
+                } else if (Array.isArray(result.personas)) {
+                  personas = result.personas;
+                } else if (typeof result.personas === 'object' && result.personas !== null) {
+                  personas = [result.personas];
+                }
+              }
+            } catch {}
+            const normalizedPersonas = personas.map((p, index) => {
+              if (!p || typeof p !== 'object') return null;
+              return {
+                id: p.linkedin_id || p.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
+                name: p.full_name || p.name || 'Unknown',
+                title: p.headline || p.title || '',
+                profileUrl: p.public_profile_url || p.profileUrl || '',
+                company: p.company || ''
+              };
+            }).filter(Boolean);
+            return {
+              id: result.id,
+              title: result.job_title,
+              company: result.company_name,
+              location: result.location,
+              postedDate: new Date(result.posted_date),
+              description: result.job_description || '',
+              jobUrl: result.job_url,
+              personas: normalizedPersonas,
+              company_logo: result.company_logo,
+              type: 'CDI',
+              messageTemplate: '', // Pas de template dans le polling
+            };
+          });
+          // Patch intelligent au lieu de remplacer tout le tableau
+          setCurrentResults(prev => patchResults(prev, formatted));
+          setIsLoading(false);
         }
       }, 500); // Attendre 500ms avant de recharger
     };
@@ -224,7 +351,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         clearTimeout(reloadTimeout);
       }
     };
-  }, [loadSearchResults]);
+  }, [setCurrentResults]);
 
   // Supprime une recherche
   const deleteSearch = useCallback(async (searchId: string) => {
@@ -278,17 +405,7 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         return { success: false, error: "Unipile account ID manquant" };
       }
 
-      // On force location à n'être que des chaînes de caractères (jamais d'ID !)
-      const locations = searchConfig.search_jobs.location;
-      const locationLabels = locations.map((loc: any) => {
-        // Si c'est déjà une chaîne, on garde.
-        if (typeof loc === "string") return loc;
-        // Si c'est un objet avec un label string, on prend le label.
-        if (loc && typeof loc.label === "string") return loc.label;
-        // Si c'est juste un nombre ou tout autre cas, on jette.
-        return "";
-      }).filter(Boolean);
-
+      // On ne transforme plus la localisation en string, on la transmet telle quelle (objet { label, radius? })
       const location_id_is_known = false;
 
       // date_posted reste converti en secondes (24h, semaine, mois)
@@ -305,7 +422,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         unipile_account_id: unipileAccountId, // Ajout de l'unipile_account_id
         search_jobs: {
           ...searchConfig.search_jobs,
-          location: locationLabels,
           location_id_is_known,
           date_posted: datePostedSeconds,
         },
@@ -389,13 +505,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
 
       const searchId = search.id;
       // location as text only
-      const locations = search.jobFilters.location;
-      const locationLabels = locations.map((loc: any) => {
-        if (typeof loc === "string") return loc;
-        if (loc && typeof loc.label === "string") return loc.label;
-        return "";
-      }).filter(Boolean);
-
       const location_id_is_known = false;
 
       let datePostedSeconds: string | "" = "";
@@ -411,7 +520,6 @@ export function useSearchJobsCore({ setCurrentResults, setCurrentSearchId, inval
         unipile_account_id: unipileAccountId, // Ajout de l'unipile_account_id
         search_jobs: {
           ...search.jobFilters,
-          location: locationLabels,
           location_id_is_known,
           date_posted: datePostedSeconds,
         },

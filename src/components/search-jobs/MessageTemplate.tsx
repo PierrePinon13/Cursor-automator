@@ -1,4 +1,3 @@
-
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -39,10 +38,11 @@ export const MessageTemplate = ({ template, onChange }: MessageTemplateProps) =>
 
   const placeholderText = `Bonjour {{firstName}},
 
-J'ai vu votre annonce pour le poste de {{jobTitle}} chez {{companyName}}. 
-Votre profil correspond parfaitement à ce que nous recherchons...
+J'ai vu que vous recherchiez un {{jobTitle}}.
 
-Cordialement`;
+J'ai des candidats que je peux vous présenter si vous êtes toujours en recherche.
+
+Souhaitez-vous en discuter ?`;
 
   return (
     <div className="space-y-4">

@@ -31,9 +31,9 @@ const PageLayout = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      <div className={`flex-1 ${paddingClasses[padding]} ${className}`}>
-        <div className={`mx-auto ${maxWidthClasses[maxWidth]} h-full`}>
+    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 overflow-x-hidden">
+      <div className={`flex-1 ${paddingClasses[padding]} ${className} overflow-x-hidden`}>
+        <div className={`${maxWidthClasses[maxWidth]} h-full w-full`}>
           {children}
         </div>
       </div>

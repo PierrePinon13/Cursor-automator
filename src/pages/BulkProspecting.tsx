@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import GlobalPageHeader from '@/components/GlobalPageHeader';
 import PageLayout from '@/components/PageLayout';
-import { Users, ArrowRight, ArrowLeft, CheckCircle, Clock } from 'lucide-react';
+import { Users, ArrowRight, ArrowLeft, CheckCircle, Clock, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +12,11 @@ import { ProspectingStepTemplate } from '@/components/bulk-prospecting/Prospecti
 import { ProspectingStepMessages } from '@/components/bulk-prospecting/ProspectingStepMessages';
 import { ProspectingStepValidation } from '@/components/bulk-prospecting/ProspectingStepValidation';
 import { TemplateChoiceStep } from '@/components/bulk-prospecting/TemplateChoiceStep';
+import { ProspectingStepVariables } from '@/components/bulk-prospecting/ProspectingStepVariables';
 import { supabase } from '@/integrations/supabase/client';
 import { JobData, BulkProspectingState, Persona } from '@/types/jobSearch';
 import { useHiddenJobs } from '@/hooks/useHiddenJobs';
+import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 
 const BulkProspecting = () => {
   const [searchParams] = useSearchParams();
@@ -32,6 +34,7 @@ const BulkProspecting = () => {
     messageTemplate: '',
     personalizedMessages: {}
   });
+  const [variableReplacements, setVariableReplacements] = useState<any>({});
 
   // Récupérer les données depuis les paramètres URL
   useEffect(() => {
@@ -94,30 +97,32 @@ const BulkProspecting = () => {
 
       // Extraire tous les personas avec transformation sécurisée
       const allPersonas: Persona[] = [];
-      
+      // Récupérer toutes les company_ids uniques
+      const companyIds = Array.from(new Set((Array.isArray(results) ? results : []).map(job => job.company_id).filter(Boolean)));
+      let companiesMap: Record<string, { logo?: string; linkedin_id?: string; name?: string }> = {};
+      if (companyIds.length > 0) {
+        // Appel Supabase pour récupérer les infos des entreprises
+        const { data: companiesData, error: companiesError } = await supabase
+          .from('companies')
+          .select('id, name, logo, linkedin_id')
+          .in('id', companyIds);
+        if (!companiesError && Array.isArray(companiesData)) {
+          companiesData.forEach(c => {
+            companiesMap[c.id] = { logo: c.logo, linkedin_id: c.linkedin_id, name: c.name };
+          });
+        }
+      }
       if (Array.isArray(results)) {
         results.forEach((job) => {
-          // Vérifier si cette job offer est cachée
-          if (isJobHidden(job.id)) {
-            return; // Ignorer cette job offer
-          }
-
-          // Transformation sécurisée des personas depuis Json vers Persona[]
+          if (isJobHidden(job.id)) return;
           let personas: Persona[] = [];
-          
           if (job.personas) {
             try {
-              // Si personas est une string JSON, la parser
               if (typeof job.personas === 'string') {
                 personas = JSON.parse(job.personas);
-              } 
-              // Si c'est déjà un array, l'utiliser directement
-              else if (Array.isArray(job.personas)) {
+              } else if (Array.isArray(job.personas)) {
                 personas = job.personas as unknown as Persona[];
-              }
-              // Si c'est un objet, essayer de l'extraire
-              else if (typeof job.personas === 'object' && job.personas !== null) {
-                // Traiter comme un objet qui pourrait contenir un array
+              } else if (typeof job.personas === 'object' && job.personas !== null) {
                 const personasObj = job.personas as any;
                 if (Array.isArray(personasObj)) {
                   personas = personasObj as unknown as Persona[];
@@ -130,11 +135,11 @@ const BulkProspecting = () => {
               personas = [];
             }
           }
-
-          // Valider et nettoyer chaque persona
           if (Array.isArray(personas)) {
             personas.forEach((persona: any) => {
               if (persona && typeof persona === 'object' && persona.name && persona.title) {
+                // Enrichir avec infos company
+                const companyInfo = companiesMap[job.company_id] || {};
                 allPersonas.push({
                   id: persona.id || `${job.id}-${persona.name}`,
                   name: String(persona.name),
@@ -144,7 +149,14 @@ const BulkProspecting = () => {
                   location: persona.location ? String(persona.location) : undefined,
                   jobTitle: job.job_title ? String(job.job_title) : undefined,
                   jobCompany: job.company_name ? String(job.company_name) : undefined,
-                  jobId: String(job.id)
+                  jobLocation: job.location ? String(job.location) : undefined,
+                  jobUrl: job.job_url ? String(job.job_url) : undefined,
+                  // Champs pour la carte enrichie
+                  company_logo: companyInfo.logo,
+                  company_id: job.company_id,
+                  company_linkedin_id: companyInfo.linkedin_id,
+                  company_name: companyInfo.name || job.company_name,
+                  ...persona,
                 });
               }
             });
@@ -195,30 +207,11 @@ const BulkProspecting = () => {
   };
 
   const steps = [
-    { 
-      number: 1, 
-      title: 'Sélection', 
-      description: 'Nettoyer et sélectionner les profils',
-      icon: Users
-    },
-    { 
-      number: 2, 
-      title: 'Template', 
-      description: 'Configurer les templates de message',
-      icon: Clock
-    },
-    { 
-      number: 3, 
-      title: 'Messages', 
-      description: 'Personnaliser individuellement',
-      icon: ArrowRight
-    },
-    { 
-      number: 4, 
-      title: 'Validation', 
-      description: 'Valider et envoyer',
-      icon: CheckCircle
-    }
+    { number: 1, title: 'Profils', description: 'Nettoyer et sélectionner les profils', icon: Users },
+    { number: 2, title: 'Template', description: 'Configurer les templates de message', icon: Clock },
+    { number: 3, title: 'Variables', description: 'Revoir et corriger les variables', icon: List },
+    { number: 4, title: 'Messages', description: 'Personnaliser individuellement', icon: ArrowRight },
+    { number: 5, title: 'Validation', description: 'Valider et envoyer', icon: CheckCircle }
   ];
 
   const canGoNext = () => {
@@ -229,26 +222,16 @@ const BulkProspecting = () => {
         if (templateMode === 'unified') {
           return bulkState.messageTemplate.trim().length > 0;
         } else {
-          // Vérifier que toutes les job searches ont un template
-          return savedSearches.every(search => 
-            (individualTemplates[search.id] && individualTemplates[search.id].trim().length > 0) ||
-            (search.messageTemplate && search.messageTemplate.trim().length > 0)
-          );
+          return savedSearches.every(search => (individualTemplates[search.id] && individualTemplates[search.id].trim().length > 0) || (search.messageTemplate && search.messageTemplate.trim().length > 0));
         }
       case 3:
-        // Vérifier que tous les personas sélectionnés ont un message personnalisé
-        const selectedPersonaIds = bulkState.selectedPersonas.map(p => p.id);
-        const hasAllMessages = selectedPersonaIds.every(id => 
-          bulkState.personalizedMessages[id] && 
-          bulkState.personalizedMessages[id].trim().length > 0
-        );
-        console.log('Step 3 validation:', {
-          selectedPersonaIds,
-          personalizedMessages: bulkState.personalizedMessages,
-          hasAllMessages
-        });
-        return hasAllMessages;
+        // Toujours possible d'aller à l'étape suivante (pas de validation bloquante sur les variables)
+        return true;
       case 4:
+        const selectedPersonaIds = bulkState.selectedPersonas.map(p => p.id);
+        const hasAllMessages = selectedPersonaIds.every(id => bulkState.personalizedMessages[id] && bulkState.personalizedMessages[id].trim().length > 0);
+        return hasAllMessages;
+      case 5:
         return true;
       default:
         return false;
@@ -256,7 +239,7 @@ const BulkProspecting = () => {
   };
 
   const handleNext = () => {
-    if (canGoNext() && currentStep < 4) {
+    if (canGoNext() && currentStep < 5) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -308,6 +291,15 @@ const BulkProspecting = () => {
           );
         }
       case 3:
+        return (
+          <ProspectingStepVariables
+            template={templateMode === 'unified' ? bulkState.messageTemplate : ''}
+            selectedPersonas={bulkState.selectedPersonas}
+            variableReplacements={variableReplacements}
+            onChange={setVariableReplacements}
+          />
+        );
+      case 4:
         // Déterminer le template à utiliser pour chaque persona
         const getTemplateForPersona = (persona: Persona) => {
           if (templateMode === 'unified') {
@@ -330,9 +322,10 @@ const BulkProspecting = () => {
             onMessagesChange={(messages) => updateBulkState({ personalizedMessages: messages })}
             onPersonaRemoved={handlePersonaRemovedFromMessages}
             getTemplateForPersona={getTemplateForPersona}
+            variableReplacements={variableReplacements}
           />
         );
-      case 4:
+      case 5:
         return (
           <ProspectingStepValidation
             jobData={jobData}
@@ -363,60 +356,38 @@ const BulkProspecting = () => {
 
   return (
     <PageLayout>
-      <GlobalPageHeader
-        title="Prospection volumique"
-        subtitle={`${searchName} • ${totalJobs} offres • ${bulkState.selectedPersonas.length} contacts sélectionnés`}
-        icon={<Users className="h-6 w-6 text-blue-600" />}
-        breadcrumbs={[
-          { label: "Accueil", href: "/" },
-          { label: "Search Jobs", href: "/search-jobs" },
-          { label: "Prospection volumique" }
-        ]}
-      />
-
       <div className="space-y-6">
-        {/* Progress Bar & Stepper amélioré */}
+        {/* Header bleu avec titre et stepper */}
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
           <CardHeader className="pb-4">
-            <div className="flex items-center justify-between mb-4">
-              <CardTitle className="text-lg">Processus de prospection</CardTitle>
-              <Badge variant="secondary" className="px-3 py-1">
+            <div className="flex flex-row items-center gap-4 mb-4">
+              <CustomSidebarTrigger />
+              <h1 className="text-3xl font-bold text-gray-900">Processus de prospection</h1>
+              <span className="text-base font-medium text-blue-800 bg-blue-100 rounded px-3 py-1">
                 Étape {currentStep} sur {steps.length}
-              </Badge>
+              </span>
             </div>
             <Progress value={getProgressPercentage()} className="h-2 mb-4" />
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Stepper toujours sur une ligne, sans scroll */}
+            <div className="flex flex-row flex-nowrap gap-4 overflow-x-visible w-full justify-between">
               {steps.map((step) => {
                 const isActive = currentStep === step.number;
                 const isCompleted = currentStep > step.number;
                 const IconComponent = step.icon;
-                
                 return (
-                  <div key={step.number} className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                    isActive 
+                  <div key={step.number} className={`flex-1 flex items-center gap-3 p-3 rounded-lg min-w-0 transition-all
+                    ${isActive 
                       ? 'bg-blue-100 border-2 border-blue-300' 
                       : isCompleted 
-                        ? 'bg-green-50 border border-green-200' 
-                        : 'bg-white border border-gray-200'
-                  }`}>
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                      isActive 
-                        ? 'bg-blue-600 text-white' 
-                        : isCompleted 
-                          ? 'bg-green-600 text-white' 
-                          : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {isCompleted ? <CheckCircle className="h-4 w-4" /> : step.number}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-sm font-medium ${
-                        isActive ? 'text-blue-900' : isCompleted ? 'text-green-900' : 'text-gray-600'
-                      }`}>
-                        {step.title}
-                      </p>
-                      <p className="text-xs text-gray-500">{step.description}</p>
+                        ? 'bg-green-100 border-2 border-green-300' 
+                        : 'bg-white border border-gray-200'}
+                  `} style={{ minWidth: 0 }}>
+                    <IconComponent className={`h-6 w-6 ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'}`} />
+                    <div className="truncate min-w-0">
+                      <div className={`font-semibold truncate ${isActive ? 'text-blue-900' : isCompleted ? 'text-green-900' : 'text-gray-700'}`}>{step.title}</div>
+                      <div className="text-xs text-gray-500 truncate">{step.description}</div>
                     </div>
                   </div>
                 );
@@ -424,12 +395,10 @@ const BulkProspecting = () => {
             </div>
           </CardContent>
         </Card>
-
         {/* Étape actuelle */}
         <div className="min-h-96">
           {renderCurrentStep()}
         </div>
-
         {/* Navigation améliorée */}
         <Card>
           <CardContent className="py-4">
@@ -443,13 +412,17 @@ const BulkProspecting = () => {
                     Template configuré
                   </Badge>
                 )}
-                {currentStep >= 3 && Object.keys(bulkState.personalizedMessages).length > 0 && (
+                {currentStep >= 3 && Object.keys(variableReplacements).length > 0 && (
+                  <Badge variant="secondary" className="px-3 py-1">
+                    {Object.keys(variableReplacements).length} variable(s) configurée(s)
+                  </Badge>
+                )}
+                {currentStep >= 4 && Object.keys(bulkState.personalizedMessages).length > 0 && (
                   <Badge variant="secondary" className="px-3 py-1">
                     {Object.keys(bulkState.personalizedMessages).length} message(s) personnalisé(s)
                   </Badge>
                 )}
               </div>
-              
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -460,8 +433,7 @@ const BulkProspecting = () => {
                   <ArrowLeft className="h-4 w-4" />
                   Précédent
                 </Button>
-                
-                {currentStep < 4 ? (
+                {currentStep < 5 ? (
                   <Button
                     onClick={handleNext}
                     disabled={!canGoNext()}

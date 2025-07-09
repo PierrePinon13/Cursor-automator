@@ -30,7 +30,7 @@ const SearchJobs = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedSearch, setSelectedSearch] = useState<any>(null);
-  const [savedSearchesExpanded, setSavedSearchesExpanded] = useState(true);
+  const [savedSearchesExpanded, setSavedSearchesExpanded] = useState(false);
   const [localResults, setLocalResults] = useState<any[]>([]);
 
   // Synchroniser les résultats locaux avec les résultats de la recherche
@@ -49,10 +49,12 @@ const SearchJobs = () => {
     }
   };
 
+  // Quand on ferme le formulaire ou la recherche sélectionnée, ré-afficher la liste
   const handleNewSearch = () => {
     setShowForm(true);
     setSelectedSearch(null);
     resetCurrentResults();
+    setSavedSearchesExpanded(true);
   };
 
   const handleExecuteSearch = async (searchConfig: any) => {
@@ -81,6 +83,7 @@ const SearchJobs = () => {
     } else {
       loadSearchResults(null);
     }
+    setSavedSearchesExpanded(false); // Masquer la liste après sélection
   };
 
   const handleLoadResults = (searchId: string) => {
@@ -243,7 +246,10 @@ const SearchJobs = () => {
         {showForm && (
           <SearchJobsForm
             onSubmit={handleExecuteSearch}
-            onCancel={() => setShowForm(false)}
+            onCancel={() => {
+              setShowForm(false);
+              setSavedSearchesExpanded(true);
+            }}
             initialData={selectedSearch}
           />
         )}
@@ -317,7 +323,8 @@ const SearchJobs = () => {
             </div>
             <SearchResults
               results={localResults}
-              isLoading={isLoading || (!localResults?.length && !!selectedSearch?.id)}
+              isLoading={isLoading}
+              messageTemplate={selectedSearch?.messageTemplate || ''}
               key={selectedSearch.id}
               showBulkProspectingButton={false}
               onPersonaRemoved={handlePersonaRemoved}

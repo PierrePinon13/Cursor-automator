@@ -4,9 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { User, Search, Filter, Users, AlertTriangle, Building, Briefcase, CheckCircle, X } from 'lucide-react';
+import { User, Search, Filter, Users, AlertTriangle, Building, Briefcase, CheckCircle, X, MapPin } from 'lucide-react';
 import { usePersonaSelections } from '@/hooks/usePersonaSelections';
 import { useToast } from '@/hooks/use-toast';
+import { ProspectingStepProfileV2, Lead } from './ProspectingStepProfileV2';
+import { LeadCard } from '@/components/leads/LeadCard';
+import { useIsMobile } from '@/hooks/use-mobile';
+import CompanyHoverCard from '@/components/leads/CompanyHoverCard';
+import { Linkedin } from 'lucide-react';
 
 interface JobData {
   id: string;
@@ -90,7 +95,8 @@ export const ProspectingStepProfile = ({
                 jobId: p.jobId || jobData.id,
                 jobTitle: p.jobTitle || jobData.title,
                 jobCompany: p.jobCompany || jobData.company,
-                jobLocation: p.location
+                jobLocation: p.jobLocation || p.location || '',
+                jobUrl: p.jobUrl || ''
               }));
             representative._isMultipleOffers = true;
             representative._personaKey = key;
@@ -202,6 +208,8 @@ export const ProspectingStepProfile = ({
         jobTitle: selectedOffer.jobTitle,
         jobCompany: selectedOffer.jobCompany,
         location: selectedOffer.jobLocation,
+        jobLocation: selectedOffer.jobLocation,
+        jobUrl: selectedOffer.jobUrl,
         _selectedForOffer: selectedOffer.jobId
       };
 
@@ -473,12 +481,22 @@ export const ProspectingStepProfile = ({
                         <div className="flex-1">
                           <div className="flex items-center gap-1 text-sm font-medium">
                             <Building className="h-4 w-4 text-gray-500" />
-                            {offer.jobCompany || 'Entreprise non disponible'}
+                            {/* Lien cliquable si offer.jobUrl existe */}
+                            {offer.jobUrl ? (
+                              <a href={offer.jobUrl} target="_blank" rel="noopener noreferrer" className="text-gray-800 hover:underline">
+                                {offer.jobTitle || 'Titre non disponible'}
+                              </a>
+                            ) : (
+                              offer.jobTitle || 'Titre non disponible'
+                            )}
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <Briefcase className="h-3 w-3" />
-                            {offer.jobTitle || 'Titre non disponible'}
-                          </div>
+                          {/* Localisation si présente */}
+                          {offer.jobLocation && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                              <MapPin className="h-3 w-3" />
+                              {offer.jobLocation}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -525,83 +543,84 @@ export const ProspectingStepProfile = ({
       {/* Zone principale avec les profils uniques */}
       <Card className="flex-1">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {filteredUniquePersonas.map((persona) => {
-              if (!persona || typeof persona !== 'object') return null;
-              if (isPersonaRemoved(persona.id)) return null; // Ne pas afficher les personas supprimés
-              
-              const isSelected = selectedPersonas.some(selected => selected && selected.id === persona.id);
-              
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredUniquePersonas.map((p) => {
+              const fullName = (p.first_name || p.name || '') + (p.last_name ? ' ' + p.last_name : '');
+              const companyLinkedinUrl = p.company_linkedin_id ? `https://www.linkedin.com/company/${p.company_linkedin_id}` : '';
               return (
-                <div
-                  key={persona.id || `persona-${Math.random()}`}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 relative ${
-                    isSelected 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => togglePersona(persona)}
-                >
-                  {/* Bouton supprimer */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemovePersona(persona.id);
-                    }}
-                    className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-50 hover:border-red-200 text-red-600"
-                    title="Supprimer ce contact"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-
-                  <div className="flex items-start gap-3 pr-8">
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={() => {}} // Handled by parent click
-                      className="mt-1"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                          <User className="h-4 w-4 text-gray-500" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-medium text-sm text-gray-900 truncate">
-                            {persona.name || 'Nom non disponible'}
-                          </h4>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                        {persona.title || 'Titre non disponible'}
-                      </p>
-                      {persona.company && (
-                        <p className="text-xs text-gray-500 mb-2">
-                          Chez: {persona.company}
-                        </p>
-                      )}
-                      
-                      {/* Affichage de l'offre d'emploi */}
-                      {persona._jobOffers && persona._jobOffers[0] && (
-                        <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Building className="h-3 w-3" />
-                            <span className="font-medium">{persona._jobOffers[0].jobCompany || 'Entreprise non disponible'}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Briefcase className="h-3 w-3" />
-                            <span className="truncate">{persona._jobOffers[0].jobTitle || 'Titre non disponible'}</span>
-                          </div>
-                        </div>
-                      )}
+                <div key={p.id} className="relative p-0 border rounded-xl bg-green-50 border-green-200 flex flex-col min-h-[220px] shadow-sm pb-16 overflow-hidden">
+                  {/* Section Lead (vert clair) */}
+                  <div className="p-4 bg-green-50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-lg text-gray-900 truncate flex items-center gap-1">
+                        {fullName}
+                      </span>
+                      <a
+                        href={p.profile_url || p.author_profile_url || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-1 text-blue-600 hover:text-blue-800 flex-shrink-0"
+                        title="Voir le profil LinkedIn"
+                        style={{ display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        <Linkedin className="inline h-4 w-4 align-middle" />
+                      </a>
                     </div>
+                    <div className="text-sm text-gray-700 font-medium mb-2 truncate">{p.company_position || p.title || ''}</div>
+                    {/* Entreprise + logo + hover + LinkedIn */}
+                    <div className="flex items-center gap-2 mb-1">
+                      {p.company_logo && (
+                        <img src={p.company_logo} alt={p.company_name || p.company || ''} className="w-7 h-7 rounded-full object-cover border border-gray-200 bg-white" />
+                      )}
+                      <CompanyHoverCard
+                        companyId={p.company_id}
+                        companyLinkedInId={p.company_linkedin_id}
+                        companyName={p.company_name || p.company || ''}
+                        showLogo={false}
+                      >
+                        <span className="text-sm text-green-800 font-semibold hover:underline cursor-pointer truncate max-w-[120px] flex items-center gap-1">
+                          {p.company_name || p.company || ''}
+                          {companyLinkedinUrl && (
+                            <a href={companyLinkedinUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 hover:text-blue-800" onClick={e => e.stopPropagation()}>
+                              <Linkedin className="inline h-4 w-4 align-middle" />
+                            </a>
+                          )}
+                        </span>
+                      </CompanyHoverCard>
+                    </div>
+                  </div>
+                  {/* Séparation visuelle */}
+                  <div className="h-[1px] w-full bg-green-100 my-0" />
+                  {/* Section Job Offer (vert plus pâle) */}
+                  <div className="p-4 bg-green-100 flex-1 flex flex-col justify-between">
+                    {p.jobTitle && (
+                      <div className="text-xs text-gray-700 mb-1 truncate font-medium">{p.jobTitle}</div>
+                    )}
+                    <div className="text-xs text-gray-500 mb-2 truncate">{p.location || p.openai_step2_localisation || 'France'}</div>
+                  </div>
+                  {/* Boutons croix/tick */}
+                  <div className="absolute bottom-4 left-0 w-full flex justify-center gap-6 z-10">
+                    <button
+                      className="rounded-full border border-gray-300 bg-white h-10 w-10 flex items-center justify-center text-gray-400 text-xl shadow hover:bg-gray-100 transition"
+                      onClick={() => onSelectionChange(selectedPersonas.filter(sel => sel.id !== p.id))}
+                      title="Rejeter ce lead"
+                      type="button"
+                    >
+                      ✗
+                    </button>
+                    <button
+                      className="rounded-full border border-blue-500 bg-white h-10 w-10 flex items-center justify-center text-blue-500 text-xl shadow hover:bg-blue-50 transition"
+                      onClick={() => onSelectionChange([...selectedPersonas, p])}
+                      title="Accepter ce lead"
+                      type="button"
+                    >
+                      ✓
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
-
           {filteredUniquePersonas.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />

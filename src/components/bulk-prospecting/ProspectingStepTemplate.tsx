@@ -47,9 +47,10 @@ Cordialement`;
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Template de message
+          Template de message <span className="text-red-500 text-lg">*</span>
+          <span className="ml-2 text-xs text-gray-500 font-normal">Ce template sera utilisé comme base pour tous les messages. Vous pourrez personnaliser chaque message individuellement à l'étape suivante.</span>
         </CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-2">
           <Badge variant="secondary">
             {jobData?.title || 'Titre non disponible'}
           </Badge>
@@ -60,26 +61,13 @@ Cordialement`;
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Ce template sera utilisé comme base pour tous les messages. Vous pourrez personnaliser 
-            chaque message individuellement à l'étape suivante.
-            <br /><br />
-            Variables disponibles : {'{{firstName}}, {{lastName}}, {{jobTitle}}, {{companyName}}, {{personaTitle}}, {{personaCompany}}'}
-          </AlertDescription>
-        </Alert>
-
-        <MessageTemplate
-          template={template || defaultTemplate}
-          onChange={onTemplateChange}
-        />
-
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-sm mb-2">Aperçu avec des variables remplies :</h4>
-          <div className="text-sm text-gray-700 whitespace-pre-wrap border-l-4 border-blue-500 pl-4">
-            {generatePreview(template || defaultTemplate)}
-          </div>
+        {/* Zone de composition du message, UI améliorée */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <label htmlFor="bulk-message-template" className="block text-sm font-semibold text-blue-900 mb-2">Message LinkedIn *</label>
+          <MessageTemplate
+            template={template || defaultTemplate}
+            onChange={onTemplateChange}
+          />
         </div>
       </CardContent>
     </Card>

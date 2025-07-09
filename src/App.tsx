@@ -25,6 +25,7 @@ import DebugLead from "./pages/DebugLead";
 import FunnelAnalysis from "./pages/FunnelAnalysis";
 import DatasetReprocessingExecution from "./pages/DatasetReprocessingExecution";
 import NotFound from "./pages/NotFound";
+import LeadSelectionPage from './pages/LeadSelection';
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ function App() {
                     <Route path="/debug-lead" element={<DebugLead />} />
                     <Route path="/funnel-analysis" element={<FunnelAnalysis />} />
                     <Route path="/dataset-reprocessing-execution" element={<DatasetReprocessingExecution />} />
+                    <Route path="/lead-selection" element={<LeadSelectionPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </div>
