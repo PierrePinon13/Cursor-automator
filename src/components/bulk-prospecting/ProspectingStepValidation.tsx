@@ -224,24 +224,36 @@ export const ProspectingStepValidation = ({
         {/* Aperçu des contacts */}
         <div>
           <h3 className="font-medium mb-3">Contacts qui recevront un message</h3>
-          <div className="max-h-40 overflow-y-auto space-y-2">
-            {bulkState.selectedPersonas.map((persona) => (
-              <div key={persona.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
-                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                  <User className="h-3 w-3 text-gray-500" />
+          <div className="w-full flex justify-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-5xl mx-auto">
+              {bulkState.selectedPersonas.map((persona) => (
+                <div
+                  key={persona.id}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-2 items-start min-h-[140px]"
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                      <User className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{persona.name}</p>
+                      <p className="text-xs text-gray-600 truncate">{persona.title}</p>
+                      {persona.linkedin_id && (
+                        <p className="text-xs text-blue-600 truncate">LinkedIn ID: {persona.linkedin_id}</p>
+                      )}
+                    </div>
+                    <Badge variant={bulkState.personalizedMessages[persona.id] ? "secondary" : "outline"} className="text-xs">
+                      {bulkState.personalizedMessages[persona.id] ? "Prêt" : "En attente"}
+                    </Badge>
+                  </div>
+                  <div className="w-full mt-2">
+                    <div className="text-xs text-gray-700 bg-gray-50 rounded p-2 max-h-16 overflow-hidden whitespace-pre-line" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {bulkState.personalizedMessages[persona.id] || <span className="italic text-gray-400">Aucun message</span>}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{persona.name}</p>
-                  <p className="text-xs text-gray-600">{persona.title}</p>
-                  {persona.linkedin_id && (
-                    <p className="text-xs text-blue-600">LinkedIn ID: {persona.linkedin_id}</p>
-                  )}
-                </div>
-                <Badge variant={bulkState.personalizedMessages[persona.id] ? "secondary" : "outline"} className="text-xs">
-                  {bulkState.personalizedMessages[persona.id] ? "Prêt" : "En attente"}
-                </Badge>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 

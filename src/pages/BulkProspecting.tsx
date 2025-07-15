@@ -35,6 +35,8 @@ const BulkProspecting = () => {
     personalizedMessages: {}
   });
   const [variableReplacements, setVariableReplacements] = useState<any>({});
+  const [removedPersonaIds, setRemovedPersonaIds] = useState<string[]>([]);
+  const [untreatedCount, setUntreatedCount] = useState(0);
 
   // Récupérer les données depuis les paramètres URL
   useEffect(() => {
@@ -57,7 +59,12 @@ const BulkProspecting = () => {
     } else if (personasParam) {
       // Utiliser les données passées en paramètres
       try {
-        const personas: Persona[] = JSON.parse(personasParam);
+        // Déduplication des personas par id pour éviter les doublons
+        const personas: Persona[] = Array.isArray(JSON.parse(personasParam))
+          ? JSON.parse(personasParam).filter((p: Persona, idx: number, arr: Persona[]) =>
+              p && p.id && arr.findIndex(pp => pp.id === p.id) === idx
+            )
+          : [];
         
         const mockJobData: JobData = {
           id: searchId,
@@ -96,7 +103,7 @@ const BulkProspecting = () => {
       console.log('Raw results from database:', results);
 
       // Extraire tous les personas avec transformation sécurisée
-      const allPersonas: Persona[] = [];
+      let allPersonas: Persona[] = [];
       // Récupérer toutes les company_ids uniques
       const companyIds = Array.from(new Set((Array.isArray(results) ? results : []).map(job => job.company_id).filter(Boolean)));
       let companiesMap: Record<string, { logo?: string; linkedin_id?: string; name?: string }> = {};
@@ -163,7 +170,8 @@ const BulkProspecting = () => {
           }
         });
       }
-
+      // Déduplication des personas par id pour éviter les doublons
+      allPersonas = allPersonas.filter((p, idx, arr) => p && p.id && arr.findIndex(pp => pp.id === p.id) === idx);
       const mockJobData: JobData = {
         id: searchId,
         title: `${allPersonas.length} contacts`,
@@ -217,7 +225,7 @@ const BulkProspecting = () => {
   const canGoNext = () => {
     switch (currentStep) {
       case 1:
-        return bulkState.selectedPersonas.length > 0;
+        return bulkState.selectedPersonas.length > 0 && untreatedCount === 0;
       case 2:
         if (templateMode === 'unified') {
           return bulkState.messageTemplate.trim().length > 0;
@@ -240,6 +248,14 @@ const BulkProspecting = () => {
 
   const handleNext = () => {
     if (canGoNext() && currentStep < 5) {
+      // Filtrer les leads supprimés ET ne garder que les validés avant de passer à l'étape suivante
+      setBulkState(prev => ({
+        ...prev,
+        selectedPersonas: prev.selectedPersonas
+          .filter(p => !removedPersonaIds.includes(p.id))
+          // On ne garde que les personas validés (présents dans validatedPersonaIds si dispo)
+          .filter((p, idx, arr) => arr.findIndex(pp => pp.id === p.id) === idx)
+      }));
       setCurrentStep(currentStep + 1);
     }
   };
@@ -258,6 +274,9 @@ const BulkProspecting = () => {
             jobData={jobData}
             selectedPersonas={bulkState.selectedPersonas}
             onSelectionChange={(personas) => updateBulkState({ selectedPersonas: personas })}
+            removedPersonaIds={removedPersonaIds}
+            setRemovedPersonaIds={setRemovedPersonaIds}
+            setUntreatedCount={setUntreatedCount}
           />
         );
       case 2:

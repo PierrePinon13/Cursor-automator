@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,6 +13,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import CompanyHoverCard from '@/components/leads/CompanyHoverCard';
 import { Linkedin } from 'lucide-react';
 
+// === NOUVEAU COMPOSANT POUR LA PROSPECTION VOLUMIQUE ===
+// Copie de la grille d'affichage des profils uniques
+import { BulkProspectingLeadCard } from './BulkProspectingLeadCard';
+
 interface JobData {
   id: string;
   title: string;
@@ -24,15 +28,22 @@ interface ProspectingStepProfileProps {
   jobData: JobData;
   selectedPersonas: any[];
   onSelectionChange: (personas: any[]) => void;
+  removedPersonaIds: string[];
+  setRemovedPersonaIds: (ids: string[] | ((ids: string[]) => string[])) => void;
+  setUntreatedCount: (count: number) => void;
 }
 
 export const ProspectingStepProfile = ({ 
   jobData, 
   selectedPersonas, 
-  onSelectionChange 
+  onSelectionChange,
+  removedPersonaIds,
+  setRemovedPersonaIds,
+  setUntreatedCount
 }: ProspectingStepProfileProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
+  const [validatedPersonaIds, setValidatedPersonaIds] = useState<string[]>([]);
   const [duplicateSelections, setDuplicateSelections] = useState<{ [personaKey: string]: string }>({});
   const [processingDuplicates, setProcessingDuplicates] = useState<{ [personaKey: string]: boolean }>({});
   const [validatedDuplicates, setValidatedDuplicates] = useState<Set<string>>(new Set());
@@ -351,6 +362,41 @@ export const ProspectingStepProfile = ({
     setShowOnlySelected(checked === true);
   };
 
+  // Liste des profils à traiter (ni validés ni rejetés)
+  const untreatedPersonas = uniquePersonas.filter(
+    p => !validatedPersonaIds.includes(p.id) && !removedPersonaIds.includes(p.id)
+  );
+
+  // Liste des profils à afficher : validés + non traités (sans doublons)
+  const validatedPersonas = uniquePersonas.filter(p => validatedPersonaIds.includes(p.id));
+  const untreatedPersonasFiltered = uniquePersonas.filter(p => !validatedPersonaIds.includes(p.id) && !removedPersonaIds.includes(p.id));
+  const displayedPersonas = [...validatedPersonas, ...untreatedPersonasFiltered];
+
+  // Mettre à jour le nombre de profils non traités à chaque render
+  useEffect(() => {
+    setUntreatedCount(untreatedPersonas.length);
+  }, [untreatedPersonas.length, setUntreatedCount]);
+
+  // Callback pour valider un profil
+  const handleValidatePersona = (persona: any) => {
+    setValidatedPersonaIds(ids => [...ids, persona.id]);
+    onSelectionChange([...selectedPersonas, persona]);
+  };
+
+  // Callback pour rejeter un profil
+  const handleRejectPersona = (persona: any) => {
+    setRemovedPersonaIds(ids => [...ids, persona.id]);
+    // Ne pas ajouter à la sélection
+  };
+
+  // Bouton pour valider tous les profils non traités
+  const handleValidateAll = () => {
+    const untreatedIds = uniquePersonas.filter(p => !validatedPersonaIds.includes(p.id) && !removedPersonaIds.includes(p.id)).map(p => p.id);
+    setValidatedPersonaIds(ids => [...ids, ...untreatedIds]);
+    const toAdd = uniquePersonas.filter(p => untreatedIds.includes(p.id));
+    onSelectionChange([...selectedPersonas, ...toAdd]);
+  };
+
   return (
     <div className="space-y-4">
       {/* En-tête compacte */}
@@ -543,84 +589,22 @@ export const ProspectingStepProfile = ({
       {/* Zone principale avec les profils uniques */}
       <Card className="flex-1">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredUniquePersonas.map((p) => {
-              const fullName = (p.first_name || p.name || '') + (p.last_name ? ' ' + p.last_name : '');
-              const companyLinkedinUrl = p.company_linkedin_id ? `https://www.linkedin.com/company/${p.company_linkedin_id}` : '';
-              return (
-                <div key={p.id} className="relative p-0 border rounded-xl bg-green-50 border-green-200 flex flex-col min-h-[220px] shadow-sm pb-16 overflow-hidden">
-                  {/* Section Lead (vert clair) */}
-                  <div className="p-4 bg-green-50">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-lg text-gray-900 truncate flex items-center gap-1">
-                        {fullName}
-                      </span>
-                      <a
-                        href={p.profile_url || p.author_profile_url || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-1 text-blue-600 hover:text-blue-800 flex-shrink-0"
-                        title="Voir le profil LinkedIn"
-                        style={{ display: 'inline-flex', alignItems: 'center' }}
-                      >
-                        <Linkedin className="inline h-4 w-4 align-middle" />
-                      </a>
-                    </div>
-                    <div className="text-sm text-gray-700 font-medium mb-2 truncate">{p.company_position || p.title || ''}</div>
-                    {/* Entreprise + logo + hover + LinkedIn */}
-                    <div className="flex items-center gap-2 mb-1">
-                      {p.company_logo && (
-                        <img src={p.company_logo} alt={p.company_name || p.company || ''} className="w-7 h-7 rounded-full object-cover border border-gray-200 bg-white" />
-                      )}
-                      <CompanyHoverCard
-                        companyId={p.company_id}
-                        companyLinkedInId={p.company_linkedin_id}
-                        companyName={p.company_name || p.company || ''}
-                        showLogo={false}
-                      >
-                        <span className="text-sm text-green-800 font-semibold hover:underline cursor-pointer truncate max-w-[120px] flex items-center gap-1">
-                          {p.company_name || p.company || ''}
-                          {companyLinkedinUrl && (
-                            <a href={companyLinkedinUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 hover:text-blue-800" onClick={e => e.stopPropagation()}>
-                              <Linkedin className="inline h-4 w-4 align-middle" />
-                            </a>
-                          )}
-                        </span>
-                      </CompanyHoverCard>
-                    </div>
-                  </div>
-                  {/* Séparation visuelle */}
-                  <div className="h-[1px] w-full bg-green-100 my-0" />
-                  {/* Section Job Offer (vert plus pâle) */}
-                  <div className="p-4 bg-green-100 flex-1 flex flex-col justify-between">
-                    {p.jobTitle && (
-                      <div className="text-xs text-gray-700 mb-1 truncate font-medium">{p.jobTitle}</div>
-                    )}
-                    <div className="text-xs text-gray-500 mb-2 truncate">{p.location || p.openai_step2_localisation || 'France'}</div>
-                  </div>
-                  {/* Boutons croix/tick */}
-                  <div className="absolute bottom-4 left-0 w-full flex justify-center gap-6 z-10">
-                    <button
-                      className="rounded-full border border-gray-300 bg-white h-10 w-10 flex items-center justify-center text-gray-400 text-xl shadow hover:bg-gray-100 transition"
-                      onClick={() => togglePersona(p)}
-                      title="Rejeter ce lead"
-                      type="button"
-                    >
-                      ✗
-                    </button>
-                    <button
-                      className="rounded-full border border-blue-500 bg-white h-10 w-10 flex items-center justify-center text-blue-500 text-xl shadow hover:bg-blue-50 transition"
-                      onClick={() => togglePersona(p)}
-                      title="Accepter ce lead"
-                      type="button"
-                    >
-                      ✓
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <BulkProspectingLeadCard
+            personas={displayedPersonas}
+            selectedPersonas={validatedPersonaIds}
+            onAcceptPersona={handleValidatePersona}
+            onRejectPersona={handleRejectPersona}
+          />
+          {untreatedPersonas.length > 0 && (
+            <div className="flex justify-center mt-4">
+              <Button
+                className="bg-green-600 hover:bg-green-700 px-8"
+                onClick={handleValidateAll}
+              >
+                Valider tous les profils restants
+              </Button>
+            </div>
+          )}
           {filteredUniquePersonas.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />

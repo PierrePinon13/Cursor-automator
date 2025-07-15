@@ -5,8 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { getTimeAgo } from '@/utils/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-type Lead = Tables<'leads'>;
+type Lead = Tables<'leads'> & {
+  companies?: Tables<'companies'>;
+};
 
 const categoryColors = {
   'Tech': {
@@ -132,17 +140,108 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, isMobile, onClick }) =
           </div>
         )}
         {lead.unipile_company || lead.company_name ? (
-          <div
-            className="text-blue-700 hover:text-blue-800 hover:underline cursor-pointer text-sm font-semibold transition-colors bg-blue-50/40 px-3 py-2 rounded-lg"
-            data-clickable="true"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (lead.author_profile_url) window.open(lead.author_profile_url, '_blank');
-            }}
-            style={isMobile ? { fontSize: 13 } : undefined}
-          >
-            {lead.unipile_company || lead.company_name}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="text-blue-700 hover:text-blue-800 hover:underline cursor-pointer text-sm font-semibold transition-colors bg-blue-50/40 px-3 py-2 rounded-lg"
+                  data-clickable="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (lead.author_profile_url) window.open(lead.author_profile_url, '_blank');
+                  }}
+                  style={isMobile ? { fontSize: 13 } : undefined}
+                >
+                  {lead.unipile_company || lead.company_name}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[400px] p-4 space-y-3">
+                {lead.companies ? (
+                  <>
+                    {/* Description */}
+                    {lead.companies.description && (
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {lead.companies.description}
+                      </p>
+                    )}
+                    
+                    {/* Infos */}
+                    <div className="space-y-2 border-t border-gray-100 pt-2">
+                      {lead.companies.industry && (
+                        <p className="text-sm">
+                          <span className="font-medium text-gray-700">Secteur :</span>{' '}
+                          <span className="text-gray-600">{lead.companies.industry}</span>
+                        </p>
+                      )}
+                      {lead.companies.employee_count && (
+                        <p className="text-sm">
+                          <span className="font-medium text-gray-700">Taille :</span>{' '}
+                          <span className="text-gray-600">{lead.companies.employee_count} employés</span>
+                        </p>
+                      )}
+                      {lead.companies.headquarters && (
+                        <p className="text-sm">
+                          <span className="font-medium text-gray-700">Siège :</span>{' '}
+                          <span className="text-gray-600">{lead.companies.headquarters}</span>
+                        </p>
+                      )}
+                      {lead.companies.website && (
+                        <p className="text-sm">
+                          <span className="font-medium text-gray-700">Site web :</span>{' '}
+                          <a 
+                            href={lead.companies.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {lead.companies.website.replace(/^https?:\/\//i, '')}
+                          </a>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Activités */}
+                    {lead.companies.activities && (
+                      <div className="border-t border-gray-100 pt-2">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Activités :</p>
+                        <div className="flex flex-wrap gap-1">
+                          {lead.companies.activities.split(',').map((activity) => (
+                            <Badge
+                              key={activity.trim()}
+                              variant="secondary"
+                              className="bg-gray-100/80 text-gray-700 text-xs"
+                            >
+                              {activity.trim()}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Catégorie */}
+                    {lead.companies.categorie && (
+                      <div className="border-t border-gray-100 pt-2">
+                        <Badge
+                          className={`
+                            ${lead.companies.categorie === 'esn' ? 'bg-blue-100 text-blue-800' : 
+                              lead.companies.categorie === 'cabinet de recrutement' ? 'bg-purple-100 text-purple-800' : 
+                              'bg-gray-100 text-gray-800'}
+                          `}
+                        >
+                          {lead.companies.categorie === 'esn' ? 'ESN' :
+                           lead.companies.categorie === 'cabinet de recrutement' ? 'Cabinet de recrutement' :
+                           lead.companies.categorie}
+                        </Badge>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">Aucune information disponible sur l'entreprise</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <div className="text-amber-600 text-xs font-medium bg-amber-50/40 px-3 py-2 rounded-lg">
             Données non disponibles

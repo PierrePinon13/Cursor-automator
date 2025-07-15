@@ -68,9 +68,16 @@ export const useLeads = () => {
         .select(`
           *,
           companies!leads_company_id_fkey (
-            categorie,
+            id,
+            name,
+            description,
+            industry,
+            activities,
             employee_count,
-            logo
+            logo,
+            categorie,
+            headquarters,
+            website
           )
         `)
         .neq('processing_status', 'filtered_hr_provider')
