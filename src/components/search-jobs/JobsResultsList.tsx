@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePersonnaSearch } from "@/hooks/usePersonnaSearch";
-import { Users, X } from "lucide-react";
+import { Users, X, Check } from "lucide-react";
 import { usePersonaSelections } from "@/hooks/usePersonaSelections";
 
 export function JobsResultsList({ jobs, searchId, personnaFilters }: {
@@ -15,6 +15,11 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
   const [filter, setFilter] = useState<"all" | "with-personas">("all");
   const [deletedJobIds, setDeletedJobIds] = useState<Set<string>>(new Set());
   const [removedPersonas, setRemovedPersonas] = useState<Set<string>>(new Set());
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(() => {
+    // Initialiser avec les sélections sauvegardées
+    const saved = localStorage.getItem('selectedJobIds');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   
   // Hook to handle personna search for each job
   const status = usePersonnaSearch({
@@ -57,6 +62,11 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
     const existingDeleted = JSON.parse(localStorage.getItem('deletedJobIds') || '[]');
     const updatedDeleted = [...existingDeleted, jobId];
     localStorage.setItem('deletedJobIds', JSON.stringify(updatedDeleted));
+
+    // Si l'offre était sélectionnée, la désélectionner
+    if (selectedJobIds.has(jobId)) {
+      handleToggleJobSelection(jobId);
+    }
   };
 
   const handleRemovePersona = async (personaId: string, jobId: string) => {
@@ -80,21 +90,40 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
     }
   };
 
+  const handleToggleJobSelection = (jobId: string) => {
+    setSelectedJobIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      // Sauvegarder dans localStorage
+      localStorage.setItem('selectedJobIds', JSON.stringify([...newSet]));
+      return newSet;
+    });
+  };
+
   return (
     <div>
-      <div className="flex justify-end mb-2 gap-2">
-        <Button
-          variant={filter === "all" ? "default" : "outline"}
-          onClick={() => setFilter("all")}
-        >
-          Toutes les offres
-        </Button>
-        <Button
-          variant={filter === "with-personas" ? "default" : "outline"}
-          onClick={() => setFilter("with-personas")}
-        >
-          Avec personas trouvés
-        </Button>
+      <div className="flex justify-between mb-2 gap-2">
+        <div className="text-sm text-gray-600">
+          {selectedJobIds.size} offre{selectedJobIds.size > 1 ? 's' : ''} sélectionnée{selectedJobIds.size > 1 ? 's' : ''}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+          >
+            Toutes les offres
+          </Button>
+          <Button
+            variant={filter === "with-personas" ? "default" : "outline"}
+            onClick={() => setFilter("with-personas")}
+          >
+            Avec personas trouvés
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -110,28 +139,39 @@ export function JobsResultsList({ jobs, searchId, personnaFilters }: {
             !removedPersonas.has(persona.id || persona.full_name)
           );
           const isLoading = status[job.job_id]?.isLoading ?? true;
+          const isSelected = selectedJobIds.has(job.job_id);
 
           return (
             <Card
               key={job.job_id}
               className={`transition-all border-2 relative
                 ${!isLoading && personas.length > 0
-                  ? "border-green-400"
+                  ? isSelected ? "border-blue-400 bg-blue-50" : "border-green-400"
                   : isLoading || !personas.length
                   ? "border-gray-200 bg-gray-100 opacity-60"
                   : ""}
               `}
             >
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-100"
-                onClick={() => handleDeleteJob(job.job_id)}
-              >
-                <X className="h-4 w-4 text-gray-500 hover:text-red-600" />
-              </Button>
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-6 w-6 p-0 ${isSelected ? 'bg-blue-100 hover:bg-blue-200' : 'hover:bg-blue-100'}`}
+                  onClick={() => handleToggleJobSelection(job.job_id)}
+                >
+                  <Check className={`h-4 w-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-red-100"
+                  onClick={() => handleDeleteJob(job.job_id)}
+                >
+                  <X className="h-4 w-4 text-gray-500 hover:text-red-600" />
+                </Button>
+              </div>
               
-              <CardHeader className="pr-10">
+              <CardHeader className="pr-16">
                 <CardTitle className="flex items-center gap-2">
                   {job.job_title}
                   {isLoading && (
