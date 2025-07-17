@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro, Briefcase, Filter, UserPlus } from 'lucide-react';
+import { Building, MapPin, Calendar, Users, MessageSquare, X, ExternalLink, Euro, Briefcase, Filter, UserPlus, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { JobResultDetail } from './JobResultDetail';
@@ -65,7 +65,7 @@ interface SearchResultsProps {
   onHideJob?: (jobId: string) => void;
   showBulkProspectingButton?: boolean;
   onPersonaRemoved?: (jobId: string, personaId: string) => void;
-  messageTemplate?: string; // <-- ajout
+  messageTemplate?: string;
 }
 
 export const SearchResults = ({ 
@@ -74,19 +74,45 @@ export const SearchResults = ({
   onHideJob,
   showBulkProspectingButton = true,
   onPersonaRemoved,
-  messageTemplate = '' // <-- ajout
+  messageTemplate = ''
 }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
   const { hiddenJobs, hideJob, showAllJobs, isJobHidden } = useHiddenJobs();
   const [personaFilter, setPersonaFilter] = useState<'all' | 'with-personas' | 'without-personas'>('all');
   const [cityFilter, setCityFilter] = useState<string>('all');
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(() => {
+    // Initialiser avec les sélections sauvegardées
+    const saved = localStorage.getItem('selectedJobIds');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
 
   const handleHideJob = (jobId: string) => {
     hideJob(jobId);
     if (onHideJob) {
       onHideJob(jobId);
     }
+    // Si l'offre était sélectionnée, la désélectionner
+    if (selectedJobIds.has(jobId)) {
+      handleToggleJobSelection(jobId);
+    }
+  };
+
+  const handleToggleJobSelection = (jobId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    setSelectedJobIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      // Sauvegarder dans localStorage
+      localStorage.setItem('selectedJobIds', JSON.stringify([...newSet]));
+      return newSet;
+    });
   };
 
   const handlePersonaRemoved = (jobId: string, personaId: string) => {
@@ -172,12 +198,13 @@ export const SearchResults = ({
 
   // Fonction pour la prospection volumique globale - EXCLUT les offres masquées
   const handleGlobalBulkProspecting = () => {
-    // Utiliser filteredResults au lieu de results pour exclure les offres masquées
-    const jobsWithPersonas = filteredResults.filter(job => job.personas && job.personas.length > 0);
+    // Utiliser les offres sélectionnées uniquement
+    const selectedJobs = filteredResults.filter(job => selectedJobIds.has(job.id));
+    const jobsWithPersonas = selectedJobs.filter(job => job.personas && job.personas.length > 0);
     
     if (jobsWithPersonas.length === 0) return;
     
-    // Collecter tous les personas de toutes les offres NON masquées
+    // Collecter tous les personas des offres sélectionnées
     const allPersonas = jobsWithPersonas.flatMap(job => 
       job.personas.map(persona => ({
         ...persona,
@@ -193,7 +220,7 @@ export const SearchResults = ({
       totalJobs: jobsWithPersonas.length.toString(),
       totalPersonas: allPersonas.length.toString(),
       personas: JSON.stringify(allPersonas),
-      template: messageTemplate // <-- utiliser le template de la recherche
+      template: messageTemplate
     });
     
     navigate(`/bulk-prospecting?${params.toString()}`);
@@ -248,72 +275,72 @@ export const SearchResults = ({
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between flex-wrap gap-4">
-            <span>Résultats de recherche ({visibleResults.length})</span>
-            
-            {/* Bouton de prospection volumique globale */}
-            {visibleResults.some(job => job.personas && job.personas.length > 0) && (
-              <Button
-                onClick={handleGlobalBulkProspecting}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Prospection volumique ({visibleResults.filter(job => job.personas && job.personas.length > 0).length} offres)
-              </Button>
-            )}
-            
-            {/* Filtres */}
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              {results.length} offre{results.length > 1 ? 's' : ''} trouvée{results.length > 1 ? 's' : ''}
+              {selectedJobIds.size > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {selectedJobIds.size} sélectionnée{selectedJobIds.size > 1 ? 's' : ''}
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-4">
+              {/* Filtres */}
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-500" />
                 <Select value={personaFilter} onValueChange={(value: any) => setPersonaFilter(value)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filtrer par contacts" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Toutes les offres</SelectItem>
+                    <SelectItem value="all">Tous les résultats</SelectItem>
                     <SelectItem value="with-personas">Avec contacts</SelectItem>
                     <SelectItem value="without-personas">Sans contacts</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {uniqueCities.length > 0 && (
+                  <Select value={cityFilter} onValueChange={(value: any) => setCityFilter(value)}>
+                    <SelectTrigger className="w-[180px]">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Filtrer par ville" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les villes</SelectItem>
+                      {uniqueCities.map(city => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-              
-              {uniqueCities.length > 1 && (
-                <Select value={cityFilter} onValueChange={setCityFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Toutes les villes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les villes</SelectItem>
-                    {uniqueCities.map(city => (
-                      <SelectItem key={city} value={city}>{city}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              
-              {hiddenJobs.size > 0 && (
+
+              {/* Bouton de prospection volumique */}
+              {showBulkProspectingButton && selectedJobIds.size > 0 && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={showAllJobs}
+                  onClick={handleGlobalBulkProspecting}
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  Afficher les résultats masqués ({hiddenJobs.size})
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Prospecter ({selectedJobIds.size} offre{selectedJobIds.size > 1 ? 's' : ''})
                 </Button>
               )}
             </div>
-          </CardTitle>
+          </div>
         </CardHeader>
+
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {visibleResults.map((job) => {
               const colorSet = jobTypeColors[job.type || 'CDI'] || jobTypeColors['CDI'];
               const hasPersonas = job.personas && job.personas.length > 0;
+              const isSelected = selectedJobIds.has(job.id);
               
               // Classes pour griser les cartes sans personas
               const cardOpacity = hasPersonas ? 'opacity-100' : 'opacity-60';
               const cardSaturation = hasPersonas ? 'saturate-100' : 'saturate-50';
-              const cardClasses = `${colorSet.card} ${cardOpacity} ${cardSaturation}`;
+              const cardClasses = `${colorSet.card} ${cardOpacity} ${cardSaturation} ${isSelected ? 'ring-2 ring-blue-400' : ''}`;
 
               return (
                 <div 
@@ -321,47 +348,52 @@ export const SearchResults = ({
                   className={`${cardClasses} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[250px] relative group`}
                   onClick={() => setSelectedJob(job)}
                 >
-                  {/* Header harmonisé --- LOGO --- NOM ENTREPRISE */}
-                  <div className={`${colorSet.header} ${cardSaturation} p-4 border-b min-h-[62px] flex items-center justify-between flex-shrink-0 backdrop-blur-sm`}>
-                    <div className="flex items-center gap-3 flex-1 min-h-0">
-                      {/* Logo entreprise */}
-                      <CompanyLogo
-                        logoUrl={job["company_logo"]}
-                        companyName={job.company}
-                        size={36}
-                        className="mr-2 shadow-sm"
-                      />
-                      {/* Nom entreprise à droite du logo */}
-                      <div className="flex flex-col min-h-0 justify-center flex-1">
-                        <div className="font-bold text-lg text-gray-800 leading-tight mb-0.5">
-                          {job.company}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="ml-3 flex-shrink-0">
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-xs px-3 py-1 ${colorSet.badge} border font-semibold backdrop-blur-sm`}
-                      >
-                        {job.type || 'CDI'}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Bouton de suppression flottant */}
-                  <div className="absolute top-2 right-2 z-10">
+                  {/* Boutons d'action */}
+                  <div className="absolute top-2 right-2 flex gap-1 z-10">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={e => {
+                      className={`h-8 w-8 p-0 ${isSelected ? 'bg-blue-100 hover:bg-blue-200' : 'hover:bg-blue-100'}`}
+                      onClick={(e) => handleToggleJobSelection(job.id, e)}
+                    >
+                      <Check className={`h-4 w-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-red-100"
+                      onClick={(e) => {
                         e.stopPropagation();
                         handleHideJob(job.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1 h-6 w-6"
-                      aria-label="Masquer l'offre"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4 text-gray-500 hover:text-red-600" />
                     </Button>
+                  </div>
+
+                  {/* Header harmonisé --- LOGO --- NOM ENTREPRISE */}
+                  <div className={`${colorSet.header} border-b p-4 flex items-center gap-3 min-h-[80px] backdrop-blur-sm`}>
+                    <CompanyLogo company={job.company} className="h-12 w-12 rounded-lg" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 truncate">
+                        {job.company}
+                      </h3>
+                      {job.jobUrl && (
+                        <a
+                          href={job.jobUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          Voir l'offre
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                    <Badge className={`${colorSet.badge} px-3 py-1`}>
+                      {job.type || 'CDI'}
+                    </Badge>
                   </div>
 
                   {/* Corps de la carte */}
@@ -383,85 +415,38 @@ export const SearchResults = ({
                     <p className="text-sm text-gray-600 line-clamp-2">
                       {job.description}
                     </p>
+
                     {/* Section personas avec indicateur visuel */}
-                    <div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-1">
-                        <Users className="h-4 w-4" />
-                        <span>Contacts ({job.personas?.length || 0})</span>
-                        {!hasPersonas && (
-                          <Badge variant="outline" className="text-xs text-gray-500">
-                            Aucun contact
-                          </Badge>
+                    <div className="mt-4 flex items-center gap-2">
+                      <Users className={`h-4 w-4 ${hasPersonas ? 'text-green-600' : 'text-gray-400'}`} />
+                      <span className={`text-sm ${hasPersonas ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                        {hasPersonas ? (
+                          <>
+                            {job.personas.length} contact{job.personas.length > 1 ? 's' : ''} trouvé{job.personas.length > 1 ? 's' : ''}
+                          </>
+                        ) : (
+                          'Aucun contact'
                         )}
-                      </div>
-                      {hasPersonas && (
-                        <div className="flex flex-wrap gap-1">
-                          {job.personas.slice(0, 3).map((persona) => (
-                            <Badge key={persona.id} variant="secondary" className="text-xs">
-                              {persona.name}
-                            </Badge>
-                          ))}
-                          {job.personas.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{job.personas.length - 3} autres
-                            </Badge>
-                          )}
-                        </div>
-                      )}
+                      </span>
                     </div>
                   </div>
-                  {/* Footer harmonisé */}
-                  <div className={`bg-white/30 backdrop-blur-sm px-4 py-3 border-t border-gray-200/40 flex-shrink-0 ${cardSaturation}`}>
-                    <div className="flex items-center justify-between text-xs text-gray-700">
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedJob(job);
-                          }}
-                          className="flex items-center gap-2"
-                          size="sm"
-                          disabled={!hasPersonas}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                          {hasPersonas ? 'Voir détails' : 'Aucun contact'}
-                        </Button>
-                        
-                        {/* Nouveau bouton de prospection volumique pour chaque job */}
-                        {hasPersonas && (
-                          <Button
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleBulkProspecting(job);
-                            }}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                            size="sm"
-                          >
-                            <Users className="h-4 w-4" />
-                            Prospecter ({job.personas.length})
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {job.jobUrl && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className="px-3"
-                        >
-                          <a
-                            href={job.jobUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
+
+                  {/* Footer avec bouton de prospection */}
+                  {hasPersonas && (
+                    <div className={`${colorSet.card} border-t p-3 flex justify-end`}>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBulkProspecting(job);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Prospecter
+                      </Button>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
@@ -472,10 +457,7 @@ export const SearchResults = ({
       {/* Modal de détail */}
       {selectedJob && (
         <JobResultDetail
-          job={{
-            ...selectedJob,
-            messageTemplate: selectedJob.messageTemplate
-          }}
+          job={selectedJob}
           onClose={() => setSelectedJob(null)}
           onPersonaRemoved={handlePersonaRemoved}
         />
