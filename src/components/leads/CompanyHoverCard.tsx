@@ -110,11 +110,11 @@ const CompanyHoverCard = ({
             />
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm leading-tight">
+            <h3 className="font-semibold text-sm leading-tight truncate">
               {companyInfo.name || companyName}
             </h3>
             {companyInfo.industry && (
-              <p className="text-xs text-gray-600 mt-1">{companyInfo.industry}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">{companyInfo.industry}</p>
             )}
             {companyInfo.categorie && (
               <Badge variant="outline" className="text-xs mt-1">
@@ -135,21 +135,21 @@ const CompanyHoverCard = ({
         <div className="space-y-2">
           {companyInfo.employee_count && (
             <div className="flex items-center gap-2 text-xs text-gray-600">
-              <Users className="h-3 w-3" />
-              <span>{companyInfo.employee_count} employés</span>
+              <Users className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{companyInfo.employee_count} employés</span>
             </div>
           )}
           
           {companyInfo.headquarters && (
             <div className="flex items-center gap-2 text-xs text-gray-600">
-              <MapPin className="h-3 w-3" />
-              <span>{companyInfo.headquarters}</span>
+              <MapPin className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{companyInfo.headquarters}</span>
             </div>
           )}
           
           {companyInfo.website && (
             <div className="flex items-center gap-2 text-xs text-gray-600">
-              <Globe className="h-3 w-3" />
+              <Globe className="h-3 w-3 flex-shrink-0" />
               <a 
                 href={companyInfo.website} 
                 target="_blank" 
@@ -174,8 +174,8 @@ const CompanyHoverCard = ({
         {companyInfo.last_enriched_at && (
           <div className="pt-2 border-t border-gray-100">
             <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Calendar className="h-3 w-3" />
-              <span>
+              <Calendar className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">
                 Enrichi le {new Date(companyInfo.last_enriched_at).toLocaleDateString('fr-FR')}
               </span>
             </div>
@@ -190,16 +190,18 @@ const CompanyHoverCard = ({
     return (
       <HoverCard>
         <HoverCardTrigger asChild>
-          <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1">
+          <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 max-w-full">
             <img 
               src={companyInfo.logo} 
               alt={companyInfo.name || companyName}
               className="h-5 w-5 rounded object-cover flex-shrink-0"
             />
-            {children}
+            <div className="min-w-0 flex-1">
+              {children}
+            </div>
           </div>
         </HoverCardTrigger>
-        <HoverCardContent className="w-80 p-4">
+        <HoverCardContent className="w-80">
           {renderCompanyContent()}
         </HoverCardContent>
       </HoverCard>
@@ -209,11 +211,13 @@ const CompanyHoverCard = ({
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <div className="cursor-pointer hover:bg-gray-50 rounded p-1 -m-1">
-          {children}
+        <div className="cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 max-w-full">
+          <div className="min-w-0 flex-1">
+            {children}
+          </div>
         </div>
       </HoverCardTrigger>
-      <HoverCardContent className="w-80 p-4">
+      <HoverCardContent className="w-80">
         {renderCompanyContent()}
       </HoverCardContent>
     </HoverCard>
