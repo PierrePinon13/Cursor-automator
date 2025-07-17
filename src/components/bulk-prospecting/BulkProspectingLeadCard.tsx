@@ -4,7 +4,7 @@ import { Linkedin } from 'lucide-react';
 
 interface BulkProspectingLeadCardProps {
   personas: any[];
-  selectedPersonas: string[]; // tableau d'ids validés
+  selectedPersonas: string[];
   onAcceptPersona: (persona: any) => void;
   onRejectPersona: (persona: any) => void;
 }
@@ -48,26 +48,32 @@ export const BulkProspectingLeadCard: React.FC<BulkProspectingLeadCardProps> = (
               <div className="text-sm text-gray-700 font-medium truncate">{p.company_position || p.title || ''}</div>
               {/* Entreprise + hover + LinkedIn */}
               <div className="flex items-center gap-2 mb-1">
-                <CompanyHoverCard
-                  companyId={p.company_id}
-                  companyLinkedInId={p.company_linkedin_id}
-                  companyName={p.company_name || p.company || ''}
-                  showLogo={false}
-                >
-                  <span className="text-sm text-green-800 font-semibold hover:underline cursor-pointer truncate max-w-[120px] flex items-center gap-1">
-                    {p.company_name || p.company || ''}
-                    {companyLinkedinUrl && (
-                      <a href={companyLinkedinUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 hover:text-blue-800" onClick={e => e.stopPropagation()} tabIndex={0}>
-                        <Linkedin className="inline h-4 w-4 align-middle" />
-                      </a>
-                    )}
-                  </span>
-                </CompanyHoverCard>
+                {p.company && (
+                  <CompanyHoverCard
+                    companyId={p.company_id}
+                    companyLinkedInId={p.company_linkedin_id}
+                    companyName={p.company}
+                    showLogo={true}
+                  >
+                    <span className="text-xs text-gray-700 font-semibold hover:underline cursor-pointer truncate max-w-[120px]">
+                      {p.company}
+                    </span>
+                  </CompanyHoverCard>
+                )}
+                {companyLinkedinUrl && (
+                  <a
+                    href={companyLinkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                    title="Voir la page LinkedIn de l'entreprise"
+                    tabIndex={0}
+                  >
+                    <Linkedin className="h-3 w-3" />
+                  </a>
+                )}
               </div>
             </div>
-            {/* Séparation visuelle */}
-            <div className="h-[1px] w-full bg-gray-100 my-0" />
-            {/* Section Job Offer */}
             <div className="p-4 pt-2 bg-gray-50 flex-1 flex flex-col justify-between">
               {p.jobTitle && (
                 <div className="text-xs text-gray-700 mb-1 truncate font-medium">{p.jobTitle}</div>
@@ -79,26 +85,21 @@ export const BulkProspectingLeadCard: React.FC<BulkProspectingLeadCardProps> = (
             </div>
             {/* Boutons croix/tick */}
             <div className="absolute bottom-4 left-0 w-full flex justify-center gap-6 z-10">
-              {!isSelected && (
-                <button
-                  className={`rounded-full border border-blue-500 bg-white h-11 w-11 flex items-center justify-center text-blue-500 text-2xl shadow hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300 transition`}
-                  onClick={() => onAcceptPersona(p)}
-                  title="Accepter ce lead"
-                  type="button"
-                  aria-label="Accepter ce lead"
-                >
-                  ✓
-                </button>
-              )}
               <button
-                className="rounded-full border border-gray-300 bg-white h-11 w-11 flex items-center justify-center text-gray-400 text-2xl shadow hover:bg-red-50 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 transition"
+                className="rounded-full border border-gray-300 bg-white h-12 w-12 flex items-center justify-center text-gray-400 text-2xl shadow hover:bg-gray-100 transition"
                 onClick={() => onRejectPersona(p)}
-                title="Retirer ce lead"
+                title="Rejeter ce profil"
                 type="button"
-                aria-label="Retirer ce lead"
-                disabled={isSelected}
               >
                 ✗
+              </button>
+              <button
+                className="rounded-full border border-blue-500 bg-white h-12 w-12 flex items-center justify-center text-blue-500 text-2xl shadow hover:bg-blue-50 transition"
+                onClick={() => onAcceptPersona(p)}
+                title="Accepter ce profil"
+                type="button"
+              >
+                ✓
               </button>
             </div>
           </div>

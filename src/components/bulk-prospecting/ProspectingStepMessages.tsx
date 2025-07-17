@@ -305,16 +305,16 @@ export const ProspectingStepMessages = ({
       {/* Si des messages non traités, bouton Valider tout */}
       {untreatedCount > 0 && (
         <div className="flex justify-center mt-4">
-          <Button
+              <Button
             className="bg-green-600 hover:bg-green-700 px-8"
-            onClick={() => {
+                onClick={() => {
               const untreatedIds = selectedPersonas.filter(p => !validatedIds.includes(p.id) && !removedIds.includes(p.id)).map(p => p.id);
               setValidatedIds(ids => [...ids, ...untreatedIds]);
             }}
           >
             Valider tous les messages restants
-          </Button>
-        </div>
+              </Button>
+            </div>
       )}
     </div>
   );

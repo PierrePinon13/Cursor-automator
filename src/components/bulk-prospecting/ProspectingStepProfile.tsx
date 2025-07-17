@@ -597,14 +597,14 @@ export const ProspectingStepProfile = ({
           />
           {untreatedPersonas.length > 0 && (
             <div className="flex justify-center mt-4">
-              <Button
+                  <Button
                 className="bg-green-600 hover:bg-green-700 px-8"
                 onClick={handleValidateAll}
               >
                 Valider tous les profils restants
-              </Button>
-            </div>
-          )}
+                  </Button>
+                        </div>
+                      )}
           {filteredUniquePersonas.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
