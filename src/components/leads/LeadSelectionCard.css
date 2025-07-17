@@ -1,0 +1,95 @@
+/* Custom thin, overlay, transparent scrollbar for LeadSelectionCard */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,120,0.15) transparent;
+  scrollbar-gutter: auto;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+  position: absolute;
+  right: 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(120,120,120,0.15);
+  border-radius: 6px;
+  border: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border: none;
+  margin: 2px;
+}
+
+/* Ensure text can overlap scrollbar */
+.custom-scrollbar > div {
+  width: 100%;
+  padding-right: 0;
+  margin-right: 0;
+}
+
+/* Override any browser default spacing */
+@supports not (scrollbar-gutter: auto) {
+  .custom-scrollbar {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+} 
+
+.reject-button {
+  @apply absolute -bottom-4 left-1/2 -translate-x-[120%] text-white rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110;
+  background-color: rgb(239 68 68 / 0.5);
+}
+
+.reject-button:hover {
+  background-color: rgb(220 38 38);
+}
+
+.accept-button {
+  @apply absolute -bottom-4 left-1/2 translate-x-[20%] text-white rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110;
+  background-color: rgb(34 197 94 / 0.5);
+}
+
+.accept-button:hover {
+  background-color: rgb(22 163 74);
+}
+
+/* Style pour le portail du HoverCard */
+[data-radix-hover-card-content] {
+  z-index: 9999 !important;
+}
+
+/* Style pour le nom de l'entreprise */
+.company-name {
+  @apply text-xs text-blue-700 hover:text-blue-800 hover:underline cursor-pointer font-normal truncate max-w-full;
+} 
+
+/* Styling for the LinkedIn post text container */
+.linkedin-post-text {
+  position: relative;
+  overflow-y: overlay !important;
+  scrollbar-width: thin;
+}
+
+/* Pour les navigateurs Webkit (Chrome, Safari, etc.) */
+.linkedin-post-text::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+
+.linkedin-post-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.linkedin-post-text::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+}
+
+/* Pour Firefox */
+.linkedin-post-text {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+} 

@@ -4,13 +4,15 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, X, Check } from 'lucide-react';
+import { Users, X, Check, Loader2 } from 'lucide-react';
 import MultiSelectFilter from '@/components/leads/MultiSelectFilter';
 import { Input } from '@/components/ui/input';
 import CustomSidebarTrigger from '@/components/ui/CustomSidebarTrigger';
 import { useLeads } from '@/hooks/useLeads';
+import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
+import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LeadCard } from '@/components/leads/LeadCard';
+import { LeadSelectionCard } from '@/components/leads/LeadSelectionCard';
 import CompanyHoverCard from '@/components/leads/CompanyHoverCard';
 import {
   Tooltip,
@@ -19,6 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 
 const DESIGN = {
   colors: {
@@ -137,6 +140,9 @@ const MOCK_LEADS = [
 ];
 
 export default function LeadSelectionPage() {
+  const { toast } = useToast();
+  const { unipileAccountId } = useLinkedInConnection();
+  const [isSending, setIsSending] = useState(false);
   const [filters, setFilters] = useState(MOCK_FILTERS);
   const {
     filteredLeads,
@@ -214,23 +220,79 @@ export default function LeadSelectionPage() {
     setFilters(newFilters);
   };
 
-  // Simule le remplacement d'un lead retiré par un nouveau
-  const handleRemoveLead = (id: string) => {
-    setRemovedLeads(prev => [...prev, id]);
-    setLeads(prev => {
-      const remaining = prev.filter(l => l.id !== id);
-      // Cherche le prochain lead filtré qui n'est pas déjà affiché ni supprimé ni sélectionné
-      const nextLead = filteredLeads.find(l =>
-        !remaining.some(lead => lead.id === l.id) &&
-        !removedLeads.includes(l.id) &&
-        !selectedLeads.includes(l.id)
-      );
-      return nextLead ? [...remaining, nextLead] : remaining;
-    });
+  // Gérer la sélection d'un lead
+  const handleSelectLead = (id: string) => {
+    // Si le lead est déjà sélectionné, on le désélectionne
+    if (selectedLeads.includes(id)) {
+      setLeads(prev => prev.map(lead => 
+        lead.id === id ? { ...lead, selected: false } : lead
+      ));
+      setSelectedLeads(prev => prev.filter(leadId => leadId !== id));
+      return;
+    }
+
+    // Sinon, on le sélectionne
+    setLeads(prev => prev.map(lead => 
+      lead.id === id ? { ...lead, selected: true } : lead
+    ));
+    setSelectedLeads(prev => [...prev, id]);
   };
 
-  const handleSelectLead = (id: string) => {
-    setSelectedLeads([...selectedLeads, id]);
+  // Gérer la suppression d'un lead et son remplacement
+  const handleRemoveLead = async (id: string) => {
+    try {
+      // Marquer le lead comme rejeté dans la base de données
+      const { error } = await supabase
+        .from('leads')
+        .update({ 
+          processing_status: 'rejected_by_user',
+          last_updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Erreur lors du rejet du lead:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de rejeter le lead. Veuillez réessayer.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Ajouter le lead à la liste des leads rejetés
+      setRemovedLeads(prev => [...prev, id]);
+      
+      // Cherche le prochain lead disponible dans les leads filtrés
+      const nextLead = filteredLeads.find(l => 
+        !leads.some(lead => lead.id === l.id) && 
+        !removedLeads.includes(l.id) && 
+        !selectedLeads.includes(l.id) &&
+        l.processing_status !== 'rejected_by_user'
+      );
+
+      // Met à jour la liste des leads en retirant le lead rejeté
+      setLeads(prev => {
+        const remaining = prev.filter(l => l.id !== id);
+        return nextLead ? [...remaining, nextLead] : remaining;
+      });
+
+      // Retirer le lead de la liste des leads sélectionnés s'il y était
+      if (selectedLeads.includes(id)) {
+        setSelectedLeads(prev => prev.filter(leadId => leadId !== id));
+      }
+
+      // Rafraîchir la liste des leads pour s'assurer que les leads rejetés sont exclus
+      refreshLeads();
+
+    } catch (error) {
+      console.error('Erreur lors du rejet du lead:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors du rejet du lead.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUnselectLead = (id: string) => {
@@ -241,8 +303,12 @@ export default function LeadSelectionPage() {
     setSearchLaunched(true);
     setRemovedLeads([]);
     setSelectedLeads([]);
-    // Prend les 6 premiers leads filtrés non supprimés
-    setLeads(filteredLeads.slice(0, 6));
+    // Prend les 6 premiers leads filtrés non rejetés
+    const availableLeads = filteredLeads.filter(lead => 
+      lead.processing_status !== 'rejected_by_user' &&
+      !removedLeads.includes(lead.id)
+    );
+    setLeads(availableLeads.slice(0, 6));
   };
 
   // Initialiser les messages pré-rédigés
@@ -267,119 +333,253 @@ export default function LeadSelectionPage() {
   }, [searchLaunched, leads]);
 
   const handleStartProspecting = () => {
+    // Filtrer pour ne garder que les leads validés
+    const validatedLeads = selectedLeads.filter(leadId => {
+      const lead = leads.find(l => l.id === leadId);
+      return lead && lead.selected;
+    });
+
+    // Mettre à jour la liste des leads sélectionnés
+    setSelectedLeads(validatedLeads);
+
+    // Initialiser les messages pour les leads validés
+    const initialMessages = validatedLeads.reduce((acc, leadId) => {
+      const lead = leads.find(l => l.id === leadId);
+      acc[leadId] = lead?.approach_message || '';
+      return acc;
+    }, {});
+    setMessages(initialMessages);
+
+    // Libérer les leads non traités
+    const unprocessedLeads = leads
+      .filter(lead => !lead.selected && !removedLeads.includes(lead.id))
+      .map(lead => lead.id);
+
+    if (unprocessedLeads.length > 0) {
+      // Mettre à jour la liste des leads en retirant les leads non traités
+      setLeads(leads.filter(lead => lead.selected || removedLeads.includes(lead.id)));
+    }
+
     setShowProspectingView(true);
   };
 
+  const generateUniqueId = () => {
+    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  const handleSendMessages = async () => {
+    if (!unipileAccountId) {
+      toast({
+        title: "Compte LinkedIn non connecté",
+        description: "Veuillez connecter votre compte LinkedIn avant d'envoyer des messages.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedLeads.length === 0) {
+      toast({
+        title: "Aucun lead sélectionné",
+        description: "Veuillez sélectionner au moins un lead avant d'envoyer des messages.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const missingMessages = selectedLeads.filter(id => !messages[id]);
+    if (missingMessages.length > 0) {
+      toast({
+        title: "Messages manquants",
+        description: `${missingMessages.length} lead(s) n'ont pas de message personnalisé.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const bulkRequestId = `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const messagesToSend = selectedLeads.map(leadId => {
+        const lead = leads.find(l => l.id === leadId);
+        return {
+          id: generateUniqueId(),
+          personaId: lead.author_profile_id,
+          personaName: lead.author_name,
+          personaTitle: lead.author_title,
+          personaCompany: lead.author_company,
+          personaProfileUrl: lead.author_profile_url,
+          jobTitle: lead.job_title || 'LinkedIn Post',
+          jobCompany: lead.company_name || lead.author_company || '',
+          jobId: 'linkedin_post',
+          message: messages[leadId],
+          bulkRequestId: bulkRequestId
+        };
+      });
+
+      const n8nUrl = 'https://n8n.getpro.co/webhook/819ed607-c468-4a53-a98c-817b8f3fc75d';
+      
+      const response = await fetch(n8nUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bulkRequestId: bulkRequestId,
+          unipileAccountId: unipileAccountId,
+          messages: messagesToSend,
+          timestamp: new Date().toISOString(),
+          totalMessages: messagesToSend.length,
+          source: 'linkedin_post'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      toast({
+        title: "Messages envoyés avec succès",
+        description: `${messagesToSend.length} messages ont été envoyés vers le système de traitement.`,
+      });
+      
+      // Reset selection and messages
+      setSelectedLeads([]);
+      setMessages({});
+      setShowProspectingView(false);
+      setSearchLaunched(true); // This will take us back to the lead selection view
+      refreshLeads();
+
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi vers N8N:', error);
+      toast({
+        title: "Erreur d'envoi",
+        description: error.message || "Une erreur est survenue lors de l'envoi des messages. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Supprimer l'effet de libération manuelle des leads
+  // useEffect(() => {
+  //   const handleBeforeUnload = async () => {
+  //     try {
+  //       const { data: { session } } = await supabase.auth.getSession();
+  //       if (!session?.access_token) return;
+
+  //       // Appeler l'Edge Function pour libérer les leads
+  //       await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/release-leads`, {
+  //         method: 'POST',
+  //         headers: {
+  //           'Authorization': `Bearer ${session.access_token}`,
+  //         },
+  //       });
+  //     } catch (error) {
+  //       console.error('Erreur lors de la libération des leads:', error);
+  //     }
+  //   };
+
+  //   window.addEventListener('beforeunload', handleBeforeUnload);
+  //   return () => {
+  //     window.removeEventListener('beforeunload', handleBeforeUnload);
+  //     handleBeforeUnload();
+  //   };
+  // }, []);
+
   return (
-    <div style={{ fontFamily: DESIGN.typography.fontFamily, background: DESIGN.colors.background }} className="min-h-screen">
+    <div style={{ fontFamily: DESIGN.typography.fontFamily, background: DESIGN.colors.background }} className="min-h-screen flex flex-col">
       {/* Header + Filtres */}
-      <div className="px-8 pt-8 pb-4 min-w-0 min-h-0">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="px-8 pt-6 flex-none">
+        <div className="flex items-center gap-3 mb-3">
           <CustomSidebarTrigger />
           <h1 className="text-2xl font-bold text-primary">Sélection de leads</h1>
         </div>
-        <Card className="mb-4 shadow-md">
-          <CardContent className="flex flex-wrap items-center gap-4 py-4 px-6">
-            <MultiSelectFilter
-              title="Période"
-              options={dateFilterOptions}
-              selectedValues={[selectedDateFilter]}
-              onSelectionChange={vals => setSelectedDateFilter(vals[0] || '7days')}
-              singleSelect
-              highlightActive={selectedDateFilter !== '7days'}
+        <div className="flex flex-nowrap items-center gap-2 py-2 px-2 w-full overflow-x-auto border-b border-gray-100">
+          <MultiSelectFilter
+            title="Période"
+            options={dateFilterOptions}
+            selectedValues={[selectedDateFilter]}
+            onSelectionChange={vals => setSelectedDateFilter(vals[0] || '7days')}
+            singleSelect
+            highlightActive={selectedDateFilter !== '7days'}
+            hideChevron
+          />
+          <MultiSelectFilter
+            title="Statut de contact"
+            options={contactFilterOptions}
+            selectedValues={[selectedContactFilter]}
+            onSelectionChange={vals => setSelectedContactFilter(vals[0] || 'exclude_2weeks')}
+            singleSelect
+            highlightActive={selectedContactFilter !== 'exclude_2weeks'}
+            hideChevron
+          />
+          <MultiSelectFilter
+            title="Exclure secteurs"
+            options={availableCompanyCategories.map(cat => ({ value: cat, label: cat }))}
+            selectedValues={selectedCompanyCategories}
+            onSelectionChange={setSelectedCompanyCategories}
+            highlightActive={selectedCompanyCategories.length > 0}
+            hideChevron
+          />
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-700 text-xs">Employés:</span>
+            <Input
+              type="number"
+              placeholder="Min"
+              value={minEmployees}
+              onChange={e => setMinEmployees(e.target.value)}
+              className="h-8 w-16 text-xs bg-gray-100 border-0 focus:ring-0 text-center"
+              min="0"
             />
-            <MultiSelectFilter
-              title="Statut de contact"
-              options={contactFilterOptions}
-              selectedValues={[selectedContactFilter]}
-              onSelectionChange={vals => setSelectedContactFilter(vals[0] || 'exclude_2weeks')}
-              singleSelect
-              highlightActive={selectedContactFilter !== 'exclude_2weeks'}
+            <span className="text-xs text-gray-400">-</span>
+            <Input
+              type="number"
+              placeholder="Max"
+              value={maxEmployees}
+              onChange={e => setMaxEmployees(e.target.value)}
+              className="h-8 w-16 text-xs bg-gray-100 border-0 focus:ring-0 text-center"
+              min="0"
             />
-            <MultiSelectFilter
-              title="Exclure secteurs"
-              options={availableCompanyCategories.map(cat => ({ value: cat, label: cat }))}
-              selectedValues={selectedCompanyCategories}
-              onSelectionChange={setSelectedCompanyCategories}
-              highlightActive={selectedCompanyCategories.length > 0}
-            />
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700 text-xs">Employés:</span>
-              <Input
-                type="number"
-                placeholder="Min"
-                value={minEmployees}
-                onChange={e => setMinEmployees(e.target.value)}
-                className="h-8 w-16 text-xs bg-gray-100 border-0 focus:ring-0 text-center"
-                min="0"
-              />
-              <span className="text-xs text-gray-400">-</span>
-              <Input
-                type="number"
-                placeholder="Max"
-                value={maxEmployees}
-                onChange={e => setMaxEmployees(e.target.value)}
-                className="h-8 w-16 text-xs bg-gray-100 border-0 focus:ring-0 text-center"
-                min="0"
-              />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {availableCategories.map(cat => (
-                <Badge
-                  key={cat}
-                  className={`cursor-pointer px-3 py-1 border ${categoryColors[cat]} ${selectedCategories.includes(cat) ? 'ring-2 ring-primary' : 'opacity-60 hover:opacity-100'}`}
-                  onClick={() => setSelectedCategories(selectedCategories.includes(cat) ? selectedCategories.filter(c => c !== cat) : [...selectedCategories, cat])}
-                >
-                  {cat}
-                </Badge>
-              ))}
-            </div>
-            <div className="flex-1" />
-            <Button className="ml-auto" onClick={handleLaunchSearch}>
-              Lancer la recherche
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {availableCategories.map(cat => (
+              <Badge
+                key={cat}
+                className={`cursor-pointer px-3 py-1 border ${categoryColors[cat]} ${selectedCategories.includes(cat) ? 'ring-2 ring-primary' : 'opacity-60 hover:opacity-100'}`}
+                onClick={() => setSelectedCategories(selectedCategories.includes(cat) ? selectedCategories.filter(c => c !== cat) : [...selectedCategories, cat])}
+              >
+                {cat}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex-1" />
+          <Button className="ml-2 px-3 py-1 text-sm font-medium bg-primary text-white rounded-lg shadow-sm" size="sm" onClick={handleLaunchSearch}>Start</Button>
+        </div>
       </div>
 
       {/* Contenu principal */}
-      <div className="flex-1 flex flex-col items-center">
+      <div className="flex-1 flex flex-col min-h-0">
         <AnimatePresence mode="wait">
           {searchLaunched && !showProspectingView && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -100 }}
-              className="w-full flex justify-center py-8 px-4"
+              className="flex-1 min-h-0"
             >
-              <div className="w-full max-w-[1600px]">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 place-items-center">
+              <div className="w-full max-w-[1600px] px-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4">
                   {leads.map(lead => (
-                    <div key={lead.id} className="relative flex flex-col items-center w-full">
-                      <LeadCard 
+                    <div key={lead.id} className="flex flex-col h-[420px] w-full">
+                      <LeadSelectionCard 
                         lead={lead} 
                         isMobile={false} 
-                        onClick={() => {}} // Pas d'action sur clic pour la sélection
+                        onClick={() => {}} 
+                        onAccept={() => handleSelectLead(lead.id)}
+                        onReject={() => handleRemoveLead(lead.id)}
                       />
-                      {/* Boutons oui/non en position absolue */}
-                      <div className="flex items-center justify-center gap-6 mt-4">
-                        <button
-                          className="w-10 h-10 rounded-full bg-gray-100/60 border border-gray-300 flex items-center justify-center text-lg text-gray-500 hover:bg-red-100 hover:text-red-600 transition shadow-lg"
-                          onClick={() => setLeads(prev => prev.filter(l => l.id !== lead.id))}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                        <button
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition shadow-lg ${
-                            selectedLeads.includes(lead.id)
-                              ? 'bg-primary text-white border-primary'
-                              : 'bg-white/60 text-primary border-primary hover:bg-primary/10'
-                          }`}
-                          onClick={() => selectedLeads.includes(lead.id) ? handleUnselectLead(lead.id) : handleSelectLead(lead.id)}
-                        >
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -417,26 +617,47 @@ export default function LeadSelectionPage() {
                         {/* Carte du lead */}
                         <div className="w-[500px] bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
                           <div className="h-full flex flex-col">
-                            <div className="flex items-start gap-4 mb-4 pb-4 border-b border-slate-100">
-                              {lead.company_logo ? (
-                                <img
-                                  src={lead.company_logo}
-                                  alt={`${lead.company_name} logo`}
-                                  className="w-16 h-16 rounded-lg object-contain bg-white p-1 border border-slate-100"
-                                />
-                              ) : (
-                                <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
-                                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 12V8H6a2 2 0 00-2 2v12a2 2 0 002 2h12v-4" />
-                                  </svg>
+                            {/* En-tête avec les informations du lead */}
+                            <div className="flex flex-col gap-4 mb-4 pb-4 border-b border-slate-100">
+                              {/* Nom du lead, titre et lien LinkedIn */}
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-lg font-semibold text-slate-900">
+                                    {lead.first_name} {lead.last_name}
+                                  </h3>
+                                  {lead.author_profile_url && (
+                                    <a
+                                      href={lead.author_profile_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                                    >
+                                      <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                                      </svg>
+                                    </a>
+                                  )}
                                 </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-xl font-semibold text-slate-900 truncate">{lead.first_name}</h3>
-                                <p className="text-slate-600 truncate mt-1">{lead.company_position}</p>
-                                <p className="text-sm text-slate-500 truncate">{lead.company_name}</p>
+                                <p className="text-slate-600 truncate">{lead.job_title}</p>
                               </div>
+
+                              {/* Informations de l'entreprise avec HoverCard */}
+                              <CompanyHoverCard
+                                companyId={lead.company_id}
+                                companyLinkedInId={lead.company_linkedin_id}
+                                companyName={lead.company_name || ''}
+                                showLogo={true}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="font-medium text-slate-900 truncate">{lead.company_name}</h3>
+                                    <p className="text-sm text-slate-600 truncate">{lead.company_position}</p>
+                                  </div>
+                                </div>
+                              </CompanyHoverCard>
                             </div>
+
+                            {/* Contenu du post LinkedIn */}
                             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-slate-50">
                               <div className="prose prose-slate prose-sm max-w-none">
                                 {lead.text}
@@ -450,12 +671,12 @@ export default function LeadSelectionPage() {
                           <div className="h-full flex flex-col">
                             <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
                               <h3 className="text-lg font-semibold text-slate-900">Message personnalisé</h3>
-                              <span className="text-sm text-slate-500">{messages[lead.id]?.length || 0} caractères</span>
+                              <span className="text-sm text-slate-500">{messages[leadId]?.length || 0} caractères</span>
                             </div>
                             <textarea
                               className="flex-1 w-full p-4 rounded-lg border border-slate-200 resize-none bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200"
-                              value={messages[lead.id] || ''}
-                              onChange={(e) => setMessages(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                              value={messages[leadId] || ''}
+                              onChange={(e) => setMessages(prev => ({ ...prev, [leadId]: e.target.value }))}
                               placeholder="Écrivez votre message personnalisé ici..."
                             />
                           </div>
@@ -471,18 +692,38 @@ export default function LeadSelectionPage() {
       </div>
 
       {/* Footer : bouton continuer */}
-      {searchLaunched && selectedLeads.length >= 3 && !showProspectingView && (
+      {searchLaunched && selectedLeads.length > 0 && !showProspectingView && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ ...DESIGN.layout.footer, display: 'flex', justifyContent: 'flex-end', background: DESIGN.colors.background }}
+          className="fixed bottom-0 left-0 right-0 px-8 py-4 bg-gradient-to-t from-white via-white to-white/80 backdrop-blur-sm border-t border-gray-100 z-50"
         >
-          <Button 
-            style={DESIGN.buttons.primary}
-            onClick={handleStartProspecting}
-          >
-            Passer à la prospection ({selectedLeads.length} sélectionné{selectedLeads.length > 1 ? 's' : ''})
-          </Button>
+          <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Leads sélectionnés</p>
+                <p className="text-lg font-semibold text-gray-900">{selectedLeads.length} profils</p>
+              </div>
+            </div>
+            <Button 
+              className="bg-primary hover:bg-primary/90 text-white px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+              onClick={handleStartProspecting}
+            >
+              <span>Passer à la prospection</span>
+              <motion.div
+                initial={{ x: 0 }}
+                animate={{ x: [0, 5, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </motion.div>
+            </Button>
+          </div>
         </motion.div>
       )}
 
@@ -498,8 +739,21 @@ export default function LeadSelectionPage() {
           >
             Retour à la sélection
           </Button>
-          <Button style={DESIGN.buttons.primary}>
-            Envoyer les messages ({selectedLeads.length})
+          <Button 
+            style={DESIGN.buttons.primary}
+            onClick={handleSendMessages}
+            disabled={selectedLeads.length === 0 || isSending || !unipileAccountId}
+          >
+            {isSending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Envoi en cours...
+              </>
+            ) : (
+              <>
+                Envoyer les messages ({Object.values(messages).filter(msg => msg && msg.trim().length > 0).length})
+              </>
+            )}
           </Button>
         </motion.div>
       )}
