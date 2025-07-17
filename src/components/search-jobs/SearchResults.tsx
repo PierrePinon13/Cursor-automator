@@ -43,6 +43,7 @@ interface JobResult {
   id: string;
   title: string;
   company: string;
+  company_logo?: string;  // Ajout du champ company_logo
   location: string;
   postedDate: Date;
   description: string;
@@ -348,32 +349,14 @@ export const SearchResults = ({
                   className={`${cardClasses} rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col min-h-[250px] relative group`}
                   onClick={() => setSelectedJob(job)}
                 >
-                  {/* Boutons d'action */}
-                  <div className="absolute top-2 right-2 flex gap-1 z-10">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`h-8 w-8 p-0 ${isSelected ? 'bg-blue-100 hover:bg-blue-200' : 'hover:bg-blue-100'}`}
-                      onClick={(e) => handleToggleJobSelection(job.id, e)}
-                    >
-                      <Check className={`h-4 w-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 hover:bg-red-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleHideJob(job.id);
-                      }}
-                    >
-                      <X className="h-4 w-4 text-gray-500 hover:text-red-600" />
-                    </Button>
-                  </div>
-
                   {/* Header harmonisé --- LOGO --- NOM ENTREPRISE */}
                   <div className={`${colorSet.header} border-b p-4 flex items-center gap-3 min-h-[80px] backdrop-blur-sm`}>
-                    <CompanyLogo company={job.company} className="h-12 w-12 rounded-lg" />
+                    <CompanyLogo 
+                      companyName={job.company}
+                      logoUrl={job["company_logo"]}
+                      size={48}
+                      className="rounded-lg shadow-sm"
+                    />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">
                         {job.company}
@@ -431,9 +414,30 @@ export const SearchResults = ({
                     </div>
                   </div>
 
-                  {/* Footer avec bouton de prospection */}
-                  {hasPersonas && (
-                    <div className={`${colorSet.card} border-t p-3 flex justify-end`}>
+                  {/* Footer avec boutons de sélection et prospection */}
+                  <div className={`${colorSet.card} border-t p-3 flex items-center justify-center gap-4`}>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`h-10 w-10 p-0 ${isSelected ? 'bg-blue-100 hover:bg-blue-200' : 'hover:bg-blue-100'}`}
+                        onClick={(e) => handleToggleJobSelection(job.id, e)}
+                      >
+                        <Check className={`h-6 w-6 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-10 w-10 p-0 hover:bg-red-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHideJob(job.id);
+                        }}
+                      >
+                        <X className="h-6 w-6 text-gray-500 hover:text-red-600" />
+                      </Button>
+                    </div>
+                    {hasPersonas && (
                       <Button
                         size="sm"
                         onClick={(e) => {
@@ -445,8 +449,8 @@ export const SearchResults = ({
                         <MessageSquare className="h-4 w-4 mr-2" />
                         Prospecter
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
