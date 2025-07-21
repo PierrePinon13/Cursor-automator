@@ -3,6 +3,7 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(120,120,120,0.15) transparent;
   scrollbar-gutter: auto;
+  z-index: 5;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -58,7 +59,14 @@
 }
 
 /* Style pour le portail du HoverCard */
+[data-radix-hover-card-portal] {
+  position: fixed !important;
+  pointer-events: none;
+  z-index: 9999;
+}
+
 [data-radix-hover-card-content] {
+  pointer-events: auto;
   z-index: 9999 !important;
 }
 
@@ -72,6 +80,7 @@
   position: relative;
   overflow-y: overlay !important;
   scrollbar-width: thin;
+  z-index: 20;
 }
 
 /* Pour les navigateurs Webkit (Chrome, Safari, etc.) */
@@ -92,4 +101,16 @@
 /* Pour Firefox */
 .linkedin-post-text {
   scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+} 
+
+/* Style pour les cartes de leads */
+.lead-card {
+  z-index: 10;
+  position: relative;
+} 
+
+/* Ajout d'un z-index plus bas pour le titre du poste */
+.lead-card > div:nth-child(2) {
+  z-index: 15;
+  position: relative;
 } 

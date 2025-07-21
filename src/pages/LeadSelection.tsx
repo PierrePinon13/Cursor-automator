@@ -144,6 +144,14 @@ export default function LeadSelectionPage() {
   const { unipileAccountId } = useLinkedInConnection();
   const [isSending, setIsSending] = useState(false);
   const [filters, setFilters] = useState(MOCK_FILTERS);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [removedLeads, setRemovedLeads] = useState<string[]>([]);
+  const [searchLaunched, setSearchLaunched] = useState(false);
+  const [showProspectingView, setShowProspectingView] = useState(false);
+  const [messages, setMessages] = useState<{ [key: string]: string }>({});
+  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number>(0);
+
   const {
     filteredLeads,
     selectedCategories,
@@ -163,13 +171,18 @@ export default function LeadSelectionPage() {
     loading: leadsLoading,
     refreshLeads
   } = useLeads();
-  const [leads, setLeads] = useState<any[]>([]);
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [removedLeads, setRemovedLeads] = useState<string[]>([]);
-  const [searchLaunched, setSearchLaunched] = useState(false);
-  const [showProspectingView, setShowProspectingView] = useState(false);
-  const [messages, setMessages] = useState<{ [key: string]: string }>({});
-  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number>(0);
+
+  // Initialiser les secteurs à exclure par défaut
+  useEffect(() => {
+    setSelectedCompanyCategories(['esn', 'cabinet de recrutement']);
+  }, []);
+
+  // Mettre à jour les leads affichés quand les leads filtrés changent
+  useEffect(() => {
+    if (searchLaunched) {
+      setLeads(filteredLeads.slice(0, 6));
+    }
+  }, [filteredLeads, searchLaunched]);
 
   // Obtenir le lead sélectionné actuel
   const selectedLead = selectedLeads[selectedLeadIndex] 
@@ -299,16 +312,9 @@ export default function LeadSelectionPage() {
     setSelectedLeads(selectedLeads.filter(lid => lid !== id));
   };
 
-  const handleLaunchSearch = () => {
+  const handleLaunchSearch = async () => {
     setSearchLaunched(true);
-    setRemovedLeads([]);
-    setSelectedLeads([]);
-    // Prend les 6 premiers leads filtrés non rejetés
-    const availableLeads = filteredLeads.filter(lead => 
-      lead.processing_status !== 'rejected_by_user' &&
-      !removedLeads.includes(lead.id)
-    );
-    setLeads(availableLeads.slice(0, 6));
+    await refreshLeads();
   };
 
   // Initialiser les messages pré-rédigés
@@ -443,12 +449,19 @@ export default function LeadSelectionPage() {
         description: `${messagesToSend.length} messages ont été envoyés vers le système de traitement.`,
       });
       
-      // Reset selection and messages
-      setSelectedLeads([]);
-      setMessages({});
+      // Réinitialiser la vue et relancer une recherche
       setShowProspectingView(false);
-      setSearchLaunched(true); // This will take us back to the lead selection view
-      refreshLeads();
+      setSelectedLeads([]);
+      setRemovedLeads([]);
+      setMessages({});
+      
+      // Relancer la recherche avec les mêmes filtres
+      await refreshLeads();
+      
+      toast({
+        title: "Messages envoyés avec succès",
+        description: "Une nouvelle recherche a été lancée avec vos filtres.",
+      });
 
     } catch (error) {
       console.error('Erreur lors de l\'envoi vers N8N:', error);
@@ -567,10 +580,10 @@ export default function LeadSelectionPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -100 }}
-              className="flex-1 min-h-0"
+              className="flex-1 min-h-0 flex justify-center"
             >
               <div className="w-full max-w-[1600px] px-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4 mx-auto">
                   {leads.map(lead => (
                     <div key={lead.id} className="flex flex-col h-[420px] w-full">
                       <LeadSelectionCard 

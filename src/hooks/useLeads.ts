@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
 
@@ -39,6 +39,7 @@ export interface Lead {
   company_1_linkedin_id?: string;
   unipile_company_linkedin_id?: string;
   company_logo_url?: string;
+  company_sector?: string;
 }
 
 export const useLeads = () => {
@@ -113,7 +114,7 @@ export const useLeads = () => {
         if (linkedInIds.length > 0) {
           const { data: companiesData } = await supabase
             .from('companies')
-            .select('linkedin_id, categorie, employee_count')
+            .select('linkedin_id, categorie, employee_count, industry')
             .in('linkedin_id', linkedInIds);
 
           if (companiesData) {
@@ -141,7 +142,8 @@ export const useLeads = () => {
           ...lead,
           company_categorie: companyInfo?.categorie || null,
           company_employee_count: companyInfo?.employee_count || null,
-          company_logo_url: companyInfo?.logo || null
+          company_logo_url: companyInfo?.logo || null,
+          company_sector: companyInfo?.industry || null // Add company_sector
         };
       });
 
@@ -270,82 +272,52 @@ export const useLeads = () => {
 
   // Fonction pour appliquer tous les filtres
   const applyAllFilters = () => {
-    console.log('🎯 Starting filter application...');
-    console.log('📊 Total leads to filter:', allLeads.length);
-    console.log('🏷️ Selected categories:', selectedCategories);
-    console.log('🏢 Company categories to EXCLUDE:', selectedCompanyCategories);
-    console.log('👥 Employee range:', minEmployees, '-', maxEmployees);
-    console.log('📅 Date filter:', selectedDateFilter);
-    console.log('📞 Contact filter:', selectedContactFilter);
+    let filtered = [...allLeads];
 
-    let result = [...allLeads];
-    const initialCount = result.length;
+    // Appliquer le filtre de date
+    filtered = applyDateFilter(filtered, selectedDateFilter);
 
-    // Filtre par catégorie de lead
+    // Appliquer le filtre de contact
+    filtered = applyContactFilter(filtered, selectedContactFilter);
+
+    // Appliquer le filtre de catégorie
     if (selectedCategories.length > 0) {
-      const beforeCategory = result.length;
-      result = result.filter(lead => {
-        const category = lead.openai_step3_categorie || '';
-        return selectedCategories.includes(category);
-      });
-      console.log(`🏷️ After lead category filter: ${beforeCategory} -> ${result.length} leads`);
+      filtered = filtered.filter(lead => 
+        lead.openai_step3_categorie && selectedCategories.includes(lead.openai_step3_categorie)
+      );
     }
 
-    // Filtre d'exclusion par catégorie d'entreprise
+    // Appliquer les filtres de catégorie d'entreprise (exclusion)
     if (selectedCompanyCategories.length > 0) {
-      const beforeCompanyCategory = result.length;
-      result = result.filter(lead => {
-        const companyCategory = lead.company_categorie || '';
-        const shouldExclude = selectedCompanyCategories.includes(companyCategory);
-        
-        if (shouldExclude) {
-          console.log(`🚫 EXCLUDING lead: ${lead.author_name} from ${lead.company_name} - Category: "${companyCategory}"`);
-          return false;
-        }
-        return true;
+      filtered = filtered.filter(lead => {
+        const companyCategorie = lead.company_categorie?.toLowerCase();
+        // Si la catégorie de l'entreprise correspond à une des catégories sélectionnées, on exclut le lead
+        return !selectedCompanyCategories.some(category => 
+          companyCategorie?.includes(category.toLowerCase())
+        );
       });
-      console.log(`🏢 After company category exclusion filter: ${beforeCompanyCategory} -> ${result.length} leads`);
     }
 
     // Filtre par nombre d'employés
     if (minEmployees || maxEmployees) {
-      const beforeEmployees = result.length;
-      result = result.filter(lead => {
+      filtered = filtered.filter(lead => {
         const employeeCount = lead.company_employee_count;
         if (!employeeCount) return false;
-        
-        // Extraire le nombre de la chaîne (ex: "50-100" -> prendre 75 comme moyenne)
+
         const extractNumber = (str: string): number => {
-          const match = str.match(/(\d+)(?:-(\d+))?/);
-          if (!match) return 0;
-          if (match[2]) {
-            // Range format like "50-100"
-            return (parseInt(match[1]) + parseInt(match[2])) / 2;
-          }
-          return parseInt(match[1]);
+          const match = str.match(/\d+/);
+          return match ? parseInt(match[0], 10) : 0;
         };
 
         const employeeNumber = extractNumber(employeeCount);
-        const min = minEmployees ? parseInt(minEmployees) : 0;
-        const max = maxEmployees ? parseInt(maxEmployees) : Infinity;
-        
+        const min = minEmployees ? extractNumber(minEmployees) : 0;
+        const max = maxEmployees ? extractNumber(maxEmployees) : Infinity;
+
         return employeeNumber >= min && employeeNumber <= max;
       });
-      console.log(`👥 After employee count filter (${minEmployees}-${maxEmployees}): ${beforeEmployees} -> ${result.length} leads`);
     }
 
-    // Filtre par date
-    const beforeDate = result.length;
-    result = applyDateFilter(result, selectedDateFilter);
-    console.log(`📅 After date filter (${selectedDateFilter}): ${beforeDate} -> ${result.length} leads`);
-
-    // Filtre par statut de contact
-    const beforeContact = result.length;
-    result = applyContactFilter(result, selectedContactFilter);
-    console.log(`📞 After contact filter (${selectedContactFilter}): ${beforeContact} -> ${result.length} leads`);
-
-    console.log(`✅ Final filtered result: ${result.length} leads (from ${initialCount} total)`);
-    setFilteredLeads(result);
+    setFilteredLeads(filtered);
   };
 
   const refreshLeads = () => {
@@ -361,11 +333,16 @@ export const useLeads = () => {
 
   // Effet pour appliquer les filtres quand les données ou les filtres changent
   useEffect(() => {
-    if (allLeads.length > 0) {
-      console.log('🔄 Applying filters due to data or filter change');
-      applyAllFilters();
-    }
-  }, [allLeads, selectedCategories, selectedCompanyCategories, minEmployees, maxEmployees, selectedDateFilter, selectedContactFilter]);
+    applyAllFilters();
+  }, [
+    allLeads,
+    selectedCategories,
+    selectedDateFilter,
+    selectedContactFilter,
+    selectedCompanyCategories,
+    minEmployees,
+    maxEmployees
+  ]);
 
   return {
     leads: allLeads,

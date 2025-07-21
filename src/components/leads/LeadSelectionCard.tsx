@@ -23,42 +23,42 @@ type LeadSelectionLead = Tables<'leads'> & {
 // Couleurs par catégorie de métier
 const categoryColors = {
   'Tech': {
-    card: 'bg-gradient-to-br from-blue-50/80 to-blue-100/60 border-blue-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-blue-50/80 to-blue-100/60 border-blue-200/60',
     header: 'bg-gradient-to-r from-blue-100/80 to-blue-50/60 border-blue-200/60',
     badge: 'bg-blue-100/80 text-blue-800 border-blue-200/60'
   },
   'Business': {
-    card: 'bg-gradient-to-br from-green-50/80 to-green-100/60 border-green-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-green-50/80 to-green-100/60 border-green-200/60',
     header: 'bg-gradient-to-r from-green-100/80 to-green-50/60 border-green-200/60',
     badge: 'bg-green-100/80 text-green-800 border-green-200/60'
   },
   'Product': {
-    card: 'bg-gradient-to-br from-purple-50/80 to-purple-100/60 border-purple-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-purple-50/80 to-purple-100/60 border-purple-200/60',
     header: 'bg-gradient-to-r from-purple-100/80 to-purple-50/60 border-purple-200/60',
     badge: 'bg-purple-100/80 text-purple-800 border-purple-200/60'
   },
   'Executive Search': {
-    card: 'bg-gradient-to-br from-red-50/80 to-red-100/60 border-red-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-red-50/80 to-red-100/60 border-red-200/60',
     header: 'bg-gradient-to-r from-red-100/80 to-red-50/60 border-red-200/60',
     badge: 'bg-red-100/80 text-red-800 border-red-200/60'
   },
   'Comptelio': {
-    card: 'bg-gradient-to-br from-yellow-50/80 to-yellow-100/60 border-yellow-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-yellow-50/80 to-yellow-100/60 border-yellow-200/60',
     header: 'bg-gradient-to-r from-yellow-100/80 to-yellow-50/60 border-yellow-200/60',
     badge: 'bg-yellow-100/80 text-yellow-800 border-yellow-200/60'
   },
   'RH': {
-    card: 'bg-gradient-to-br from-pink-50/80 to-pink-100/60 border-pink-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-pink-50/80 to-pink-100/60 border-pink-200/60',
     header: 'bg-gradient-to-r from-pink-100/80 to-pink-50/60 border-pink-200/60',
     badge: 'bg-pink-100/80 text-pink-800 border-pink-200/60'
   },
   'Freelance': {
-    card: 'bg-gradient-to-br from-indigo-50/80 to-indigo-100/60 border-indigo-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-indigo-50/80 to-indigo-100/60 border-indigo-200/60',
     header: 'bg-gradient-to-r from-indigo-100/80 to-indigo-50/60 border-indigo-200/60',
     badge: 'bg-indigo-100/80 text-indigo-800 border-indigo-200/60'
   },
   'Data': {
-    card: 'bg-gradient-to-br from-teal-50/80 to-teal-100/60 border-teal-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-teal-50/80 to-teal-100/60 border-teal-200/60',
     header: 'bg-gradient-to-r from-teal-100/80 to-teal-50/60 border-teal-200/60',
     badge: 'bg-teal-100/80 text-teal-800 border-teal-200/60'
   }
@@ -83,7 +83,7 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
 
   // Récupérer les couleurs de la catégorie
   const colors = categoryColors[lead.openai_step3_categorie as keyof typeof categoryColors] || {
-    card: 'bg-gradient-to-br from-gray-50/80 to-gray-100/60 border-gray-200/60 backdrop-blur-sm',
+    card: 'bg-gradient-to-br from-gray-50/80 to-gray-100/60 border-gray-200/60',
     header: 'bg-gradient-to-r from-gray-100/80 to-gray-50/60 border-gray-200/60',
     badge: 'bg-gray-100/80 text-gray-800 border-gray-200/60'
   };
@@ -91,15 +91,15 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
   return (
     <div className="relative">
       <div
-        className={`group flex flex-col h-[477px] w-full font-sans rounded-2xl transition-all duration-200 
+        className={`lead-card group flex flex-col h-[477px] w-full font-sans rounded-2xl transition-all duration-200 
           ${colors.card}
           ${lead.selected ? 'ring-2 ring-primary shadow-lg scale-[0.99]' : 'ring-1 ring-gray-200/60 hover:ring-gray-300/80'}
           ${lead.selected ? 'after:absolute after:inset-0 after:bg-primary/5 after:rounded-2xl' : ''}`}
         onClick={onClick}
-        style={isMobile ? { touchAction: 'manipulation' } : undefined}
+        style={{ isolation: 'isolate', ...isMobile ? { touchAction: 'manipulation' } : undefined }}
       >
         {/* Header avec infos du lead */}
-        <div className={`shrink-0 w-full px-4 pt-2 pb-1.5 flex flex-col gap-1 items-start rounded-t-2xl ${colors.card} border-b border-gray-200/30`}>
+        <div className={`shrink-0 w-full px-4 pt-2 pb-1.5 flex flex-col gap-1 items-start rounded-t-2xl border-b border-gray-200/30 relative`} style={{ zIndex: 30 }}>
           <div className="flex items-center gap-2 w-full">
             <span className="font-semibold text-xs text-gray-900 truncate max-w-[200px]">{lead.author_name || 'N/A'}</span>
             {lead.author_profile_url && (
@@ -121,26 +121,28 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
             </div>
           ) : null}
           {lead.unipile_company || lead.company_name ? (
-            <CompanyHoverCard 
-              companyId={lead.company_id}
-              companyLinkedInId={lead.company_linkedin_id}
-              companyName={lead.unipile_company || lead.company_name}
-              showLogo={true}
-            >
-              <div className="text-xs text-gray-700 line-clamp-1 break-words">
-                {lead.unipile_company || lead.company_name}
-              </div>
-            </CompanyHoverCard>
+            <div className="relative w-full" style={{ zIndex: 40 }}>
+              <CompanyHoverCard 
+                companyId={lead.company_id}
+                companyLinkedInId={lead.company_linkedin_id}
+                companyName={lead.unipile_company || lead.company_name}
+                showLogo={true}
+              >
+                <div className="text-xs text-gray-700 line-clamp-1 break-words pr-2">
+                  {lead.unipile_company || lead.company_name}
+                </div>
+              </CompanyHoverCard>
+            </div>
           ) : null}
         </div>
 
         {/* Titre du poste recherché */}
-        <div className={`shrink-0 px-4 py-1.5 font-medium text-sm text-gray-900 ${colors.card} h-[2.75rem] flex items-center border-b border-gray-200/30`}>
+        <div className={`shrink-0 px-4 py-1.5 font-medium text-sm text-gray-900 h-[2.75rem] flex items-center border-b border-gray-200/30 relative`} style={{ zIndex: 20 }}>
           <div className="line-clamp-2">{title}</div>
         </div>
 
         {/* Texte du post LinkedIn */}
-        <div className="flex-1 px-0.5 py-2.5 text-xs text-gray-600 overflow-y-auto linkedin-post-text">
+        <div className="flex-1 px-0.5 py-2.5 text-xs text-gray-600 overflow-y-auto linkedin-post-text relative" style={{ zIndex: 10 }}>
           <div className="max-w-full prose prose-sm prose-gray prose-p:mr-0.5 prose-p:last:mr-0">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
