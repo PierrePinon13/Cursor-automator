@@ -201,7 +201,7 @@ export const useLeads = () => {
 
     // Appliquer le filtre de date
     if (selectedDateFilter !== 'all') {
-      const now = new Date();
+    const now = new Date();
       const cutoffDate = new Date();
       
       switch (selectedDateFilter) {
@@ -231,7 +231,7 @@ export const useLeads = () => {
         return leadDate >= cutoffDate;
       });
       console.log('📅 Leads after date filter:', filtered.length);
-    }
+      }
 
     // Appliquer le filtre de contact
     if (selectedContactFilter !== 'exclude_none') {
@@ -240,24 +240,24 @@ export const useLeads = () => {
         
         if (!hasContact) {
           return true; // Garder les leads jamais contactés
-        }
-
-        if (lead.last_contact_at) {
-          const contactDate = new Date(lead.last_contact_at);
+      }
+      
+      if (lead.last_contact_at) {
+        const contactDate = new Date(lead.last_contact_at);
           const diffDays = Math.ceil((new Date().getTime() - contactDate.getTime()) / (1000 * 60 * 60 * 24));
 
           switch (selectedContactFilter) {
-            case 'exclude_1week':
+        case 'exclude_1week':
               return diffDays > 7;
-            case 'exclude_2weeks':
+        case 'exclude_2weeks':
               return diffDays > 14;
-            case 'exclude_1month':
+        case 'exclude_1month':
               return diffDays > 30;
-            case 'exclude_all_contacted':
+        case 'exclude_all_contacted':
               return false;
-            default:
-              return true;
-          }
+        default:
+          return true;
+      }
         }
 
         return true;
@@ -295,7 +295,7 @@ export const useLeads = () => {
       filtered = filtered.filter(lead => {
         const employeeCount = lead.company_employee_count;
         if (!employeeCount) return false;
-
+        
         const extractNumber = (str: string): number => {
           const match = str.match(/(\d+)(?:-(\d+))?/);
           if (!match) return 0;
@@ -308,7 +308,7 @@ export const useLeads = () => {
         const employeeNumber = extractNumber(employeeCount);
         const min = minEmployees ? parseInt(minEmployees) : 0;
         const max = maxEmployees ? parseInt(maxEmployees) : Infinity;
-
+        
         return employeeNumber >= min && employeeNumber <= max;
       });
       console.log('👥 Leads after employee count filter:', filtered.length);
@@ -330,7 +330,7 @@ export const useLeads = () => {
 
   // Effet pour appliquer les filtres quand les données ou les filtres changent
   useEffect(() => {
-    applyAllFilters();
+      applyAllFilters();
   }, [
     allLeads,
     selectedCategories,

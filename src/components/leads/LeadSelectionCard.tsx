@@ -122,16 +122,16 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
           ) : null}
           {lead.unipile_company || lead.company_name ? (
             <div className="relative w-full" style={{ zIndex: 40 }}>
-              <CompanyHoverCard 
-                companyId={lead.company_id}
-                companyLinkedInId={lead.company_linkedin_id}
-                companyName={lead.unipile_company || lead.company_name}
-                showLogo={true}
-              >
+            <CompanyHoverCard 
+              companyId={lead.company_id}
+              companyLinkedInId={lead.company_linkedin_id}
+              companyName={lead.unipile_company || lead.company_name}
+              showLogo={true}
+            >
                 <div className="text-xs text-gray-700 line-clamp-1 break-words pr-2">
-                  {lead.unipile_company || lead.company_name}
-                </div>
-              </CompanyHoverCard>
+                {lead.unipile_company || lead.company_name}
+              </div>
+            </CompanyHoverCard>
             </div>
           ) : null}
         </div>
@@ -142,8 +142,33 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
         </div>
 
         {/* Texte du post LinkedIn */}
-        <div className="flex-1 px-0.5 py-2.5 text-xs text-gray-600 overflow-y-auto linkedin-post-text relative" style={{ zIndex: 10 }}>
-          <div className="max-w-full prose prose-sm prose-gray prose-p:mr-0.5 prose-p:last:mr-0">
+        <div className="flex-1 px-0.5 py-2.5 text-xs text-gray-600 overflow-y-auto linkedin-post-text relative flex flex-col" style={{ zIndex: 10 }}>
+          {lead.url && (
+            <a
+              href={lead.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="mb-2 self-end px-2 py-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1.5 group"
+            >
+              <span>Voir sur LinkedIn</span>
+              <svg 
+                width="12" 
+                height="12" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                className="transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+              >
+                <path d="M7 17L17 7"/>
+                <path d="M7 7h10v10"/>
+              </svg>
+            </a>
+          )}
+          <div className="flex-1 max-w-full prose prose-sm prose-gray prose-p:mr-0.5 prose-p:last:mr-0">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
