@@ -142,14 +142,34 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
         </div>
 
         {/* Texte du post LinkedIn */}
-        <div className="flex-1 px-0.5 py-2.5 text-xs text-gray-600 overflow-y-auto linkedin-post-text relative flex flex-col" style={{ zIndex: 10 }}>
+        <div className="relative flex-1 px-0.5 py-2.5 text-xs text-gray-600 linkedin-post-text" style={{ zIndex: 10, minHeight: 0 }}>
+          <div className="overflow-y-auto max-h-full pb-10">
+            <div className="max-w-full prose prose-sm prose-gray prose-p:mr-0.5 prose-p:last:mr-0">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({node, ...props}) => <p className="whitespace-pre-wrap mb-2 pr-0.5 last:pr-0" {...props} />,
+                  a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} target="_blank" rel="noopener noreferrer" />,
+                  ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2 pr-0.5" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2 pr-0.5" {...props} />,
+                  li: ({node, ...props}) => <li className="mb-1 pr-0.5 last:pr-0" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                  em: ({node, ...props}) => <em className="italic" {...props} />,
+                  br: ({node, ...props}) => <br className="mb-2" {...props} />,
+                }}
+              >
+                {lead.text || ''}
+              </ReactMarkdown>
+            </div>
+          </div>
           {lead.url && (
             <a
               href={lead.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="mb-2 self-end px-2 py-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1.5 group"
+              className="absolute bottom-2 right-2 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1.5 group shadow-md"
+              style={{zIndex: 20, background: 'linear-gradient(90deg, #f0f6ff 60%, #e0e7ef 100%)'}}
             >
               <span>Voir sur LinkedIn</span>
               <svg 
@@ -168,23 +188,6 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
               </svg>
             </a>
           )}
-          <div className="flex-1 max-w-full prose prose-sm prose-gray prose-p:mr-0.5 prose-p:last:mr-0">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={{
-                p: ({node, ...props}) => <p className="whitespace-pre-wrap mb-2 pr-0.5 last:pr-0" {...props} />,
-                a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} target="_blank" rel="noopener noreferrer" />,
-                ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2 pr-0.5" {...props} />,
-                ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2 pr-0.5" {...props} />,
-                li: ({node, ...props}) => <li className="mb-1 pr-0.5 last:pr-0" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-                em: ({node, ...props}) => <em className="italic" {...props} />,
-                br: ({node, ...props}) => <br className="mb-2" {...props} />,
-              }}
-            >
-              {lead.text || ''}
-            </ReactMarkdown>
-          </div>
         </div>
 
         {/* Footer avec boutons */}

@@ -710,108 +710,110 @@ export default function LeadSelectionPage() {
                         className="flex gap-6 h-[400px]"
                       >
                         {/* Carte du lead */}
-                        <div className="w-[500px] bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
-                          <div className="h-full flex flex-col">
-                            {/* En-tête avec les informations du lead */}
-                            <div className="flex flex-col gap-4 mb-4 pb-4 border-b border-slate-100">
-                              {/* Nom du lead, titre et lien LinkedIn */}
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2 justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                      {lead.first_name} {lead.last_name}
-                                    </h3>
-                                    <div className="flex items-center gap-2">
-                                      {lead.author_profile_url && (
-                                        <a
-                                          href={lead.author_profile_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
-                                        >
-                                          <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
-                                          </svg>
-                                        </a>
-                                      )}
-                                      {lead.url && (
-                                        <a
-                                          href={lead.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
-                                          title="Voir le post LinkedIn"
-                                        >
-                                          <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
-                                          </svg>
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    {lead.phone_number ? (
-                                      <div className="px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 text-green-700 font-medium text-sm shadow-sm">
-                                        {lead.phone_number}
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          const phoneNumber = await retrievePhone(lead.id);
-                                          if (phoneNumber) {
-                                            setLeads(prev => prev.map(l => 
-                                              l.id === lead.id ? { ...l, phone_number: phoneNumber } : l
-                                            ));
-                                          }
-                                        }}
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors shadow-sm"
-                                      >
-                                        <Phone className="w-4 h-4 text-green-700" />
-                                        <span className="text-green-700 text-sm font-medium whitespace-nowrap">Récupérer le téléphone</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                                <p className="text-slate-600 truncate">{lead.job_title}</p>
-                              </div>
-
-                              {/* Informations de l'entreprise avec HoverCard */}
-                              <CompanyHoverCard
-                                companyId={lead.company_id}
-                                companyLinkedInId={lead.company_linkedin_id}
-                                companyName={lead.company_name || ''}
-                                showLogo={true}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="font-medium text-slate-900 truncate">{lead.company_name}</h3>
-                                    <p className="text-sm text-slate-600 truncate">{lead.company_position}</p>
-                                  </div>
-                                </div>
-                              </CompanyHoverCard>
-                            </div>
-
-                            {/* Contenu du post LinkedIn */}
-                            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-slate-50">
-                              <div className="prose prose-slate prose-sm max-w-none">
-                                <ReactMarkdown 
-                                  remarkPlugins={[remarkGfm]}
-                                  components={{
-                                    p: ({node, ...props}) => <p className="whitespace-pre-wrap mb-2 pr-0.5 last:pr-0" {...props} />,
-                                    a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} target="_blank" rel="noopener noreferrer" />,
-                                    ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2 pr-0.5" {...props} />,
-                                    ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2 pr-0.5" {...props} />,
-                                    li: ({node, ...props}) => <li className="mb-1 pr-0.5 last:pr-0" {...props} />,
-                                    strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-                                    em: ({node, ...props}) => <em className="italic" {...props} />,
-                                    br: ({node, ...props}) => <br className="mb-2" {...props} />,
-                                  }}
+                        <div className="w-[500px] h-[400px] bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200 flex flex-col">
+                          {/* Header */}
+                          <div className="flex items-center justify-between gap-2 mb-4 pb-4 border-b border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold text-slate-900">
+                                {lead.first_name} {lead.last_name}
+                              </h3>
+                              {lead.author_profile_url && (
+                                <a
+                                  href={lead.author_profile_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
                                 >
-                                  {lead.text || ''}
-                                </ReactMarkdown>
+                                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                                  </svg>
+                                </a>
+                              )}
+                            </div>
+                            {lead.phone_number ? (
+                              <div className="px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 text-green-700 font-medium text-sm shadow-sm">
+                                {lead.phone_number}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const phoneNumber = await retrievePhone(lead.id);
+                                  if (phoneNumber) {
+                                    setLeads(prev => prev.map(l =>
+                                      l.id === lead.id ? { ...l, phone_number: phoneNumber } : l
+                                    ));
+                                  }
+                                }}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors shadow-sm"
+                              >
+                                <span className="text-green-700 text-sm font-medium whitespace-nowrap">Récupérer</span>
+                                <svg className="w-4 h-4 text-green-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 16.92v3a2 2 0 0 1-2.18 2A19.72 19.72 0 0 1 3.08 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72c.13 1.05.37 2.07.73 3.06a2 2 0 0 1-.45 2.11L9.91 11.09a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.11-.45c.99.36 2.01.6 3.06.73A2 2 0 0 1 22 16.92z"/></svg>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Informations de l'entreprise avec HoverCard */}
+                          <CompanyHoverCard
+                            companyId={lead.company_id}
+                            companyLinkedInId={lead.company_linkedin_id}
+                            companyName={lead.company_name || ''}
+                            showLogo={true}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-slate-900 truncate">{lead.company_name}</h3>
+                                <p className="text-sm text-slate-600 truncate">{lead.company_position}</p>
                               </div>
                             </div>
+                          </CompanyHoverCard>
+
+                          {/* Texte du post LinkedIn */}
+                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-slate-50">
+                            <div className="prose prose-slate prose-sm max-w-none">
+                              <ReactMarkdown 
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  p: ({node, ...props}) => <p className="whitespace-pre-wrap mb-2 pr-0.5 last:pr-0" {...props} />, 
+                                  a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} target="_blank" rel="noopener noreferrer" />, 
+                                  ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2 pr-0.5" {...props} />, 
+                                  ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2 pr-0.5" {...props} />, 
+                                  li: ({node, ...props}) => <li className="mb-1 pr-0.5 last:pr-0" {...props} />, 
+                                  strong: ({node, ...props}) => <strong className="font-semibold" {...props} />, 
+                                  em: ({node, ...props}) => <em className="italic" {...props} />, 
+                                  br: ({node, ...props}) => <br className="mb-2" {...props} />, 
+                                }}
+                              >
+                                {lead.text || ''}
+                              </ReactMarkdown>
+                            </div>
+                            {lead.url && (
+                              <div className="flex justify-end mt-2">
+                                <a
+                                  href={lead.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1.5 group shadow-md"
+                                  style={{zIndex: 20, background: 'linear-gradient(90deg, #f0f6ff 60%, #e0e7ef 100%)'}}
+                                >
+                                  <span>Voir sur LinkedIn</span>
+                                  <svg 
+                                    width="12" 
+                                    height="12" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                    className="transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                                  >
+                                    <path d="M7 17L17 7"/>
+                                    <path d="M7 7h10v10"/>
+                                  </svg>
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
 
