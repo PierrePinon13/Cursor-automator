@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
 
@@ -13,6 +13,7 @@ export interface Lead {
   openai_step3_categorie?: string;
   openai_step3_postes_selectionnes?: string[];
   posted_at_iso?: string;
+  posted_at_timestamp?: number;
   latest_post_date?: string;
   last_contact_at?: string;
   last_updated_at?: string;
@@ -40,6 +41,18 @@ export interface Lead {
   unipile_company_linkedin_id?: string;
   company_logo_url?: string;
   company_sector?: string;
+  companies?: {
+    id: string;
+    name: string;
+    description: string;
+    industry: string;
+    activities: string;
+    employee_count: string;
+    logo: string;
+    categorie: string;
+    headquarters: string;
+    website: string;
+  };
 }
 
 export const useLeads = () => {
@@ -52,9 +65,27 @@ export const useLeads = () => {
   const [selectedCompanyCategories, setSelectedCompanyCategories] = useState<string[]>([]);
   const [minEmployees, setMinEmployees] = useState<string>('');
   const [maxEmployees, setMaxEmployees] = useState<string>('');
-  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const [availableCompanyCategories, setAvailableCompanyCategories] = useState<string[]>([]);
   const { isAdmin } = useUserRole();
+
+  // Liste statique des catégories de métier
+  const availableCategories = [
+    'Tech',
+    'Business',
+    'Product',
+    'Executive Search',
+    'Comptelio',
+    'RH',
+    'Freelance',
+    'Data'
+  ];
+
+  // Liste statique des catégories d'entreprise
+  const availableCompanyCategories = [
+    'esn',
+    'cabinet de recrutement',
+    'editeur de logiciel',
+    'autre'
+  ];
 
   // Fonction pour récupérer les leads depuis la base de données avec join sur companies
   const fetchLeads = async () => {
@@ -87,6 +118,8 @@ export const useLeads = () => {
         .is('matched_client_id', null)
         .is('matched_client_name', null)
         .order('latest_post_date', { ascending: false });
+
+      console.log('🔍 Fetching leads with query:', query);
 
       const { data: leadsWithDirectCompany, error } = await query;
 
@@ -143,29 +176,13 @@ export const useLeads = () => {
           company_categorie: companyInfo?.categorie || null,
           company_employee_count: companyInfo?.employee_count || null,
           company_logo_url: companyInfo?.logo || null,
-          company_sector: companyInfo?.industry || null // Add company_sector
+          company_sector: companyInfo?.industry || null
         };
       });
 
-      console.log(`✅ Fetched ${leadsWithCompanyInfo.length} leads from database (client leads excluded)`);
+      console.log(`✅ Fetched ${leadsWithCompanyInfo.length} leads from database`);
       setAllLeads(leadsWithCompanyInfo);
       
-      // Extraire les catégories uniques pour les filtres
-      const categories = [...new Set(leadsWithCompanyInfo
-        .map(lead => lead.openai_step3_categorie)
-        .filter(Boolean)
-      )];
-      setAvailableCategories(categories);
-
-      // Extraire les catégories d'entreprise uniques
-      const companyCategories = [...new Set(leadsWithCompanyInfo
-        .map(lead => lead.company_categorie)
-        .filter(Boolean)
-      )];
-      setAvailableCompanyCategories(companyCategories);
-      
-      console.log('📋 Available categories:', categories);
-      console.log('🏢 Available company categories:', companyCategories);
     } catch (error) {
       console.error('❌ Error in fetchLeads:', error);
     } finally {
@@ -173,129 +190,104 @@ export const useLeads = () => {
     }
   };
 
-  // Fonction pour appliquer le filtre de date
-  const applyDateFilter = (leads: Lead[], dateFilter: string): Lead[] => {
-    if (dateFilter === 'all') return leads;
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    return leads.filter(lead => {
-      const postDate = lead.latest_post_date || lead.posted_at_iso;
-      if (!postDate) {
-        console.log('🚫 Lead without date:', lead.id, lead.author_name);
-        return false;
-      }
-      
-      const leadDate = new Date(postDate);
-      const timeDiff = now.getTime() - leadDate.getTime();
-      const hoursDiff = timeDiff / (1000 * 60 * 60);
-      const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
-
-      switch (dateFilter) {
-        case '24h':
-          const result = hoursDiff <= 24;
-          if (!result) {
-            console.log(`⏰ Lead filtered out (24h): ${lead.author_name}, posted ${Math.round(hoursDiff)}h ago`);
-          }
-          return result;
-        case '48h':
-          return hoursDiff <= 48;
-        case '7days':
-          return daysDiff <= 7;
-        default:
-          return true;
-      }
-    });
-  };
-
-  // Fonction pour appliquer le filtre de contact
-  const applyContactFilter = (leads: Lead[], contactFilter: string): Lead[] => {
-    if (contactFilter === 'exclude_none') return leads;
-
-    const now = new Date();
-    
-    return leads.filter(lead => {
-      // Vérifier tous les types de contact
-      const hasLinkedInMessage = !!lead.linkedin_message_sent_at;
-      const hasPhoneContact = !!lead.phone_contact_status;
-      const hasLastContact = !!lead.last_contact_at;
-      
-      // Si aucun contact, le lead passe tous les filtres
-      if (!hasLinkedInMessage && !hasPhoneContact && !hasLastContact) {
-        return true;
-      }
-
-      // Trouver la date de contact la plus récente
-      let lastContactDate: Date | null = null;
-      
-      if (lead.linkedin_message_sent_at) {
-        const linkedInDate = new Date(lead.linkedin_message_sent_at);
-        if (!lastContactDate || linkedInDate > lastContactDate) {
-          lastContactDate = linkedInDate;
-        }
-      }
-      
-      if (lead.last_contact_at) {
-        const contactDate = new Date(lead.last_contact_at);
-        if (!lastContactDate || contactDate > lastContactDate) {
-          lastContactDate = contactDate;
-        }
-      }
-
-      if (!lastContactDate) return true;
-
-      const daysSinceContact = (now.getTime() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24);
-
-      switch (contactFilter) {
-        case 'exclude_1week':
-          const result1w = daysSinceContact > 7;
-          if (!result1w) {
-            console.log(`📞 Lead filtered out (1 week): ${lead.author_name}, contacted ${Math.round(daysSinceContact)} days ago`);
-          }
-          return result1w;
-        case 'exclude_2weeks':
-          return daysSinceContact > 14;
-        case 'exclude_1month':
-          return daysSinceContact > 30;
-        case 'exclude_all_contacted':
-          const resultAll = !hasLinkedInMessage && !hasPhoneContact && !hasLastContact;
-          if (!resultAll) {
-            console.log(`📞 Lead filtered out (all contacted): ${lead.author_name}, has contact`);
-          }
-          return resultAll;
-        default:
-          return true;
-      }
-    });
-  };
-
   // Fonction pour appliquer tous les filtres
   const applyAllFilters = () => {
+    console.log('🔄 Starting filter application on', allLeads.length, 'leads');
     let filtered = [...allLeads];
 
+    // Filtrer les leads rejetés
+    filtered = filtered.filter(lead => lead.processing_status !== 'rejected_by_user');
+    console.log('🚫 Leads after rejection filter:', filtered.length);
+
     // Appliquer le filtre de date
-    filtered = applyDateFilter(filtered, selectedDateFilter);
+    if (selectedDateFilter !== 'all') {
+      const now = new Date();
+      const cutoffDate = new Date();
+      
+      switch (selectedDateFilter) {
+        case '24h':
+          cutoffDate.setHours(now.getHours() - 24);
+          break;
+        case '48h':
+          cutoffDate.setHours(now.getHours() - 48);
+          break;
+        case '7days':
+          cutoffDate.setDate(now.getDate() - 7);
+          break;
+      }
+
+      filtered = filtered.filter(lead => {
+        let leadDate: Date;
+        if (lead.posted_at_timestamp) {
+          leadDate = new Date(lead.posted_at_timestamp);
+        } else if (lead.posted_at_iso) {
+          leadDate = new Date(lead.posted_at_iso);
+        } else if (lead.latest_post_date) {
+          leadDate = new Date(lead.latest_post_date);
+        } else {
+          console.log('❌ Lead without date:', lead.id, lead.author_name);
+          return false;
+        }
+        return leadDate >= cutoffDate;
+      });
+      console.log('📅 Leads after date filter:', filtered.length);
+    }
 
     // Appliquer le filtre de contact
-    filtered = applyContactFilter(filtered, selectedContactFilter);
+    if (selectedContactFilter !== 'exclude_none') {
+      filtered = filtered.filter(lead => {
+        const hasContact = lead.last_contact_at || lead.linkedin_message_sent_at || lead.phone_contact_status;
+        
+        if (!hasContact) {
+          return true; // Garder les leads jamais contactés
+        }
+
+        if (lead.last_contact_at) {
+          const contactDate = new Date(lead.last_contact_at);
+          const diffDays = Math.ceil((new Date().getTime() - contactDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          switch (selectedContactFilter) {
+            case 'exclude_1week':
+              return diffDays > 7;
+            case 'exclude_2weeks':
+              return diffDays > 14;
+            case 'exclude_1month':
+              return diffDays > 30;
+            case 'exclude_all_contacted':
+              return false;
+            default:
+              return true;
+          }
+        }
+
+        return true;
+      });
+      console.log('📞 Leads after contact filter:', filtered.length);
+    }
 
     // Appliquer le filtre de catégorie
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter(lead => 
-        lead.openai_step3_categorie && selectedCategories.includes(lead.openai_step3_categorie)
-      );
+      filtered = filtered.filter(lead => {
+        const matches = selectedCategories.includes(lead.openai_step3_categorie || '');
+        if (!matches) {
+          console.log('❌ Lead filtered out by category:', lead.id, lead.openai_step3_categorie);
+        }
+        return matches;
+      });
+      console.log('🏷️ Leads after category filter:', filtered.length);
     }
 
     // Appliquer les filtres de catégorie d'entreprise (exclusion)
     if (selectedCompanyCategories.length > 0) {
       filtered = filtered.filter(lead => {
-        const companyCategorie = lead.company_categorie?.toLowerCase();
-        // Si la catégorie de l'entreprise correspond à une des catégories sélectionnées, on exclut le lead
-        return !selectedCompanyCategories.some(category => 
-          companyCategorie?.includes(category.toLowerCase())
-        );
+        const companyCategorie = lead.company_categorie?.toLowerCase() || '';
+        const shouldExclude = selectedCompanyCategories.includes(companyCategorie);
+        if (shouldExclude) {
+          console.log(`🏢 Lead filtered out by company category: ${lead.author_name}, category: ${companyCategorie}`);
+        }
+        return !shouldExclude;
       });
+      console.log('🏢 Leads after company category filter:', filtered.length);
     }
 
     // Filtre par nombre d'employés
@@ -305,24 +297,29 @@ export const useLeads = () => {
         if (!employeeCount) return false;
 
         const extractNumber = (str: string): number => {
-          const match = str.match(/\d+/);
-          return match ? parseInt(match[0], 10) : 0;
+          const match = str.match(/(\d+)(?:-(\d+))?/);
+          if (!match) return 0;
+          if (match[2]) {
+            return (parseInt(match[1]) + parseInt(match[2])) / 2;
+          }
+          return parseInt(match[1]);
         };
 
         const employeeNumber = extractNumber(employeeCount);
-        const min = minEmployees ? extractNumber(minEmployees) : 0;
-        const max = maxEmployees ? extractNumber(maxEmployees) : Infinity;
+        const min = minEmployees ? parseInt(minEmployees) : 0;
+        const max = maxEmployees ? parseInt(maxEmployees) : Infinity;
 
         return employeeNumber >= min && employeeNumber <= max;
       });
+      console.log('👥 Leads after employee count filter:', filtered.length);
     }
 
     setFilteredLeads(filtered);
   };
 
-  const refreshLeads = () => {
+  const refreshLeads = async () => {
     console.log('🔄 Refreshing leads...');
-    fetchLeads();
+    await fetchLeads();
   };
 
   // Effet pour charger les leads au démarrage
@@ -343,6 +340,14 @@ export const useLeads = () => {
     minEmployees,
     maxEmployees
   ]);
+
+  // Log filtered results for debugging
+  useEffect(() => {
+    console.log(`📊 Filtered leads: ${filteredLeads.length} out of ${allLeads.length} total leads`);
+    if (selectedCompanyCategories.length > 0) {
+      console.log('Current exclusion categories:', selectedCompanyCategories);
+    }
+  }, [filteredLeads, allLeads, selectedCompanyCategories]);
 
   return {
     leads: allLeads,
