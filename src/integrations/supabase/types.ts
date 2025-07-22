@@ -1634,6 +1634,7 @@ export type Database = {
           updated_at: string | null
           url: string
           urn: string
+          rejected_at: string | null
         }
         Insert: {
           apify_dataset_id: string
@@ -1693,6 +1694,7 @@ export type Database = {
           updated_at?: string | null
           url: string
           urn: string
+          rejected_at?: string | null
         }
         Update: {
           apify_dataset_id?: string
@@ -1752,6 +1754,7 @@ export type Database = {
           updated_at?: string | null
           url?: string
           urn?: string
+          rejected_at?: string | null
         }
         Relationships: [
           {
