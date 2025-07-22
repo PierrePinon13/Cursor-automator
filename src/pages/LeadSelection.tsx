@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Phone } from 'lucide-react';
+import { usePhoneRetrieval } from '@/hooks/usePhoneRetrieval';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -142,7 +146,9 @@ const MOCK_LEADS = [
 export default function LeadSelectionPage() {
   const { toast } = useToast();
   const { unipileAccountId } = useLinkedInConnection();
+  const { retrievePhone } = usePhoneRetrieval();
   const [isSending, setIsSending] = useState(false);
+  const [isRetrievingAllPhones, setIsRetrievingAllPhones] = useState(false);
   const [filters, setFilters] = useState(MOCK_FILTERS);
   const [leads, setLeads] = useState<any[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
@@ -254,8 +260,20 @@ export default function LeadSelectionPage() {
   // Gérer la suppression d'un lead et son remplacement
   const handleRemoveLead = async (id: string) => {
     try {
+      // Récupérer d'abord le URN du post associé au lead
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('latest_post_urn')
+        .eq('id', id)
+        .single();
+
+      if (leadError) {
+        console.error('Erreur lors de la récupération du lead:', leadError);
+        throw new Error("Impossible de récupérer les informations du lead");
+      }
+
       // Marquer le lead comme rejeté dans la base de données
-      const { error } = await supabase
+      const { error: leadUpdateError } = await supabase
         .from('leads')
         .update({ 
           processing_status: 'rejected_by_user',
@@ -263,14 +281,24 @@ export default function LeadSelectionPage() {
         })
         .eq('id', id);
 
-      if (error) {
-        console.error('Erreur lors du rejet du lead:', error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de rejeter le lead. Veuillez réessayer.",
-          variant: "destructive",
-        });
-        return;
+      if (leadUpdateError) {
+        console.error('Erreur lors du rejet du lead:', leadUpdateError);
+        throw new Error("Impossible de rejeter le lead");
+      }
+
+      // Marquer le post LinkedIn comme rejeté
+      if (lead?.latest_post_urn) {
+        const { error: postUpdateError } = await supabase
+          .from('linkedin_posts')
+          .update({ 
+            rejected_at: new Date().toISOString()
+          })
+          .eq('urn', lead.latest_post_urn);
+
+        if (postUpdateError) {
+          console.error('Erreur lors du rejet du post LinkedIn:', postUpdateError);
+          throw new Error("Impossible de rejeter le post LinkedIn");
+        }
       }
 
       // Ajouter le lead à la liste des leads rejetés
@@ -296,13 +324,13 @@ export default function LeadSelectionPage() {
       }
 
       // Rafraîchir la liste des leads pour s'assurer que les leads rejetés sont exclus
-      refreshLeads();
+      await refreshLeads();
 
     } catch (error) {
       console.error('Erreur lors du rejet du lead:', error);
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue lors du rejet du lead.",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors du rejet du lead.",
         variant: "destructive",
       });
     }
@@ -475,6 +503,40 @@ export default function LeadSelectionPage() {
     }
   };
 
+  const handleRetrieveAllPhones = async () => {
+    setIsRetrievingAllPhones(true);
+    try {
+      const leadsWithoutPhone = selectedLeads
+        .map(leadId => leads.find(l => l.id === leadId))
+        .filter(lead => lead && !lead.phone_number);
+
+      for (const lead of leadsWithoutPhone) {
+        const phoneNumber = await retrievePhone(lead.id);
+        if (phoneNumber) {
+          setLeads(prev => prev.map(l => 
+            l.id === lead.id ? { ...l, phone_number: phoneNumber } : l
+          ));
+        }
+        // Petite pause entre chaque requête pour éviter de surcharger l'API
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      toast({
+        title: "Récupération terminée",
+        description: `${leadsWithoutPhone.length} numéro(s) de téléphone récupéré(s)`,
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des numéros:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la récupération des numéros",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRetrievingAllPhones(false);
+    }
+  };
+
   // Supprimer l'effet de libération manuelle des leads
   // useEffect(() => {
   //   const handleBeforeUnload = async () => {
@@ -509,7 +571,8 @@ export default function LeadSelectionPage() {
           <CustomSidebarTrigger />
           <h1 className="text-2xl font-bold text-primary">Sélection de leads</h1>
         </div>
-        <div className="flex flex-nowrap items-center gap-2 py-2 px-2 w-full overflow-x-auto border-b border-gray-100">
+        <div className="flex flex-nowrap items-center gap-2 py-2 px-2 w-full overflow-x-auto border-b border-gray-100 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+          <div className="flex flex-nowrap items-center gap-2 min-w-fit">
           <MultiSelectFilter
             title="Période"
             options={dateFilterOptions}
@@ -537,7 +600,7 @@ export default function LeadSelectionPage() {
             hideChevron
           />
           <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-700 text-xs">Employés:</span>
+              <span className="font-medium text-gray-700 text-xs whitespace-nowrap">Employés:</span>
             <Input
               type="number"
               placeholder="Min"
@@ -556,19 +619,19 @@ export default function LeadSelectionPage() {
               min="0"
             />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-fit">
             {availableCategories.map(cat => (
               <Badge
                 key={cat}
-                className={`cursor-pointer px-3 py-1 border ${categoryColors[cat]} ${selectedCategories.includes(cat) ? 'ring-2 ring-primary' : 'opacity-60 hover:opacity-100'}`}
+                  className={`cursor-pointer px-3 py-1 border whitespace-nowrap ${categoryColors[cat]} ${selectedCategories.includes(cat) ? 'ring-2 ring-primary' : 'opacity-60 hover:opacity-100'}`}
                 onClick={() => setSelectedCategories(selectedCategories.includes(cat) ? selectedCategories.filter(c => c !== cat) : [...selectedCategories, cat])}
               >
                 {cat}
               </Badge>
             ))}
           </div>
-          <div className="flex-1" />
-          <Button className="ml-2 px-3 py-1 text-sm font-medium bg-primary text-white rounded-lg shadow-sm" size="sm" onClick={handleLaunchSearch}>Start</Button>
+            <Button className="ml-2 px-3 py-1 text-sm font-medium bg-primary text-white rounded-lg shadow-sm whitespace-nowrap" size="sm" onClick={handleLaunchSearch}>Start</Button>
+          </div>
         </div>
       </div>
 
@@ -608,9 +671,28 @@ export default function LeadSelectionPage() {
             >
               <div className="max-w-[1000px] mx-auto px-6"> {/* Réduit de 1200px à 1000px */}
                 {/* En-tête */}
-                <div className="mb-8">
-                  <h2 className="text-2xl font-semibold text-slate-900">Messages personnalisés</h2>
-                  <p className="text-slate-600 mt-1">Personnalisez vos messages pour {selectedLeads.length} leads sélectionnés</p>
+                <div className="mb-8 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-slate-900">Messages personnalisés</h2>
+                    <p className="text-slate-600 mt-1">Personnalisez vos messages pour {selectedLeads.length} leads sélectionnés</p>
+                  </div>
+                  <Button
+                    onClick={handleRetrieveAllPhones}
+                    disabled={isRetrievingAllPhones}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors shadow-sm"
+                  >
+                    {isRetrievingAllPhones ? (
+                      <>
+                        <Loader2 className="w-4 h-4 text-green-700 animate-spin" />
+                        <span className="text-green-700 font-medium">Récupération en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="w-4 h-4 text-green-700" />
+                        <span className="text-green-700 font-medium">Récupérer tous les numéros</span>
+                      </>
+                    )}
+                  </Button>
                 </div>
 
                 {/* Liste des leads */}
@@ -634,22 +716,62 @@ export default function LeadSelectionPage() {
                             <div className="flex flex-col gap-4 mb-4 pb-4 border-b border-slate-100">
                               {/* Nom du lead, titre et lien LinkedIn */}
                               <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="text-lg font-semibold text-slate-900">
-                                    {lead.first_name} {lead.last_name}
-                                  </h3>
-                                  {lead.author_profile_url && (
-                                    <a
-                                      href={lead.author_profile_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
-                                    >
-                                      <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
-                                      </svg>
-                                    </a>
-                                  )}
+                                <div className="flex items-center gap-2 justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-lg font-semibold text-slate-900">
+                                      {lead.first_name} {lead.last_name}
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                      {lead.author_profile_url && (
+                                        <a
+                                          href={lead.author_profile_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                                        >
+                                          <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                                          </svg>
+                                        </a>
+                                      )}
+                                      {lead.url && (
+                                        <a
+                                          href={lead.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                                          title="Voir le post LinkedIn"
+                                        >
+                                          <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                                          </svg>
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    {lead.phone_number ? (
+                                      <div className="px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 text-green-700 font-medium text-sm shadow-sm">
+                                        {lead.phone_number}
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const phoneNumber = await retrievePhone(lead.id);
+                                          if (phoneNumber) {
+                                            setLeads(prev => prev.map(l => 
+                                              l.id === lead.id ? { ...l, phone_number: phoneNumber } : l
+                                            ));
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors shadow-sm"
+                                      >
+                                        <Phone className="w-4 h-4 text-green-700" />
+                                        <span className="text-green-700 text-sm font-medium whitespace-nowrap">Récupérer le téléphone</span>
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                                 <p className="text-slate-600 truncate">{lead.job_title}</p>
                               </div>
@@ -673,7 +795,21 @@ export default function LeadSelectionPage() {
                             {/* Contenu du post LinkedIn */}
                             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-slate-50">
                               <div className="prose prose-slate prose-sm max-w-none">
-                                {lead.text}
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    p: ({node, ...props}) => <p className="whitespace-pre-wrap mb-2 pr-0.5 last:pr-0" {...props} />,
+                                    a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} target="_blank" rel="noopener noreferrer" />,
+                                    ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2 pr-0.5" {...props} />,
+                                    ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2 pr-0.5" {...props} />,
+                                    li: ({node, ...props}) => <li className="mb-1 pr-0.5 last:pr-0" {...props} />,
+                                    strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                                    em: ({node, ...props}) => <em className="italic" {...props} />,
+                                    br: ({node, ...props}) => <br className="mb-2" {...props} />,
+                                  }}
+                                >
+                                  {lead.text || ''}
+                                </ReactMarkdown>
                               </div>
                             </div>
                           </div>
@@ -705,7 +841,7 @@ export default function LeadSelectionPage() {
       </div>
 
       {/* Footer : bouton continuer */}
-      {searchLaunched && selectedLeads.length > 0 && !showProspectingView && (
+      {searchLaunched && !showProspectingView && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -721,6 +857,44 @@ export default function LeadSelectionPage() {
                 <p className="text-lg font-semibold text-gray-900">{selectedLeads.length} profils</p>
               </div>
             </div>
+            <div className="flex items-center gap-4">
+              {leads.length > 0 && (
+                <Button 
+                  className="bg-white hover:bg-gray-50 text-primary border-2 border-primary px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={() => {
+                    // Sélectionner et valider tous les leads affichés
+                    const allLeadsIds = leads.map(l => l.id);
+                    setSelectedLeads(allLeadsIds);
+                    
+                    // Marquer tous les leads comme sélectionnés
+                    const validatedLeads = leads.map(lead => ({ ...lead, selected: true }));
+                    setLeads(validatedLeads);
+
+                    // Mettre à jour les messages pour tous les leads
+                    const initialMessages = allLeadsIds.reduce((acc, leadId) => {
+                      const lead = validatedLeads.find(l => l.id === leadId);
+                      acc[leadId] = lead?.approach_message || '';
+                      return acc;
+                    }, {});
+                    setMessages(initialMessages);
+
+                    // Passer à la vue de prospection avec tous les leads validés
+                    setShowProspectingView(true);
+                  }}
+                >
+                  <span>Prospecter {leads.length} leads</span>
+                  <motion.div
+                    initial={{ x: 0 }}
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </motion.div>
+                </Button>
+              )}
+              {selectedLeads.length > 0 && (
             <Button 
               className="bg-primary hover:bg-primary/90 text-white px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
               onClick={handleStartProspecting}
@@ -736,6 +910,8 @@ export default function LeadSelectionPage() {
                 </svg>
               </motion.div>
             </Button>
+              )}
+            </div>
           </div>
         </motion.div>
       )}
