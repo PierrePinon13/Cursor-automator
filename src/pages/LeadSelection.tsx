@@ -549,6 +549,51 @@ export default function LeadSelectionPage() {
         description: `${messagesToSend.length} messages ont été envoyés vers le système de traitement.`,
       });
       
+      // Après l'envoi, enregistrer une activité pour chaque message envoyé
+      const performedAt = new Date().toISOString();
+      for (const leadId of selectedLeads) {
+        await supabase
+          .from('activities')
+          .insert({
+            lead_id: leadId,
+            activity_type: 'linkedin_message',
+            activity_data: { bulkRequestId },
+            performed_by_user_id: user?.id,
+            performed_by_user_name: user?.user_metadata?.full_name || user?.email || 'Utilisateur inconnu',
+            performed_at: performedAt
+          });
+      }
+
+      // Mettre à jour la table user_stats pour l'utilisateur courant
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingStats, error: statsError } = await supabase
+        .from('user_stats')
+        .select('id, linkedin_messages_sent')
+        .eq('user_id', user?.id)
+        .eq('stat_date', today)
+        .maybeSingle();
+      if (statsError) {
+        console.error('Erreur lors de la récupération de user_stats:', statsError);
+      }
+      if (existingStats && existingStats.id) {
+        // Incrémenter le compteur existant
+        await supabase
+          .from('user_stats')
+          .update({
+            linkedin_messages_sent: (existingStats.linkedin_messages_sent || 0) + selectedLeads.length
+          })
+          .eq('id', existingStats.id);
+      } else {
+        // Créer une nouvelle ligne
+        await supabase
+          .from('user_stats')
+          .insert({
+            user_id: user?.id,
+            stat_date: today,
+            linkedin_messages_sent: selectedLeads.length
+          });
+      }
+
       // Réinitialiser la vue et relancer une recherche
       setShowProspectingView(false);
       setSelectedLeads([]);
