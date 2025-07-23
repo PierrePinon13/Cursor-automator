@@ -53,6 +53,13 @@ export interface Lead {
     headquarters: string;
     website: string;
   };
+  // Champs pour le locking/rejected
+  selection_status?: 'pending' | 'in_selection' | 'accepted' | 'rejected';
+  rejected_at?: string;
+  selected_by_user_id?: string;
+  selected_at?: string;
+  accepted_at?: string;
+  accepted_by_user?: string;
 }
 
 export const useLeads = () => {

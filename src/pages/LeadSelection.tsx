@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const DESIGN = {
   colors: {
@@ -147,6 +148,7 @@ export default function LeadSelectionPage() {
   const { toast } = useToast();
   const { unipileAccountId } = useLinkedInConnection();
   const { retrievePhone } = usePhoneRetrieval();
+  const { user } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [isRetrievingAllPhones, setIsRetrievingAllPhones] = useState(false);
   const [filters, setFilters] = useState(MOCK_FILTERS);
@@ -186,9 +188,60 @@ export default function LeadSelectionPage() {
   // Mettre à jour les leads affichés quand les leads filtrés changent
   useEffect(() => {
     if (searchLaunched) {
-      setLeads(filteredLeads.slice(0, 6));
+      // Filtrage locking/rejected/accepted
+      const now = new Date();
+      const filtered = filteredLeads.filter(lead => {
+        // Si rejected et rejected_at > latest_post_date => on n'affiche pas
+        if (
+          lead.selection_status === 'rejected' &&
+          lead.rejected_at &&
+          lead.latest_post_date &&
+          new Date(lead.rejected_at) > new Date(lead.latest_post_date)
+        ) {
+          return false;
+        }
+        // Si in_selection par un autre user et moins de 10min => on n'affiche pas
+        if (
+          lead.selection_status === 'in_selection' &&
+          lead.selected_by_user_id &&
+          user?.id &&
+          lead.selected_by_user_id !== user.id &&
+          lead.selected_at &&
+          (now.getTime() - new Date(lead.selected_at).getTime()) < 10 * 60 * 1000
+        ) {
+          return false;
+        }
+        // Si accepted il y a moins de 30min par un autre user => on n'affiche pas
+        if (
+          lead.selection_status === 'accepted' &&
+          lead.accepted_at &&
+          lead.accepted_by_user !== user?.id &&
+          (now.getTime() - new Date(lead.accepted_at).getTime()) < 30 * 60 * 1000
+        ) {
+          return false;
+        }
+        return true;
+      });
+      const leadsToShow = filtered.slice(0, 6);
+      setLeads(leadsToShow);
+      // Lock en base les leads affichés
+      leadsToShow.forEach(async (lead) => {
+        if (
+          lead.selection_status !== 'in_selection' ||
+          lead.selected_by_user_id !== user?.id
+        ) {
+          await supabase
+            .from('leads')
+            .update({
+              selection_status: 'in_selection',
+              selected_by_user_id: user?.id,
+              selected_at: new Date().toISOString(),
+            })
+            .eq('id', lead.id);
+        }
+      });
     }
-  }, [filteredLeads, searchLaunched]);
+  }, [filteredLeads, searchLaunched, user]);
 
   // Obtenir le lead sélectionné actuel
   const selectedLead = selectedLeads[selectedLeadIndex] 
@@ -276,7 +329,10 @@ export default function LeadSelectionPage() {
       const { error: leadUpdateError } = await supabase
         .from('leads')
         .update({ 
-          processing_status: 'rejected_by_user',
+          selection_status: 'rejected',
+          rejected_at: new Date().toISOString(),
+          selected_by_user_id: null,
+          selected_at: null,
           last_updated_at: new Date().toISOString()
         })
         .eq('id', id);
@@ -309,7 +365,7 @@ export default function LeadSelectionPage() {
         !leads.some(lead => lead.id === l.id) && 
         !removedLeads.includes(l.id) && 
         !selectedLeads.includes(l.id) &&
-        l.processing_status !== 'rejected_by_user'
+        l.selection_status !== 'rejected'
       );
 
       // Met à jour la liste des leads en retirant le lead rejeté
@@ -366,7 +422,7 @@ export default function LeadSelectionPage() {
     }
   }, [searchLaunched, leads]);
 
-  const handleStartProspecting = () => {
+  const handleStartProspecting = async () => {
     // Filtrer pour ne garder que les leads validés
     const validatedLeads = selectedLeads.filter(leadId => {
       const lead = leads.find(l => l.id === leadId);
@@ -383,6 +439,22 @@ export default function LeadSelectionPage() {
       return acc;
     }, {});
     setMessages(initialMessages);
+
+    // Mettre à jour en base les leads validés (acceptés)
+    const now = new Date().toISOString();
+    for (const leadId of validatedLeads) {
+      await supabase
+        .from('leads')
+        .update({
+          selection_status: 'accepted',
+          accepted_at: now,
+          accepted_by_user: user?.id,
+          selected_by_user_id: null,
+          selected_at: null,
+          last_updated_at: now
+        })
+        .eq('id', leadId);
+    }
 
     // Libérer les leads non traités
     const unprocessedLeads = leads
@@ -895,23 +967,6 @@ export default function LeadSelectionPage() {
                     </svg>
                   </motion.div>
                 </Button>
-              )}
-              {selectedLeads.length > 0 && (
-            <Button 
-              className="bg-primary hover:bg-primary/90 text-white px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
-              onClick={handleStartProspecting}
-            >
-              <span>Passer à la prospection</span>
-              <motion.div
-                initial={{ x: 0 }}
-                animate={{ x: [0, 5, 0] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </motion.div>
-            </Button>
               )}
             </div>
           </div>
