@@ -119,6 +119,7 @@ export const useLeads = () => {
             website
           )
         `)
+        .neq('selection_status', 'rejected') // <-- Ajout pour exclure les leads rejetés côté backend
         .neq('processing_status', 'filtered_hr_provider')
         .neq('processing_status', 'mistargeted')
         .or('is_client_lead.is.null,is_client_lead.eq.false')
