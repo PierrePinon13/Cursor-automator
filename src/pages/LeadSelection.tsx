@@ -27,6 +27,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 const DESIGN = {
   colors: {
@@ -159,6 +160,11 @@ export default function LeadSelectionPage() {
   const [showProspectingView, setShowProspectingView] = useState(false);
   const [messages, setMessages] = useState<{ [key: string]: string }>({});
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number>(0);
+  const navigate = useNavigate();
+  const [prevLeads, setPrevLeads] = useState<any[]>([]);
+  const [cards, setCards] = useState<(any | null)[]>([null, null, null, null, null, null]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [validatedCards, setValidatedCards] = useState<number[]>([]); // index des cartes validées
 
   const {
     filteredLeads,
@@ -184,6 +190,82 @@ export default function LeadSelectionPage() {
   useEffect(() => {
     setSelectedCompanyCategories(['esn', 'cabinet de recrutement']);
   }, []);
+
+  // Charger le premier lead au démarrage
+  useEffect(() => {
+    if (searchLaunched && filteredLeads.length > 0 && !cards[0]) {
+      setCards([filteredLeads[0], null, null, null, null, null]);
+      setCurrentIndex(0);
+      setRemovedLeads([]);
+      setValidatedCards([]);
+    }
+  }, [searchLaunched, filteredLeads]);
+
+  // Charger une nouvelle carte à l'index donné
+  const loadNextLead = async (index: number) => {
+    const usedIds = cards.filter(Boolean).map(l => l.id).concat(removedLeads);
+    const nextLead = filteredLeads.find(l => !usedIds.includes(l.id));
+    if (nextLead) {
+      // Lock le lead en BDD pour l'utilisateur courant
+      await supabase
+        .from('leads')
+        .update({
+          selection_status: 'in_selection',
+          selected_by_user_id: user?.id,
+          selected_at: new Date().toISOString(),
+        })
+        .eq('id', nextLead.id);
+    }
+    setCards(prev => {
+      const newCards = [...prev];
+      newCards[index] = nextLead || null;
+      return newCards;
+    });
+  };
+
+  // Valider la carte courante
+  const handleValidate = async () => {
+    const lead = cards[currentIndex];
+    if (lead) {
+      // Mettre à jour la BDD pour ce lead
+      await supabase
+        .from('leads')
+        .update({
+          selection_status: 'accepted',
+          accepted_at: new Date().toISOString(),
+          accepted_by_user: user?.id,
+          selected_by_user_id: null,
+          selected_at: null,
+          last_updated_at: new Date().toISOString()
+        })
+        .eq('id', lead.id);
+    }
+    setValidatedCards(prev => [...prev, currentIndex]);
+    if (currentIndex < 5) {
+      await loadNextLead(currentIndex + 1);
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  // Rejeter la carte courante
+  const handleReject = async () => {
+    const lead = cards[currentIndex];
+    if (lead) {
+      setRemovedLeads(prev => [...prev, lead.id]);
+      // Mettre à jour la BDD pour ce lead
+      await supabase
+        .from('leads')
+        .update({
+          selection_status: 'rejected',
+          rejected_at: new Date().toISOString(),
+          selected_by_user_id: null,
+          selected_at: null,
+          last_updated_at: new Date().toISOString()
+        })
+        .eq('id', lead.id);
+    }
+    await loadNextLead(currentIndex);
+  };
 
   // Mettre à jour les leads affichés quand les leads filtrés changent
   useEffect(() => {
@@ -311,55 +393,13 @@ export default function LeadSelectionPage() {
   };
 
   // Gérer la suppression d'un lead et son remplacement
+  useEffect(() => {
+    setPrevLeads(leads);
+  }, [leads]);
+
   const handleRemoveLead = async (id: string) => {
     try {
-      // Récupérer d'abord le URN du post associé au lead
-      const { data: lead, error: leadError } = await supabase
-        .from('leads')
-        .select('latest_post_urn')
-        .eq('id', id)
-        .single();
-
-      if (leadError) {
-        console.error('Erreur lors de la récupération du lead:', leadError);
-        throw new Error("Impossible de récupérer les informations du lead");
-      }
-
-      // Marquer le lead comme rejeté dans la base de données
-      const { error: leadUpdateError } = await supabase
-        .from('leads')
-        .update({ 
-          selection_status: 'rejected',
-          rejected_at: new Date().toISOString(),
-          selected_by_user_id: null,
-          selected_at: null,
-          last_updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (leadUpdateError) {
-        console.error('Erreur lors du rejet du lead:', leadUpdateError);
-        throw new Error("Impossible de rejeter le lead");
-      }
-
-      // Marquer le post LinkedIn comme rejeté
-      if (lead?.latest_post_urn) {
-        const { error: postUpdateError } = await supabase
-          .from('linkedin_posts')
-          .update({ 
-            rejected_at: new Date().toISOString()
-          })
-          .eq('urn', lead.latest_post_urn);
-
-        if (postUpdateError) {
-          console.error('Erreur lors du rejet du post LinkedIn:', postUpdateError);
-          throw new Error("Impossible de rejeter le post LinkedIn");
-        }
-      }
-
-      // Ajouter le lead à la liste des leads rejetés
       setRemovedLeads(prev => [...prev, id]);
-      
       // Cherche le prochain lead disponible dans les leads filtrés
       const nextLead = filteredLeads.find(l => 
         !leads.some(lead => lead.id === l.id) && 
@@ -367,21 +407,17 @@ export default function LeadSelectionPage() {
         !selectedLeads.includes(l.id) &&
         l.selection_status !== 'rejected'
       );
-
-      // Met à jour la liste des leads en retirant le lead rejeté
       setLeads(prev => {
-        const remaining = prev.filter(l => l.id !== id);
-        return nextLead ? [...remaining, nextLead] : remaining;
+        const newLeads = prev.filter(l => l.id !== id);
+        if (nextLead) {
+          newLeads.push(nextLead);
+        }
+        return newLeads;
       });
-
-      // Retirer le lead de la liste des leads sélectionnés s'il y était
       if (selectedLeads.includes(id)) {
         setSelectedLeads(prev => prev.filter(leadId => leadId !== id));
       }
-
-      // Rafraîchir la liste des leads pour s'assurer que les leads rejetés sont exclus
       await refreshLeads();
-
     } catch (error) {
       console.error('Erreur lors du rejet du lead:', error);
       toast({
@@ -422,27 +458,24 @@ export default function LeadSelectionPage() {
     }
   }, [searchLaunched, leads]);
 
+  // Prospection : n'envoie que les leads validés
   const handleStartProspecting = async () => {
-    // Filtrer pour ne garder que les leads validés
-    const validatedLeads = selectedLeads.filter(leadId => {
-      const lead = leads.find(l => l.id === leadId);
-      return lead && lead.selected;
-    });
+    const validatedLeads = validatedCards.map(idx => cards[idx]).filter(Boolean);
 
     // Mettre à jour la liste des leads sélectionnés
-    setSelectedLeads(validatedLeads);
+    setSelectedLeads(validatedLeads.map(lead => lead.id));
 
     // Initialiser les messages pour les leads validés
-    const initialMessages = validatedLeads.reduce((acc, leadId) => {
-      const lead = leads.find(l => l.id === leadId);
-      acc[leadId] = lead?.approach_message || '';
+    const initialMessages = validatedLeads.reduce((acc, lead) => {
+      const leadId = leads.find(l => l.id === lead.id)?.id;
+      acc[leadId || ''] = lead?.approach_message || '';
       return acc;
     }, {});
     setMessages(initialMessages);
 
     // Mettre à jour en base les leads validés (acceptés)
     const now = new Date().toISOString();
-    for (const leadId of validatedLeads) {
+    for (const lead of validatedLeads) {
       await supabase
         .from('leads')
         .update({
@@ -453,7 +486,7 @@ export default function LeadSelectionPage() {
           selected_at: null,
           last_updated_at: now
         })
-        .eq('id', leadId);
+        .eq('id', lead.id);
     }
 
     // Libérer les leads non traités
@@ -562,6 +595,15 @@ export default function LeadSelectionPage() {
             performed_by_user_name: user?.user_metadata?.full_name || user?.email || 'Utilisateur inconnu',
             performed_at: performedAt
           });
+        // Mettre à jour le lead comme contacté
+        await supabase
+          .from('leads')
+          .update({
+            last_contact_at: performedAt,
+            linkedin_message_sent_at: performedAt,
+            last_updated_at: performedAt
+          })
+          .eq('id', leadId);
       }
 
       // Mettre à jour la table user_stats pour l'utilisateur courant
@@ -599,10 +641,12 @@ export default function LeadSelectionPage() {
       setSelectedLeads([]);
       setRemovedLeads([]);
       setMessages({});
-      
-      // Relancer la recherche avec les mêmes filtres
-      await refreshLeads();
-      
+      // Relancer la recherche avec les mêmes filtres mais forcer un nouveau tirage de leads
+      setSelectedContactFilter('exclude_2weeks');
+      setTimeout(() => {
+        // On force un "refresh" en naviguant vers la même page avec un paramètre unique
+        navigate(`/lead-selection?refresh=${Date.now()}`);
+      }, 200);
       toast({
         title: "Messages envoyés avec succès",
         description: "Une nouvelle recherche a été lancée avec vos filtres.",
@@ -764,16 +808,25 @@ export default function LeadSelectionPage() {
             >
               <div className="w-full max-w-[1600px] px-6">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4 mx-auto">
-                  {leads.map(lead => (
-                    <div key={lead.id} className="flex flex-col h-[420px] w-full">
-                      <LeadSelectionCard 
-                        lead={lead} 
-                        isMobile={false} 
-                        onClick={() => {}} 
-                        onAccept={() => handleSelectLead(lead.id)}
-                        onReject={() => handleRemoveLead(lead.id)}
-                      />
-                    </div>
+                  {cards.map((lead, idx) => (
+                    <motion.div
+                      key={lead?.id || idx}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col h-[420px] w-full"
+                    >
+                      {lead ? (
+                        <LeadSelectionCard
+                          lead={lead}
+                          isMobile={false}
+                          onClick={() => {}}
+                          onAccept={idx === currentIndex && !validatedCards.includes(idx) ? handleValidate : undefined}
+                          onReject={idx === currentIndex && !validatedCards.includes(idx) ? handleReject : undefined}
+                          validated={validatedCards.includes(idx)}
+                        />
+                      ) : null}
+                    </motion.div>
                   ))}
                 </div>
               </div>
@@ -967,50 +1020,16 @@ export default function LeadSelectionPage() {
           className="fixed bottom-0 left-0 right-0 px-8 py-4 bg-gradient-to-t from-white via-white to-white/80 backdrop-blur-sm border-t border-gray-100 z-50"
         >
           <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Leads sélectionnés</p>
-                <p className="text-lg font-semibold text-gray-900">{selectedLeads.length} profils</p>
-              </div>
+            <div className="text-gray-500 text-sm font-medium pr-8">
+              Validez les leads pertinents avec le bouton ✓, rejetez avec la croix.
             </div>
             <div className="flex items-center gap-4">
-              {leads.length > 0 && (
-                <Button 
+              {validatedCards.length > 0 && (
+                <Button
                   className="bg-white hover:bg-gray-50 text-primary border-2 border-primary px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
-                  onClick={() => {
-                    // Sélectionner et valider tous les leads affichés
-                    const allLeadsIds = leads.map(l => l.id);
-                    setSelectedLeads(allLeadsIds);
-                    
-                    // Marquer tous les leads comme sélectionnés
-                    const validatedLeads = leads.map(lead => ({ ...lead, selected: true }));
-                    setLeads(validatedLeads);
-
-                    // Mettre à jour les messages pour tous les leads
-                    const initialMessages = allLeadsIds.reduce((acc, leadId) => {
-                      const lead = validatedLeads.find(l => l.id === leadId);
-                      acc[leadId] = lead?.approach_message || '';
-                      return acc;
-                    }, {});
-                    setMessages(initialMessages);
-
-                    // Passer à la vue de prospection avec tous les leads validés
-                    setShowProspectingView(true);
-                  }}
+                  onClick={handleStartProspecting}
                 >
-                  <span>Prospecter {leads.length} leads</span>
-                  <motion.div
-                    initial={{ x: 0 }}
-                    animate={{ x: [0, 5, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  </motion.div>
+                  <span>Prospecter {validatedCards.length} leads</span>
                 </Button>
               )}
             </div>

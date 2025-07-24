@@ -70,9 +70,10 @@ interface LeadSelectionCardProps {
   onClick: (event: React.MouseEvent) => void;
   onAccept?: (lead: LeadSelectionLead) => void;
   onReject?: (lead: LeadSelectionLead) => void;
+  validated?: boolean;
 }
 
-export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMobile, onClick, onAccept, onReject }) => {
+export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMobile, onClick, onAccept, onReject, validated }) => {
   const title = lead.openai_step3_postes_selectionnes?.join(' / ') || '';
   let titleFontSize = 'text-base';
   let clampClass = '';
@@ -89,7 +90,7 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
   };
 
   return (
-    <div className="relative">
+    <div className={`relative ${validated ? 'border-4 border-blue-500' : ''}`}>
       <div
         className={`lead-card group flex flex-col h-[477px] w-full font-sans rounded-2xl transition-all duration-200 
           ${colors.card}
