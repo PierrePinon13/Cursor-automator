@@ -390,15 +390,12 @@ export default function LeadSelectionPage() {
 
   // Prospection : n'envoie que les leads validés
   const handleStartProspecting = async () => {
-    const validatedLeads = cards.filter((_, idx) => validatedCards[idx]);
-
-    // Mettre à jour la liste des leads sélectionnés
+    // Utilise validatedLeads (tous les leads validés, pas juste ceux affichés)
     setSelectedLeads(validatedLeads.map(lead => lead.id));
 
     // Initialiser les messages pour les leads validés
     const initialMessages = validatedLeads.reduce((acc, lead) => {
-      const leadId = leads.find(l => l.id === lead.id)?.id;
-      acc[leadId || ''] = lead?.approach_message || '';
+      acc[lead.id] = lead?.approach_message || '';
       return acc;
     }, {});
     setMessages(initialMessages);
@@ -425,7 +422,6 @@ export default function LeadSelectionPage() {
       .map(lead => lead.id);
 
     if (unprocessedLeads.length > 0) {
-      // Mettre à jour la liste des leads en retirant les leads non traités
       setLeads(leads.filter(lead => lead.selected || removedLeads.includes(lead.id)));
     }
 
@@ -671,21 +667,33 @@ export default function LeadSelectionPage() {
       newVal[idx] = !newVal[idx];
       return newVal;
     });
-    // Si on valide et qu'il reste de la place, ajouter une nouvelle carte à droite
-    if (!validatedCards[idx] && nextLeadIndex < filteredLeads.length && cards.findIndex(c => c === null) !== -1) {
-      const insertIdx = cards.findIndex(c => c === null);
-      setCards(prev => {
-        const newCards = [...prev];
-        newCards[insertIdx] = filteredLeads[nextLeadIndex];
-        return newCards;
-      });
-      setValidatedCards(prev => {
-        const newVal = [...prev];
-        newVal[insertIdx] = false;
-        return newVal;
-      });
-      setNextLeadIndex(nextLeadIndex + 1);
-    }
+    const lead = cards[idx];
+    if (!lead) return;
+    setValidatedLeads(prev => {
+      const already = prev.find(l => l.id === lead.id);
+      if (already) {
+        // Dévalidation : on retire le lead
+        return prev.filter(l => l.id !== lead.id);
+      } else {
+        // Validation : on ajoute le lead
+        // Ajout d'une nouvelle carte à droite si possible
+        if (nextLeadIndex < filteredLeads.length && cards.findIndex(c => c === null) !== -1) {
+          const insertIdx = cards.findIndex(c => c === null);
+          setCards(prevCards => {
+            const newCards = [...prevCards];
+            newCards[insertIdx] = filteredLeads[nextLeadIndex];
+            return newCards;
+          });
+          setValidatedCards(prevCards => {
+            const newVal = [...prevCards];
+            newVal[insertIdx] = false;
+            return newVal;
+          });
+          setNextLeadIndex(nextLeadIndex + 1);
+        }
+        return [...prev, lead];
+      }
+    });
   };
 
   // Rejeter une carte
@@ -727,6 +735,14 @@ export default function LeadSelectionPage() {
       });
     }
   };
+
+  // Synchronise validatedLeads avec la grille à chaque changement
+  useEffect(() => {
+    const newValidatedLeads = cards
+      .map((lead, idx) => (lead && validatedCards[idx] ? lead : null))
+      .filter(Boolean);
+    setValidatedLeads(newValidatedLeads);
+  }, [cards, validatedCards]);
 
   const dateFilterOptions = [
     { value: '24h', label: 'Dernières 24h' },
@@ -890,10 +906,7 @@ export default function LeadSelectionPage() {
 
                 {/* Liste des leads */}
                 <div className="space-y-8">
-                  {selectedLeads.map((leadId, index) => {
-                    const lead = leads.find(l => l.id === leadId);
-                    if (!lead) return null;
-
+                  {validatedLeads.map((lead, index) => {
                     return (
                       <motion.div
                         key={lead.id}
@@ -1015,12 +1028,12 @@ export default function LeadSelectionPage() {
                           <div className="h-full flex flex-col">
                             <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
                               <h3 className="text-lg font-semibold text-slate-900">Message personnalisé</h3>
-                              <span className="text-sm text-slate-500">{messages[leadId]?.length || 0} caractères</span>
+                              <span className="text-sm text-slate-500">{messages[lead.id]?.length || 0} caractères</span>
                             </div>
                             <textarea
                               className="flex-1 w-full p-4 rounded-lg border border-slate-200 resize-none bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200"
-                              value={messages[leadId] || ''}
-                              onChange={(e) => setMessages(prev => ({ ...prev, [leadId]: e.target.value }))}
+                              value={messages[lead.id] || ''}
+                              onChange={(e) => setMessages(prev => ({ ...prev, [lead.id]: e.target.value }))}
                               placeholder="Écrivez votre message personnalisé ici..."
                             />
                           </div>
@@ -1050,9 +1063,9 @@ export default function LeadSelectionPage() {
               <Button
                 className="bg-white hover:bg-gray-50 text-primary border-2 border-primary px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
                 onClick={handleStartProspecting}
-                disabled={validatedCards.filter(Boolean).length === 0}
+                disabled={validatedLeads.length === 0}
               >
-                <span>Prospecter {validatedCards.filter(Boolean).length} leads</span>
+                <span>Prospecter {validatedLeads.length} leads</span>
               </Button>
             </div>
           </div>
