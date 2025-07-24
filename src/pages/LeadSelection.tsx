@@ -150,12 +150,6 @@ export default function LeadSelectionPage() {
   const { unipileAccountId } = useLinkedInConnection();
   const { retrievePhone } = usePhoneRetrieval();
   const { user } = useAuth();
-  const [isSending, setIsSending] = useState(false);
-  const [isRetrievingAllPhones, setIsRetrievingAllPhones] = useState(false);
-  const [filters, setFilters] = useState(MOCK_FILTERS);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [removedLeads, setRemovedLeads] = useState<string[]>([]);
   const [searchLaunched, setSearchLaunched] = useState(false);
   const [showProspectingView, setShowProspectingView] = useState(false);
   const [messages, setMessages] = useState<{ [key: string]: string }>({});
@@ -164,10 +158,15 @@ export default function LeadSelectionPage() {
   const [prevLeads, setPrevLeads] = useState<any[]>([]);
   const [cards, setCards] = useState<(any | null)[]>([null, null, null, null, null, null]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [validatedCards, setValidatedCards] = useState<number[]>([]); // index des cartes validées
+  const [validatedCards, setValidatedCards] = useState<boolean[]>([false, false, false, false, false, false]); // état de validation des cartes
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [validatedLeads, setValidatedLeads] = useState<any[]>([]);
   const [nextLeadIndex, setNextLeadIndex] = useState(0);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [removedLeads, setRemovedLeads] = useState<string[]>([]);
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [isRetrievingAllPhones, setIsRetrievingAllPhones] = useState(false);
 
   const {
     filteredLeads,
@@ -200,7 +199,7 @@ export default function LeadSelectionPage() {
       setCards([filteredLeads[0], null, null, null, null, null]);
       setCurrentIndex(0);
       setRemovedLeads([]);
-      setValidatedCards([]);
+      setValidatedCards([false, false, false, false, false, false]);
     }
   }, [searchLaunched, filteredLeads]);
 
@@ -216,7 +215,7 @@ export default function LeadSelectionPage() {
           selection_status: 'in_selection',
           selected_by_user_id: user?.id,
           selected_at: new Date().toISOString(),
-        })
+        } as any)
         .eq('id', nextLead.id);
     }
     setCards(prev => {
@@ -233,6 +232,7 @@ export default function LeadSelectionPage() {
       // Filtrage locking/rejected/accepted
       const now = new Date();
       const filtered = filteredLeads.filter(lead => {
+        if (removedLeads.includes(lead.id)) return false;
         // Si rejected et rejected_at > latest_post_date => on n'affiche pas
         if (
           lead.selection_status === 'rejected' &&
@@ -278,7 +278,7 @@ export default function LeadSelectionPage() {
               selection_status: 'in_selection',
               selected_by_user_id: user?.id,
               selected_at: new Date().toISOString(),
-            })
+            } as any)
             .eq('id', lead.id);
         }
       });
@@ -298,48 +298,12 @@ export default function LeadSelectionPage() {
     }));
   };
 
-  const dateFilterOptions = [
-    { value: '24h', label: 'Dernières 24h' },
-    { value: '48h', label: 'Dernières 48h' },
-    { value: '7days', label: 'Derniers 7 jours' },
-    { value: 'all', label: 'Tout' },
-  ];
-  const contactFilterOptions = [
-    { value: 'exclude_none', label: 'Inclure tous' },
-    { value: 'exclude_1week', label: 'Exclure contactés (1 semaine)' },
-    { value: 'exclude_2weeks', label: 'Exclure contactés (2 semaines)' },
-    { value: 'exclude_1month', label: 'Exclure contactés (1 mois)' },
-    { value: 'exclude_all_contacted', label: 'Exclure tous contactés' },
-    { value: 'only_my_contacts', label: 'Mes contacts uniquement' },
-  ];
-  const categoryColors = {
-    'Tech': 'bg-blue-100 text-blue-800 border-blue-300',
-    'Business': 'bg-green-100 text-green-800 border-green-300',
-    'Product': 'bg-purple-100 text-purple-800 border-purple-300',
-    'Executive Search': 'bg-red-100 text-red-800 border-red-300',
-    'Comptelio': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    'RH': 'bg-pink-100 text-pink-800 border-pink-300',
-    'Freelance': 'bg-indigo-100 text-indigo-800 border-indigo-300',
-    'Data': 'bg-teal-100 text-teal-800 border-teal-300',
-  };
-
-  // Gestion de l'ordre des filtres (up/down)
-  const moveFilter = (index: number, direction: 'up' | 'down') => {
-    const newFilters = [...filters];
-    if (direction === 'up' && index > 0) {
-      [newFilters[index - 1], newFilters[index]] = [newFilters[index], newFilters[index - 1]];
-    } else if (direction === 'down' && index < newFilters.length - 1) {
-      [newFilters[index + 1], newFilters[index]] = [newFilters[index], newFilters[index + 1]];
-    }
-    setFilters(newFilters);
-  };
-
   // Gérer la sélection d'un lead
   const handleSelectLead = (id: string) => {
     // Si le lead est déjà sélectionné, on le désélectionne
     if (selectedLeads.includes(id)) {
       setLeads(prev => prev.map(lead => 
-        lead.id === id ? { ...lead, selected: false } : lead
+        lead.id === id ? { ...lead, selected: false } as any : lead
       ));
       setSelectedLeads(prev => prev.filter(leadId => leadId !== id));
       return;
@@ -347,7 +311,7 @@ export default function LeadSelectionPage() {
 
     // Sinon, on le sélectionne
     setLeads(prev => prev.map(lead => 
-      lead.id === id ? { ...lead, selected: true } : lead
+      lead.id === id ? { ...lead, selected: true } as any : lead
     ));
     setSelectedLeads(prev => [...prev, id]);
   };
@@ -370,7 +334,7 @@ export default function LeadSelectionPage() {
       setLeads(prev => {
         const newLeads = prev.filter(l => l.id !== id);
         if (nextLead) {
-          newLeads.push(nextLead);
+          newLeads.push(nextLead as any);
         }
         return newLeads;
       });
@@ -396,7 +360,7 @@ export default function LeadSelectionPage() {
     setSearchLaunched(false); // force reset
     setTimeout(async () => {
       setCards([null, null, null, null, null, null]);
-      setValidatedCards([]);
+      setValidatedCards([false, false, false, false, false, false]);
       setNextLeadIndex(0);
       await refreshLeads();
       setSearchLaunched(true);
@@ -426,7 +390,7 @@ export default function LeadSelectionPage() {
 
   // Prospection : n'envoie que les leads validés
   const handleStartProspecting = async () => {
-    const validatedLeads = validatedCards.map(idx => cards[idx]).filter(Boolean);
+    const validatedLeads = cards.filter((_, idx) => validatedCards[idx]);
 
     // Mettre à jour la liste des leads sélectionnés
     setSelectedLeads(validatedLeads.map(lead => lead.id));
@@ -725,7 +689,19 @@ export default function LeadSelectionPage() {
   };
 
   // Rejeter une carte
-  const handleReject = (idx: number) => {
+  const handleReject = async (idx: number) => {
+    const lead = cards[idx];
+    if (!lead) return;
+    const now = new Date().toISOString();
+    await supabase
+      .from('leads')
+      .update({
+        selection_status: 'rejected',
+        rejected_at: now,
+        selected_by_user_id: null,
+        selected_at: null
+      } as any)
+      .eq('id', lead.id);
     if (nextLeadIndex < filteredLeads.length) {
       setCards(prev => {
         const newCards = [...prev];
@@ -750,6 +726,31 @@ export default function LeadSelectionPage() {
         return newVal;
       });
     }
+  };
+
+  const dateFilterOptions = [
+    { value: '24h', label: 'Dernières 24h' },
+    { value: '48h', label: 'Dernières 48h' },
+    { value: '7days', label: 'Derniers 7 jours' },
+    { value: 'all', label: 'Tout' },
+  ];
+  const contactFilterOptions = [
+    { value: 'exclude_none', label: 'Inclure tous' },
+    { value: 'exclude_1week', label: 'Exclure contactés (1 semaine)' },
+    { value: 'exclude_2weeks', label: 'Exclure contactés (2 semaines)' },
+    { value: 'exclude_1month', label: 'Exclure contactés (1 mois)' },
+    { value: 'exclude_all_contacted', label: 'Exclure tous contactés' },
+    { value: 'only_my_contacts', label: 'Mes contacts uniquement' },
+  ];
+  const categoryColors = {
+    'Tech': 'bg-blue-100 text-blue-800 border-blue-300',
+    'Business': 'bg-green-100 text-green-800 border-green-300',
+    'Product': 'bg-purple-100 text-purple-800 border-purple-300',
+    'Executive Search': 'bg-red-100 text-red-800 border-red-300',
+    'Comptelio': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    'RH': 'bg-pink-100 text-pink-800 border-pink-300',
+    'Freelance': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+    'Data': 'bg-teal-100 text-teal-800 border-teal-300',
   };
 
   return (
@@ -842,10 +843,9 @@ export default function LeadSelectionPage() {
                         <LeadSelectionCard
                           lead={lead}
                           isMobile={false}
-                          onAccept={handleValidate}
-                          onReject={handleReject}
+                          onAccept={() => handleValidate(idx)}
+                          onReject={() => handleReject(idx)}
                           validated={validatedCards[idx]}
-                          idx={idx}
                           onClick={() => {}}
                         />
                       )}
