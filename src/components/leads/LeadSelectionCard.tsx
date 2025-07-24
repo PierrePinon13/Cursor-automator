@@ -202,16 +202,28 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
       </div>
 
       {/* Boutons d'action en dehors du conteneur principal */}
-      {onReject && (
-        <div className="absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center justify-center z-50">
-          <button
-            type="button"
-            aria-label="Rejeter"
-            className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-gray-100 border border-gray-200/70 hover:border-gray-300 text-gray-500 transition-all duration-200 z-50"
-            onClick={e => { e.stopPropagation(); onReject(lead); }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-70 group-hover:opacity-100 transition-opacity"><path d="M6 6l12 12M18 6l-12 12"/></svg>
-          </button>
+      {(onAccept || onReject) && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center gap-6 z-50">
+          {onReject && (
+            <button
+              type="button"
+              aria-label="Rejeter"
+              className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-gray-100 border border-gray-200/70 hover:border-gray-300 text-gray-500 transition-all duration-200 z-50"
+              onClick={e => { e.stopPropagation(); onReject(lead); }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+          {onAccept && (
+            <button
+              type="button"
+              aria-label="Valider"
+              className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-blue-100 border border-blue-200/70 hover:border-blue-400 text-blue-600 transition-all duration-200 z-50"
+              onClick={e => { e.stopPropagation(); onAccept(lead); }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 10 18 4 12"/></svg>
+            </button>
+          )}
         </div>
       )}
     </div>
