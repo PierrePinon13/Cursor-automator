@@ -226,33 +226,10 @@ export default function LeadSelectionPage() {
     });
   };
 
-  // Valider la carte courante
-  const handleValidate = async () => {
-    const lead = cards[currentIndex];
-    if (lead) {
-      // Mettre à jour la BDD pour ce lead
-      await supabase
-        .from('leads')
-        .update({
-          selection_status: 'accepted',
-          accepted_at: new Date().toISOString(),
-          accepted_by_user: user?.id,
-          selected_by_user_id: null,
-          selected_at: null,
-          last_updated_at: new Date().toISOString()
-        })
-        .eq('id', lead.id);
-    }
-    setValidatedCards(prev => [...prev, currentIndex]);
-    if (currentIndex < 5) {
-      await loadNextLead(currentIndex + 1);
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
 
   // Rejeter la carte courante
-  const handleReject = async () => {
-    const lead = cards[currentIndex];
+  const handleReject = async (idx: number) => {
+    const lead = cards[idx];
     if (lead) {
       setRemovedLeads(prev => [...prev, lead.id]);
       // Mettre à jour la BDD pour ce lead
@@ -267,7 +244,7 @@ export default function LeadSelectionPage() {
         })
         .eq('id', lead.id);
     }
-    await loadNextLead(currentIndex);
+    await loadNextLead(idx);
   };
 
   // Mettre à jour les leads affichés quand les leads filtrés changent
