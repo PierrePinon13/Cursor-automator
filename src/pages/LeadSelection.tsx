@@ -470,16 +470,16 @@ export default function LeadSelectionPage() {
       const bulkRequestId = `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const messagesToSend = selectedLeads.map(leadId => {
-        const lead = leads.find(l => l.id === leadId);
+        const lead = validatedLeads.find(l => l.id === leadId);
         return {
           id: generateUniqueId(),
-          personaId: lead.author_profile_id,
-          personaName: lead.author_name,
-          personaTitle: lead.author_title,
-          personaCompany: lead.author_company,
-          personaProfileUrl: lead.author_profile_url,
-          jobTitle: lead.job_title || 'LinkedIn Post',
-          jobCompany: lead.company_name || lead.author_company || '',
+          personaId: lead?.author_profile_id,
+          personaName: lead?.author_name,
+          personaTitle: lead?.author_title,
+          personaCompany: lead?.author_company,
+          personaProfileUrl: lead?.author_profile_url,
+          jobTitle: lead?.job_title || 'LinkedIn Post',
+          jobCompany: lead?.company_name || lead?.author_company || '',
           jobId: 'linkedin_post',
           message: messages[leadId],
           bulkRequestId: bulkRequestId
