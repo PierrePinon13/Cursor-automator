@@ -227,26 +227,6 @@ export default function LeadSelectionPage() {
   };
 
 
-  // Rejeter la carte courante
-  const handleReject = async (idx: number) => {
-    const lead = cards[idx];
-    if (lead) {
-      setRemovedLeads(prev => [...prev, lead.id]);
-      // Mettre à jour la BDD pour ce lead
-      await supabase
-        .from('leads')
-        .update({
-          selection_status: 'rejected',
-          rejected_at: new Date().toISOString(),
-          selected_by_user_id: null,
-          selected_at: null,
-          last_updated_at: new Date().toISOString()
-        })
-        .eq('id', lead.id);
-    }
-    await loadNextLead(idx);
-  };
-
   // Mettre à jour les leads affichés quand les leads filtrés changent
   useEffect(() => {
     if (searchLaunched) {
