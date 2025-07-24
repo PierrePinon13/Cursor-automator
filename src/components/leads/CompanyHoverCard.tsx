@@ -45,6 +45,22 @@ const CompanyHoverCard = ({
 }: CompanyHoverCardProps) => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  // Ajouter un état pour l'édition
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(companyInfo?.categorie || '');
+  const [isHoverCardOpen, setIsHoverCardOpen] = useState(false);
+
+  const handleCategoryChange = async (newCategory) => {
+    setSelectedCategory(newCategory);
+    setEditingCategory(false);
+    // Mettre à jour en base
+    if (companyId) {
+      await supabase
+        .from('companies')
+        .update({ categorie: newCategory })
+        .eq('id', companyId);
+    }
+  };
 
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -117,9 +133,39 @@ const CompanyHoverCard = ({
               <p className="text-xs text-gray-600 mt-1 truncate">{companyInfo.industry}</p>
             )}
             {companyInfo.categorie && (
-              <Badge variant="outline" className="text-xs mt-1">
-                {companyInfo.categorie}
-              </Badge>
+              <span onClick={() => setEditingCategory(true)}>
+                {editingCategory ? (
+                  <select
+                    value={selectedCategory || companyInfo.categorie || ''}
+                    onChange={e => handleCategoryChange(e.target.value)}
+                    onBlur={() => setEditingCategory(false)}
+                    autoFocus
+                    style={{
+                      fontFamily: 'inherit',
+                      fontSize: '0.95rem',
+                      padding: '0.5rem 1.2rem 0.5rem 0.7rem',
+                      borderRadius: '0.75rem',
+                      background: 'white',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                      border: '1.5px solid #d1d5db',
+                      outline: 'none',
+                      marginTop: '0.15rem',
+                      marginBottom: '0.15rem',
+                      transition: 'box-shadow 0.2s',
+                    }}
+                  >
+                    {['esn','cabinet de recrutement','editeur de logiciel','autre'].map(cat => (
+                      <option key={cat} value={cat} style={{
+                        padding: '0.4rem 1rem',
+                        background: selectedCategory === cat ? '#e0f2fe' : 'white',
+                        fontWeight: selectedCategory === cat ? 600 : 400,
+                      }}>{cat}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <Badge>{selectedCategory || companyInfo.categorie || 'Non renseignée'}</Badge>
+                )}
+              </span>
             )}
           </div>
         </div>
@@ -188,7 +234,9 @@ const CompanyHoverCard = ({
   // If showLogo is true and we have company info with logo, show it inline
   if (showLogo && companyInfo?.logo) {
     return (
-      <HoverCard>
+      <HoverCard open={editingCategory || isHoverCardOpen} onOpenChange={open => {
+        if (!editingCategory) setIsHoverCardOpen(open);
+      }}>
         <HoverCardTrigger asChild>
           <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 max-w-full">
             <img 
@@ -209,7 +257,9 @@ const CompanyHoverCard = ({
   }
 
   return (
-    <HoverCard>
+    <HoverCard open={editingCategory || isHoverCardOpen} onOpenChange={open => {
+      if (!editingCategory) setIsHoverCardOpen(open);
+    }}>
       <HoverCardTrigger asChild>
         <div className="cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 max-w-full">
           <div className="min-w-0 flex-1">

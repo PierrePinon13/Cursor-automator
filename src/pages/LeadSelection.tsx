@@ -165,6 +165,9 @@ export default function LeadSelectionPage() {
   const [cards, setCards] = useState<(any | null)[]>([null, null, null, null, null, null]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [validatedCards, setValidatedCards] = useState<number[]>([]); // index des cartes validées
+  const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
+  const [validatedLeads, setValidatedLeads] = useState<any[]>([]);
+  const [nextLeadIndex, setNextLeadIndex] = useState(0);
 
   const {
     filteredLeads,
@@ -433,8 +436,14 @@ export default function LeadSelectionPage() {
   };
 
   const handleLaunchSearch = async () => {
-    setSearchLaunched(true);
-    await refreshLeads();
+    setSearchLaunched(false); // force reset
+    setTimeout(async () => {
+      setCards([null, null, null, null, null, null]);
+      setValidatedCards([]);
+      setNextLeadIndex(0);
+      await refreshLeads();
+      setSearchLaunched(true);
+    }, 50);
   };
 
   // Initialiser les messages pré-rédigés
@@ -724,6 +733,68 @@ export default function LeadSelectionPage() {
   //   };
   // }, []);
 
+  // Remplacer la gestion des cartes par :
+  // Initialiser la première carte
+  useEffect(() => {
+    if (searchLaunched && filteredLeads.length > 0 && !cards[0]) {
+      setCards([filteredLeads[0], null, null, null, null, null]);
+      setValidatedCards([false, false, false, false, false, false]);
+      setNextLeadIndex(1);
+    }
+  }, [searchLaunched, filteredLeads]);
+
+  // Valider ou unvalider une carte
+  const handleValidate = (idx: number) => {
+    setValidatedCards(prev => {
+      const newVal = [...prev];
+      newVal[idx] = !newVal[idx];
+      return newVal;
+    });
+    // Si on valide et qu'il reste de la place, ajouter une nouvelle carte à droite
+    if (!validatedCards[idx] && nextLeadIndex < filteredLeads.length && cards.findIndex(c => c === null) !== -1) {
+      const insertIdx = cards.findIndex(c => c === null);
+      setCards(prev => {
+        const newCards = [...prev];
+        newCards[insertIdx] = filteredLeads[nextLeadIndex];
+        return newCards;
+      });
+      setValidatedCards(prev => {
+        const newVal = [...prev];
+        newVal[insertIdx] = false;
+        return newVal;
+      });
+      setNextLeadIndex(nextLeadIndex + 1);
+    }
+  };
+
+  // Rejeter une carte
+  const handleReject = (idx: number) => {
+    if (nextLeadIndex < filteredLeads.length) {
+      setCards(prev => {
+        const newCards = [...prev];
+        newCards[idx] = filteredLeads[nextLeadIndex];
+        return newCards;
+      });
+      setValidatedCards(prev => {
+        const newVal = [...prev];
+        newVal[idx] = false;
+        return newVal;
+      });
+      setNextLeadIndex(nextLeadIndex + 1);
+    } else {
+      setCards(prev => {
+        const newCards = [...prev];
+        newCards[idx] = null;
+        return newCards;
+      });
+      setValidatedCards(prev => {
+        const newVal = [...prev];
+        newVal[idx] = false;
+        return newVal;
+      });
+    }
+  };
+
   return (
     <div style={{ fontFamily: DESIGN.typography.fontFamily, background: DESIGN.colors.background }} className="min-h-screen flex flex-col">
       {/* Header + Filtres */}
@@ -809,24 +880,19 @@ export default function LeadSelectionPage() {
               <div className="w-full max-w-[1600px] px-6">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4 mx-auto">
                   {cards.map((lead, idx) => (
-                    <motion.div
-                      key={lead?.id || idx}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="flex flex-col h-[420px] w-full"
-                    >
-                      {lead ? (
+                    <div key={lead?.id || idx} className="flex flex-col h-[420px] w-full">
+                      {lead && (
                         <LeadSelectionCard
                           lead={lead}
                           isMobile={false}
+                          onAccept={handleValidate}
+                          onReject={handleReject}
+                          validated={validatedCards[idx]}
+                          idx={idx}
                           onClick={() => {}}
-                          onAccept={idx === currentIndex && !validatedCards.includes(idx) ? handleValidate : undefined}
-                          onReject={idx === currentIndex && !validatedCards.includes(idx) ? handleReject : undefined}
-                          validated={validatedCards.includes(idx)}
                         />
-                      ) : null}
-                    </motion.div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1020,18 +1086,17 @@ export default function LeadSelectionPage() {
           className="fixed bottom-0 left-0 right-0 px-8 py-4 bg-gradient-to-t from-white via-white to-white/80 backdrop-blur-sm border-t border-gray-100 z-50"
         >
           <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-            <div className="text-gray-500 text-sm font-medium pr-8">
-              Validez les leads pertinents avec le bouton ✓, rejetez avec la croix.
+            <div className="text-gray-600 text-sm font-normal pr-8 italic">
+              Sélectionnez les leads pertinents avec <span className='font-bold text-blue-600'>✓</span>, rejetez ceux à exclure avec la croix, puis cliquez sur <span className='font-bold text-primary'>Prospecter</span> pour passer à l'étape suivante.
             </div>
             <div className="flex items-center gap-4">
-              {validatedCards.length > 0 && (
-                <Button
-                  className="bg-white hover:bg-gray-50 text-primary border-2 border-primary px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
-                  onClick={handleStartProspecting}
-                >
-                  <span>Prospecter {validatedCards.length} leads</span>
-                </Button>
-              )}
+              <Button
+                className="bg-white hover:bg-gray-50 text-primary border-2 border-primary px-6 py-6 rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+                onClick={handleStartProspecting}
+                disabled={validatedCards.filter(Boolean).length === 0}
+              >
+                <span>Prospecter {validatedCards.filter(Boolean).length} leads</span>
+              </Button>
             </div>
           </div>
         </motion.div>

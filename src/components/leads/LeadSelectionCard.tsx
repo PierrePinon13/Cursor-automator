@@ -68,12 +68,22 @@ interface LeadSelectionCardProps {
   lead: LeadSelectionLead;
   isMobile: boolean;
   onClick: (event: React.MouseEvent) => void;
+<<<<<<< HEAD
   onAccept?: (lead: LeadSelectionLead) => void;
   onReject?: (lead: LeadSelectionLead) => void;
   validated?: boolean;
 }
 
 export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMobile, onClick, onAccept, onReject, validated }) => {
+=======
+  onAccept?: (idx: number) => void;
+  onReject?: (idx: number) => void;
+  validated?: boolean;
+  idx?: number;
+}
+
+export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMobile, onClick, onAccept, onReject, validated, idx }) => {
+>>>>>>> 09481ee (Sélection de leads : UX/UI, filtres robustes, feedback BDD, édition catégorie entreprise, relance recherche sur changement de filtres)
   const title = lead.openai_step3_postes_selectionnes?.join(' / ') || '';
   let titleFontSize = 'text-base';
   let clampClass = '';
@@ -90,7 +100,11 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
   };
 
   return (
+<<<<<<< HEAD
     <div className={`relative ${validated ? 'border-4 border-blue-500' : ''}`}>
+=======
+    <div className={`relative ${validated ? 'ring-2 ring-blue-500 rounded-2xl' : 'rounded-2xl'}`}>
+>>>>>>> 09481ee (Sélection de leads : UX/UI, filtres robustes, feedback BDD, édition catégorie entreprise, relance recherche sur changement de filtres)
       <div
         className={`lead-card group flex flex-col h-[477px] w-full font-sans rounded-2xl transition-all duration-200 
           ${colors.card}
@@ -201,27 +215,47 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Boutons d'action en dehors du conteneur principal */}
       {(onAccept || onReject) && (
         <div className="absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center gap-6 z-50">
+=======
+      {/* Boutons d'action en dehors du conteneur principal, centrés sous la carte, croix à gauche, tick à droite */}
+      {(onReject || onAccept) && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center justify-center gap-8 z-50">
+>>>>>>> 09481ee (Sélection de leads : UX/UI, filtres robustes, feedback BDD, édition catégorie entreprise, relance recherche sur changement de filtres)
           {onReject && (
             <button
               type="button"
               aria-label="Rejeter"
+<<<<<<< HEAD
               className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-gray-100 border border-gray-200/70 hover:border-gray-300 text-gray-500 transition-all duration-200 z-50"
               onClick={e => { e.stopPropagation(); onReject(lead); }}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+=======
+              className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-red-50 border border-gray-200/70 hover:border-red-300 text-gray-400 hover:text-red-500 transition-all duration-200 z-50"
+              onClick={e => { e.stopPropagation(); onReject(idx!); }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 6l12 12M18 6l-12 12"/></svg>
+>>>>>>> 09481ee (Sélection de leads : UX/UI, filtres robustes, feedback BDD, édition catégorie entreprise, relance recherche sur changement de filtres)
             </button>
           )}
           {onAccept && (
             <button
               type="button"
               aria-label="Valider"
+<<<<<<< HEAD
               className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-blue-100 border border-blue-200/70 hover:border-blue-400 text-blue-600 transition-all duration-200 z-50"
               onClick={e => { e.stopPropagation(); onAccept(lead); }}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 10 18 4 12"/></svg>
+=======
+              className="w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm shadow-md hover:bg-green-50 border border-gray-200/70 hover:border-green-400 text-gray-400 hover:text-green-600 transition-all duration-200 z-50"
+              onClick={e => { e.stopPropagation(); onAccept(idx!); }}
+            >
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+>>>>>>> 09481ee (Sélection de leads : UX/UI, filtres robustes, feedback BDD, édition catégorie entreprise, relance recherche sur changement de filtres)
             </button>
           )}
         </div>

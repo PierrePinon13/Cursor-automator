@@ -203,7 +203,7 @@ export const useLeads = () => {
     let filtered = [...allLeads];
 
     // Filtrer les leads rejetés
-    filtered = filtered.filter(lead => lead.processing_status !== 'rejected_by_user');
+    filtered = filtered.filter(lead => lead.selection_status !== 'rejected');
     console.log('🚫 Leads after rejection filter:', filtered.length);
 
     // Appliquer le filtre de date
@@ -287,7 +287,7 @@ export const useLeads = () => {
     // Appliquer les filtres de catégorie d'entreprise (exclusion)
     if (selectedCompanyCategories.length > 0) {
       filtered = filtered.filter(lead => {
-        const companyCategorie = lead.company_categorie?.toLowerCase() || '';
+        const companyCategorie = (lead.company_categorie || '').toLowerCase().trim();
         const shouldExclude = selectedCompanyCategories.includes(companyCategorie);
         if (shouldExclude) {
           console.log(`🏢 Lead filtered out by company category: ${lead.author_name}, category: ${companyCategorie}`);
