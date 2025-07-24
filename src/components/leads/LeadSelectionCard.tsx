@@ -90,7 +90,10 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
   };
 
   return (
-    <div className={`relative ${validated ? 'border-4 border-blue-500' : ''}`}>
+    <div className="relative">
+      {validated && (
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl border-2 border-blue-500" style={{boxSizing: 'border-box'}} />
+      )}
       <div
         className={`lead-card group flex flex-col h-[477px] w-full font-sans rounded-2xl transition-all duration-200 
           ${colors.card}
