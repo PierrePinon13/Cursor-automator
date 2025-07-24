@@ -393,12 +393,16 @@ export default function LeadSelectionPage() {
     // Utilise validatedLeads (tous les leads validés, pas juste ceux affichés)
     setSelectedLeads(validatedLeads.map(lead => lead.id));
 
-    // Initialiser les messages pour les leads validés
-    const initialMessages = validatedLeads.reduce((acc, lead) => {
-      acc[lead.id] = lead?.approach_message || '';
-      return acc;
-    }, {});
-    setMessages(initialMessages);
+    // Conserve les messages personnalisés déjà saisis
+    setMessages(prev => {
+      const newMessages = { ...prev };
+      validatedLeads.forEach(lead => {
+        if (!newMessages[lead.id]) {
+          newMessages[lead.id] = lead?.approach_message || '';
+        }
+      });
+      return newMessages;
+    });
 
     // Mettre à jour en base les leads validés (acceptés)
     const now = new Date().toISOString();
