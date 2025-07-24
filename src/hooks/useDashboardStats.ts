@@ -128,7 +128,7 @@ export const useDashboardStats = () => {
       })) || [];
 
       // Traitement des données
-      const processedData = processRawData(enrichedData, userSelection);
+      const processedData = processRawData(enrichedData, userSelection, timeRange);
       
       // Vérifier une dernière fois si la requête a été annulée
       if (!signal.aborted) {
@@ -165,26 +165,7 @@ export const useDashboardStats = () => {
   };
 };
 
-function processRawData(rawData: (UserStatRow & { user_email?: string })[], userSelection: UserSelection): DashboardData {
-  // Statistiques globales
-  const totalStats = rawData.reduce(
-    (acc, stat) => ({
-      linkedin_messages: acc.linkedin_messages + stat.linkedin_messages_sent,
-      positive_calls: acc.positive_calls + stat.positive_calls,
-      negative_calls: acc.negative_calls + stat.negative_calls,
-    }),
-    { linkedin_messages: 0, positive_calls: 0, negative_calls: 0 }
-  );
-
-  const total_calls = totalStats.positive_calls + totalStats.negative_calls;
-  const success_rate = total_calls > 0 ? (totalStats.positive_calls / total_calls) * 100 : 0;
-
-  const stats: DashboardStats = {
-    ...totalStats,
-    total_calls,
-    success_rate,
-  };
-
+function processRawData(rawData: (UserStatRow & { user_email?: string })[], userSelection: UserSelection, timeRange?: { start: Date, end: Date }) : DashboardData {
   // Évolution temporelle (groupée par date)
   const evolutionMap = rawData.reduce((acc, stat) => {
     const date = stat.stat_date;
@@ -212,6 +193,38 @@ function processRawData(rawData: (UserStatRow & { user_email?: string })[], user
         : 0,
     }))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Correction : stat globale = dernier point de l'évolution si période d'un jour
+  let filteredRawData = rawData;
+  if (
+    timeRange &&
+    timeRange.start &&
+    timeRange.end &&
+    timeRange.start.getTime() === timeRange.end.getTime() &&
+    evolution.length > 0
+  ) {
+    const lastDate = evolution[evolution.length - 1].date;
+    filteredRawData = rawData.filter(stat => stat.stat_date === lastDate);
+  }
+
+  // Statistiques globales
+  const totalStats = filteredRawData.reduce(
+    (acc, stat) => ({
+      linkedin_messages: acc.linkedin_messages + stat.linkedin_messages_sent,
+      positive_calls: acc.positive_calls + stat.positive_calls,
+      negative_calls: acc.negative_calls + stat.negative_calls,
+    }),
+    { linkedin_messages: 0, positive_calls: 0, negative_calls: 0 }
+  );
+
+  const total_calls = totalStats.positive_calls + totalStats.negative_calls;
+  const success_rate = total_calls > 0 ? (totalStats.positive_calls / total_calls) * 100 : 0;
+
+  const stats: DashboardStats = {
+    ...totalStats,
+    total_calls,
+    success_rate,
+  };
 
   // Comparaison par utilisateur (si applicable)
   let userComparison: DashboardData['userComparison'];

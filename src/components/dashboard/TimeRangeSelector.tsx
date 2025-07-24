@@ -12,18 +12,24 @@ import { TimeRange } from '@/hooks/useDashboardStats';
 interface TimeRangeSelectorProps {
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
+  lastEvolutionDate?: string; // nouvelle prop pour la date du dernier point
 }
 
-const PRESET_RANGES: Array<{
-  label: string;
-  getValue: () => TimeRange;
-}> = [
+const PRESET_RANGES = () => ([
   {
     label: "Aujourd'hui",
     getValue: () => {
-      const today = new Date();
-      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      return { start, end: start, label: "Aujourd'hui" };
+      const now = new Date();
+      // Minuit local
+      const startLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      // 23:59:59.999 local
+      const endLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      // Décalage en minutes
+      const tzOffset = startLocal.getTimezoneOffset();
+      // Convertir en UTC
+      const startUTC = new Date(startLocal.getTime() - tzOffset * 60000);
+      const endUTC = new Date(endLocal.getTime() - tzOffset * 60000);
+      return { start: startUTC, end: endUTC, label: "Aujourd'hui" };
     },
   },
   {
@@ -68,14 +74,14 @@ const PRESET_RANGES: Array<{
       return { start, end, label: 'Mois dernier' };
     },
   },
-];
+]);
 
-export function TimeRangeSelector({ timeRange, onTimeRangeChange }: TimeRangeSelectorProps) {
+export function TimeRangeSelector({ timeRange, onTimeRangeChange, lastEvolutionDate }: TimeRangeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [customRange, setCustomRange] = useState<{from?: Date; to?: Date}>({});
   const [showCalendar, setShowCalendar] = useState(false);
 
-  const handlePresetSelect = (preset: typeof PRESET_RANGES[0]) => {
+  const handlePresetSelect = (preset: ReturnType<typeof PRESET_RANGES>[0]) => {
     onTimeRangeChange(preset.getValue());
     setOpen(false);
   };
@@ -122,7 +128,7 @@ export function TimeRangeSelector({ timeRange, onTimeRangeChange }: TimeRangeSel
               Périodes prédéfinies
             </h4>
             <div className="grid gap-2">
-              {PRESET_RANGES.map((preset) => (
+              {PRESET_RANGES().map((preset) => (
                 <Button
                   key={preset.label}
                   variant="ghost"

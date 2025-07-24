@@ -12,6 +12,8 @@ import CompanyHoverCard from './CompanyHoverCard';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './LeadSelectionCard.css';
+import { useState } from 'react';
+import { useLinkedInConnection } from '@/hooks/useLinkedInConnection';
 
 // Type LeadSelectionLead pour expliciter l'usage dans la sélection
 // (identique à Lead pour l'instant)
@@ -89,6 +91,40 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
     badge: 'bg-gray-100/80 text-gray-800 border-gray-200/60'
   };
 
+  const [enriching, setEnriching] = useState(false);
+  const [enriched, setEnriched] = useState(false);
+  const { unipileAccountId } = useLinkedInConnection();
+
+  // Détecter si l'entreprise est "non enrichie"
+  const isCompanyMissingInfo = !lead.company_categorie && !lead.company_employee_count && lead.company_linkedin_id;
+
+  // Fonction pour lancer l'enrichissement
+  const handleEnrichCompany = async () => {
+    setEnriching(true);
+    await fetch('https://n8n.getpro.co/webhook/f35b36ef-0f91-4587-aa4e-72bf302c565c', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        linkedin_id: lead.company_linkedin_id,
+        account_id: lead.account_id,
+      }),
+    });
+    // Poll toutes les 2s jusqu'à ce que company_categorie ou company_employee_count soit présent
+    const poll = async () => {
+      // Ici, il faudrait idéalement refetch le lead depuis Supabase
+      // Pour la démo, on simule avec un setTimeout
+      const res = await fetch(`/api/lead/${lead.id}`); // À adapter selon ton API
+      const updated = await res.json();
+      if (updated.company_categorie || updated.company_employee_count) {
+        setEnriched(true);
+        setEnriching(false);
+      } else {
+        setTimeout(poll, 2000);
+      }
+    };
+    poll();
+  };
+
   return (
     <div className="relative">
       {validated && (
@@ -131,9 +167,27 @@ export const LeadSelectionCard: React.FC<LeadSelectionCardProps> = ({ lead, isMo
               companyLinkedInId={lead.company_linkedin_id}
               companyName={lead.unipile_company || lead.company_name}
               showLogo={true}
+              accountId={unipileAccountId}
             >
                 <div className="text-xs text-gray-700 line-clamp-1 break-words pr-2">
                 {lead.unipile_company || lead.company_name}
+                {/* Bouton d'enrichissement si infos manquantes */}
+                {isCompanyMissingInfo && !enriched && (
+                  <button
+                    className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                    onClick={e => { e.stopPropagation(); handleEnrichCompany(); }}
+                    disabled={enriching}
+                  >
+                    {enriching ? (
+                      <span className="flex items-center gap-1"><span className="animate-spin inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full"></span> Enrichissement...</span>
+                    ) : (
+                      'Enrichir entreprise'
+                    )}
+                  </button>
+                )}
+                {enriched && (
+                  <span className="ml-2 text-green-600 text-xs font-semibold">Entreprise enrichie !</span>
+                )}
               </div>
             </CompanyHoverCard>
             </div>

@@ -566,20 +566,21 @@ export default function LeadSelectionPage() {
           });
       }
 
-      // Réinitialiser la vue et relancer une recherche
+      // Réinitialiser la vue et revenir à la sélection sans carte
       setShowProspectingView(false);
-      setSelectedLeads([]);
+      setCards([null, null, null, null, null, null]);
+      setValidatedCards([false, false, false, false, false, false]);
+      setValidatedLeads([]);
+      setNextLeadIndex(0);
+      setLeads([]);
       setRemovedLeads([]);
+      setSelectedLeads([]);
       setMessages({});
-      // Relancer la recherche avec les mêmes filtres mais forcer un nouveau tirage de leads
-      setSelectedContactFilter('exclude_2weeks');
-      setTimeout(() => {
-        // On force un "refresh" en naviguant vers la même page avec un paramètre unique
-        navigate(`/lead-selection?refresh=${Date.now()}`);
-      }, 200);
+      // L'utilisateur doit cliquer sur Start pour relancer une recherche
+
       toast({
-        title: "Messages envoyés avec succès",
-        description: "Une nouvelle recherche a été lancée avec vos filtres.",
+        title: "Prospection terminée",
+        description: "Vous pouvez lancer une nouvelle recherche en cliquant sur Start.",
       });
 
     } catch (error) {
@@ -1084,7 +1085,18 @@ export default function LeadSelectionPage() {
         >
           <Button 
             variant="outline" 
-            onClick={() => setShowProspectingView(false)}
+            onClick={() => {
+              setShowProspectingView(false);
+              setSearchLaunched(false);
+              setCards([null, null, null, null, null, null]);
+              setValidatedCards([false, false, false, false, false, false]);
+              setValidatedLeads([]);
+              setNextLeadIndex(0);
+              setLeads([]);
+              setRemovedLeads([]);
+              setSelectedLeads([]);
+              setMessages({});
+            }}
           >
             Retour à la sélection
           </Button>

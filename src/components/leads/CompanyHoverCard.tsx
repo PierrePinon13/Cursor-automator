@@ -34,6 +34,7 @@ interface CompanyHoverCardProps {
   companyLinkedInId?: string | null;
   companyName: string;
   showLogo?: boolean;
+  accountId?: string | null;
 }
 
 const CompanyHoverCard = ({ 
@@ -41,7 +42,8 @@ const CompanyHoverCard = ({
   companyId, 
   companyLinkedInId, 
   companyName,
-  showLogo = false 
+  showLogo = false,
+  accountId = null
 }: CompanyHoverCardProps) => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,6 +51,8 @@ const CompanyHoverCard = ({
   const [editingCategory, setEditingCategory] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(companyInfo?.categorie || '');
   const [isHoverCardOpen, setIsHoverCardOpen] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [enriched, setEnriched] = useState(false);
 
   const handleCategoryChange = async (newCategory) => {
     setSelectedCategory(newCategory);
@@ -60,6 +64,36 @@ const CompanyHoverCard = ({
         .update({ categorie: newCategory })
         .eq('id', companyId);
     }
+  };
+
+  const handleEnrichCompany = async () => {
+    setEnriching(true);
+    await fetch('https://n8n.getpro.co/webhook/f35b36ef-0f91-4587-aa4e-72bf302c565c', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        linkedin_id: companyLinkedInId,
+        account_id: accountId,
+      }),
+    });
+    // Poll toutes les 2s jusqu'à ce que companyInfo soit non null
+    const poll = async () => {
+      let query = supabase.from('companies').select('*');
+      if (companyId) {
+        query = query.eq('id', companyId);
+      } else if (companyLinkedInId) {
+        query = query.eq('linkedin_id', companyLinkedInId);
+      }
+      const { data } = await query.maybeSingle();
+      if (data && (data.categorie || data.employee_count)) {
+        setCompanyInfo(data);
+        setEnriched(true);
+        setEnriching(false);
+      } else {
+        setTimeout(poll, 2000);
+      }
+    };
+    poll();
   };
 
   useEffect(() => {
@@ -110,6 +144,22 @@ const CompanyHoverCard = ({
           <Building2 className="h-8 w-8 mx-auto mb-2 text-gray-300" />
           <p className="text-sm">Informations non disponibles</p>
           <p className="text-xs text-gray-400 mt-1">{companyName}</p>
+          {companyLinkedInId && !enriched && (
+            <button
+              className="mt-3 px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+              onClick={handleEnrichCompany}
+              disabled={enriching}
+            >
+              {enriching ? (
+                <span className="flex items-center gap-1"><span className="animate-spin inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full"></span> Enrichissement...</span>
+              ) : (
+                'Enrichir entreprise'
+              )}
+            </button>
+          )}
+          {enriched && (
+            <span className="block mt-2 text-green-600 text-xs font-semibold">Entreprise enrichie !</span>
+          )}
         </div>
       );
     }

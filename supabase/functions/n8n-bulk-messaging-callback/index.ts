@@ -84,37 +84,6 @@ serve(async (req) => {
           }
         }
 
-        // Create activity record in the activities table
-        const activityData = {
-          lead_id: lead.id,
-          activity_type: 'linkedin_message' as const,
-          activity_data: {
-            message_content: result.message,
-            message_type: result.type,
-            bulk_request_id: result.bulkRequestId,
-            unipile_account_id: result.unipileAccountId,
-            job_id: result.jobId,
-            result: result.result,
-            error_message: result.errorMessage || null
-          },
-          outcome: result.result === 'success' ? 'Message envoyé avec succès' : `Échec: ${result.errorMessage || 'Erreur inconnue'}`,
-          performed_by_user_id: '00000000-0000-0000-0000-000000000000', // System user for bulk operations
-          performed_by_user_name: 'Système (Bulk Messaging)',
-          performed_at: new Date().toISOString()
-        };
-
-        const { error: activityError } = await supabaseClient
-          .from('activities')
-          .insert(activityData);
-
-        if (activityError) {
-          console.error(`❌ Error creating activity for lead ${lead.id}:`, activityError);
-          summary.errors.push(`Failed to create activity for lead ${lead.id}: ${activityError.message}`);
-        } else {
-          summary.activities_created++;
-          console.log(`✅ Created activity record for lead: ${lead.id}`);
-        }
-
         if (result.result === 'success') {
           summary.successful++;
         } else {
