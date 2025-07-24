@@ -749,6 +749,22 @@ export default function LeadSelectionPage() {
     setValidatedLeads(newValidatedLeads);
   }, [cards, validatedCards]);
 
+  // Supprimer le React.useEffect dans le map sur validatedLeads (dans le rendu)
+  useEffect(() => {
+    if (showProspectingView) {
+      setMessages(prev => {
+        const newMessages = { ...prev };
+        validatedLeads.forEach(lead => {
+          if (!newMessages[lead.id] && lead.approach_message) {
+            newMessages[lead.id] = lead.approach_message;
+          }
+        });
+        return newMessages;
+      });
+    }
+    // eslint-disable-next-line
+  }, [showProspectingView, validatedLeads]);
+
   const dateFilterOptions = [
     { value: '24h', label: 'Dernières 24h' },
     { value: '48h', label: 'Dernières 48h' },
