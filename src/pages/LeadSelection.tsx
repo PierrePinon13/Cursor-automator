@@ -167,6 +167,7 @@ export default function LeadSelectionPage() {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isRetrievingAllPhones, setIsRetrievingAllPhones] = useState(false);
+  const [phoneNumbers, setPhoneNumbers] = useState<{ [key: string]: string }>({});
 
   const {
     filteredLeads,
@@ -193,10 +194,20 @@ export default function LeadSelectionPage() {
     setSelectedCompanyCategories(['esn', 'cabinet de recrutement']);
   }, []);
 
-  // Charger le premier lead au démarrage
+  // 1. Correction de l'initialisation des cartes (dans useEffect sur searchLaunched/filteredLeads) :
   useEffect(() => {
     if (searchLaunched && filteredLeads.length > 0 && !cards[0]) {
-      setCards([filteredLeads[0], null, null, null, null, null]);
+      // Ne prendre que les 6 premiers leads uniques par id
+      const uniqueLeads = [];
+      const seenIds = new Set();
+      for (const lead of filteredLeads) {
+        if (!seenIds.has(lead.id)) {
+          uniqueLeads.push(lead);
+          seenIds.add(lead.id);
+        }
+        if (uniqueLeads.length === 6) break;
+      }
+      setCards([...uniqueLeads, ...Array(6 - uniqueLeads.length).fill(null)]);
       setCurrentIndex(0);
       setRemovedLeads([]);
       setValidatedCards([false, false, false, false, false, false]);
@@ -567,6 +578,7 @@ export default function LeadSelectionPage() {
       }
 
       // Réinitialiser la vue et revenir à la sélection sans carte
+      await refreshLeads();
       setShowProspectingView(false);
       setCards([null, null, null, null, null, null]);
       setValidatedCards([false, false, false, false, false, false]);
@@ -605,9 +617,7 @@ export default function LeadSelectionPage() {
       for (const lead of leadsWithoutPhone) {
         const phoneNumber = await retrievePhone(lead.id);
         if (phoneNumber) {
-          setLeads(prev => prev.map(l => 
-            l.id === lead.id ? { ...l, phone_number: phoneNumber } : l
-          ));
+          setPhoneNumbers(prev => ({ ...prev, [lead.id]: phoneNumber }));
         }
         // Petite pause entre chaque requête pour éviter de surcharger l'API
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -957,9 +967,9 @@ export default function LeadSelectionPage() {
                                 </a>
                               )}
                             </div>
-                            {lead.phone_number ? (
+                            {phoneNumbers[lead.id] || lead.phone_number ? (
                               <div className="px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 text-green-700 font-medium text-sm shadow-sm">
-                                {lead.phone_number}
+                                {phoneNumbers[lead.id] || lead.phone_number}
                               </div>
                             ) : (
                               <button
@@ -967,9 +977,7 @@ export default function LeadSelectionPage() {
                                   e.stopPropagation();
                                   const phoneNumber = await retrievePhone(lead.id);
                                   if (phoneNumber) {
-                                    setLeads(prev => prev.map(l =>
-                                      l.id === lead.id ? { ...l, phone_number: phoneNumber } : l
-                                    ));
+                                    setPhoneNumbers(prev => ({ ...prev, [lead.id]: phoneNumber }));
                                   }
                                 }}
                                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors shadow-sm"
@@ -1104,14 +1112,6 @@ export default function LeadSelectionPage() {
             onClick={() => {
               setShowProspectingView(false);
               setSearchLaunched(false);
-              setCards([null, null, null, null, null, null]);
-              setValidatedCards([false, false, false, false, false, false]);
-              setValidatedLeads([]);
-              setNextLeadIndex(0);
-              setLeads([]);
-              setRemovedLeads([]);
-              setSelectedLeads([]);
-              setMessages({});
             }}
           >
             Retour à la sélection
