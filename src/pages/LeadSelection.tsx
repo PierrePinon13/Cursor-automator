@@ -791,6 +791,26 @@ export default function LeadSelectionPage() {
     'Data': 'bg-teal-100 text-teal-800 border-teal-300',
   };
 
+  const LOCAL_STORAGE_KEY = 'leadSelectionMessages';
+
+  // Initialiser les messages personnalisés depuis le localStorage au montage
+  useEffect(() => {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          setMessages(parsed);
+        }
+      } catch {}
+    }
+  }, []);
+
+  // Sauvegarder les messages personnalisés dans le localStorage à chaque modification
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
   return (
     <div style={{ fontFamily: DESIGN.typography.fontFamily, background: DESIGN.colors.background }} className="min-h-screen flex flex-col">
       {/* Header + Filtres */}
