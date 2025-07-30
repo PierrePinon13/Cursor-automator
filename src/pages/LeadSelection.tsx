@@ -377,12 +377,16 @@ export default function LeadSelectionPage() {
   // Initialiser les messages pré-rédigés
   useEffect(() => {
     if (selectedLeads.length > 0) {
-      const initialMessages = selectedLeads.reduce((acc, leadId) => {
-        const lead = leads.find(l => l.id === leadId);
-        acc[leadId] = lead?.approach_message || '';
-        return acc;
-      }, {});
-      setMessages(initialMessages);
+      setMessages(prev => {
+        const newMessages = { ...prev };
+        selectedLeads.forEach(leadId => {
+          if (!(leadId in newMessages)) {
+            const lead = leads.find(l => l.id === leadId);
+            newMessages[leadId] = lead?.approach_message || '';
+          }
+        });
+        return newMessages;
+      });
     }
   }, [selectedLeads, leads]);
 
