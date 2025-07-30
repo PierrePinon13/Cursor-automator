@@ -168,7 +168,9 @@ export default function LeadSelectionPage() {
   const [isSending, setIsSending] = useState(false);
   const [isRetrievingAllPhones, setIsRetrievingAllPhones] = useState(false);
   const [phoneNumbers, setPhoneNumbers] = useState<{ [key: string]: string }>({});
-  const [currentCard, setCurrentCard] = useState<any>(null); // Nouvelle carte affichée
+  // SUPPRESSION de currentCard et setCurrentCard
+  // Ligne 171 à supprimer :
+  // const [currentCard, setCurrentCard] = useState<any>(null); // Nouvelle carte affichée
 
   const {
     filteredLeads,
@@ -197,36 +199,39 @@ export default function LeadSelectionPage() {
 
   // Remplacer la logique d'initialisation des cartes (useEffect sur searchLaunched/filteredLeads)
   useEffect(() => {
-    if (searchLaunched && filteredLeads.length > 0 && !currentCard) {
-      loadNextLead();
+    if (searchLaunched && filteredLeads.length > 0 && cards.every(c => c === null)) {
+      // Initialisation de la grille au lancement : une seule carte
+      setCards([filteredLeads[0] || null, null, null, null, null, null]);
+      setValidatedCards([false, false, false, false, false, false]);
+      setNextLeadIndex(1);
     }
     // eslint-disable-next-line
   }, [searchLaunched, filteredLeads]);
 
   // Nouvelle fonction pour locker et charger un lead à la fois
-  const loadNextLead = async () => {
-    for (const lead of filteredLeads) {
-      // Tenter de locker le lead en base
-      const { data, error } = await supabase
-        .from('leads')
-        .update({
-          selection_status: 'in_selection',
-          selected_by_user_id: user?.id,
-          selected_at: new Date().toISOString(),
-        } as any)
-        .eq('id', lead.id)
-        .or(`selection_status.is.null,selection_status.neq.in_selection,selected_at.lt.${new Date(Date.now() - 10 * 60 * 1000).toISOString()}`)
-        .select();
-      if (error) continue;
-      if (data && data.length > 0) {
-        setCurrentCard(lead);
-        return;
-      }
-      // Sinon, essayer le lead suivant
-    }
-    // Aucun lead disponible
-    setCurrentCard(null);
-  };
+  // const loadNextLead = async () => {
+  //   for (const lead of filteredLeads) {
+  //     // Tenter de locker le lead en base
+  //     const { data, error } = await supabase
+  //       .from('leads')
+  //       .update({
+  //         selection_status: 'in_selection',
+  //         selected_by_user_id: user?.id,
+  //         selected_at: new Date().toISOString(),
+  //       } as any)
+  //       .eq('id', lead.id)
+  //       .or(`selection_status.is.null,selection_status.neq.in_selection,selected_at.lt.${new Date(Date.now() - 10 * 60 * 1000).toISOString()}`)
+  //       .select();
+  //     if (error) continue;
+  //     if (data && data.length > 0) {
+  //       setCurrentCard(lead);
+  //       return;
+  //     }
+  //     // Sinon, essayer le lead suivant
+  //   }
+  //   // Aucun lead disponible
+  //   setCurrentCard(null);
+  // };
 
   // Mettre à jour les leads affichés quand les leads filtrés changent
   useEffect(() => {
@@ -658,22 +663,19 @@ export default function LeadSelectionPage() {
 
   // Remplacer la gestion des cartes par :
   // Initialiser la première carte
-  useEffect(() => {
-    if (searchLaunched && filteredLeads.length > 0 && !cards[0]) {
-      setCards([filteredLeads[0], null, null, null, null, null]);
-      setValidatedCards([false, false, false, false, false, false]);
-      setNextLeadIndex(1);
-    }
-  }, [searchLaunched, filteredLeads]);
+  // useEffect(() => {
+  //   if (searchLaunched && filteredLeads.length > 0 && !cards[0]) {
+  //     setCards([filteredLeads[0], null, null, null, null, null]);
+  //     setValidatedCards([false, false, false, false, false, false]);
+  //     setNextLeadIndex(1);
+  //   }
+  // }, [searchLaunched, filteredLeads]);
 
   // Valider ou unvalider une carte
-  const handleValidate = async () => {
-    if (!currentCard) return;
-    setValidatedCards(prev => {
-      const newVal = [...prev];
-      newVal[0] = !newVal[0]; // Only one card, so index 0
-      return newVal;
-    });
+  // handleValidate dynamique par index
+  const handleValidate = async (idx: number) => {
+    const lead = cards[idx];
+    if (!lead) return;
     const now = new Date().toISOString();
     await supabase
       .from('leads')
@@ -685,14 +687,28 @@ export default function LeadSelectionPage() {
         selected_at: null,
         last_updated_at: now
       } as any)
-      .eq('id', currentCard.id);
-    setCurrentCard(null);
-    loadNextLead();
+      .eq('id', lead.id);
+    setValidatedCards(prev => {
+      const newVal = [...prev];
+      newVal[idx] = true;
+      return newVal;
+    });
+    // Ajouter une nouvelle carte à droite si place dispo
+    setCards(prev => {
+      const newCards = [...prev];
+      const firstNull = newCards.findIndex((c, i) => c === null && i > -1);
+      if (firstNull !== -1 && filteredLeads[nextLeadIndex]) {
+        newCards[firstNull] = filteredLeads[nextLeadIndex];
+        setNextLeadIndex(n => n + 1);
+      }
+      return newCards;
+    });
   };
 
-  // Rejeter une carte
-  const handleReject = async () => {
-    if (!currentCard) return;
+  // handleReject dynamique par index
+  const handleReject = async (idx: number) => {
+    const lead = cards[idx];
+    if (!lead) return;
     const now = new Date().toISOString();
     await supabase
       .from('leads')
@@ -703,9 +719,23 @@ export default function LeadSelectionPage() {
         selected_at: null,
         last_updated_at: now
       } as any)
-      .eq('id', currentCard.id);
-    setCurrentCard(null);
-    loadNextLead();
+      .eq('id', lead.id);
+    // Remplacer la carte refusée par la prochaine
+    setCards(prev => {
+      const newCards = [...prev];
+      if (filteredLeads[nextLeadIndex]) {
+        newCards[idx] = filteredLeads[nextLeadIndex];
+        setNextLeadIndex(n => n + 1);
+      } else {
+        newCards[idx] = null;
+      }
+      return newCards;
+    });
+    setValidatedCards(prev => {
+      const newVal = [...prev];
+      newVal[idx] = false;
+      return newVal;
+    });
   };
 
   // Synchronise validatedLeads avec la grille à chaque changement
@@ -847,8 +877,8 @@ export default function LeadSelectionPage() {
                         <LeadSelectionCard
                           lead={lead}
                           isMobile={false}
-                          onAccept={() => handleValidate()}
-                          onReject={() => handleReject()}
+                          onAccept={() => handleValidate(idx)}
+                          onReject={() => handleReject(idx)}
                           validated={validatedCards[idx]}
                           onClick={() => {}}
                         />
